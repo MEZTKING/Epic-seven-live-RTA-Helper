@@ -36,6 +36,13 @@ importer doesn't work with the Steam version of the game**, owner-reported 2026-
 | GitHub Actions: `actions/checkout@v4`, `setup-node@v4`, `configure-pages@v5`, `upload-pages-artifact@v3`, `deploy-pages@v4` | GitHub | `.github/workflows/pages.yml` | Publishes the site from `main` |
 | GitHub Actions: `actions/checkout@v4`, `setup-node@v4`, `upload-artifact@v4`, `softprops/action-gh-release@v2`; runner `windows-latest` | GitHub | `.github/workflows/desktop-build.yml` | Builds the installer + portable .exe and publishes Release `v0.1.<run number>` on every app change (the updater reads it) |
 
+## 2b. Outside advice (not used at runtime)
+
+| Source | Address | What it provided | Where | Sent to it | Checked |
+|---|---|---|---|---|---|
+| **DeepSeek chat API** | `https://api.deepseek.com/chat/completions` (requested `deepseek-reasoner`, answered as `deepseek-flash`) | A from-scratch architecture proposal | `docs/DESIGN_REVIEW.md` | Only the neutral design brief in that file (no personal details, no code). The owner's API key is stored as a network secret on their cloud environment, never in the repo | 2026-11-12 |
+| **Fable** (Anthropic model, sub-agent) | — | Independent code review (DEVLOG #18) and a from-scratch architecture proposal | `docs/DESIGN_REVIEW.md`, DEVLOG #18 | The same brief; for the review, the repo's own diff | 2026-11-12 |
+
 ## 3. Facts and formulas taken from research (no code or data copied)
 
 | What | Where it came from | Used in |
