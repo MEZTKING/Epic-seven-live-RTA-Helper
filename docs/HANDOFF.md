@@ -64,7 +64,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 
 | Key / place | Owner | Content |
 |---|---|---|
-| `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
+| `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `mySpeeds` (typed speed per hero, source `my speeds`; wins over gear.txt), `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
 | `localStorage['rta-helper-v1']` | legacy | First version's data; upgraded automatically (`migrateV1`) |
 | `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory), `scanned` (source `screen`), `useScanned`, `rules`, `overrides` |
 | `localStorage['e7-guild-conn']` | `js/guild-app.js` | `guildCode`, `guildName`, `myName`, Firebase `config`, `shareSpeeds`, `watchBox` |
@@ -78,7 +78,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | **Firestore** `guilds/{code}/records/{id}` (shared) | `js/sync.js` | Records `member`, `war` (+`season`), `target`, `attack` (+`speeds`), `defense`, `settings`, `hero`; soft deletes; rules in `firestore.rules` |
 
 **Source labels used in the app:** `official`, `custom`, `fribbels`, `fribbels-data`, `my notes`, `learned`, `game rule`,
-`presets`, `player`, `meta: <name>`, `speed`, `deny`, `scouting`, `game help`, `ceciliabot`, `guild`,
+`presets`, `player`, `meta: <name>`, `speed`, `deny`, `scouting`, `game help`, `ceciliabot`, `guild`, `my speeds`,
 `my corrections` / `auto-learned` (recognition templates), `screen` (screen-read gear), and match sources
 `manual` / `auto` / `import:<name>`.
 
@@ -124,7 +124,12 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     caps it at 62vh.
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #13)
+## 7. Status (end of DEVLOG #14)
+
+**Game client:** works with any PC window (Steam version, official PC client, Google Play Games, emulators), because
+it only reads the screen; calibrate per client. **Fribbels' gear importer does NOT work with the Steam version**
+(owner, 2026-11-12). Steam players get gear from the screen gear reader and type key hero speeds (RTA → Heroes → Edit
+→ My speed) until the hero-gear-screen reader exists.
 
 Built and tested on generated data:
 - RTA: draft reading, suggestions, learning, scouting, CR speeds, drafting-help capture, overlay layer.

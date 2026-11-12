@@ -22,6 +22,11 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 
 ## Other planned items
 
+- **Top priority: read each hero's equipped gear from the hero gear screen.** Fribbels' importer doesn't work with
+  the Steam version, so Steam players have no `gear.txt`. This would link gear to heroes and give real speeds for RTA and
+  the Guild War dots. Until then, typed speeds (RTA → Heroes → Edit → My speed) fill the gap.
+  Needs a Steam-version screenshot of a hero's gear screen.
+
 - **Mobile version:** an Android app that reuses this code, with screen reading (with permission) and a floating
   bubble over the game. iPhone is very limited. After the PC version has been tested on the real game.
 - **Official RTA match history import:** an "export my matches" bookmarklet run on the official site while logged in.

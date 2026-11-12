@@ -71,6 +71,8 @@
         const r = window.RTAGear.computeBuild(code, b, stats);
         if (r.speed && r.itemCount) out.set(code, r.speed);
       }
+      // speeds typed in the RTA hero editor (source 'my speeds') win, same as on the RTA page
+      for (const [code, v] of Object.entries((s && s.mySpeeds) || {})) if (Number(v) > 0) out.set(code, Number(v));
     } catch (_) { /* no RTA data on this device */ }
     return (mySpeedsCache = out);
   }
@@ -581,7 +583,7 @@
     $('#my-name').value = conn.myName || '';
     $('#share-speeds').checked = conn.shareSpeeds !== false;
     const sp = mySpeeds();
-    $('#my-gear-info').textContent = sp.size ? `Your gear: speeds for ${sp.size} heroes found on this device (from gear.txt).` : 'No gear.txt on this device yet: dots can show "proven counter" but not check your gear. Import it in RTA → Data or Gear.';
+    $('#my-gear-info').textContent = sp.size ? `Your gear: speeds for ${sp.size} heroes found on this device (from gear.txt).` : 'No speeds on this device yet: dots can show "proven counter" but not check your gear. Import gear.txt (RTA → Data or Gear) or type your heroes\' speeds in RTA → Heroes → Edit (needed for the Steam version).';
     $('#guild-name').value = conn.guildName || '';
     $('#guild-info').innerHTML = conn.guildCode ? `Guild code: <code>${esc(conn.guildCode)}</code> (keep it within your guild: anyone with it can read and edit).` : 'Not in a guild yet.';
     if (conn.config && document.activeElement !== $('#fb-config')) $('#fb-config').value = JSON.stringify(conn.config, null, 1);

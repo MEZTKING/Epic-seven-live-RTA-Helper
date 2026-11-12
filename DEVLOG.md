@@ -7,6 +7,37 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #14 · Steam version: typed hero speeds; docs updated · this commit (previous: `bc29f70`)
+
+**Asked / told:** can the Steam version be used instead of an emulator? (Yes: the app only reads the screen, so any PC
+window works; calibrate per client; windowed/borderless for the overlay; capture "Entire screen" if a window capture is
+black.) The owner reports **Fribbels' gear importer doesn't work with the Steam version**.
+
+**Consequence:** Steam players have no `gear.txt`, so no hero speeds (RTA speed checks, scouting comparisons, Guild War
+green dots need them). The screen gear reader gives inventory items, but they aren't linked to heroes.
+
+**Changed**
+- `js/app.js`:
+  - New store field `mySpeeds` {code: speed} (source `my speeds`), set in the hero editor's new "My speed" field.
+  - In `derive()`, typed speeds win over gear.txt builds; `cache.typedSpeeds` records which ones were typed.
+  - Heroes tab shows "typed" (plus the gear.txt value if both exist); the hero card shows both.
+- `js/guild-app.js`: your speeds for the Guild War gear check include typed speeds; Setup's hint mentions it.
+- `rta.html`: "My speed" field in the hero editor.
+- Docs: HANDOFF (storage field, source label, status: Steam + Fribbels limitation), SOURCES (Fribbels importer
+  limitation, typed speeds as user data), ROADMAP (hero gear screen reader now top priority), README "Steam version".
+- `tests/e2e/typed-speed.e2e.js` (new).
+
+**Tested**
+- `npm test`: 74 passing.
+- New browser test: typed 282 for Arbiter Vildred → Heroes row "282 spd typed", `cache.mySpeeds` = 282.
+  On the Guild War page a proven counter (2-0, slowest winning AV 270) turned into a **green** dot from the typed speed.
+  No errors.
+
+**Open**
+- Steam screenshots (all screens, especially a hero's gear screen) to build the hero-gear reader and Steam default boxes.
+
+---
+
 ## 2026-11-12 · #13 · Full handoff docs + sources list; CeciliaBot skills and automatic tags; e2e tests in the repo · this commit (previous: `52c9339`)
 
 **Asked for:** document everything so any future task can continue; list all sources and where they're used; "you can

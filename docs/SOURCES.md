@@ -17,7 +17,8 @@ Checked = last time the address was confirmed working from the dev environment.
 | 5 | **epic7x.com** (fan site) | `https://epic7x.com/character/{slug}/` (slug: lowercase, `&`→`and`, apostrophes dropped, other characters → `-`) | Link only: full skill text on their site | `js/roster.js` (`epic7xUrl`), `js/heroinfo.js` (link on the card) | — (link) | nothing until the user clicks | 2026-11-12 (12 sampled heroes) |
 | 6 | **Your guild's Firebase project** (owner-created) | `firestore.googleapis.com` via the SDK, path `guilds/{guildCode}/records/{id}` | Shared Guild War records | `js/sync.js` (`firebase` backend), `js/guild-app.js`; rules in `firestore.rules`; setup in `docs/GUILD_SETUP.md` | `guild` | Guild War records, in-game names, anonymous sign-in id. No emails | rules + fake-SDK test only; **no real project tested yet** |
 
-Data the user brings (kept as separate sources): `gear.txt` from the Fribbels optimizer (`fribbels`), CSV match files
+Data the user brings (kept as separate sources): `gear.txt` from the Fribbels optimizer (`fribbels`; **its auto
+importer doesn't work with the Steam version of the game**, owner-reported 2026-11-12), typed hero speeds (`my speeds`), CSV match files
 (`import:<name>`), meta CSVs (`meta: <name>`), backups.
 
 ## 2. Libraries loaded at runtime
