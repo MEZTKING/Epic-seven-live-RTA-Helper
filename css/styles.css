@@ -203,6 +203,25 @@ input.full { width: 100%; }
 .suggest-list .why { line-height: 1.9; }
 #pl-detail .cards { margin: 8px 0 0; }
 
+/* -------- auto-detection -------- */
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--line); margin-left: 4px; vertical-align: middle; }
+.live-dot.on { background: var(--win); box-shadow: 0 0 6px var(--win); }
+.pending { margin-top: 10px; padding: 10px 12px; background: var(--panel); border-radius: var(--radius); border-left: 4px solid var(--accent); }
+.calib-step { font-weight: 600; color: var(--accent); }
+.calib-wrap { margin-top: 8px; overflow: auto; }
+#calib-canvas { width: 100%; height: auto; cursor: crosshair; touch-action: none; border-radius: 6px; display: block; }
+.auto-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.aslot { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; text-align: left; }
+.aslot canvas { width: 44px; height: 44px; border-radius: 4px; flex: none; background: #000; }
+.aslot .t { font-size: 11px; color: var(--muted); }
+.aslot .h { font-size: 12.5px; font-weight: 600; }
+.aslot.ok { border-color: var(--win); }
+.aslot.unsure { border-color: var(--accent); }
+.aslot.me { border-left: 3px solid var(--me); } .aslot.opp { border-left: 3px solid var(--opp); }
+.auto-fix { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.auto-fix input { flex: 1; min-width: 160px; }
+.auto-pill { font-size: 12px; margin-left: 8px; }
+
 @media (max-width: 860px) {
   .draft-lower { grid-template-columns: 1fr; }
   .suggest { position: static; }
