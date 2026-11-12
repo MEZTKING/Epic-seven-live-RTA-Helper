@@ -138,7 +138,9 @@
     $('#gw-members').innerHTML = state.members.map((m) => `<option value="${esc(m.name)}"></option>`).join('');
     if (!warId || !state.wars.some((w) => w.id === warId)) warId = (state.wars.find((w) => w.status !== 'done') || state.wars[0] || {}).id || null;
     ({ war: renderWar, counters: renderCounters, members: renderMembers, enemies: renderEnemies, setup: renderSetup })[activeTab]();
+    for (const fn of listeners) fn();
   }
+  const listeners = [];
 
   // -------------------------------------------------------------------- war
   function renderWar() {
@@ -216,6 +218,7 @@
             <div class="gw-head">${s.cleared ? '<span class="gwdot done" title="Cleared"></span>' : dot(verdicts.get(t.id))}<button class="link" data-history="${esc(t.player)}" title="Show everything known about ${esc(t.player)}">${esc(t.player)}</button>${t.tower ? ` <span class="hint">· ${esc(t.tower)}</span>` : ''}
               <span class="spacer"></span>
               <select data-assign="${esc(t.id)}" title="Assigned to"><option value="">Unassigned</option>${state.members.map((m) => `<option ${GW.playerKey(m.name) === GW.playerKey(t.assignedTo) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+              <button class="btn" data-pin="${esc(t.player)}" title="Show in the pop-out window">⧉</button>
               <button class="btn" data-edit="${esc(t.id)}">Edit</button></div>
             ${teams.join('')}
             ${t.notes ? `<div class="hint">${esc(t.notes)}</div>` : ''}
@@ -248,6 +251,13 @@
     await put('target', { ...t, assignedTo: e.target.value });
   });
   $('#targets').addEventListener('click', (e) => {
+    const pin = e.target.closest('[data-pin]');
+    if (pin) {
+      current = pin.dataset.pin;
+      if (window.GuildPip) window.GuildPip.open();
+      for (const fn of listeners) fn();
+      return;
+    }
     const hi = e.target.closest('[data-history]');
     if (hi) return openHistory(hi.dataset.history);
     // tapping a dot (phones have no hover) opens the same history + explanation
@@ -650,6 +660,61 @@
       alert('Could not import: ' + err.message);
     }
   });
+
+  // ------------------------------------------------------- API (pop-out, screen watch)
+  let current = null; // enemy player shown in the pop-out
+  /** Latest target for a player: this war first, else the most recent anywhere. */
+  function targetFor(name) {
+    const k = GW.playerKey(name);
+    const all = state.targets.filter((t) => GW.playerKey(t.player) === k);
+    return all.find((t) => t.warId === warId) || all.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] || null;
+  }
+  window.GuildApp = {
+    get state() {
+      return state;
+    },
+    get warId() {
+      return warId;
+    },
+    me,
+    meProfile,
+    rules,
+    nameOf,
+    esc,
+    pt,
+    dot,
+    chip,
+    targetFor,
+    current: () => current,
+    setCurrent(name) {
+      if (name === current) return;
+      current = name;
+      for (const fn of listeners) fn();
+    },
+    onChange: (fn) => listeners.push(fn),
+    openHistory,
+    verdict(target) {
+      const st = GW.targetStatus(target, state.attacks.filter((a) => a.targetId === target.id), rules());
+      const v = GW.targetVerdict(state, target, meProfile(), rules(), undefined, nameOf);
+      return { ...v, status: st };
+    },
+    attacksLeft() {
+      if (!warId || !me()) return null;
+      const used = GW.attacksUsed(state.attacks, warId, today()).get(GW.playerKey(me())) || 0;
+      return Math.max(0, rules().attacksPerMember - used);
+    },
+    /** One-tap result from the pop-out. heroes = the counter you used (may be empty). */
+    async logQuick(target, team, result, heroes) {
+      if (!me()) return alert('Set your name in Setup first.');
+      const speeds = {};
+      if (conn.shareSpeeds !== false) for (const h of heroes || []) if (mySpeeds().get(h)) speeds[h] = mySpeeds().get(h);
+      await put('attack', { warId: target.warId, targetId: target.id, team, by: me(), heroes: heroes || [], speeds, result, notes: 'logged from pop-out', at: new Date().toISOString() });
+    },
+    get conn() {
+      return conn;
+    },
+    saveConn,
+  };
 
   // ------------------------------------------------------------------ start
   (async () => {

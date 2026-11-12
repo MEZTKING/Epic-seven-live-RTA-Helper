@@ -347,3 +347,6 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 .verdict-line { font-size: 12px; }
 dialog.wide-dialog { width: min(760px, calc(100vw - 24px)); max-height: 88vh; overflow: auto; }
 dialog.wide-dialog h4 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); }
+
+.pip-search { margin-bottom: 8px; }
+.pip-search input { width: 100%; }

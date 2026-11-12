@@ -214,3 +214,15 @@ test('player dot = weakest team; profile spans wars and seasons', () => {
   assert.equal(p.builds[0].text, 'X: Speed+Crit');
   assert.deepEqual([p.wins, p.losses], [2, 0]);
 });
+
+test('matchPlayer: tolerant to small OCR mistakes, rejects strangers', () => {
+  const names = ['RivalOne', 'Moonblade', 'Kai', '라이벌'];
+  assert.equal(GW.matchPlayer('RivalOne', names), 'RivalOne');
+  assert.equal(GW.matchPlayer('Riva1One', names), 'RivalOne'); // 1 -> l
+  assert.equal(GW.matchPlayer(' rivalone\n', names), 'RivalOne');
+  assert.equal(GW.matchPlayer('Lv.60 Moonblade', names), 'Moonblade'); // extra text around it
+  assert.equal(GW.matchPlayer('Kal', names), 'Kai');
+  assert.equal(GW.matchPlayer('라이벌', names), '라이벌');
+  assert.equal(GW.matchPlayer('Somebody', names), null);
+  assert.equal(GW.matchPlayer('x', names), null);
+});

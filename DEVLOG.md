@@ -7,6 +7,58 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #10 · Guild War pop-out + "Watch game"; research on getting gear.txt without Fribbels · this commit (previous: `42a5d4b`)
+
+**Asked for**
+1. Build the Guild War pop-out window (the "option 1" overlay discussed: see the dots and details while in game).
+2. "Make the system to get the gear.txt just like Fribbels does", so people don't need Fribbels.
+
+**Research: how Fribbels (RexQian fork) gets gear**
+- `data/py/scanner.py` (scapy, needs Python + Npcap/Wireshark) **sniffs the game's network traffic** (TCP ports 3333
+  and 5222) and prints the raw payloads as hex.
+- `app/js/lib/scanner.js` then **POSTs those raw payloads to Fribbels' private server**
+  (`https://krivpfvxi0.execute-api.us-west-2.amazonaws.com/dev/getItems`), which decodes them into items and heroes.
+  The decoding is not in the repo. Licence: GPL-2.0.
+- **Decision: not built.** Copying it would mean either using Fribbels' private server without permission, which also
+  sends the user's raw game traffic (possibly account and session data) to a third party, or reverse-engineering the
+  game's network protocol ourselves, which is likely against the game's terms and risky for accounts. Both conflict
+  with this project's privacy rule.
+  Safe alternative proposed to the owner: a **screen-based gear reader** (the same approach as the draft reader:
+  calibrate the item-details panel once, read each item with OCR as you browse the inventory). It needs a screenshot
+  of the in-game item details screen. Waiting for the owner's decision.
+
+**Changed**
+- `js/guild-pip.js` (new): the Guild War pop-out (Document Picture-in-Picture, falls back to a pop-up).
+  - The current enemy player with their dot (only teams still standing count).
+  - Each team: verdict, reasons, speeds, builds, "also owned by".
+  - One-tap Won / Lost: logs the suggested counter as your team, with your speeds; Won asks to confirm.
+  - Prev/Next through uncleared targets, best chance first (green → ring → yellow → grey → red); a name search;
+    "Full history"; your attacks left today.
+- `js/guild-watch.js` (new): **Watch game**.
+  - Captures the emulator window and, once you box where the enemy's name appears (saved on this device, per browser),
+    reads it every 2 s with tesseract.js.
+  - The name must be the same twice in a row before switching, which avoids flicker. Only reads the screen.
+- `js/guildwar.js`: `matchPlayer()` (OCR-tolerant name matching: about 1 mistake per 4 letters, or a
+  substring with extra text like "Lv.60 Name") and `editDistance()`.
+- `js/guild-app.js`: ⧉ button on each card; `window.GuildApp` API (current player, verdicts, quick log, history);
+  listeners refresh the pop-out on every change.
+- `guild.html`: Pop out / Watch game / Set name box buttons, name-box calibration dialog. `sw.js` cache v8.
+
+**Tested**
+- `npm test`: 62 passing (new: matchPlayer with typos, extra text, Korean, strangers rejected).
+- Browser, using the seeded two-season guild from #9:
+  - The pop-out opened from ⧉ shows RivalOne with a green team 1 ("280 vs their fastest ~250") and a red team 2.
+  - Next moves to the next target; a typed name works.
+  - One-tap Won logged Ruele + Lilias + Arbiter Vildred with speed 280: attacks left 2 → 1, team shown cleared.
+  - Watch game read "Quiet" from a generated game frame and switched the pop-out.
+  - No console errors.
+
+**Not tested / open**
+- Real emulator screens (the name position and font) and real Document PiP on a desktop (headless used the pop-up fallback).
+- Getting gear without Fribbels: waiting on the owner's choice (screen-based reader needs an item-details screenshot).
+
+---
+
 ## 2026-11-12 · #9 · Guild War verdict dots, gear check, player history across seasons · this commit (previous: `d40be0d`)
 
 **Asked for**
