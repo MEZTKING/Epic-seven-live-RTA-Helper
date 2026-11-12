@@ -4,7 +4,7 @@ const { _electron } = require('playwright');
   const app = await _electron.launch({ executablePath: process.argv[2], args: ['--no-sandbox'] });
   const errs = [];
   await new Promise((r) => setTimeout(r, 2500));
-  const main = app.windows().find((w) => !w.url().includes('overlay'));
+  const main = app.windows().find((w) => w.url().endsWith('index.html'));
   main.on('pageerror', (e) => errs.push(e.message));
   for (const [page, root] of [['guild.html', '#gp-root'], ['rta.html', '#pip-root']]) {
     await main.goto('e7://app/' + page);

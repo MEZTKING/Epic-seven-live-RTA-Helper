@@ -13,7 +13,7 @@ const os = require('os');
   const app = await _electron.launch({ executablePath: process.argv[2], args: ['--no-sandbox', `--user-data-dir=${userData}`] });
   const errs = [];
   await new Promise((r) => setTimeout(r, 2500));
-  const main = app.windows().find((w) => !w.url().includes('overlay'));
+  const main = app.windows().find((w) => w.url().endsWith('index.html'));
   main.on('pageerror', (e) => errs.push(e.message));
   main.on('dialog', (d) => d.accept());
   await main.goto('e7://app/gear.html');

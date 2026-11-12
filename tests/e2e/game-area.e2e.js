@@ -37,10 +37,27 @@ const { chromium } = require('playwright');
     // item boxes are measured INSIDE the game area (960x540): panel text starts at x=595, y = (line y - 200)
     const box = (y, w = 320) => ({ x: 590 / 960, y: (y - 200 - 26) / 540, w: w / 960, h: 34 / 540 });
     localStorage.setItem('e7-gearscan-boxes', JSON.stringify({ gear: box(300), enhance: box(335, 80), set: box(370), main: box(420), sub0: box(470), sub1: box(510), sub2: box(550), sub3: box(590) }));
-    window.GearScan._useSource(src);
-    for (let i = 0; i < 3; i++) await window.GearScan.tick();
-    return { size: [src.width, src.height], isArea: !!src.isGameArea, scanned: window.GearApp.gs.scanned.map((i) => [i.gear, i.set, i.main.type, i.main.value, i.subs.length]) };
+    window.__src = src;
+    return { size: [src.width, src.height], isArea: !!src.isGameArea };
   });
+  // the game watcher (Live page) reads the cropped game picture; the item lands on the Gear page
+  const lv = await ctx.newPage();
+  lv.on('pageerror', (e) => errs.push('live: ' + e.message));
+  await lv.goto(BASE + 'live.html');
+  await lv.evaluate(async (a) => {
+    // same "screen" in the watcher's page, cropped the same way
+    const scr = document.createElement('canvas'); scr.width = 1920; scr.height = 1080;
+    const x = scr.getContext('2d'); x.fillStyle = '#2b2f3a'; x.fillRect(0, 0, 1920, 1080);
+    x.fillStyle = '#fff'; x.font = '20px sans-serif'; x.fillText('Some other window: Speed 99  Attack 50%', 40, 60);
+    x.fillStyle = '#141a26'; x.fillRect(600, 200, 960, 540); x.fillStyle = '#1f2738'; x.fillRect(1180, 260, 340, 380);
+    x.fillStyle = '#fff'; x.font = 'bold 22px sans-serif';
+    [['Epic Boots', 300], ['+15', 335], ['Speed Set', 370], ['Speed 45', 420], ['Critical Hit Chance 14%', 470], ['Attack 18%', 510], ['Speed 12', 550], ['Effectiveness 6%', 590]].forEach(([t, y]) => x.fillText(t, 1195, y));
+    const src = await window.GameArea.wrap(scr);
+    window.E7Vision._useSource(src);
+    for (let i = 0; i < 3; i++) await window.E7Vision.tick(true);
+  });
+  await g.waitForTimeout(400);
+  res.scanned = await g.evaluate(() => window.GearApp.gs.scanned.map((i) => [i.gear, i.set, i.main.type, i.main.value, i.subs.length]));
   console.log('wrapped source:', JSON.stringify(res));
   // boxes drawn before (on the whole screen) -> warned once; after drawing them again on this picture -> no warning
   const stale = await g.evaluate(async () => {

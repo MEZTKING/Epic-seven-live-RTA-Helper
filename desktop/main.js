@@ -33,6 +33,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'e7', privileges: { standard: tr
 
 let main = null;
 let overlay = null;
+let vision = null; // the game watcher: hidden window running vision.html (js/vision/hub.js)
+let quitting = false;
 // capture: null (not chosen yet) | { mode: 'window', id, name } | { mode: 'screen', id, displayId, name }
 let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25, capture: null };
 let tracker = null;
@@ -121,13 +123,22 @@ ipcMain.on('e7:choose', (e, choice) => {
   d && d(choice ? config.capture : null);
 });
 ipcMain.handle('e7:pick', () => pickWindow());
+// a hidden window (the game watcher) shows itself while it needs the user, e.g. "Where is the game?"
+ipcMain.on('e7:show-self', (e, show) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (!w || w === overlay) return;
+  if (show) {
+    w.show();
+    w.focus();
+  } else if (w === vision) w.hide();
+});
 // zoom is shared by every window of the same origin (e7://app), so the overlay scales its own items by overlayZoom / zoom
 ipcMain.on('e7:zoom', (e) => {
   e.returnValue = { zoom: config.zoom, overlayZoom: config.overlayZoom };
 });
 ipcMain.on('e7:capture', (e) => {
   const c = config.capture;
-  e.returnValue = { mode: c ? c.mode : 'screen', name: c ? c.name : '', tracked: !!(tracker && gameState && gameState.w) };
+  e.returnValue = { mode: c ? c.mode : 'screen', name: c ? c.name : '', chosen: !!c, tracked: !!(tracker && gameState && gameState.w) };
 });
 
 function setCapture(choice) {
@@ -237,6 +248,26 @@ function createMain() {
   });
 }
 
+/** The game watcher: always running in the background, whatever page the main window shows. */
+function createVision() {
+  vision = new BrowserWindow({
+    show: false,
+    width: 1000,
+    height: 760,
+    title: 'Epic 7 Engine · Game watcher',
+    backgroundColor: '#12131a',
+    autoHideMenuBar: true,
+    webPreferences: { backgroundThrottling: false, preload: PRELOAD },
+  });
+  vision.loadURL(`${ORIGIN}/vision.html`);
+  vision.on('close', (e) => {
+    if (quitting) return;
+    e.preventDefault(); // closing it only hides it; it keeps watching
+    vision.hide();
+  });
+  vision.on('closed', () => (vision = null));
+}
+
 function createOverlay() {
   const b = gameDisplay().bounds;
   overlay = new BrowserWindow({
@@ -303,8 +334,9 @@ function buildMenu() {
       submenu: [
         { label: config.capture ? `Reading: ${config.capture.mode === 'window' ? 'window' : 'screen'} "${config.capture.name}"` : 'Reading: not chosen yet', enabled: false },
         { label: 'Pick the game window…', click: () => pickWindow() },
+        { label: 'Show the game watcher', click: () => vision && (vision.show(), vision.focus()) },
         { type: 'separator' },
-        { label: 'Readers that are running must be stopped and started again after a change.', enabled: false },
+        { label: 'The game watcher restarts by itself after a change.', enabled: false },
       ],
     },
     {
@@ -361,6 +393,7 @@ app.whenReady().then(() => {
   autoCapture();
   createMain();
   createOverlay();
+  createVision();
   buildMenu();
   updater.init(() => main);
   // window mode: start following the game window right away (if it's open)
@@ -384,6 +417,7 @@ async function resolveSourceQuiet() {
 setInterval(() => {
   if (app.isReady() && windowModeOnWindows() && !tracker) resolveSourceQuiet();
 }, 4000);
+app.on('before-quit', () => (quitting = true));
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   if (tracker) tracker.stop();

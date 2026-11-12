@@ -1,4 +1,4 @@
-// Packaged desktop app: cancelling "Which window is the game?" makes getDisplayMedia reject (no crash, reader stops),
+// Packaged desktop app: cancelling "Which window is the game?" leaves the game watcher not watching (no crash),
 // and "Open overlay preview" is a normal window (not the small always-on-top mini window).
 const { _electron } = require('playwright');
 const path = require('path');
@@ -9,7 +9,7 @@ const os = require('os');
   const app = await _electron.launch({ executablePath: process.argv[2], args: ['--no-sandbox', `--user-data-dir=${userData}`] });
   const errs = [];
   await new Promise((r) => setTimeout(r, 2500));
-  const main = app.windows().find((w) => !w.url().includes('overlay'));
+  const main = app.windows().find((w) => w.url().endsWith('index.html'));
   main.on('pageerror', (e) => errs.push(e.message));
   main.on('dialog', (d) => d.accept());
   await main.goto('e7://app/gear.html');
@@ -17,8 +17,8 @@ const os = require('os');
   await main.click('#gs-scan');
   const picker = await pickerP;
   await picker.click('#cancel');
-  await main.waitForTimeout(800);
-  console.log('after cancel, button says:', await main.textContent('#gs-scan'), '| reading:', await main.evaluate(() => window.GearScan.isReading()));
+  await main.waitForTimeout(1500);
+  console.log('after cancel, button says:', await main.textContent('#gs-scan'), '| message:', await main.textContent('#gs-scan-status'), '| watcher:', await main.evaluate(() => window.VisionClient.line()));
   await main.goto('e7://app/live.html');
   const p = app.waitForEvent('window');
   await main.click('#live-preview');

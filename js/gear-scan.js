@@ -1,17 +1,18 @@
 /*
- * Read gear straight from the game screen: no Fribbels, no Python, nothing
- * sent anywhere. Box the item-details panel once (main stat, substats, and
- * optionally set / slot / enhance / level); then browse your inventory. Each
- * item shown is read with OCR, checked, and added once (source 'screen').
+ * Gear page ↔ game watcher. Reading items from the screen happens in the game watcher
+ * (js/vision/readers/gear-item.js); saving them in js/vision/consumers/gear.js. This page only:
+ *   - shows the watcher's status and the items it added ('gear:added' / 'gear:dup' events),
+ *   - lets you draw the item-panel boxes on a snapshot of the game (localStorage 'e7-gearscan-boxes'),
+ *   - teaches "this is the item screen".
  * Only reads the screen; never touches the game.
  */
 (function () {
   'use strict';
   const A = window.GearApp;
-  const P = window.RTAStatParse;
+  const C = window.VisionClient;
+  const bus = window.E7Bus;
   const $ = (s) => document.querySelector(s);
   const esc = A.esc;
-  const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
   const KEY = 'e7-gearscan-boxes';
   const STEPS = [
     { key: 'main', label: 'the MAIN stat line (e.g. "Speed 45")' },
@@ -24,14 +25,6 @@
     { key: 'enhance', label: 'the enhance level (e.g. "+15")', optional: true },
     { key: 'level', label: 'the item level (e.g. "85")', optional: true },
   ];
-  let stream = null;
-  let source = null;
-  let timer = null;
-  let worker = null;
-  let busy = false;
-  let last = { key: null, n: 0 };
-  const log = [];
-
   const boxes = () => {
     try {
       return JSON.parse(localStorage.getItem(KEY) || 'null') || {};
@@ -40,59 +33,25 @@
     }
   };
   const calibrated = () => ['main', 'sub0', 'sub1'].every((k) => boxes()[k]);
-  const w = () => source.videoWidth || source.naturalWidth || source.width;
-  const h = () => source.videoHeight || source.naturalHeight || source.height;
+  const status = (t) => ($('#gs-scan-status').textContent = t);
 
-  async function start() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return alert('This browser cannot capture the screen. Use Chrome or Edge on PC (or the desktop app).');
+  // ---------------------------------------------------------------- calibration (on a snapshot of the game)
+  async function calibrate() {
+    let snap;
     try {
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false });
-    } catch (_) {
-      return;
+      snap = await C.snapshot();
+    } catch (e) {
+      return alert(`Start the game watcher first, with an item's details showing in the game. (${e.message})`);
     }
-    const v = document.createElement('video');
-    v.muted = true;
-    v.srcObject = stream;
-    await v.play();
-    const s0 = stream;
-    s0.getVideoTracks()[0].addEventListener('ended', stop);
-    const src = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
-    if (stream !== s0 || !src) {
-      if (stream === s0) stop();
-      return;
-    }
-    source = src;
-    if (window.GameArea) window.GameArea.warnIfStale('gear', source, calibrated(), 'press "Set boxes" and draw them again');
-    if (!calibrated()) calibrate();
-    timer = setInterval(tick, 1500);
-    update();
-  }
-  function stop() {
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    stream = null;
-    if (source && source.stopGameArea) source.stopGameArea();
-    clearInterval(timer);
-    timer = null;
-    if (window.E7Overlay) window.E7Overlay.clear('gear');
-    update();
-  }
-
-  // ---------------------------------------------------------------- calibration
-  function calibrate() {
-    if (!source || !w()) return alert('Start reading first, with an item\'s details showing in the game.');
     const cv = $('#gs-calib-canvas');
-    cv.width = w();
-    cv.height = h();
+    cv.width = snap.w;
+    cv.height = snap.h;
     const ctx = cv.getContext('2d');
-    const frame = document.createElement('canvas');
-    frame.width = cv.width;
-    frame.height = cv.height;
-    frame.getContext('2d').drawImage(source, 0, 0);
     const regions = { ...boxes() };
     let step = 0;
     let drag = null;
     const draw = () => {
-      ctx.drawImage(frame, 0, 0);
+      ctx.drawImage(snap.img, 0, 0);
       ctx.lineWidth = Math.max(2, cv.width / 600);
       ctx.font = `${Math.round(cv.width / 90)}px sans-serif`;
       for (const s of STEPS) {
@@ -146,121 +105,77 @@
     $('#gs-calib-save').onclick = () => {
       if (!['main', 'sub0', 'sub1'].every((k) => regions[k])) return alert('The main stat and at least 2 substat boxes are needed.');
       localStorage.setItem(KEY, JSON.stringify(regions));
-      if (window.GameArea) window.GameArea.markCalibrated('gear', source);
+      if (window.GameArea) window.GameArea.markCalibrated('gear', snap.frameKey);
       $('#gs-calib').close();
       update();
-      tick();
     };
     $('#gs-calib-cancel').onclick = () => $('#gs-calib').close();
     draw();
     $('#gs-calib').showModal();
   }
 
-  // ----------------------------------------------------------------- reading
-  async function readBox(r) {
-    if (!r) return '';
-    const bw = r.w * w();
-    const bh = r.h * h();
-    const scale = Math.max(1, 48 / bh);
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(bw * scale);
-    cv.height = Math.round(bh * scale);
-    const cx = cv.getContext('2d');
-    cx.filter = 'grayscale(1) contrast(1.6)';
-    cx.drawImage(source, r.x * w(), r.y * h(), bw, bh, 0, 0, cv.width, cv.height);
-    const { data } = await worker.recognize(cv);
-    return ((data && data.text) || '').replace(/\n+/g, ' ').trim();
-  }
-
-  async function tick() {
-    if (!source || busy || !calibrated()) return;
-    const SW = window.E7Screens;
-    if (SW) {
-      SW.update(source);
-      if (!SW.allowed('gear-item')) {
-        status('Waiting for an item\'s details screen…');
-        return;
-      }
-    }
-    busy = true;
-    try {
-      if (!worker) {
-        if (!window.Tesseract) {
-          await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = TESSERACT_URL;
-            s.onload = res;
-            s.onerror = () => rej(new Error('Could not load the text reader.'));
-            document.head.appendChild(s);
-          });
-        }
-        worker = await window.Tesseract.createWorker('eng');
-      }
-      const b = boxes();
-      const raw = { main: await readBox(b.main), subs: [], set: await readBox(b.set), gear: await readBox(b.gear), enhance: await readBox(b.enhance), level: await readBox(b.level), rank: '' };
-      for (const k of ['sub0', 'sub1', 'sub2', 'sub3']) if (b[k]) raw.subs.push(await readBox(b[k]));
-      raw.rank = raw.gear;
-      const { item, problems } = P.itemFromReadings(raw);
-      if (!item) {
-        last = { key: null, n: 0 };
-        status(`Can't read this item yet (${problems.join(', ')}).`);
-      } else {
-        const key = P.itemKey(item);
-        if (key === last.key) last.n++;
-        else last = { key, n: 1 };
-        if (last.n === 2) {
-          const res = A.addScanned(item, key);
-          const desc = `${item.gear} · ${item.set.replace(/Set$/, '') || '?'} · +${item.enhance} · ${item.main.type} ${item.main.value}`;
-          if (res) {
-            log.unshift({ desc, verdict: res.verdict, reason: res.reason, best: res.best[0], problems });
-            status(`Added: ${desc} → ${res.verdict.toUpperCase()}`);
-            postOverlay(res, b.main);
-          } else status(`Already have: ${desc}`);
-          renderLog();
-        }
-      }
-    } catch (e) {
-      status('Text reader unavailable: ' + e.message);
-    }
-    busy = false;
-  }
-
-  function postOverlay(res, rect) {
-    const O = window.E7Overlay;
-    if (!O || !rect) return;
-    const best = res.best.filter((x) => x.delta > A.gs.rules.upgradeMargin)[0]; // only a real upgrade counts
-    O.post('gear', [{ ...rect, kind: 'card', side: 'right', title: `${res.verdict.toUpperCase()} · gear score ${res.wss}${res.reforgedWss !== res.wss ? ` → ${res.reforgedWss}` : ''}`, lines: [res.reason, best ? `Best for ${A.nameOf(best.code)} (+${best.delta})` : 'Not an upgrade for anyone'] }]);
-  }
-
-  // ------------------------------------------------------------------- UI
-  function status(t) {
-    $('#gs-scan-status').textContent = t;
+  // ---------------------------------------------------------------- events from the watcher
+  const log = [];
+  function addLog(d, dup) {
+    log.unshift({ ...d, dup });
+    if (log.length > 12) log.pop();
+    renderLog();
   }
   function renderLog() {
     $('#gs-scan-log').innerHTML = log
-      .slice(0, 12)
-      .map((x) => `<li><span class="vd ${x.verdict}">${esc(x.verdict)}</span> ${esc(x.desc)} <span class="hint">${esc(x.reason)}${x.best && x.best.delta > 0 ? ` · best for ${esc(A.nameOf(x.best.code))}` : ''}${x.problems.length ? ` · check: ${esc(x.problems.join(', '))}` : ''}</span></li>`)
+      .map((x) =>
+        x.dup
+          ? `<li class="hint">Already have: ${esc(x.desc)}</li>`
+          : `<li><span class="vd ${esc(x.verdict)}">${esc(x.verdict)}</span> ${esc(x.desc)} <span class="hint">${esc(x.reason)}${x.best ? ` · best for ${esc(x.best.name)} (+${x.best.delta})` : ''}${x.problems && x.problems.length ? ` · check: ${esc(x.problems.join(', '))}` : ''}</span></li>`,
+      )
       .join('');
   }
-  function update() {
-    $('#gs-scan').textContent = timer ? 'Stop reading' : 'Read gear from the game';
-    for (const id of ['#gs-scan-boxes', '#gs-scan-teach']) $(id).classList.toggle('hidden', !timer);
-    $('#gs-scan-use').checked = A.gs.useScanned;
-    const n = window.E7Screens ? window.E7Screens.refs().filter((r) => r.screen === 'gear-item').length : 0;
-    $('#gs-scan-info').textContent = `${A.gs.scanned.length} items read from the screen so far · boxes ${calibrated() ? 'set' : 'not set'} · item screen ${n ? `taught (${n})` : 'not taught'}`;
-  }
-  $('#gs-scan').addEventListener('click', () => (timer ? stop() : start()));
-  $('#gs-scan-boxes').addEventListener('click', calibrate);
-  $('#gs-scan-teach').addEventListener('click', () => {
-    if (!source) return;
-    window.E7Screens.teach(source, 'gear-item');
-    update();
+  // what happened before this page was opened
+  for (const e of bus.log().filter((e) => e.type === 'gear:added' || e.type === 'gear:dup').slice(-12)) addLog(e.data, e.type === 'gear:dup');
+  bus.on('gear:added', (d) => {
+    addLog(d, false);
+    status(`Added: ${d.desc} → ${String(d.verdict).toUpperCase()}`);
+    A.reload(); // the watcher saved it (storage events don't fire in the window that wrote it, so reload here too)
   });
+  bus.on('gear:dup', (d) => {
+    addLog(d, true);
+    status(`Already have: ${d.desc}`);
+  });
+  bus.on('vision:warning', (d) => d.module === 'gear' && status('⚠ ' + d.text));
+
+  // ---------------------------------------------------------------- UI
+  function update() {
+    const s = C.status();
+    const watching = C.alive() && s && s.watching;
+    $('#gs-scan').textContent = watching ? 'Stop watching' : 'Start the game watcher';
+    $('#gs-scan-use').checked = A.gs.useScanned;
+    const reader = s && s.readers && s.readers.find((r) => r.id === 'gear-item');
+    const n = window.E7Screens ? window.E7Screens.refs().filter((r) => r.screen === 'gear-item').length : 0;
+    $('#gs-scan-info').textContent = `${C.line()} · ${A.gs.scanned.length} items read from the screen · boxes ${calibrated() ? 'set' : 'not set'} · item screen ${n ? `taught (${n})` : 'not taught'}${reader && reader.note ? ` · ${reader.note}` : ''}`;
+  }
+  C.onStatus(update);
+  $('#gs-scan').addEventListener('click', () => {
+    const s = C.status();
+    if (C.alive() && s && s.watching) C.stop().catch(() => {});
+    else
+      C.ensure()
+        .then(() => !calibrated() && calibrate())
+        .catch((e) => status(e.message));
+  });
+  $('#gs-scan-boxes').addEventListener('click', calibrate);
+  $('#gs-scan-teach').addEventListener('click', () =>
+    C.teach('gear-item')
+      .then((r) => {
+        status(`Item screen taught (${r.examples} example${r.examples === 1 ? '' : 's'}).`);
+        update();
+      })
+      .catch((e) => status('Could not teach: ' + e.message)),
+  );
   $('#gs-scan-use').addEventListener('change', (e) => A.setUseScanned(e.target.checked));
   $('#gs-scan-clear').addEventListener('click', () => {
     if (A.gs.scanned.length && confirm('Delete all items read from the screen?')) A.clearScanned();
     update();
   });
   update();
-  window.GearScan = { start, stop, tick, calibrate, _useSource: (s) => (source = s), isReading: () => !!timer };
+  window.GearScan = { calibrate, update };
 })();

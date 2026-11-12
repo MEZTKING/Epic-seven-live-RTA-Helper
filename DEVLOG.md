@@ -7,6 +7,73 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #21 · Step 1a: one game watcher for the whole app (vision service + event bus) · this commit (previous: `6747836`)
+
+**Asked for:** "yes start step 1": the first step of the plan in `docs/DESIGN_REVIEW.md`. One always-on watcher captures
+the game, works out the screen and runs the readers; modules only receive events. While this was being built the owner
+also sent Steam screenshots of the RTA draft (preban, picking, postban "BAN", "Ready" with BANNED stamps), battle (CR bar,
+expanded CR with exact percentages) and a Defeat screen. They're input for step 2; chat images aren't files here.
+
+**Findings**
+- The Gear and Guild War readers are small and only need a few saved boxes, so they move cleanly.
+- The RTA reader (`js/auto.js`, 940 lines) uses about 50 RTA page elements and the RTA app state directly. Moving it is
+  step **1b**. Until then it keeps its own capture; in the desktop app both capture the same game window, which is fine.
+- Video frames can't be shared between windows cheaply, so the readers run next to the capture (in the watcher) and only
+  facts travel. Drawing boxes uses a JPEG **snapshot** requested from the watcher.
+- Electron allows `getDisplayMedia` from a hidden window (checked), so the desktop watcher can start by itself.
+
+**Changed**
+- New `js/vision/`:
+  - `core.js` (pure, tested): event bus with cross-window delivery, a fact log in `localStorage['e7-vision-log']` (last
+    200), request/reply commands, and `repeatGate` (a value must be seen twice in a row).
+  - `bus.js`.
+  - `hub.js`: the watcher. One capture; game area or game window; screen detection every 0.5 s; readers run only on
+    their own screen; one shared tesseract worker; commands start / stop / status / snapshot / teach. A second start
+    while starting reuses the first.
+  - `client.js`, `panel.js`.
+  - `readers/gear-item.js`, `readers/guild-name.js`.
+  - `consumers/gear.js`.
+- `js/gearstore.js` (new): the gear store shared by the Gear page and the gear consumer. Screen items are saved even when
+  the Gear page is closed; sources are still kept apart.
+- `vision.html` (new): the watcher's page. In the desktop app it's a hidden window created at start. It starts by itself
+  once a game window was chosen, restarts when the choice changes, and closing it only hides it. Menu **Game window → Show
+  the game watcher**. `E7Desktop.showSelf` lets it show itself while asking "Where is the game?".
+- `live.html`: hosts the watcher in a browser (keep the tab open); new **Game watcher** card with status, readers and
+  recent events. In the desktop app it shows the background watcher.
+- `js/gear-scan.js` and `js/guild-watch.js` rewritten as watcher clients: start the watcher (desktop) or open Live
+  (browser); draw boxes on a snapshot; teach screens through the watcher; show results from events. The Guild War page
+  matches `guild:name-read` to known players itself (it has the guild data) and posts the overlay.
+- `js/gear-app.js` uses `GearStore`, reloads on `gear:added` / storage changes. `js/game-area.js`: `isStale` (no alert),
+  `markCalibrated` takes a frame key.
+- Desktop: `main.js` creates the hidden watcher window; preload `showSelf`; `capture().chosen`; `vision.html` packaged.
+- `sw.js` v15 (new files). Docs: HANDOFF (code map, flows, storage key), ROADMAP (architecture plan steps 1b–4),
+  CLAUDE.md (where readers go).
+
+**Bugs found and fixed while building**
+- I overwrote the existing `tests/vision.test.js` (portrait tests) with the new bus tests. Restored from git; the new
+  tests are `tests/vision-core.test.js`.
+- `gear-app.js` called `load()` before it was defined (crash on load); fixed.
+- Desktop tests picked the hidden watcher window as "main"; they now look for `index.html`.
+
+**Tested**
+- `npm test` 83 passing (5 new). Browser suite 13/13 clean. The moved tests now run the watcher on the Live page with fake
+  game frames:
+  - Gear: two items added from the Live page show up on the Gear page with verdicts, and in the overlay. The reader
+    pauses on another screen. The "Set boxes" snapshot arrives (1280×720).
+  - Guild War: the name read by the watcher selects "Quiet" in the pop-out.
+  - Game-area crop through the watcher.
+- Packaged desktop app (Xvfb + Openbox), new `tests/desktop/watcher.js`:
+  - First launch: hidden watcher; Gear "Start the game watcher" → picker → watching only the fake game window; the Gear
+    page shows the status; the watcher stays hidden.
+  - Second launch: it starts by itself with no picker.
+  - `cancel.js`: cancelling the picker shows "Capture was cancelled", not watching.
+  - `popout.js`, `zoom.js`, `winpick.js` still pass.
+- **Not tested:** real game screens, Windows.
+
+**Open:** step 1b (RTA reader into the watcher). The screenshots need to be files for step 2.
+
+---
+
 ## 2026-11-12 · #20 · Design review: Fable and DeepSeek on "build it from scratch" · this commit (previous: `d2160db`)
 
 **Asked for:** "ask fable and deepseek what is the best way to design this app from scratch again".
