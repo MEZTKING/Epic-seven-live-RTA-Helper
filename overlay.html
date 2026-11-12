@@ -33,11 +33,22 @@
       const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const layers = {};
       const root = document.getElementById('layers');
+      // readers measure inside the game area (js/game-area.js); map back to the whole screen
+      const area = () => {
+        try {
+          const a = JSON.parse(localStorage.getItem('e7-game-area') || 'null');
+          return a && !a.full ? a : { x: 0, y: 0, w: 1, h: 1 };
+        } catch (_) {
+          return { x: 0, y: 0, w: 1, h: 1 };
+        }
+      };
+      addEventListener('storage', (e) => e.key === 'e7-game-area' && draw());
       function draw() {
         const W = innerWidth, H = innerHeight;
+        const A = desktop ? area() : { x: 0, y: 0, w: 1, h: 1 };
         root.innerHTML = Object.values(layers).flat().map((it) => {
-          let x = it.x * W, y = it.y * H;
-          const w = (it.w || 0) * W, h = (it.h || 0) * H;
+          let x = (A.x + it.x * A.w) * W, y = (A.y + it.y * A.h) * H;
+          const w = (it.w || 0) * A.w * W, h = (it.h || 0) * A.h * H;
           const side = it.side || 'right';
           let style = '';
           if (it.kind === 'dot') style = `left:${x + w + 4}px;top:${y + h / 2 - 7}px`;

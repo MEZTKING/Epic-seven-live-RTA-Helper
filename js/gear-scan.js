@@ -54,7 +54,7 @@
     v.muted = true;
     v.srcObject = stream;
     await v.play();
-    source = v;
+    source = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
     stream.getVideoTracks()[0].addEventListener('ended', stop);
     if (!calibrated()) calibrate();
     timer = setInterval(tick, 1500);
@@ -63,6 +63,7 @@
   function stop() {
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null;
+    if (source && source.stopGameArea) source.stopGameArea();
     clearInterval(timer);
     timer = null;
     if (window.E7Overlay) window.E7Overlay.clear('gear');

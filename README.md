@@ -54,6 +54,9 @@ No Node.js or command line needed. GitHub builds the app automatically:
 3. Run **`Epic-7-Engine-<version>-portable.exe`**. It's a portable app, so there's no installer; put it anywhere, e.g. on your desktop.
    Windows may say "Windows protected your PC" because the app isn't signed: **More info → Run anyway**.
 
+4. The first time you start reading (RTA Auto, Guild War Watch, Gear Read), drag a box around the game window. Moved the
+   game window? Press **Reset game area**. Text too small or big? **Ctrl+=** / **Ctrl+-** (**Ctrl+0** resets).
+
 When a version tag (e.g. `v0.1.0`) is pushed, the same .exe is also attached to a **Release** (Releases section of the repo).
 Without the desktop app you can simply open `index.html` in Chrome or Edge (everything except the overlay).
 Building it yourself: see [desktop/README.md](desktop/README.md).

@@ -25,10 +25,11 @@
     } catch (_) {
       return;
     }
-    video = document.createElement('video');
-    video.muted = true;
-    video.srcObject = stream;
-    await video.play();
+    const v = document.createElement('video');
+    v.muted = true;
+    v.srcObject = stream;
+    await v.play();
+    video = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
     stream.getVideoTracks()[0].addEventListener('ended', stop);
     if (!box()) calibrate();
     timer = setInterval(tick, 2000);
@@ -37,6 +38,7 @@
   function stop() {
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null;
+    if (video && video.stopGameArea) video.stopGameArea();
     clearInterval(timer);
     timer = null;
     update();
@@ -52,10 +54,12 @@
 
   // --- one box: where the enemy's name is shown in game
   function calibrate() {
-    if (!video || !video.videoWidth) return alert('Start "Watch game" first, with an enemy profile or defense showing.');
+    const fw = video && (video.videoWidth || video.width);
+    const fh = video && (video.videoHeight || video.height);
+    if (!fw) return alert('Start "Watch game" first, with an enemy profile or defense showing.');
     const cv = $('#gw-calib-canvas');
-    cv.width = video.videoWidth;
-    cv.height = video.videoHeight;
+    cv.width = fw;
+    cv.height = fh;
     const ctx = cv.getContext('2d');
     const frame = document.createElement('canvas');
     frame.width = cv.width;

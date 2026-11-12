@@ -7,6 +7,44 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #16 · Box the game window (game area) + bigger text · this commit (previous: `e062f43`)
+
+**Asked for:** (with two screenshots of the desktop app on Windows) "make the ui and text size bigger" and "watch
+emulator window shows up like that". The calibration picture showed the **whole desktop** (other windows, the app
+itself) with the game small in the middle, because the desktop app captures the entire display.
+
+**Findings:** Electron's display-capture approval hands over the whole display, so every calibration box and every
+reader worked on a full-screen picture where the game is small. Cropping once, centrally, fixes all three readers and
+makes calibration show the game large. The overlay must then map positions back from the game to the screen.
+
+**Changed**
+- `js/game-area.js` (new): `GameArea.wrap(video)` asks once for a box around the game ("Where is the game?" dialog;
+  "Use the whole picture" also possible), saves it in `localStorage['e7-game-area']`, and returns a canvas with just the
+  game, refreshed every 100 ms. Asked again if the capture size changes. Any `[data-reset-game-area]` button clears it.
+- `js/auto.js`, `js/guild-watch.js`, `js/gear-scan.js`: read from the wrapped source and stop its timer on stop.
+  `auto.js` gained a `live` flag so screenshot mode and live mode no longer depend on `source === video`.
+- `rta.html`, `guild.html`, `gear.html`, `live.html` (+ `js/live.js` status line): "Reset game area" buttons; load
+  `game-area.js`.
+- `overlay.html`: in desktop mode, item positions are mapped through the game area; re-draws when it changes.
+- Bigger text: `css/styles.css` base font 14px → 15px (line height 1.5), hints 12.5px → 13.5px. Desktop app opens
+  pages at **125% zoom**; View menu Ctrl+= / Ctrl+- / Ctrl+0 (0.6–2.5, saved); Overlay menu bigger/smaller overlay text.
+- `sw.js` cache v12 (adds game-area.js). Docs: HANDOFF (storage key, flow, zoom), README, desktop/README.
+
+**Tested**
+- `npm test`: 74 passing. `node --check desktop/main.js` ok.
+- New `tests/e2e/game-area.e2e.js`: a generated 1920×1080 "screen" with distracting text outside and a 960×540 game
+  window holding an item panel. The wrapped source is 960×540, the gear reader read the item correctly (Boots, Speed
+  Set, Speed 45, 4 substats) and ignored the text outside; the desktop overlay put a label at the expected screen
+  position ([1182, 470]).
+- Full browser suite: all 12 tests clean.
+- **Not tested:** the Electron zoom menu and overlay mapping in the real Windows app (no Windows/display here). The
+  owner's next exe run is the first real check.
+
+**Open:** if the game window moves, the box must be redrawn (Reset game area). Auto-finding the game window by its
+picture could come later.
+
+---
+
 ## 2026-11-12 · #15 · Automatic Windows .exe build (GitHub Actions) · this commit (previous: `605855e`)
 
 **Asked for:** set up the automatic exe build (after explaining how to install on Windows), so the app can be
