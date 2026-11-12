@@ -13,3 +13,9 @@
   one source into another; label every suggestion reason with its source.
 - Fribbels data and formats: use the maintained RexQian fork (github.com/RexQian/Fribbels-Epic-7-Optimizer),
   not the original fribbels repo.
+
+## Devlog (owner's standing instruction)
+- Every change (code, data, docs, config) gets an entry in `DEVLOG.md`, in the **same commit**, newest first,
+  using the template at the bottom of that file: what was asked, research findings, what changed, bugs found
+  and fixed, how it was tested (and what wasn't), and open questions or assumptions.
+- Number entries in order (#1, #2, …) and reference the previous commit hash where relevant.

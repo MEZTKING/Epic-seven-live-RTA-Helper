@@ -154,6 +154,8 @@ You can tune the weights in `js/logic.js` (`W`, `TIER_SCORE`).
 
 ## Development
 
+The full history of changes, research notes, bugs and open questions is in [DEVLOG.md](DEVLOG.md).
+
 Plain HTML, CSS and JavaScript with no build step. Open `index.html`.
 
 ```
