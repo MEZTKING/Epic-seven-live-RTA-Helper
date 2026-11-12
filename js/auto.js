@@ -155,17 +155,63 @@
     const list = window.E7Pictures ? await window.E7Pictures.list() : [];
     if (!list.length) return alert('No saved pictures yet. While watching, press Ctrl+Shift+S (desktop app) or "Save a game picture" on the draft screen. While the RTA reader isn\'t calibrated, it also saves one every 15 s.');
     const d = $('#pics');
+    $('#pics-what').classList.add('hidden');
+    $('#pics-list').classList.remove('hidden');
     $('#pics-list').innerHTML = list.map((p) => `<button class="pic" data-pic="${p.id}" title="${esc(new Date(p.at).toLocaleString())}"><img alt="" src="${p.url}" /><span>${esc(new Date(p.at).toLocaleTimeString())} ${esc(p.note || '')}</span></button>`).join('');
     d.showModal();
+  }
+  // 1) pick a picture, 2) say what's on it, 3) draw only those boxes
+  let chosenPic = null;
+  const PARTS = () => {
+    const r = cfg().regions || {};
+    const has = (keys) => keys.every((k) => r[k]);
+    return [
+      { id: 'draft', label: 'Draft screen: all slots (prebans, picks, opponent name)', steps: V.REGION_STEPS, done: V.isCalibrated(r) },
+      ...V.REGION_STEPS.map((st) => ({ id: 'one:' + st.key, label: `Draft screen, just one box: ${st.label}`, steps: [st], done: has([st.key]), small: true })),
+      { id: 'cr', label: 'Battle: CR (turn order) bar', steps: CR_STEPS, done: has(['crBar']) },
+      { id: 'crx', label: 'Battle: EXPANDED CR bar', steps: CR_EXP_STEPS, done: has(['crBarExpanded']) },
+      { id: 'result', label: 'Victory / Defeat screen', steps: RESULT_STEPS, done: has(['result']) },
+      { id: 'help', label: "The game's drafting help (suggested heroes)", help: true, done: has(['helpFirst', 'helpLast']) },
+    ];
+  };
+  function showParts(p) {
+    chosenPic = p;
+    $('#pics-list').classList.add('hidden');
+    $('#pics-what').classList.remove('hidden');
+    $('#pics-preview').src = p.url;
+    const parts = PARTS();
+    const big = parts.filter((x) => !x.small);
+    const one = parts.filter((x) => x.small);
+    $('#pics-parts').innerHTML =
+      big.map((x) => `<button class="btn${x.id === 'draft' ? ' primary' : ''}" data-part="${x.id}">${x.done ? '✓ ' : ''}${esc(x.label)}</button>`).join('') +
+      `<label class="hint">Redo one draft box: <select id="pics-one"><option value="">choose…</option>${one.map((x) => `<option value="${x.id}">${x.done ? '✓ ' : ''}${esc(x.label.replace('Draft screen, just one box: ', ''))}</option>`).join('')}</select></label>`;
+  }
+  function startPart(id) {
+    const part = PARTS().find((x) => x.id === id);
+    if (!part || !chosenPic) return;
+    const p = chosenPic;
+    $('#pics').close();
+    const img = new Image();
+    img.onload = () => {
+      const pic = { img, w: p.w, h: p.h, frameKey: p.frameKey };
+      if (part.help) calibrateHelp(pic);
+      else startCalibration(part.steps, pic);
+    };
+    img.src = p.url;
   }
   $('#pics-list').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-pic]');
     if (!b) return;
-    const p = await window.E7Pictures.get(b.dataset.pic);
-    $('#pics').close();
-    const img = new Image();
-    img.onload = () => startCalibration(V.REGION_STEPS, { img, w: p.w, h: p.h, frameKey: p.frameKey });
-    img.src = p.url;
+    showParts(await window.E7Pictures.get(b.dataset.pic));
+  });
+  $('#pics-parts').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-part]');
+    if (b) startPart(b.dataset.part);
+  });
+  $('#pics-parts').addEventListener('change', (e) => e.target.id === 'pics-one' && e.target.value && startPart(e.target.value));
+  $('#pics-back').addEventListener('click', () => {
+    $('#pics-what').classList.add('hidden');
+    $('#pics-list').classList.remove('hidden');
   });
   $('#pics-close').addEventListener('click', () => $('#pics').close());
   $('#pics-clear').addEventListener('click', async () => {
@@ -633,12 +679,12 @@
   const CR_STEPS = [{ key: 'crBar', label: 'the CR (turn order) bar, from its 0% end to its 100% end, as tall/wide as the portraits on it' }];
   const CR_EXP_STEPS = [{ key: 'crBarExpanded', label: 'the EXPANDED CR bar (open it in battle first), from its 0% end to its 100% end, as tall/wide as the portraits' }];
   const RESULT_STEPS = [{ key: 'result', label: 'where VICTORY / DEFEAT is written on the result screen' }];
-  function calibrateHelp() {
+  function calibrateHelp(pic = null) {
     const n = prompt("How many heroes does the game's drafting help show at once?", String(cfg().helpCount || 5));
     if (!n || !(Number(n) >= 1)) return;
     cfg().helpCount = Math.min(10, Math.round(Number(n)));
     App.save();
-    startCalibration(V.GAME_HELP_STEPS);
+    startCalibration(V.GAME_HELP_STEPS, pic && pic.img ? pic : null);
   }
 
   /** pic (optional): { img, w, h, frameKey } from a saved game picture: calibrate on it instead of the live picture. */
@@ -1004,7 +1050,7 @@
   $('#auto-calib-cr-exp').addEventListener('click', () => startCalibration(CR_EXP_STEPS));
   $('#auto-calib-result').addEventListener('click', () => startCalibration(RESULT_STEPS));
   $('#auto-read-cr').addEventListener('click', () => readCR());
-  $('#auto-calib-help').addEventListener('click', calibrateHelp);
+  $('#auto-calib-help').addEventListener('click', () => calibrateHelp());
   const clearSrc = (src, label) => () => {
     if (!confirm(`Delete all ${label}?`)) return;
     cfg().corrections = cfg().corrections.filter((c) => c.source !== src);

@@ -138,6 +138,14 @@
         <h3>Saved game pictures</h3>
         <p class="hint">Pick a picture of the draft screen and draw the boxes on it. The boxes work in every later game (as long as the game window keeps its shape).</p>
         <div id="pics-list" class="pics"></div>
+        <div id="pics-what" class="hidden">
+          <p><b>What's on this picture?</b> Pick the part to draw boxes for.</p>
+          <div class="pics-what">
+            <img id="pics-preview" alt="Chosen game picture" />
+            <div id="pics-parts" class="pics-parts"></div>
+          </div>
+          <div class="btn-row"><button id="pics-back" class="btn">← Other picture</button></div>
+        </div>
         <div class="btn-row"><button id="pics-clear" class="btn danger">Delete all</button><span class="spacer"></span><button id="pics-close" class="btn">Close</button></div>
       </dialog>
       <div id="calib" class="card wide hidden">

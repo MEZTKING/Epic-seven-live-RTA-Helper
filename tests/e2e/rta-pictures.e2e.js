@@ -48,9 +48,30 @@ const { chromium } = require('playwright');
   const listed = await p.$$eval('#pics .pic span', (s) => s.map((x) => x.textContent.replace(/^\S+\s*(AM|PM)?\s*/, '').trim()));
   console.log('pictures listed:', JSON.stringify(listed));
   await p.screenshot({ path: OUT + '/rta-pictures.png' });
-  // pick the "test draft" picture -> calibration opens on it
+  // pick the "test draft" picture -> first say what's on it (no calibration yet)
   const idx = listed.findIndex((t) => t.includes('test draft'));
   await (await p.$$('#pics .pic'))[idx].click();
+  await p.waitForTimeout(300);
+  const parts = await p.evaluate(() => ({ calibOpen: !document.querySelector('#calib').classList.contains('hidden'), parts: [...document.querySelectorAll('#pics-parts [data-part]')].map((b) => b.textContent), oneBoxChoices: document.querySelectorAll('#pics-one option').length - 1 }));
+  console.log('after choosing a picture:', JSON.stringify(parts));
+  // a single part: the CR bar -> only that one step
+  await p.click('#pics-parts [data-part=cr]');
+  await p.waitForTimeout(400);
+  console.log('CR bar part:', await p.textContent('#calib-step'));
+  await p.click('#calib-cancel');
+  // one draft box from the dropdown
+  await p.click('#auto-pics');
+  await p.waitForSelector('#pics[open] .pic');
+  await (await p.$$('#pics .pic'))[idx].click();
+  await p.selectOption('#pics-one', 'one:oppPickFirst');
+  await p.waitForTimeout(400);
+  console.log('one box:', await p.textContent('#calib-step'));
+  await p.click('#calib-cancel');
+  // the whole draft screen
+  await p.click('#auto-pics');
+  await p.waitForSelector('#pics[open] .pic');
+  await (await p.$$('#pics .pic'))[idx].click();
+  await p.click('#pics-parts [data-part=draft]');
   await p.waitForTimeout(400);
   const open1 = await p.evaluate(() => ({ visible: !document.querySelector('#calib').classList.contains('hidden'), step: document.querySelector('#calib-step').textContent, w: document.querySelector('#calib-canvas').width }));
   console.log('calibration on saved picture:', JSON.stringify(open1));
@@ -61,6 +82,7 @@ const { chromium } = require('playwright');
   await (await p.$$('#auto-pics')).at(0).click();
   await p.waitForSelector('#pics[open] .pic');
   await (await p.$$('#pics .pic'))[idx].click();
+  await p.click('#pics-parts [data-part=draft]');
   await p.waitForTimeout(300);
   const cv = await p.$('#calib-canvas');
   const bb = await cv.boundingBox();

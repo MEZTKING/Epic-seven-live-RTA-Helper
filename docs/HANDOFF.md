@@ -92,7 +92,7 @@ only receive events.
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card), `table` or `heroes` (gear per hero) |
-| IndexedDB `e7-pictures` | `js/pictures.js` | Saved game pictures (newest 24) to calibrate on after a match: Ctrl+Shift+S (desktop), "Save a game picture", or auto every 15 s while RTA isn't calibrated |
+| IndexedDB `e7-pictures` | `js/pictures.js` | Saved game pictures (newest 24) to calibrate on after a match (choose the part first: draft, one box, CR, expanded CR, result, drafting help): Ctrl+Shift+S (desktop), "Save a game picture", or auto every 15 s while RTA isn't calibrated |
 | `rta-helper-v2`.`auto.faceCorrections` | `js/auto.js` | Face-matcher copies of your corrections on round slots (`{code, q}`) |
 | Desktop `config.devCapture` + `Pictures/Epic 7 Engine/<date>/` | `desktop/main.js`, `js/vision/hub.js` | Developer tool: automatic PNG + JSON notes when the scene changes |
 | `localStorage['e7-frame-of']` | `js/game-area.js` | Which picture each module's calibration boxes were drawn on (`{rta, gear, guild}` → `window` / `area:x,y,w,h` / `full`); readers warn once when it changed |
@@ -176,7 +176,7 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #23)
+## 7. Status (end of DEVLOG #24)
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).
