@@ -36,6 +36,12 @@
         <button id="war-done" class="btn">Mark finished</button>
         <button id="target-add" class="btn primary">Add enemy defense</button>
       </div>
+      <div class="btn-row">
+        <button id="gw-pip" class="btn" title="Small always-on-top window beside the game">Pop out ⧉</button>
+        <button id="gw-watch" class="btn" title="Read the enemy's name from the game window">Watch game</button>
+        <button id="gw-watch-box" class="btn hidden">Set name box</button>
+        <span id="gw-watch-read" class="hint"></span>
+      </div>
       <div id="war-summary" class="cards" style="margin-top:12px"></div>
       <div id="war-ideas" class="card wide hidden"></div>
       <div class="legend" aria-label="What the dots mean">
@@ -180,6 +186,14 @@
     </form>
   </dialog>
 
+  <!-- name box calibration for "Watch game" -->
+  <dialog id="gw-calib" class="wide-dialog">
+    <h3>Where is the enemy's name?</h3>
+    <p class="hint">Open an enemy player's profile or defense in the game, then drag a box over their name. Saved on this device.</p>
+    <canvas id="gw-calib-canvas" style="width:100%;height:auto;cursor:crosshair;touch-action:none"></canvas>
+    <div class="btn-row"><span class="spacer"></span><button id="gw-calib-cancel" class="btn">Cancel</button><button id="gw-calib-save" class="btn primary">Save</button></div>
+  </dialog>
+
   <!-- player history -->
   <dialog id="hist-dialog" class="wide-dialog">
     <h3 id="hist-title"></h3>
@@ -199,5 +213,7 @@
   <script src="js/guildwar.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/guild-app.js"></script>
+  <script src="js/guild-pip.js"></script>
+  <script src="js/guild-watch.js"></script>
 </body>
 </html>

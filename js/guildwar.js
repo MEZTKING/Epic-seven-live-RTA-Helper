@@ -408,6 +408,34 @@
     return { name, appearances: hist, heroes: [...heroes.values()].sort((a, b) => b.seen - a.seen), builds: builds.reverse(), wins, losses, seasons };
   }
 
+  /**
+   * Match a name read from the screen (OCR, may have small mistakes) to a known
+   * player. Returns the best name or null. Allows ~1 mistake per 4 letters.
+   */
+  function matchPlayer(text, names) {
+    const norm = (x) => String(x || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    const q = norm(text);
+    if (q.length < 2) return null;
+    let best = null;
+    for (const n of new Set(names)) {
+      const k = norm(n);
+      if (!k) continue;
+      if (k === q) return n;
+      const d = editDistance(q, k);
+      const allowed = Math.max(1, Math.floor(k.length / 4));
+      const contains = k.length >= 4 && (q.includes(k) || k.includes(q)) && Math.min(q.length, k.length) / Math.max(q.length, k.length) >= 0.6;
+      if ((d <= allowed || contains) && (!best || d < best.d)) best = { n, d };
+    }
+    return best ? best.n : null;
+  }
+  function editDistance(a, b) {
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+    for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++)
+      for (let j = 1; j <= b.length; j++) dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return dp[a.length][b.length];
+  }
+
   /** A fresh random id / guild code. */
   function newId(len = 12) {
     const abc = 'abcdefghijkmnpqrstuvwxyz23456789';
@@ -417,7 +445,7 @@
     return s;
   }
 
-  const api = { LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
+  const api = { matchPlayer, editDistance, LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAGuildWar = api;
 })(typeof window !== 'undefined' ? window : globalThis);

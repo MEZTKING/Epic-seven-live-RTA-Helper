@@ -42,6 +42,12 @@ RTA and Gear data stay in your browser. Guild War data is shared with your guild
   shows every time anyone in the guild met that player: their teams, speeds (latest and highest per hero), builds
   noted, every attack with who, which team, the result and the attacker's speeds, and the guild's record against them.
   If you met them in RTA, your own RTA record against them is shown too (from this device only, not shared).
+- **Pop-out beside the game (⧉):** a small always-on-top window (Chrome/Edge) showing the enemy you're looking at.
+  It has their dot, each team with your proven counter and speed check, one-tap **Won / Lost** (logs the suggested
+  counter, with your speeds), Prev/Next through uncleared targets with the best chances first, and a link to their full history.
+  Pick the player with ⧉ on a card, by typing in the pop-out, or let **Watch game** do it: box where the enemy's
+  name appears once, and the app reads it from the emulator every 2 seconds. It tolerates small reading mistakes and
+  never touches the game.
 - **Speeds on attacks:** when you log an attack, your heroes' speeds from your `gear.txt` are attached (you can turn this
   off in Setup). That's how the guild learns what speed it takes to win.
 - **Sharing:** live through Firebase, with anonymous sign-in (no emails). One person sets it up in about 10 minutes and
