@@ -67,6 +67,7 @@
       scouting: [],
       meta: {},
       gameHelp: [], // what the game's RTA drafting help recommended (source 'game help')
+      mySpeeds: {}, // speeds you typed per hero (source 'my speeds'), e.g. when gear.txt isn't available (Steam)
     };
   }
   function freshDraft(firstPick, opponent = '') {
@@ -122,6 +123,7 @@
     s.fribbelsData = raw.fribbelsData && raw.fribbelsData.stats ? raw.fribbelsData : null;
     s.scouting = arr(raw.scouting);
     s.gameHelp = arr(raw.gameHelp);
+    s.mySpeeds = raw.mySpeeds && typeof raw.mySpeeds === 'object' ? raw.mySpeeds : {};
     s.meta = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
     if (Array.isArray(raw.sim)) s.sim = raw.sim;
     if (raw.pending && Array.isArray(raw.pending.actions)) s.pending = raw.pending;
@@ -206,6 +208,14 @@
         if (r.speed) mySpeeds.set(code, r.speed);
       }
     }
+    // speeds you typed yourself win over gear.txt (you know your current build best)
+    const typedSpeeds = new Set();
+    for (const [code, v] of Object.entries(store.mySpeeds || {})) {
+      if (Number(v) > 0) {
+        mySpeeds.set(code, Number(v));
+        typedSpeeds.add(code);
+      }
+    }
     const scout = Learn.scoutSummary(store.scouting);
     const meta = store.settings.useMeta
       ? Object.entries(store.meta)
@@ -213,7 +223,7 @@
           .map(([name, m]) => ({ name, rows: m.rows }))
       : [];
     const gameHelp = Learn.gameHelpStats(store.gameHelp, enabledMatches);
-    cache = { heroes, byCode, owned, stars, enabledMatches, stats, fdata, builds, mySpeeds, scout, meta, gameHelp };
+    cache = { heroes, byCode, owned, stars, enabledMatches, stats, fdata, builds, mySpeeds, typedSpeeds, scout, meta, gameHelp };
   }
 
   function clone(x) {
@@ -858,8 +868,14 @@
         const fr = cache.stars.has(h.code) ? `<span class="src fribbels" title="From Fribbels import">${cache.stars.get(h.code) || ''}★</span>` : '';
         const learned = st && st.team.games ? `${pct(st.team.wins, st.team.games)} <small>(${st.team.games})</small>` : '—';
         const b = cache.builds.get(h.code);
-        const build = b
-          ? `<b>${b.speed ?? '?'}</b> spd${b.eeSpeedPossible ? '<span title="Exclusive equipment can add speed; not included">*</span>' : ''}<br>${esc(b.sets.join(' + ') || 'no sets')}${b.artifact ? '<br>' + esc(b.artifact) : ''}${b.note ? `<br><span class="hint">${esc(b.note)}</span>` : ''}`
+        const typed = cache.typedSpeeds.has(h.code) ? `<b>${cache.mySpeeds.get(h.code)}</b> spd <span class="src notes" title="Speed you typed (source 'my speeds')">typed</span>` : '';
+        const build = typed && !b
+          ? typed
+          : b
+          ? `${typed ? typed + '<br><span class="hint">gear.txt: ' + (b.speed ?? '?') + '</span>' : `<b>${b.speed ?? '?'}</b> spd`}`
+          : '';
+        const buildRest = b
+          ? `${b.eeSpeedPossible ? '<span title="Exclusive equipment can add speed; not included">*</span>' : ''}<br>${esc(b.sets.join(' + ') || 'no sets')}${b.artifact ? '<br>' + esc(b.artifact) : ''}${b.note ? `<br><span class="hint">${esc(b.note)}</span>` : ''}`
           : '';
         const tags = (n.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
         return `<tr data-code="${esc(h.code)}">
@@ -867,7 +883,7 @@
           <td class="hcell">${portrait(h.code, 'pt', true)}<span>${esc(h.name)}${h.source === 'custom' ? ' <span class="src other">custom</span>' : ''}</span></td>
           <td>${dot(h.element)} ${esc(R.ROLE_LABEL[h.role] || h.role)}</td>
           <td>${esc(n.tier || '—')}${tags ? '<br>' + tags : ''}</td>
-          <td class="small">${build}</td>
+          <td class="small">${build}${buildRest}</td>
           <td class="small">${heroList(n.counters)}</td>
           <td class="small">${heroList(n.synergies)}</td>
           <td class="small">${learned}</td>
@@ -916,6 +932,9 @@
     for (const f of [form.heroName, form.element, form.role]) f.disabled = !editing.isCustom;
     form.tier.value = n.tier || '';
     form.owned.checked = !!code && store.manualOwned.includes(code);
+    form.mySpeed.value = (code && store.mySpeeds[code]) || '';
+    const b = code && cache.builds.get(code);
+    form.mySpeed.placeholder = b && b.speed ? `from gear.txt: ${b.speed}` : 'e.g. 285';
     form.notes.value = n.notes || '';
     $('#tag-boxes').innerHTML = L.TAGS.map((t) => `<label class="inline tagbox"><input type="checkbox" value="${esc(t)}" ${(n.tags || []).includes(t) ? 'checked' : ''}/> ${esc(t)}</label>`).join('');
     form.querySelectorAll('.chip-input').forEach((i) => (i.value = ''));
@@ -965,6 +984,9 @@
     else delete store.notes[code];
     store.manualOwned = store.manualOwned.filter((c) => c !== code);
     if (form.owned.checked) store.manualOwned.push(code);
+    const typed = Number(form.mySpeed.value);
+    if (typed > 0) store.mySpeeds[code] = Math.round(typed);
+    else delete store.mySpeeds[code];
     save();
     dlg.close();
     render();
@@ -1635,7 +1657,8 @@
         const b = cache.builds.get(code);
         const st = cache.stats.hero.get(code);
         const parts = [];
-        if (b && b.speed) parts.push(`Your build: <b>${b.speed}</b> speed · ${esc(b.sets.join(' + ') || 'no sets')}${b.artifact ? ' · ' + esc(b.artifact) : ''}`);
+        if (cache.typedSpeeds.has(code)) parts.push(`Your speed (typed): <b>${cache.mySpeeds.get(code)}</b>`);
+        if (b && b.speed) parts.push(`Your build (gear.txt): <b>${b.speed}</b> speed · ${esc(b.sets.join(' + ') || 'no sets')}${b.artifact ? ' · ' + esc(b.artifact) : ''}`);
         if (st && st.team.games) parts.push(`RTA (learned): ${pct(st.team.wins, st.team.games)} win rate in ${gm(st.team.games)}`);
         const sc = cache.scout.all.get(code);
         if (sc && sc.speed) parts.push(`Opponents' speed seen: ~${sc.speed} (${sc.low}–${sc.high}, ${sc.speeds}×)`);

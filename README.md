@@ -46,6 +46,14 @@ Tap **ⓘ**, a hero in a draft slot, or a hero chip in Guild War to open the her
   These are facts, not opinions, so the team check works with no manual tagging.
 - A link to the hero's page on **epic7x.com**, plus your build, RTA record and opponents' speeds seen.
 
+## Steam version
+
+Everything works with the Steam version (or any PC client or emulator), because the app only reads the screen.
+Calibrate once for the client you use, and run it windowed or borderless for the desktop overlay.
+**Fribbels' gear importer doesn't work with the Steam version**, so: read gear with **Gear → Read gear from the game**,
+and type your key heroes' speeds in **RTA → Heroes → Edit → My speed** (used by RTA speed checks and the Guild War
+dots). Reading each hero's gear screen automatically is the top item in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Gear without Fribbels
 
 **Gear → Read gear from the game:** box the item details panel once, then click through your inventory. Each item is
