@@ -30,6 +30,10 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
    Defeat, inventory and item-detail screenshots in chat; they're needed as files (e.g. `tests/fixtures/screens/`).
 3. IndexedDB storage, one store per source; append-only match / gear history.
 4. A fixed-font digit/glyph reader for gear stats (tesseract stays for names).
+5. **Stronger hero-face matcher** (raised after DEVLOG #22: the current 16×16 matcher got 20/40 real faces confidently, with
+   1–2 wrong). Embedding model (ONNX) or bigger features + circular mask; test with `tests/real/match-portraits.js`.
+6. Opponent names in Korean / Japanese / Chinese: load those tesseract languages for the name reader; result +/− from the
+   arrow colour, not the OCR'd sign.
 
 ## Other planned items
 

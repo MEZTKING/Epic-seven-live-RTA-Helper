@@ -7,6 +7,48 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #22 · First real game screenshots: what the readers get right and wrong · this commit (previous: `06ae25a`)
+
+**Asked for:** the owner sent two Steam screenshots as files: the RTA **pre-ban picker** ("Select Pre-Ban Hero" grid) and a
+**Victory** screen. (The earlier draft / battle / Defeat screenshots were pasted into the chat and aren't available as
+files.)
+
+**Changed**
+- `tests/fixtures/screens/` (new), the start of the real-screenshot test set:
+  - `steam-rta-victory.png` and `steam-rta-preban-select.png`, cropped to the game picture (without the Windows title
+    bar; both exactly 16:9, about 1343×757).
+  - The player name, the opponent's name and both guild names are blacked out, because the repo is public.
+- `tests/real/ocr-victory.js` and `tests/real/match-portraits.js` (new): re-runnable checks of the current text reader and
+  face matcher on those pictures. They're not part of `run-all.sh` yet, because there are no confirmed right answers
+  (labels) for the faces.
+
+**Findings (real data, first time)**
+- **Text (tesseract.js 5.1.1, `eng`)**:
+  - "VICTORY" correct (confidence 42, stylised font); Victory Points "1,344" (96); "The opponent has left the battle."
+    (95); the player name correct (92, on the unredacted original).
+  - **The point change "▲ 23" reads as "- 23"**: the arrow becomes a minus. Win or loss and +/− must come from the
+    arrow's colour (green up / blue down) or the result word, never from the sign in the text.
+  - **Korean opponent names**: `eng` gives garbage (confidence 2). `kor` reads "여우는…구미호" (94, with one repeated
+    syllable from a line split). The opponent-name reader needs Korean (and likely Japanese/Chinese) data and must join
+    lines. The result screen also says when the opponent **left**, which is worth recording.
+- **Hero faces (current matcher: 16×16 colour feature vs the official portraits, 3 template crops, 15 crop variants)**,
+  40 round faces in the pre-ban grid, checked by eye on a contact sheet (crop vs best match):
+  - **20/40 confident**; about 18 of those look right, and 1–2 confident matches look wrong (e.g. a silver-haired face
+    → "Shepherd Jena").
+  - Most "unsure" ones are wrong.
+  - So the current matcher isn't good enough for real games. A stronger face matcher (the embedding / ONNX model both
+    reviewers suggested, or at least larger features with a circular mask) moves up in priority. Corrections ("my
+    corrections" source) and the "owned heroes only" filter for my picks help in the meantime.
+- The pre-ban is chosen in its own picker (grid + "Recently Selected"), and the opponent is "Unknown Opponent" until
+  the draft ends. Useful for the screen layouts in step 2.
+
+**Tested:** both scripts run on the redacted fixtures and give the same results as on the originals (names excepted).
+
+**Open:** the owner could label the 40 faces (or send screenshots with known picks) so the face test gets right answers.
+More screenshots as files (draft picks/postban, CR bar, Defeat) are needed for step 2.
+
+---
+
 ## 2026-11-12 · #21 · Step 1a: one game watcher for the whole app (vision service + event bus) · this commit (previous: `6747836`)
 
 **Asked for:** "yes start step 1": the first step of the plan in `docs/DESIGN_REVIEW.md`. One always-on watcher captures
