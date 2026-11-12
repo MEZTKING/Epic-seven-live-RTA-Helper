@@ -67,3 +67,17 @@ test('CSV match import', () => {
   assert.equal(m.theyBanned, m.myPicks[1]);
   assert.deepEqual(r.unknown, ['Unknown Guy']);
 });
+
+test('epic7x hero page addresses', () => {
+  assert.equal(R.epic7xUrl('Seaside Bellona'), 'https://epic7x.com/character/seaside-bellona/');
+  assert.equal(R.epic7xUrl('Baal & Sezan'), 'https://epic7x.com/character/baal-and-sezan/');
+  assert.equal(R.epic7xUrl('ae-KARINA'), 'https://epic7x.com/character/ae-karina/');
+  assert.equal(R.epic7xUrl("Archdemon's Shadow"), 'https://epic7x.com/character/archdemons-shadow/'); // checked against the live site
+});
+
+test('tags from several sources stay labelled', () => {
+  const t = R.tagSources({ 'my notes': ['aoe', 'nuker'], guild: ['nuker', 'defense break'] });
+  assert.deepEqual(t[0], { tag: 'nuker', sources: ['my notes', 'guild'] });
+  assert.equal(t.length, 3);
+  assert.deepEqual(R.tagSources({}), []);
+});

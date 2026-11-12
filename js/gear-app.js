@@ -141,7 +141,7 @@
           const it = r.item;
           const best = (r.heroFit ? [r.heroFit] : r.best)
             .filter((b) => b.delta > 0 || b.code === it.equipped)
-            .map((b) => `<div>${portrait(b.code)} ${esc(nameOf(b.code))} <small class="${b.delta > gs.rules.upgradeMargin ? 'up' : 'hint'}">${b.delta > 0 ? '+' + b.delta : 'current'}</small></div>`)
+            .map((b) => `<div class="clickable" data-hero="${esc(b.code)}">${portrait(b.code)} ${esc(nameOf(b.code))} <small class="${b.delta > gs.rules.upgradeMargin ? 'up' : 'hint'}">${b.delta > 0 ? '+' + b.delta : 'current'}</small></div>`)
             .join('') || '<span class="hint">no upgrade</span>';
           return `<tr>
             <td><b>${esc(it.gear)}</b> · ${esc(setLabel(it.set))}${it.source === 'screen' ? ' <span class="src other" title="Read from the game screen">screen</span>' : ''}<div class="hint">${esc(it.rank)} lv${it.level} +${it.enhance}${it.locked ? ' 🔒' : ''}</div>

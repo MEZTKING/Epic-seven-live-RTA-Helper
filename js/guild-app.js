@@ -17,7 +17,8 @@
     return h ? h.code : null;
   };
   const pt = (c) => (byCode.get(c) ? `<img class="pt sm" alt="" crossorigin="anonymous" src="${esc(R.PORTRAIT_URL(c))}" onerror="this.classList.add('broken')" />` : '');
-  const chip = (c) => `<span class="hchip">${pt(c)}${esc(nameOf(c))}</span>`;
+  const chip = (c) => `<span class="hchip clickable" data-hero="${esc(c)}" title="Tap for skills and tags">${pt(c)}${esc(nameOf(c))}</span>`;
+  const chipT = (c) => chip(c) + (window.HeroInfo ? window.HeroInfo.tagChips(c, 2) : '');
   const team = (codes) => (codes || []).map(chip).join('') || '<span class="hint">—</span>';
   const today = () => new Date().toISOString().slice(0, 10);
   const DOT_TEXT = {
@@ -139,8 +140,26 @@
     if (!warId || !state.wars.some((w) => w.id === warId)) warId = (state.wars.find((w) => w.status !== 'done') || state.wars[0] || {}).id || null;
     ({ war: renderWar, counters: renderCounters, members: renderMembers, enemies: renderEnemies, setup: renderSetup })[activeTab]();
     for (const fn of listeners) fn();
+    cacheGuildHeroes();
   }
   const listeners = [];
+  /** Guild hero notes (records type 'hero') cached on this device so other pages can show them (read-only there). */
+  function cacheGuildHeroes() {
+    const out = {};
+    for (const r of state.heroNotes || []) out[r.code] = { tags: r.tags || [], skills: r.skills || {}, updatedBy: r.updatedBy || '' };
+    try {
+      localStorage.setItem('e7-guild-heroes', JSON.stringify(out));
+    } catch (_) { /* ignore */ }
+  }
+  if (window.HeroInfo) {
+    window.HeroInfo.configure({
+      getGuildNote: (code) => (state.heroNotes || []).find((r) => r.code === code) || null,
+      async saveGuildNote(code, note) {
+        if (!backend) return alert('Create or join a guild first (Setup).');
+        await put('hero', { id: 'hero-' + code, code, ...note });
+      },
+    });
+  }
 
   // -------------------------------------------------------------------- war
   function renderWar() {
@@ -206,7 +225,7 @@
             const speeds = Object.entries(tm.speeds || {}).filter(([, v]) => v);
             return `<div class="gw-team ${st.cleared ? 'cleared' : ''}">
               <div class="gw-team-head">${st.cleared ? '' : dot(tv)} Team ${i + 1} ${st.cleared ? `<span class="vd keep">cleared by ${esc(st.by)}</span>` : st.attempts ? `<span class="vd sell">${st.losses} failed</span>` : ''}</div>
-              <div>${team(tm.heroes)}</div>
+              <div>${(tm.heroes || []).map(chipT).join('') || '<span class="hint">—</span>'}</div>
               ${speeds.length ? `<div class="hint">Speed: ${speeds.map(([c, v]) => `${esc(nameOf(c))} ${esc(v)}`).join(' · ')}</div>` : ''}
               ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
               ${!st.cleared && counters.length ? `<div class="hint">Beaten before by: ${counters.map((c) => `${c.attack.map(nameOf).map(esc).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', similar'})`).join(' · ')}</div>` : ''}

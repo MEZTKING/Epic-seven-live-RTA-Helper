@@ -531,7 +531,13 @@
 
   // ----------------------------------------------------------- team checks
   /** Role tags you can put on heroes (stored in your notes). */
-  const TAGS = ['cleanse', 'dispel', 'immunity', 'debuffer', 'control', 'aoe', 'nuker', 'speed buff', 'cr push', 'cr reduce', 'heal', 'barrier', 'revive', 'tank', 'counter'];
+  const TAG_GROUPS = {
+    Role: ['nuker', 'bruiser', 'tank', 'support', 'healer', 'debuffer', 'speed control'],
+    Offense: ['aoe', 'single target', 'extra turn', 'defense break', 'attack buff', 'crit buff', 'penetration', 'counter'],
+    Utility: ['cleanse', 'dispel', 'immunity', 'speed buff', 'cr push', 'cr reduce', 'barrier', 'revive', 'heal'],
+    Control: ['control', 'stun', 'provoke', 'silence', 'sleep', 'unhealable', 'debuff extend'],
+  };
+  const TAGS = [...new Set(Object.values(TAG_GROUPS).flat())];
 
   /**
    * Simple composition warnings from the tags in your notes.
@@ -693,6 +699,7 @@
     compositionWarnings,
     speedsFromCR,
     TAGS,
+    TAG_GROUPS,
     SOURCE_GROUPS,
     W,
     estimateEnemySpeed,

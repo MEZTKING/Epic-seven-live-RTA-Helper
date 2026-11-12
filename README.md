@@ -22,7 +22,7 @@ Everything works in four layers:
 2. **Screen detector:** recognises which game screen is showing. You teach each screen once by pressing
    "This is that screen"; it's saved on your device and shared by all modules.
 3. **Readers:** each one runs only on its own screen.
-   - RTA: draft, drafting help, postbans, opponent name, CR bar, Victory/Defeat.
+   - RTA: draft, drafting help, postbans, opponent name, CR bar (normal or **expanded**), Victory/Defeat.
    - Guild War: the enemy's name.
    - Gear: item details.
 4. **Overlay:** suggestions next to the draft slot being picked, enemy speeds next to their heroes, the Guild War dot and
@@ -31,6 +31,20 @@ Everything works in four layers:
 The overlay sits **on top of the game** in the **desktop app** (`desktop/`, Electron: transparent, click-through, hidden
 from capture so the readers never read it, and no "choose what to share" prompt). In a browser you can preview it
 from the Live page. Everything only reads the screen.
+
+## Hero info: skills and role tags (every page)
+
+Tap **ⓘ**, a hero in a draft slot, or a hero chip in Guild War to open the hero's card:
+- **Role tags** for a quick overview, grouped as Role, Offense, Utility and Control (nuker, tank, support, cleanse, dispel,
+  defense break, extra turn, stun, provoke…). They also show as small chips next to heroes in suggestions, scouting
+  and Guild War cards. ✓ means both sources agree.
+- **Skill notes**, short reminders per skill, kept by source: `my notes` (yours, this device) and `guild` (shared with
+  your guild through Guild War sync, edited on the Guild War page).
+- A link to the hero's **full, current skill descriptions on epic7x.com**, plus your build, RTA record and opponents'
+  speeds seen.
+
+The app doesn't copy skill text into itself: the public skill database (EpicSevenDB) is offline, and copying
+third-party data would bring unclear licences and outdated text after reworks. The link always shows the live text.
 
 ## Gear without Fribbels
 

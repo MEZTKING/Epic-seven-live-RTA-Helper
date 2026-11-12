@@ -10,7 +10,7 @@ service cloud.firestore {
       allow write: if request.auth != null
         && guild.size() >= 12
         && request.resource.data.keys().size() < 40
-        && request.resource.data.get('type', '') in ['member', 'war', 'target', 'attack', 'defense', 'settings', '']
+        && request.resource.data.get('type', '') in ['member', 'war', 'target', 'attack', 'defense', 'settings', 'hero', '']
         && request.resource.size() < 50000;
     }
     match /{document=**} {
