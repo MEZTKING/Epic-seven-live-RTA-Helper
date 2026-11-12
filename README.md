@@ -1,10 +1,11 @@
 # Epic 7 Engine
 
-A fan-made toolkit for Epic Seven. It runs in any browser, including on a phone, with no install. It has three parts:
+A fan-made toolkit for Epic Seven. It runs in any browser, including on a phone, with no install.
+The home page (`index.html`) lets you pick a module, and every page has the same top bar for switching between them:
 
 | Page | What it does |
 |---|---|
-| **RTA** (`index.html`) | Live draft helper: reads the draft from your emulator, suggests picks and bans, scouts opponents, tracks speeds and learns from your matches |
+| **RTA** (`rta.html`) | Live draft helper: reads the draft from your emulator, suggests picks and bans, scouts opponents, tracks speeds and learns from your matches |
 | **Gear** (`gear.html`) | Gear sorter: keep / enhance / reforge / extract / sell, and which hero each item suits |
 | **Guild War** (`guild.html`) | Enemy defenses, attacks, counters and member records, **shared live with your guild** |
 
@@ -179,7 +180,7 @@ You can tune the weights in `js/logic.js` (`W`, `TIER_SCORE`).
 
 The full history of changes, research notes, bugs and open questions is in [DEVLOG.md](DEVLOG.md).
 
-Plain HTML, CSS and JavaScript with no build step. Open `index.html`.
+Plain HTML, CSS and JavaScript with no build step. Open `index.html` (the home page) and pick a module.
 
 ```
 js/sources/official-heroes.js  built-in copy of the official hero list (generated)

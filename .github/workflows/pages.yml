@@ -32,7 +32,7 @@ jobs:
       - name: Collect site files
         run: |
           mkdir _site
-          cp -r index.html gear.html guild.html manifest.webmanifest icon.svg sw.js firestore.rules css js docs _site/
+          cp -r index.html rta.html gear.html guild.html manifest.webmanifest icon.svg sw.js firestore.rules css js docs _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

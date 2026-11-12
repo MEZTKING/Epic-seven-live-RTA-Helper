@@ -7,7 +7,9 @@
 
 ## Project
 - **Epic 7 Engine** (owner's chosen name; not "RTA Engine"): fan-made Epic Seven toolkit, static browser app, no build step.
-  Pages: `index.html` (RTA helper), `gear.html` (Gear Sorter), `guild.html` (Guild War, shared via Firebase; see `docs/GUILD_SETUP.md`).
+  `index.html` is the **home page** (module picker). Modules: `rta.html` (RTA helper), `gear.html` (Gear Sorter),
+  `guild.html` (Guild War, shared via Firebase; see `docs/GUILD_SETUP.md`). Every page has the same app bar
+  (brand → home, module switcher); a module's own tabs sit underneath. New modules get a page, a home card and an app-bar link.
 - `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`).
 - **Keep data separated by source.** Official roster, Fribbels import, the owner's notes, learned
   stats and each imported dataset are stored apart and can be toggled off individually. Never merge

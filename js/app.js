@@ -409,7 +409,9 @@
   function cueTurn(step) {
     const key = step ? `${store.draft.id}:${store.draft.actions.length}` : null;
     const myTurnStarts = step && step.player === 'me' && (store.draft.actions.length === 0 || L.draftSteps(store.draft.firstPick)[store.draft.actions.length - 1].player !== 'me');
-    if (!store.settings.sound || !myTurnStarts || key === lastCueKey) {
+    // browsers only allow sound after the user has interacted with the page
+    const canPlay = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+    if (!store.settings.sound || !myTurnStarts || key === lastCueKey || !canPlay) {
       lastCueKey = key;
       return;
     }

@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · RTA</title>
+  <meta name="description" content="Epic 7 Engine: fan-made RTA draft helper, gear sorter and Guild War tracker for Epic Seven." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#12131a" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="appbar">
+      <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
+      <nav class="modules" aria-label="Modules"><a class="mod active" href="rta.html" aria-current="page">RTA</a><a class="mod" href="gear.html">Gear</a><a class="mod" href="guild.html">Guild War</a></nav>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="RTA">
+      <button class="tab active" data-tab="draft" role="tab">Draft</button>
+      <button class="tab" data-tab="auto" role="tab">Auto <span id="auto-dot" class="live-dot"></span></button>
+      <button class="tab" data-tab="speed" role="tab">Speed</button>
+      <button class="tab" data-tab="heroes" role="tab">Heroes</button>
+      <button class="tab" data-tab="teams" role="tab">Teams</button>
+      <button class="tab" data-tab="players" role="tab">Players</button>
+      <button class="tab" data-tab="history" role="tab">History</button>
+      <button class="tab" data-tab="data" role="tab">Data</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============================== DRAFT ============================== -->
+    <section id="tab-draft" class="panel active">
+      <div class="draft-controls">
+        <label>First pick
+          <select id="first-pick">
+            <option value="me">Me</option>
+            <option value="opp">Opponent</option>
+          </select>
+        </label>
+        <label class="grow">Opponent
+          <input id="opp-name" list="player-names" placeholder="Player name (optional)" autocomplete="off" />
+        </label>
+        <button id="draft-undo" class="btn" title="Shortcut: U">Undo</button>
+        <button id="draft-reset" class="btn" title="Shortcut: N">New draft</button>
+        <button id="pip-btn" class="btn" title="Always-on-top mini window (shortcut: P)">Pop out ⧉</button>
+      </div>
+      <div id="tilt-box" class="pending tilt hidden"></div>
+      <div id="opp-profile" class="profile-strip hidden"></div>
+      <div id="pending-box" class="pending hidden"></div>
+
+      <div id="draft-status" class="status"></div>
+
+      <div class="board">
+        <div class="side me">
+          <h2>Me</h2>
+          <div class="row"><span class="label">Prebans</span><div id="me-prebans" class="slots"></div></div>
+          <div class="row"><span class="label">Picks</span><div id="me-picks" class="slots"></div></div>
+          <div class="row"><span class="label">I banned</span><div id="me-postban" class="slots"></div></div>
+        </div>
+        <div class="side opp">
+          <h2>Opponent</h2>
+          <div class="row"><span class="label">Prebans</span><div id="opp-prebans" class="slots"></div></div>
+          <div class="row"><span class="label">Picks</span><div id="opp-picks" class="slots"></div></div>
+          <div class="row"><span class="label">They banned</span><div id="opp-postban" class="slots"></div></div>
+        </div>
+      </div>
+
+      <div id="scout" class="card wide scout hidden"></div>
+
+      <div class="draft-lower">
+        <div class="picker">
+          <div class="filters">
+            <input id="hero-search" type="search" placeholder="Search hero… (Enter picks)" autocomplete="off" />
+            <select id="filter-element"></select>
+            <select id="filter-role"></select>
+            <label class="inline"><input id="filter-owned" type="checkbox" /> Owned</label>
+          </div>
+          <div id="hero-grid" class="hero-grid"></div>
+        </div>
+        <aside class="suggest">
+          <h3 id="suggest-title">Suggestions</h3>
+          <ol id="suggest-list" class="suggest-list"></ol>
+          <div id="insights"></div>
+          <p class="hint">Each reason shows its source. Turn sources on or off in the <b>Data</b> tab. Press <b>?</b> for shortcuts.</p>
+          <div id="result-box" class="result-box hidden">
+            <h3>Record this match</h3>
+            <textarea id="result-notes" rows="2" placeholder="Notes (optional)"></textarea>
+            <input id="result-points" type="number" placeholder="Points after match (optional)" class="full" />
+            <div class="btn-row">
+              <button id="record-win" class="btn win">Win</button>
+              <button id="record-loss" class="btn loss">Loss</button>
+              <button id="save-team-preset" class="btn">Save my team as preset</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============================== AUTO =============================== -->
+    <section id="tab-auto" class="panel">
+      <div id="auto-status" class="status">Not watching.</div>
+      <div class="btn-row">
+        <button id="auto-start" class="btn primary">Watch emulator window</button>
+        <button id="auto-stop" class="btn hidden">Stop</button>
+        <button id="auto-calibrate" class="btn">Calibrate slots</button>
+        <label class="btn file-btn">Use a screenshot<input id="auto-shot" type="file" accept="image/*" hidden /></label>
+        <button id="auto-overlay" class="btn">Check alignment</button>
+      </div>
+      <div class="btn-row">
+        <button id="auto-calib-cr" class="btn">Calibrate CR bar</button>
+        <button id="auto-calib-result" class="btn">Calibrate result banner</button>
+        <button id="auto-calib-help" class="btn" title="Turn on drafting help in RTA first">Calibrate game's drafting help</button>
+        <button id="auto-read-cr" class="btn" title="Shortcut: R">Read CR bar now</button>
+        <label class="inline">100% end
+          <select id="auto-cr-end"><option value="auto">auto</option><option value="top">top</option><option value="bottom">bottom</option><option value="right">right</option><option value="left">left</option></select>
+        </label>
+      </div>
+      <div id="auto-cr-out" class="hint"></div>
+      <p class="hint">Keep this browser window visible next to the emulator (not minimised). It only <b>looks</b> at the screen; it never clicks or types into the game.</p>
+
+      <div id="calib" class="card wide hidden">
+        <h3 id="calib-title">Calibration</h3>
+        <p id="calib-step" class="calib-step"></p>
+        <div class="btn-row">
+          <button id="calib-back" class="btn">Back</button>
+          <button id="calib-skip" class="btn">Skip</button>
+          <button id="calib-done" class="btn primary">Done</button>
+        </div>
+        <div class="calib-wrap"><canvas id="calib-canvas"></canvas></div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Detection</h3>
+          <label>Confidence needed <span id="auto-thr-val"></span>
+            <input id="auto-thr" type="range" min="0.5" max="0.95" step="0.01" />
+          </label>
+          <label>Check every
+            <select id="auto-interval"><option value="300">0.3 s</option><option value="500">0.5 s</option><option value="1000">1 s</option></select>
+          </label>
+          <label class="inline block"><input id="auto-apply" type="checkbox" /> Fill the draft automatically</label>
+          <label class="inline block"><input id="auto-ocr" type="checkbox" /> Read opponent name from screen</label>
+          <label class="inline block"><input id="auto-postban" type="checkbox" /> Detect postbans <small class="hint">(experimental)</small></label>
+          <label class="inline block"><input id="auto-result" type="checkbox" /> Detect Victory / Defeat <small class="hint">(needs result box)</small></label>
+          <label class="inline block"><input id="auto-cr" type="checkbox" /> Read CR bar at battle start <small class="hint">(needs CR bar box)</small></label>
+        </div>
+        <div class="card">
+          <h3>Recognition sources</h3>
+          <label class="inline block"><input id="auto-use-official" type="checkbox" /> <span class="src official">official</span> hero portraits</label>
+          <label class="inline block"><input id="auto-use-corr" type="checkbox" /> <span class="src notes">my corrections</span> slots I labelled</label>
+          <label class="inline block"><input id="auto-use-learned" type="checkbox" /> <span class="src learned">auto-learned</span> confident matches saved automatically</label>
+          <label class="inline block"><input id="auto-learn" type="checkbox" /> Save confident matches as auto-learned</label>
+          <div id="auto-tpl" class="hint"></div>
+          <div class="btn-row"><button id="auto-clear-learned" class="btn danger">Clear auto-learned</button><button id="auto-clear-corr" class="btn danger">Clear my corrections</button></div>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>What I see</h3>
+        <p class="hint">Click a slot to correct it. The app saves that image as a "my corrections" example and recognises the hero better next time.</p>
+        <div id="auto-slots" class="auto-slots"></div>
+        <div id="auto-fix" class="auto-fix hidden">
+          <span id="auto-fix-label"></span>
+          <input id="auto-fix-input" list="hero-names" placeholder="Correct hero name" autocomplete="off" />
+          <button id="auto-fix-save" class="btn primary">Save</button>
+          <button id="auto-fix-clear" class="btn">It's empty</button>
+          <button id="auto-fix-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+      <video id="auto-video" class="hidden" muted playsinline></video>
+    </section>
+
+    <!-- ============================== SPEED ============================== -->
+    <section id="tab-speed" class="panel">
+      <div class="cards">
+        <div class="card">
+          <h3>Enemy speed from CR bar</h3>
+          <p class="hint">When your unit takes the first turn, read the enemy unit's CR % and enter it here.</p>
+          <label>My unit speed <input id="cr-myspeed" type="number" min="1" value="300" /></label>
+          <label>Enemy CR % <input id="cr-enemy" type="number" min="0" max="100" step="0.1" value="90" /></label>
+          <div id="cr-out" class="out"></div>
+        </div>
+        <div class="card">
+          <h3>Speed needed to outspeed</h3>
+          <label>Enemy speed <input id="os-enemy" type="number" min="1" value="285" /></label>
+          <div id="os-out" class="out"></div>
+        </div>
+        <div class="card">
+          <h3>Settings</h3>
+          <label>Random starting CR (max %)
+            <input id="cr-variance" type="number" min="0" max="20" step="0.5" value="5" />
+          </label>
+          <p class="hint">Units start a fight with a small random amount of CR. 5% is an estimate, not a confirmed game value. Change it if you know better.</p>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>Turn order simulator</h3>
+        <p class="hint">"Push" = CR % given to all allies when that unit acts (e.g. a speed buffer). Tick "once" if it only happens on its first turn.</p>
+        <div class="table-wrap">
+          <table class="sim-table">
+            <thead><tr><th>Name</th><th>Side</th><th>Speed</th><th>Start CR %</th><th>Push %</th><th>Once</th><th></th></tr></thead>
+            <tbody id="sim-units"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <button id="sim-add" class="btn">Add unit</button>
+          <button id="sim-from-draft" class="btn">Load heroes from draft</button>
+          <label class="inline">Turns <input id="sim-turns" type="number" min="1" max="40" value="10" /></label>
+        </div>
+        <ol id="sim-out" class="sim-out"></ol>
+      </div>
+    </section>
+
+    <!-- ============================== HEROES ============================= -->
+    <section id="tab-heroes" class="panel">
+      <div class="filters">
+        <input id="db-search" type="search" placeholder="Search hero…" autocomplete="off" />
+        <select id="db-element"></select>
+        <select id="db-role"></select>
+        <label class="inline"><input id="db-owned-only" type="checkbox" /> Owned only</label>
+        <label class="inline"><input id="db-noted-only" type="checkbox" /> With my notes</label>
+        <button id="db-add" class="btn">Add custom hero</button>
+      </div>
+      <p class="hint" id="db-count"></p>
+      <div class="table-wrap">
+        <table class="db-table">
+          <thead><tr><th>Owned</th><th>Hero</th><th>Class</th><th>Tier / tags</th><th>My build <span class="src fribbels">gear</span></th><th>Counters</th><th>Synergies</th><th>Learned</th><th></th></tr></thead>
+          <tbody id="db-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================== TEAMS ============================== -->
+    <section id="tab-teams" class="panel">
+      <div class="cards">
+        <div class="card">
+          <h3 id="preset-form-title">New preset</h3>
+          <label>Name <input id="preset-name" placeholder="e.g. Cleave core" /></label>
+          <label>Heroes</label>
+          <div id="preset-chips" class="chips"></div>
+          <input id="preset-hero-input" class="full" list="hero-names" placeholder="Type a hero name and press Enter" />
+          <label>Notes <textarea id="preset-notes" rows="2" placeholder="Speed tunes, when to use it…"></textarea></label>
+          <div class="btn-row">
+            <button id="preset-save" class="btn primary">Save preset</button>
+            <button id="preset-cancel" class="btn hidden">Cancel edit</button>
+          </div>
+          <p class="hint">During a draft, heroes that complete a preset you've started get a bonus.</p>
+        </div>
+        <div class="card">
+          <h3>My presets</h3>
+          <ul id="preset-list" class="plain-list"></ul>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="card"><h3>Best pairs <span class="src learned">learned</span></h3><ul id="combo-pairs" class="plain-list"></ul></div>
+        <div class="card"><h3>Best trios <span class="src learned">learned</span></h3><ul id="combo-trios" class="plain-list"></ul></div>
+      </div>
+      <div class="card wide">
+        <h3>Game's drafting-help database <span class="src game">game help</span></h3>
+        <p class="hint">Built from every recommendation the game's RTA drafting help showed during your drafts (picks and bans). Type a hero to see what the game recommends against it and alongside it.</p>
+        <input id="gh-hero" list="hero-names" placeholder="Hero (leave empty for overall)" class="full" autocomplete="off" />
+        <div id="gh-out"></div>
+      </div>
+    </section>
+
+    <!-- ============================== PLAYERS ============================ -->
+    <section id="tab-players" class="panel">
+      <div class="filters">
+        <input id="pl-search" type="search" placeholder="Search player…" autocomplete="off" />
+      </div>
+      <p class="hint">Profiles are built from matches where you entered an opponent name. They use only the match sources turned on in the Data tab.</p>
+      <div class="table-wrap">
+        <table class="db-table">
+          <thead><tr><th>Player</th><th>Games</th><th>My win %</th><th>Favourite picks</th><th>Usual prebans</th><th>Last seen</th></tr></thead>
+          <tbody id="pl-rows"></tbody>
+        </table>
+      </div>
+      <div id="pl-detail" class="card wide hidden"></div>
+    </section>
+
+    <!-- ============================== HISTORY ============================ -->
+    <section id="tab-history" class="panel">
+      <div id="hist-summary" class="cards"></div>
+      <div id="hist-session" class="cards"></div>
+      <div class="cards">
+        <div class="card"><h3>My heroes</h3><table class="mini"><thead><tr><th>Hero</th><th>Games</th><th>Win %</th></tr></thead><tbody id="hist-mine"></tbody></table></div>
+        <div class="card"><h3>Against enemy heroes</h3><table class="mini"><thead><tr><th>Hero</th><th>Games</th><th>My win %</th></tr></thead><tbody id="hist-vs"></tbody></table></div>
+        <div class="card"><h3>Most banned</h3><table class="mini"><thead><tr><th>Hero</th><th>Pre</th><th>Post</th></tr></thead><tbody id="hist-bans"></tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h3>Matches</h3>
+        <ul id="hist-list" class="hist-list"></ul>
+      </div>
+    </section>
+
+    <!-- ============================== DATA =============================== -->
+    <section id="tab-data" class="panel">
+      <p class="hint">Each source is stored separately and never merged into another. If one turns out to be wrong, switch it off or delete it without touching the rest.</p>
+      <div class="cards">
+        <div class="card">
+          <h3>Hero list <span class="src official">official</span></h3>
+          <div id="src-official" class="hint"></div>
+          <div class="btn-row"><button id="official-refresh" class="btn">Update from official site</button></div>
+        </div>
+        <div class="card">
+          <h3>My roster <span class="src fribbels">Fribbels</span></h3>
+          <p class="hint">Import <b>gear.txt</b> exported from the Fribbels optimizer (use the maintained <a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a>): your heroes, stars and equipped gear.</p>
+          <div id="src-fribbels" class="hint"></div>
+          <div id="src-builds" class="hint"></div>
+          <div class="btn-row">
+            <label class="btn file-btn">Import gear.txt<input id="fribbels-file" type="file" accept=".txt,.json,application/json,text/plain" hidden /></label>
+            <label class="inline"><input id="use-fribbels" type="checkbox" /> Use</label>
+            <button id="fribbels-clear" class="btn danger">Remove</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Suggestion sources</h3>
+          <label class="inline block"><input id="use-notes" type="checkbox" /> <span class="src notes">my notes</span> tiers, counters, synergies</label>
+          <label class="inline block"><input id="use-learned" type="checkbox" /> <span class="src learned">learned</span> stats from enabled matches</label>
+          <label class="inline block"><input id="use-element" type="checkbox" /> <span class="src rule">game rule</span> element advantage</label>
+          <label class="inline block"><input id="use-presets" type="checkbox" /> <span class="src presets">presets</span> my team presets</label>
+          <label class="inline block"><input id="use-player" type="checkbox" /> <span class="src player">player</span> opponent history</label>
+          <label class="inline block"><input id="use-meta" type="checkbox" /> <span class="src meta">meta</span> imported meta datasets</label>
+          <label class="inline block"><input id="use-speed" type="checkbox" /> <span class="src speed">speed</span> your gear vs scouted speeds</label>
+          <label class="inline block"><input id="use-deny" type="checkbox" /> <span class="src deny">deny</span> heroes also strong for them</label>
+          <label class="inline block"><input id="use-game-help" type="checkbox" /> <span class="src game">game help</span> the game's own drafting help</label>
+          <label class="inline block"><input id="use-manual-owned" type="checkbox" /> Owned ticks I set by hand</label>
+          <div id="src-notes" class="hint"></div>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Hero stats &amp; artifacts <span class="src fribbels">fribbels-data</span></h3>
+          <p class="hint">Base stats (for your speeds) and artifact names, from the data used by the <a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a> of the Fribbels optimizer.</p>
+          <div id="src-fdata" class="hint"></div>
+          <div class="btn-row"><button id="fdata-refresh" class="btn">Update</button></div>
+        </div>
+        <div class="card">
+          <h3>Scouting <span class="src player">scouting</span></h3>
+          <p class="hint">Opponents' speeds, sets and artifacts you noted or the CR bar reader filled in.</p>
+          <div id="src-scouting" class="hint"></div>
+          <div class="btn-row"><button id="scouting-clear" class="btn danger">Delete all</button></div>
+        </div>
+        <div class="card">
+          <h3>Game's drafting help <span class="src game">game help</span></h3>
+          <p class="hint">Recommendations read from the game's RTA drafting help, for picks and bans. Calibrate it in the Auto tab.</p>
+          <div id="src-game-help" class="hint"></div>
+          <div class="btn-row"><button id="game-help-export" class="btn">Export CSV</button><button id="game-help-clear" class="btn danger">Delete all</button></div>
+        </div>
+        <div class="card">
+          <h3>Other settings</h3>
+          <label class="inline block"><input id="use-sound" type="checkbox" /> Beep when it's my turn to pick</label>
+          <label class="inline block"><input id="use-auto-record" type="checkbox" /> Record results read from the screen (as source <span class="src other">auto</span>)</label>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>Suggestion weights</h3>
+        <p class="hint">How much each source counts (1× = normal, 0 = ignore). <b>Tune from my matches</b> learns these from which sources predicted your wins and losses (needs 15+ matches).</p>
+        <div id="weights" class="weights"></div>
+        <div class="btn-row"><button id="weights-tune" class="btn primary">Tune from my matches</button><button id="weights-reset" class="btn">Reset to 1×</button></div>
+        <p id="tune-out" class="hint"></p>
+      </div>
+
+      <div class="card wide">
+        <h3>Meta datasets <span class="src meta">meta</span></h3>
+        <p class="hint">Season pick, ban and win rates, e.g. typed from the official World Arena infographics. Each dataset is its own source: <b>meta: name</b>.</p>
+        <div class="table-wrap"><table class="mini"><thead><tr><th>Use</th><th>Dataset</th><th>Heroes</th><th>Added</th><th></th></tr></thead><tbody id="meta-sources"></tbody></table></div>
+        <div class="btn-row">
+          <label class="btn file-btn">Import meta (CSV)<input id="meta-file" type="file" accept=".csv,text/csv" hidden /></label>
+          <button id="meta-template" class="btn">Download meta template</button>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>Match sources</h3>
+        <p class="hint">Your own logged matches are the <b>manual</b> source. Imported datasets each keep their own name. Learned stats and player profiles only use the sources ticked here.</p>
+        <div class="table-wrap">
+          <table class="mini">
+            <thead><tr><th>Use</th><th>Source</th><th>Matches</th><th>Added</th><th></th></tr></thead>
+            <tbody id="match-sources"></tbody>
+          </table>
+        </div>
+        <div class="btn-row">
+          <label class="btn file-btn">Import matches (CSV)<input id="csv-file" type="file" accept=".csv,text/csv" hidden /></label>
+          <button id="csv-template" class="btn">Download CSV template</button>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>Backup</h3>
+        <p class="hint">Everything is saved in this browser only. Export to keep a backup or move to another device.</p>
+        <div class="btn-row">
+          <button id="export" class="btn">Export everything</button>
+          <label class="btn file-btn">Import backup<input id="import" type="file" accept="application/json" hidden /></label>
+          <button id="reset-all" class="btn danger">Erase all data</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Hero editor -->
+  <dialog id="hero-dialog">
+    <form id="hero-form" method="dialog">
+      <h3 id="hero-dialog-title">Edit hero</h3>
+      <p id="hero-source" class="hint"></p>
+      <label>Name <input name="heroName" required /></label>
+      <div class="two">
+        <label>Element <select name="element"></select></label>
+        <label>Class <select name="role"></select></label>
+        <label>Tier <span class="src notes">my notes</span>
+          <select name="tier"><option value="">—</option><option>S</option><option>A</option><option>B</option><option>C</option></select>
+        </label>
+        <label class="inline"><input type="checkbox" name="owned" /> Owned (set by hand)</label>
+      </div>
+      <label>Good against (counters) <span class="src notes">my notes</span></label>
+      <div class="chips" data-field="counters"></div>
+      <input class="chip-input full" data-field="counters" list="hero-names" placeholder="Type a hero name and press Enter" />
+      <label>Works well with (synergies) <span class="src notes">my notes</span></label>
+      <div class="chips" data-field="synergies"></div>
+      <input class="chip-input full" data-field="synergies" list="hero-names" placeholder="Type a hero name and press Enter" />
+      <label>Role tags <span class="src notes">my notes</span> <small class="hint">(used for team checks)</small></label>
+      <div id="tag-boxes" class="tag-boxes"></div>
+      <label>Notes <textarea name="notes" rows="3"></textarea></label>
+      <div class="btn-row">
+        <button type="button" id="hero-delete" class="btn danger">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="hero-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <datalist id="hero-names"></datalist>
+  <datalist id="player-names"></datalist>
+  <datalist id="set-names"></datalist>
+  <datalist id="artifact-names"></datalist>
+
+  <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven. Hero list and portraits load from the official Epic Seven site.</footer>
+
+  <script src="js/sources/official-heroes.js"></script>
+  <script src="js/sources/fribbels-data.js"></script>
+  <script src="js/roster.js"></script>
+  <script src="js/gear.js"></script>
+  <script src="js/gearsort.js"></script>
+  <script src="js/learn.js"></script>
+  <script src="js/logic.js"></script>
+  <script src="js/tune.js"></script>
+  <script src="js/vision.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/auto.js"></script>
+  <script src="js/pip.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+  </script>
+</body>
+</html>
