@@ -54,8 +54,15 @@
     v.muted = true;
     v.srcObject = stream;
     await v.play();
-    source = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
-    stream.getVideoTracks()[0].addEventListener('ended', stop);
+    const s0 = stream;
+    s0.getVideoTracks()[0].addEventListener('ended', stop);
+    const src = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
+    if (stream !== s0 || !src) {
+      if (stream === s0) stop();
+      return;
+    }
+    source = src;
+    if (window.GameArea) window.GameArea.warnIfStale('gear', source, calibrated(), 'press "Set boxes" and draw them again');
     if (!calibrated()) calibrate();
     timer = setInterval(tick, 1500);
     update();
@@ -139,6 +146,7 @@
     $('#gs-calib-save').onclick = () => {
       if (!['main', 'sub0', 'sub1'].every((k) => regions[k])) return alert('The main stat and at least 2 substat boxes are needed.');
       localStorage.setItem(KEY, JSON.stringify(regions));
+      if (window.GameArea) window.GameArea.markCalibrated('gear', source);
       $('#gs-calib').close();
       update();
       tick();

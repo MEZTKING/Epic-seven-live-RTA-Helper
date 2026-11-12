@@ -31,6 +31,7 @@ $h = [IntPtr][Int64]$args[0]
 $me = [uint32]$args[1]
 $last = ''
 while ($true) {
+  try { [void][System.Diagnostics.Process]::GetProcessById([int]$me) } catch { break } # the app is gone: stop
   if (-not [E7W]::IsWindow($h)) { [Console]::Out.WriteLine('gone'); [Console]::Out.Flush(); break }
   if ([E7W]::IsIconic($h)) { $line = 'min' }
   else {

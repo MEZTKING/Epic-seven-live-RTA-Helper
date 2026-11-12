@@ -112,7 +112,8 @@ ipcMain.handle('e7:sources', async () => {
     guess: !s.id.startsWith('screen') && GAME_GUESS.test(s.name),
   }));
 });
-ipcMain.on('e7:choose', (_e, choice) => {
+ipcMain.on('e7:choose', (e, choice) => {
+  if (!picker || e.sender !== picker.webContents) return; // only the picker window may choose
   if (choice) setCapture(choice);
   const d = pickerDone;
   pickerDone = null;
@@ -120,9 +121,13 @@ ipcMain.on('e7:choose', (_e, choice) => {
   d && d(choice ? config.capture : null);
 });
 ipcMain.handle('e7:pick', () => pickWindow());
+// zoom is shared by every window of the same origin (e7://app), so the overlay scales its own items by overlayZoom / zoom
+ipcMain.on('e7:zoom', (e) => {
+  e.returnValue = { zoom: config.zoom, overlayZoom: config.overlayZoom };
+});
 ipcMain.on('e7:capture', (e) => {
   const c = config.capture;
-  e.returnValue = { mode: c ? c.mode : 'screen', name: c ? c.name : '' };
+  e.returnValue = { mode: c ? c.mode : 'screen', name: c ? c.name : '', tracked: !!(tracker && gameState && gameState.w) };
 });
 
 function setCapture(choice) {
@@ -147,7 +152,7 @@ async function resolveSource() {
   }
   const list = await listSources();
   if (c.mode === 'window') {
-    const w = list.find((s) => s.id === c.id) || list.find((s) => s.name === c.name) || list.find((s) => !s.id.startsWith('screen') && c.name && s.name.toLowerCase().includes(c.name.toLowerCase()));
+    const w = list.find((s) => s.id === c.id) || list.find((s) => !s.id.startsWith('screen') && s.name === c.name);
     if (w) {
       if (w.id !== c.id) {
         c.id = w.id;
@@ -166,12 +171,14 @@ async function resolveSource() {
 /** getDisplayMedia() in any page -> the game window (or display), no browser picker. */
 function autoCapture() {
   session.defaultSession.setDisplayMediaRequestHandler(async (_req, callback) => {
+    let src = null;
     try {
-      const src = await resolveSource();
-      callback(src ? { video: src } : {});
-    } catch (_) {
-      callback({});
-    }
+      src = await resolveSource();
+    } catch (_) { /* treated as cancelled */ }
+    try {
+      if (src) callback({ video: src });
+      else callback(); // cancelled: the page's getDisplayMedia() rejects
+    } catch (_) { /* already answered */ }
   });
 }
 
@@ -215,9 +222,15 @@ function createMain() {
   main.loadURL(`${ORIGIN}/index.html`);
   // bigger text by default (View menu / Ctrl + Ctrl − Ctrl 0 to change; remembered)
   main.webContents.on('did-finish-load', () => main.webContents.setZoomFactor(config.zoom));
-  main.webContents.on('did-create-window', (child) => child.webContents.on('did-finish-load', () => child.webContents.setZoomFactor(config.zoom)));
+  main.webContents.on('did-create-window', (child) => {
+    child.webContents.setZoomFactor(config.zoom); // about:blank pop-outs may never fire did-finish-load
+    child.webContents.on('did-finish-load', () => child.webContents.setZoomFactor(config.zoom));
+  });
   // pop-out windows (mini windows) stay on top of the game
-  main.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { alwaysOnTop: true, width: 380, height: 620, backgroundColor: '#12131a', webPreferences: { backgroundThrottling: false } } }));
+  main.webContents.setWindowOpenHandler(({ frameName }) => {
+    const mini = frameName === 'rta-mini' || frameName === 'e7-guild-mini';
+    return { action: 'allow', overrideBrowserWindowOptions: mini ? { alwaysOnTop: true, width: 380, height: 620, backgroundColor: '#12131a', webPreferences: { backgroundThrottling: false } } : { backgroundColor: '#12131a' } };
+  });
   main.on('closed', () => {
     main = null;
     app.quit();
@@ -245,12 +258,14 @@ function createOverlay() {
   overlay.setContentProtection(true); // not visible to screen capture -> readers never read the overlay itself
   overlay.setVisibleOnAllWorkspaces(true);
   overlay.loadURL(`${ORIGIN}/overlay.html?desktop=1`);
-  overlay.webContents.on('did-finish-load', () => overlay.webContents.setZoomFactor(config.overlayZoom));
+  // (no setZoomFactor here: zoom is shared per origin with the main window; overlay.html scales its items itself)
 }
 
+const windowModeOnWindows = () => process.platform === 'win32' && config.capture && config.capture.mode === 'window';
 function placeOverlay() {
   if (!overlay || tracker) return; // window mode: the tracker places it
   overlay.setBounds(gameDisplay().bounds);
+  if (windowModeOnWindows()) return overlay.hide(); // game window not found yet: nothing would line up
   if (config.overlay && !overlay.isVisible()) overlay.showInactive();
 }
 
@@ -316,15 +331,19 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+function sendZoom() {
+  if (overlay && !overlay.isDestroyed()) overlay.webContents.send('e7:zoom-changed', { zoom: config.zoom, overlayZoom: config.overlayZoom });
+}
 function setZoom(z) {
   config.zoom = clampZoom(z);
   saveConfig();
-  for (const w of BrowserWindow.getAllWindows()) if (w !== overlay) w.webContents.setZoomFactor(config.zoom);
+  for (const w of BrowserWindow.getAllWindows()) if (w !== overlay && !w.isDestroyed()) w.webContents.setZoomFactor(config.zoom);
+  sendZoom();
 }
 function setOverlayZoom(z) {
   config.overlayZoom = clampZoom(z);
   saveConfig();
-  if (overlay) overlay.webContents.setZoomFactor(config.overlayZoom);
+  sendZoom();
 }
 
 function toggleOverlay() {
@@ -333,7 +352,7 @@ function toggleOverlay() {
   saveConfig();
   if (!config.overlay) overlay.hide();
   else if (tracker && gameState) onGameState(gameState);
-  else overlay.showInactive();
+  else if (!windowModeOnWindows()) overlay.showInactive();
 }
 
 app.whenReady().then(() => {
@@ -356,10 +375,15 @@ app.whenReady().then(() => {
 });
 async function resolveSourceQuiet() {
   const c = config.capture;
+  if (!c || c.mode !== 'window' || tracker) return;
   const list = await listSources().catch(() => []);
-  const w = list.find((s) => s.id === c.id) || list.find((s) => s.name === c.name);
+  const w = list.find((s) => s.id === c.id) || list.find((s) => !s.id.startsWith('screen') && s.name === c.name);
   if (w) trackGame(w.id);
 }
+// the game was closed or not open yet: look for its window again every few seconds
+setInterval(() => {
+  if (app.isReady() && windowModeOnWindows() && !tracker) resolveSourceQuiet();
+}, 4000);
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   if (tracker) tracker.stop();

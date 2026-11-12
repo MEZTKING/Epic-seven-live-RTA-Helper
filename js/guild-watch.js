@@ -29,8 +29,15 @@
     v.muted = true;
     v.srcObject = stream;
     await v.play();
-    video = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
-    stream.getVideoTracks()[0].addEventListener('ended', stop);
+    const s0 = stream;
+    s0.getVideoTracks()[0].addEventListener('ended', stop);
+    const src = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
+    if (stream !== s0 || !src) {
+      if (stream === s0) stop();
+      return;
+    }
+    video = src;
+    if (window.GameArea) window.GameArea.warnIfStale('guild', video, !!box(), 'press "Set name box" and draw it again');
     if (!box()) calibrate();
     timer = setInterval(tick, 2000);
     update();
@@ -99,6 +106,7 @@
     $('#gw-calib-save').onclick = () => {
       if (!rect) return alert('Drag a box over the enemy player name first.');
       A.conn.watchBox = rect;
+      if (window.GameArea && video) window.GameArea.markCalibrated('guild', video);
       A.saveConn();
       $('#gw-calib').close();
       tick();

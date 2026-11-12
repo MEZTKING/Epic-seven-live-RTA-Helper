@@ -136,7 +136,8 @@
     if (windowMode()) return video; // the capture is just the game window
     let a = read();
     if (!a || !matches(a, video)) a = await choose(video);
-    if (!a || a.full) return video;
+    if (!a) return null; // cancelled: the reader stops instead of reading the whole screen
+    if (a.full) return video;
     const s = size(video);
     const cv = document.createElement('canvas');
     cv.width = Math.round(a.w * s.w);
@@ -153,6 +154,42 @@
     return cv;
   }
 
+  // Calibration boxes are fractions of what the reader sees. Remember which picture each module's boxes were drawn on
+  // (whole screen / a boxed area / just the game window) and warn when that changed, e.g. boxes from before #16/#17.
+  const FKEY = 'e7-frame-of';
+  const frames = () => {
+    try {
+      return JSON.parse(localStorage.getItem(FKEY) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  };
+  function frameKey(src) {
+    if (windowMode()) return 'window';
+    const a = read();
+    if (src && src.isGameArea && a && !a.full) return 'area:' + [a.x, a.y, a.w, a.h].map((v) => v.toFixed(3)).join(',');
+    return 'full';
+  }
+  function markCalibrated(module, src) {
+    const f = frames();
+    f[module] = frameKey(src);
+    localStorage.setItem(FKEY, JSON.stringify(f));
+  }
+  const warned = {};
+  /** Call when a reader starts with existing boxes. Alerts once per page load if they were drawn on another picture. */
+  function warnIfStale(module, src, hasBoxes, how) {
+    if (!hasBoxes || warned[module]) return false;
+    const was = frames()[module];
+    if (was === frameKey(src)) return false;
+    if (was === undefined) {
+      // boxes from before this check existed: assume they're fine if nothing was cropped, else ask once
+      if (frameKey(src) === 'full') return false;
+    }
+    warned[module] = true;
+    alert(`Your boxes for this reader were drawn on a different picture (${was === undefined ? 'probably the whole screen' : 'before the game area / game window changed'}). They will be in the wrong place: ${how}.`);
+    return true;
+  }
+
   // any button with data-reset-game-area forgets the box; the next capture asks again
   document.addEventListener('click', (e) => {
     if (!e.target.closest('[data-reset-game-area]')) return;
@@ -165,5 +202,5 @@
     alert('Game area cleared. Stop and start reading again, then drag a box around the game.');
   });
 
-  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode };
+  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode, frameKey, markCalibrated, warnIfStale };
 })();
