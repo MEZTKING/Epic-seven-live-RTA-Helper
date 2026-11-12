@@ -3,75 +3,89 @@
 A fan-made helper for Epic Seven Real-Time Arena (RTA). It runs in any browser, including on a phone,
 with no install, account or server. All your data stays in your browser.
 
-> Not affiliated with Smilegate or Epic Seven.
+> Not affiliated with Smilegate or Epic Seven. The hero list and portraits load from the official Epic Seven site.
 
 ## Features
 
 **Draft**
-- Tracks the RTA draft: 2 prebans each, picks in 1-2-2-2-2-1 order (choose who picks first), then 1 postban each.
-- Click a hero, or type a name and press **Enter**, to fill the next slot. **Undo** removes the last action.
-- Suggestions panel:
-  - *Preban:* high-tier heroes that counter heroes in your roster.
-  - *Your pick:* ranked by your tier list, counters against enemy picks, synergy with your picks, and element advantage. Only heroes you own are suggested once you mark your roster.
-  - *Opponent's pick:* what they are likely to take next.
-  - *Postban:* the enemy heroes most dangerous to your team.
-- When the draft is complete, press **Win** or **Loss** to log the match.
+- Tracks the RTA draft: 2 prebans each, picks in 1-2-2-2-2-1 order, then 1 postban each.
+- Shows hero portraits. Click a hero, or type part of a name and press **Enter**.
+- Enter the **opponent's name** to see their profile and get suggestions based on their habits.
+- Suggestions for prebans, your picks, the opponent's likely picks and postbans. **Every reason is labeled with its source.**
+- Press **Win** or **Loss** to log the match. Every logged match teaches the app.
 
-**Speed**
-- **Enemy speed from CR bar:** when your unit takes the first turn, enter its speed and the enemy's CR %.
-  The tool estimates their speed and gives a range that accounts for random starting CR.
-- **Speed needed to outspeed:** the speed you need to always move first.
-- **Turn order simulator:** enter units with speed, starting CR and CR push (for example, a speed buffer
-  that pushes allies 20% on its first turn) to see the opening turns. **Load names from draft** fills in the current teams.
+**Speed:** enemy speed from the CR bar, the speed you need to outspeed, and a turn order simulator.
 
-**Heroes**
-- Edit each hero's element, class, tier, notes, **counters** ("good against") and **synergies** ("works well with").
-- Tick **Owned** to build your roster.
-- Add new heroes as they are released.
-- **Export/Import JSON** to back up your data or move it to another device.
+**Heroes:** all 368 heroes from the official list. Add your tiers, counters, synergies and notes, and see each hero's learned win rate.
 
-**History**
-- Overall win rate, plus win rate when you pick first and when you pick second.
-- Win rate for each of your heroes, and your win rate against each enemy hero.
+**Teams:** save team presets. During a draft, heroes that complete a preset you've started get a bonus.
+The app also lists your **best pairs and trios** based on your results.
 
-## Getting started
+**Players:** a profile for every opponent you've named, showing favorite picks, prebans, first picks,
+which of your heroes they postban, and your win rate against them.
 
-1. Open `index.html` in a browser (double-click works).
-2. In **Heroes**, tick the heroes you own and set tiers. Add counters and synergies as you learn matchups.
-   The suggestions get better as you add this information.
-3. Use **Draft** during your RTA games.
+**History:** win rate overall and by first or second pick, win rate for each of your heroes,
+your win rate against each enemy hero, and the most-banned heroes.
 
-The starting hero list is a small sample with names, elements and classes only. Counters and tiers start
-empty because the meta changes every season. Fill them in from your own experience.
+## Data sources are kept separate
 
-### Use it on your phone (GitHub Pages)
-In the GitHub repository go to **Settings → Pages**, choose "Deploy from a branch", pick your branch and `/ (root)`, and save.
-The site will be at `https://<your-username>.github.io/<repo-name>/`. Your data is saved separately on each device.
-Use Export/Import to copy it between devices.
+Each source is stored separately and never merged into another. If one turns out to be wrong, switch it off or delete it
+in the **Data** tab without touching the rest.
+
+| Source | What it holds | Where it comes from |
+|---|---|---|
+| `official` | Hero names, elements, classes, codes | Smilegate's public hero list. A copy is built in; **Update from official site** refreshes it |
+| `Fribbels` | Heroes you own and their stars | Your `gear.txt` from the Fribbels optimizer |
+| `my notes` | Tiers, counters, synergies, notes, owned ticks | You |
+| `custom` | Heroes you added that are missing from the official list | You |
+| `manual` matches | Matches you logged from the Draft tab | You |
+| `import:<name>` matches | Each imported CSV dataset, under its own name | Files you import |
+| `learned` | Win rates, matchups, pairs, player profiles | Calculated only from the match sources you have switched on |
+
+## How suggestions are scored
+
+Each signal adds or subtracts points. You can switch each one off.
+
+| Signal | Source | Points |
+|---|---|---|
+| Your tier rating | my notes | S +3, A +2, B +1 |
+| Counters an enemy pick / countered by one | my notes | +3 / −3 each |
+| Synergy with an ally | my notes | +2 each |
+| Element advantage (Fire > Earth > Ice > Fire, Light ↔ Dark) | game rule | ±0.5 per enemy |
+| Hero's win rate, its win rate against each enemy, and with each ally | learned | (win rate − 50%) × 6 / 8 / 6 |
+| Completes a preset you've started | presets | +2.5 |
+| The opponent's pick habits (predicting their picks, and prebans) | player | pick rate × 5 |
+
+Learned win rates are smoothed toward 50% (4 imaginary games at 50%), so 1–2 lucky games don't dominate.
+Postbanned heroes don't count toward matchup or win-rate stats, because they didn't fight.
+You can tune the weights in `js/logic.js` (`W`, `TIER_SCORE`).
+
+## Importing data
+
+- **Fribbels roster:** Data → *Import gear.txt*. Names the app doesn't recognize are listed so you can check them.
+- **Matches (CSV):** Data → *Download CSV template*, fill it in, then *Import matches*. You name the dataset, and it stays separate.
+  Separate hero names with `|`.
+- **Backup:** *Export everything* / *Import backup* moves all your data between devices.
 
 ## Development
 
-Plain HTML, CSS and JavaScript with no build step.
+Plain HTML, CSS and JavaScript with no build step. Open `index.html`.
 
 ```
-index.html        page layout
-css/styles.css    styling
-js/data.js        starter hero list
-js/logic.js       draft rules, suggestion scoring, speed math (no DOM; unit-tested)
-js/app.js         UI and localStorage
-tests/            node tests for logic.js
+js/sources/official-heroes.js  built-in copy of the official hero list (generated)
+js/roster.js    official list parsing, Fribbels + CSV import      (pure, tested)
+js/learn.js     learning engine: stats, matchups, pairs, players  (pure, tested)
+js/logic.js     draft rules, suggestion scoring, speed math       (pure, tested)
+js/app.js       UI and storage
+tools/update-official-heroes.js  regenerates the built-in hero list
 ```
 
 ```
-npm test          # runs the unit tests (Node 18+)
-npm start         # optional local server at http://localhost:8080
+npm test               # unit tests (Node 18+)
+npm run update-heroes  # refresh js/sources/official-heroes.js
 ```
 
-### How suggestions are scored
-Each candidate hero starts with a score from its tier (S=3, A=2, B=1). Then:
-- **+3** for each enemy pick it counters
-- **−3** for each enemy pick that counters it
-- **+2** for each ally it has synergy with
-- **±0.5** per enemy for element advantage (Fire > Earth > Ice > Fire, Light ↔ Dark)
-
-These weights are in `js/logic.js` (`W` and `TIER_SCORE`) if you want to tune them.
+## Roadmap
+- [ ] **Auto-detect the draft from the game screen** (screen capture + portrait recognition), so nothing needs typing
+- [ ] Read opponent names from the screen for automatic player profiles
+- [ ] Optional import of official battle records, if they can be reached from the browser

@@ -5,6 +5,7 @@
   "description": "Fan-made draft, speed and match tracker for Epic Seven RTA. No build step.",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "update-heroes": "node tools/update-official-heroes.js",
     "start": "python3 -m http.server 8080"
   }
 }
