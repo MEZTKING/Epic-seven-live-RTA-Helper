@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gear Sorter</title>
+  <meta name="description" content="Sort Epic Seven gear from a Fribbels gear.txt: what to keep, enhance, reforge, extract or sell, and who it suits." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#12131a" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Gear Sorter</h1>
+    <nav class="tabs">
+      <a class="tab" href="index.html">← RTA Helper</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="cards">
+      <div class="card">
+        <h3>Your gear <span class="src fribbels">Fribbels</span></h3>
+        <p class="hint">Import <b>gear.txt</b> from the Fribbels optimizer (<a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a>). Shared with the RTA Helper: importing here also updates your roster and speeds there.</p>
+        <div id="gs-src" class="hint"></div>
+        <div class="btn-row"><label class="btn file-btn">Import gear.txt<input id="gs-file" type="file" accept=".txt,.json,application/json,text/plain" hidden /></label></div>
+      </div>
+      <div class="card">
+        <h3>Rules</h3>
+        <p class="hint">Rules of thumb. Gear score = the Fribbels/RexQian "WSS" (substats only).</p>
+        <label>Keep if gear score ≥ <input id="r-keep" type="number" min="0" max="120" /></label>
+        <label>Reforge if score after reforge ≥ <input id="r-reforge" type="number" min="0" max="120" /></label>
+        <label>Always keep with speed substat ≥ <input id="r-speed" type="number" min="0" max="40" /></label>
+        <label>"Upgrade" means fit better by more than <input id="r-margin" type="number" min="0" max="30" /></label>
+      </div>
+      <div class="card">
+        <h3>Summary</h3>
+        <div id="gs-summary" class="verdicts"></div>
+        <p class="hint">Extract = level 85+ gear (gives materials when extracted); Sell = lower level gear. Check in game before you extract or sell anything important.</p>
+      </div>
+    </div>
+
+    <div class="filters">
+      <select id="f-verdict"><option value="">All verdicts</option><option value="keep">Keep</option><option value="enhance">Enhance</option><option value="reforge">Reforge</option><option value="extract">Extract</option><option value="sell">Sell</option></select>
+      <select id="f-gear"><option value="">All slots</option></select>
+      <select id="f-set"><option value="">All sets</option></select>
+      <select id="f-eq"><option value="">Equipped + spare</option><option value="spare">Spare only</option><option value="eq">Equipped only</option></select>
+      <input id="f-hero" list="gs-heroes" placeholder="Best for hero…" autocomplete="off" />
+      <select id="f-sort"><option value="wss">Sort: gear score</option><option value="delta">Sort: biggest upgrade</option><option value="speed">Sort: speed</option></select>
+    </div>
+    <p id="gs-count" class="hint"></p>
+    <div class="table-wrap">
+      <table class="db-table gs-table">
+        <thead><tr><th>Item</th><th>Substats</th><th>Score</th><th>Best for</th><th>Verdict</th></tr></thead>
+        <tbody id="gs-rows"></tbody>
+      </table>
+    </div>
+    <div class="btn-row"><button id="gs-more" class="btn hidden">Show more</button></div>
+
+    <div class="cards" style="margin-top:12px">
+      <div class="card">
+        <h3>What a hero wants</h3>
+        <p class="hint">Built from the substats on the hero's current gear plus a class default. Change any weight to make it yours (0 = useless, 1 = top priority).</p>
+        <input id="hp-hero" list="gs-heroes" placeholder="Hero" class="full" autocomplete="off" />
+        <div id="hp-out"></div>
+      </div>
+      <div class="card">
+        <h3>Shop check: worth buying?</h3>
+        <p class="hint">Enter an item from a shop (or a fresh drop) to see if it's an upgrade for anyone.</p>
+        <div class="two">
+          <label>Slot <select id="b-gear"></select></label>
+          <label>Set <select id="b-set"></select></label>
+          <label>Rank <select id="b-rank"><option>Epic</option><option>Heroic</option><option>Rare</option></select></label>
+          <label>Level <input id="b-level" type="number" value="85" /></label>
+          <label>Enhance <input id="b-enh" type="number" value="0" min="0" max="15" /></label>
+          <label>Main stat <select id="b-main"></select></label>
+        </div>
+        <div id="b-subs" class="two"></div>
+        <div class="btn-row"><button id="b-check" class="btn primary">Check</button></div>
+        <div id="b-out"></div>
+      </div>
+    </div>
+  </main>
+  <datalist id="gs-heroes"></datalist>
+  <footer class="foot">Fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+
+  <script src="js/sources/official-heroes.js"></script>
+  <script src="js/sources/fribbels-data.js"></script>
+  <script src="js/roster.js"></script>
+  <script src="js/gear.js"></script>
+  <script src="js/gearsort.js"></script>
+  <script src="js/gear-app.js"></script>
+</body>
+</html>

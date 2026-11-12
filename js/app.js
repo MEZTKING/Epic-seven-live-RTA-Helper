@@ -38,6 +38,7 @@
     useDeny: true,
     sound: true,
     autoRecord: true, // record results detected on screen (as source 'auto')
+    useGameHelp: true,
     sourceWeights: null, // { group: multiplier } from "Tune from my matches" or sliders
     variance: 5,
   };
@@ -65,6 +66,7 @@
       fribbelsData: null,
       scouting: [],
       meta: {},
+      gameHelp: [], // what the game's RTA drafting help recommended (source 'game help')
     };
   }
   function freshDraft(firstPick, opponent = '') {
@@ -81,6 +83,7 @@
       useCorrections: true,
       useAutoLearned: false,
       autoLearn: false,
+      helpCount: 5, // heroes shown by the game's drafting help
       detectPostban: true,
       detectResult: true,
       autoReadCR: true,
@@ -118,6 +121,7 @@
     if (!Array.isArray(s.draft.suggestLog)) s.draft.suggestLog = [];
     s.fribbelsData = raw.fribbelsData && raw.fribbelsData.stats ? raw.fribbelsData : null;
     s.scouting = arr(raw.scouting);
+    s.gameHelp = arr(raw.gameHelp);
     s.meta = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
     if (Array.isArray(raw.sim)) s.sim = raw.sim;
     if (raw.pending && Array.isArray(raw.pending.actions)) s.pending = raw.pending;
@@ -208,7 +212,8 @@
           .filter(([, m]) => m.enabled !== false)
           .map(([name, m]) => ({ name, rows: m.rows }))
       : [];
-    cache = { heroes, byCode, owned, stars, enabledMatches, stats, fdata, builds, mySpeeds, scout, meta };
+    const gameHelp = Learn.gameHelpStats(store.gameHelp, enabledMatches);
+    cache = { heroes, byCode, owned, stars, enabledMatches, stats, fdata, builds, mySpeeds, scout, meta, gameHelp };
   }
 
   function clone(x) {
@@ -230,7 +235,7 @@
   const gm = (n) => `${n} ${n === 1 ? 'game' : 'games'}`;
   const pct = (w, g) => (g ? Math.round((w / g) * 100) + '%' : '—');
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const SRC_CLASS = { 'my notes': 'notes', learned: 'learned', 'game rule': 'rule', presets: 'presets', player: 'player', speed: 'speed', deny: 'deny', scouting: 'player', gear: 'fribbels' };
+  const SRC_CLASS = { 'my notes': 'notes', learned: 'learned', 'game rule': 'rule', presets: 'presets', player: 'player', speed: 'speed', deny: 'deny', scouting: 'player', gear: 'fribbels', 'game help': 'game' };
   const srcBadge = (src) => `<span class="src ${SRC_CLASS[src] || (src.startsWith('meta') ? 'meta' : 'other')}">${esc(src)}</span>`;
 
   function portrait(code, cls = 'pt', lazy = false) {
@@ -289,7 +294,15 @@
         : null,
       deny: s.useDeny,
       sourceWeights: s.sourceWeights,
+      gameHelp: s.useGameHelp ? { live: liveGameHelp(), stats: cache.gameHelp } : null,
     };
+  }
+
+  /** The game's drafting-help list for the CURRENT draft step, if one was read. */
+  let liveHelp = null;
+  function liveGameHelp() {
+    const d = store.draft;
+    return liveHelp && liveHelp.draftId === d.id && liveHelp.step === d.actions.length ? liveHelp : null;
   }
 
   /** Typical speed seen for an enemy hero: { speed, low, high, n, who } or null. */
@@ -710,6 +723,7 @@
   /** Link this draft's scouting entries to the recorded match and opponent. */
   function linkScouting(draft, matchId) {
     for (const e of store.scouting) if (e.draftId === draft.id) Object.assign(e, { matchId, player: (draft.opponent || '').trim() });
+    for (const e of store.gameHelp) if (e.draftId === draft.id) Object.assign(e, { matchId, opponent: (draft.opponent || '').trim() });
   }
   function recordResult(result, source = 'manual') {
     const pts = $('#result-points').value.trim();
@@ -989,7 +1003,28 @@
         .join('') || '<li class="hint">Needs at least 3 games with the same heroes.</li>';
     $('#combo-pairs').innerHTML = combos(2);
     $('#combo-trios').innerHTML = combos(3);
+    renderGameHelpDb();
   }
+  function renderGameHelpDb() {
+    const gh = cache.gameHelp;
+    const top = (m, n = 8) =>
+      [...(m || new Map()).entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, n)
+        .map(([c, k]) => `<li>${heroChip(c)} <small class="hint">${k}×</small></li>`)
+        .join('') || '<li class="hint">—</li>';
+    const q = $('#gh-hero').value;
+    const h = q ? bestMatch(q, cache.heroes) : null;
+    $('#gh-out').innerHTML = !gh.entries
+      ? '<p class="hint">Nothing yet. Calibrate the drafting help in the Auto tab; every recommendation the game shows during your drafts is saved here.</p>'
+      : h
+        ? `<div class="cards"><div><h4>Recommended against ${esc(h.name)}</h4><ul class="plain-list">${top(gh.against.get(h.code))}</ul></div>
+            <div><h4>Recommended with ${esc(h.name)}</h4><ul class="plain-list">${top(gh.with.get(h.code))}</ul></div></div>`
+        : `<div class="cards"><div><h4>Most recommended picks</h4><ul class="plain-list">${top(gh.picks)}</ul></div>
+            <div><h4>Most recommended bans</h4><ul class="plain-list">${top(gh.bans)}</ul></div></div>`;
+  }
+  $('#gh-hero').addEventListener('input', renderGameHelpDb);
+
   $('#preset-hero-input').addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
@@ -1103,6 +1138,8 @@
         <div class="hint">Streak: ${ses.streak.n ? `${ses.streak.n} ${ses.streak.result === 'win' ? 'win' : 'loss'}${ses.streak.n > 1 ? (ses.streak.result === 'win' ? 's' : 'es') : ''}` : '—'}</div></div>
       <div class="card"><div class="hint">Following suggestions ${srcBadge('learned')}</div>
         ${fol.picks ? `<div class="stat">${pct(fol.followed, fol.picks)}</div><div class="hint">of your picks were in the top 3.<br>Mostly followed (3+ picks): ${pct(fol.mostly.wins, fol.mostly.games)} win (${gm(fol.mostly.games)}) · Otherwise: ${pct(fol.rarely.wins, fol.rarely.games)} (${gm(fol.rarely.games)})</div>` : '<div class="hint">Recorded once you log matches drafted with this version.</div>'}</div>
+      <div class="card"><div class="hint">Following the game's drafting help ${srcBadge('game help')}</div>
+        ${cache.gameHelp.followed.games + cache.gameHelp.ignored.games ? `<div class="hint">Picked 2+ of its suggestions: <b>${pct(cache.gameHelp.followed.wins, cache.gameHelp.followed.games)}</b> win (${gm(cache.gameHelp.followed.games)})<br>Otherwise: <b>${pct(cache.gameHelp.ignored.wins, cache.gameHelp.ignored.games)}</b> (${gm(cache.gameHelp.ignored.games)})</div>` : '<div class="hint">Shown once the app has read the game\'s drafting help in recorded matches.</div>'}</div>
       <div class="card wide2"><div class="hint">Rank points</div>${pointsChart(ses.points)}</div>`;
 
     const H = [...cache.stats.hero.entries()];
@@ -1169,6 +1206,7 @@
     '#use-deny': 'useDeny',
     '#use-sound': 'sound',
     '#use-auto-record': 'autoRecord',
+    '#use-game-help': 'useGameHelp',
   };
 
   function renderData() {
@@ -1183,6 +1221,8 @@
     $('#src-fdata').innerHTML = `${Object.keys(fd.stats).length} heroes' base stats · ${fd.artifacts.length} artifacts · ${store.fribbelsData ? 'updated' : 'built-in copy from'} ${new Date(fd.fetchedAt).toLocaleDateString()}`;
     $('#src-builds').textContent = cache.builds.size ? `${cache.builds.size} builds from your gear.txt · ${[...cache.builds.values()].filter((b) => b.itemCount >= 6).length} fully geared` : 'No gear yet: import gear.txt (it includes your equipped items).';
     $('#src-scouting').textContent = `${store.scouting.length} observations of ${new Set(store.scouting.map((e) => e.player).filter(Boolean)).size} players`;
+    const gh = cache.gameHelp;
+    $('#src-game-help').textContent = `${store.gameHelp.length} recommendation lists read · ${gh.picks.size} heroes recommended as picks, ${gh.bans.size} as bans`;
     $('#meta-sources').innerHTML =
       Object.entries(store.meta)
         .map(([k, m]) => `<tr data-meta="${esc(k)}"><td><input type="checkbox" data-toggle ${m.enabled !== false ? 'checked' : ''} /></td><td><span class="src meta">meta: ${esc(k)}</span></td><td>${Object.keys(m.rows).length}</td><td class="small">${m.addedAt ? new Date(m.addedAt).toLocaleDateString() : ''}</td><td><button class="btn danger" data-del-meta>Delete</button></td></tr>`)
@@ -1251,6 +1291,11 @@
       const r = R.parseFribbels(text, cache.heroes);
       const builds = G.extractBuilds(JSON.parse(text), cache.heroes);
       store.fribbels = { source: 'fribbels', fileName: file.name, importedAt: new Date().toISOString(), ...r, builds };
+      // share the full inventory with the Gear Sorter page (gear.html)
+      try {
+        const g = JSON.parse(localStorage.getItem('rta-gear-v1') || '{}') || {};
+        localStorage.setItem('rta-gear-v1', JSON.stringify({ ...g, fileName: file.name, importedAt: store.fribbels.importedAt, items: window.RTAGearSort ? window.RTAGearSort.slimInventory(JSON.parse(text), cache.heroes) : [] }));
+      } catch (_) { /* storage full: the Gear page can import on its own */ }
       store.settings.useFribbels = true;
       save();
       const geared = Object.values(builds).filter((b) => b.items.length).length;
@@ -1271,7 +1316,17 @@
     const btn = e.target;
     btn.disabled = true;
     try {
-      const [h, a] = await Promise.all([fetch(G.HERO_STATS_URL, { cache: 'no-cache' }).then((r) => r.json()), fetch(G.ARTIFACT_URL, { cache: 'no-cache' }).then((r) => r.json())]);
+      // RexQian fork's data: S3 bucket first, then the fork's GitHub copy
+      const get = async (url, fallback) => {
+        try {
+          const r = await fetch(url, { cache: 'no-cache' });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return await r.json();
+        } catch (_) {
+          return (await fetch(fallback, { cache: 'no-cache' })).json();
+        }
+      };
+      const [h, a] = await Promise.all([get(G.HERO_STATS_URL, G.HERO_STATS_FALLBACK), get(G.ARTIFACT_URL, G.ARTIFACT_FALLBACK)]);
       const stats = G.normalizeHeroStats(h);
       const artifacts = G.normalizeArtifacts(a);
       if (Object.keys(stats).length < 100) throw new Error('Data looks incomplete; keeping the current copy.');
@@ -1283,6 +1338,22 @@
     }
     btn.disabled = false;
     render();
+  });
+  $('#game-help-clear').addEventListener('click', () => {
+    if (!store.gameHelp.length || !confirm("Delete everything read from the game's drafting help?")) return;
+    store.gameHelp = [];
+    liveHelp = null;
+    save();
+    render();
+  });
+  $('#game-help-export').addEventListener('click', () => {
+    const n = (c) => `"${nameOf(c).replace(/"/g, '""')}"`;
+    const rows = ['date,phase,whose_turn,opponent,recommended,my_picks,opp_picks'];
+    for (const e of store.gameHelp) {
+      const b = e.board || {};
+      rows.push([e.at, e.phase, e.player, `"${(e.opponent || '').replace(/"/g, '""')}"`, (e.recs || []).map(n).join('|'), (b.myPicks || []).map(n).join('|'), (b.oppPicks || []).map(n).join('|')].join(','));
+    }
+    download('game-drafting-help.csv', rows.join('\n') + '\n', 'text/csv');
   });
   $('#scouting-clear').addEventListener('click', () => {
     if (!store.scouting.length || !confirm('Delete all scouting observations?')) return;
@@ -1350,7 +1421,7 @@
   });
 
   // --------------------------------------------------------------- weights
-  const WEIGHT_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny'];
+  const WEIGHT_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny', 'game help'];
   function renderWeights() {
     const w = store.settings.sourceWeights || {};
     $('#weights').innerHTML = WEIGHT_GROUPS.map(
@@ -1510,6 +1581,26 @@
     addScoutSpeeds(list) {
       for (const r of list) if (r.side === 'opp' && r.speed) upsertScout(r.code, { speed: Math.round(r.speed), min: r.min, max: r.max, method: 'cr-read' });
       if (activeTab === 'draft') renderDraft();
+    },
+    /** A list read from the game's drafting help for the current step (source 'game help'). */
+    addGameHelp({ phase, player, recs }) {
+      const d = store.draft;
+      const v = L.draftView(d);
+      liveHelp = { draftId: d.id, step: d.actions.length, phase, player, recs };
+      store.gameHelp.push({
+        id: newId(),
+        draftId: d.id,
+        step: d.actions.length,
+        phase,
+        player,
+        recs,
+        board: { myPicks: v.picks.me, oppPicks: v.picks.opp, myPrebans: v.prebans.me, oppPrebans: v.prebans.opp },
+        opponent: (d.opponent || '').trim(),
+        at: new Date().toISOString(),
+      });
+      save();
+      if (activeTab === 'draft') renderDraft();
+      else for (const fn of draftListeners) fn();
     },
     replaceDraft(next, { newMatch = false } = {}) {
       if (newMatch && L.isComplete(store.draft)) store.pending = { ...store.draft };

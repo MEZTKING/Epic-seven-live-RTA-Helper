@@ -2,8 +2,8 @@
  * Gear & builds. Pure (no DOM). Browser: window.RTAGear. Node: require().
  *
  * Sources (kept apart):
- *   'fribbels-data'  hero base stats + artifact list (public data used by the Fribbels optimizer)
- *   'fribbels'       YOUR gear.txt: which items each of your heroes wears
+ *   'fribbels-data'  hero base stats + artifact list (data used by the RexQian fork of the Fribbels optimizer)
+ *   'fribbels'       YOUR gear.txt (exported by that optimizer): which items each of your heroes wears
  *
  * Speed is calculated exactly the way the game adds it up:
  *   base speed (6 stars, awakened) x (1 + 25% Speed set + 12% Revenge set) + flat speed on gear
@@ -11,8 +11,16 @@
  * EE can give speed are flagged.
  */
 (function (root) {
+  /*
+   * Data comes from the maintained RexQian fork of the Fribbels optimizer
+   * (github.com/RexQian/Fribbels-Epic-7-Optimizer). The fork itself loads its
+   * hero/artifact data from this S3 bucket; its GitHub copy is the fallback.
+   */
+  const FORK_REPO = 'https://github.com/RexQian/Fribbels-Epic-7-Optimizer';
   const HERO_STATS_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.com/herodata.json';
   const ARTIFACT_URL = 'https://e7-optimizer-game-data.s3-accelerate.amazonaws.com/artifactdata.json';
+  const HERO_STATS_FALLBACK = 'https://raw.githubusercontent.com/RexQian/Fribbels-Epic-7-Optimizer/main/data/cache/herodata.json';
+  const ARTIFACT_FALLBACK = 'https://raw.githubusercontent.com/RexQian/Fribbels-Epic-7-Optimizer/main/data/cache/artifactdata.json';
 
   // Fribbels set ids -> display names, and pieces needed for the bonus.
   const SETS = {
@@ -161,7 +169,7 @@
     };
   }
 
-  const api = { HERO_STATS_URL, ARTIFACT_URL, SETS, SET_NAMES, GEAR_SLOTS, normalizeHeroStats, normalizeArtifacts, extractBuilds, setCounts, completedSets, flatTotals, computeBuild };
+  const api = { FORK_REPO, HERO_STATS_URL, ARTIFACT_URL, HERO_STATS_FALLBACK, ARTIFACT_FALLBACK, SETS, SET_NAMES, GEAR_SLOTS, normalizeHeroStats, normalizeArtifacts, extractBuilds, setCounts, completedSets, flatTotals, computeBuild };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAGear = api;
 })(typeof window !== 'undefined' ? window : globalThis);

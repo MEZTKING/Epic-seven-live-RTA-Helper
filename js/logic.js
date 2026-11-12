@@ -159,6 +159,7 @@
    *   speed    { mine: Map code->speed (your gear), player: Map, all: Map code->{speed,n} (scouting) }
    *   deny     false to turn off "also strong for them"
    *   sourceWeights { [group]: multiplier }  see SOURCE_GROUPS
+   *   gameHelp { live: { phase, player, recs[] } | null, stats: RTALearn.gameHelpStats() | null }
    */
   const TIER_SCORE = { S: 3, A: 2, B: 1, C: 0, '': 0 };
   const W = {
@@ -179,6 +180,10 @@
     firstPickCounter: 0.5, // per known counter, when first-picking
     firstPickBanned: 3, // x how often it gets postbanned, when first-picking
     deny: 0.3, // x how good it would be for the opponent
+    gameHelpLive: 3, // the game's drafting help recommends it right now (#1; less for lower ranks)
+    gameHelpAgainst: 0.4, // per time the game recommended it against an enemy on the board (max 5)
+    gameHelpWith: 0.25, // per time it was recommended alongside an ally (max 5)
+    gameHelpBan: 0.3, // per time the game recommended banning it (max 8), for ban ideas
   };
   const MIN_SHOW = 0.3; // hide tiny learned effects from the reason list
 
@@ -187,7 +192,7 @@
    * whole group (1 = normal, 0 = off) — e.g. the values "Tune from my matches"
    * finds. Meta sources are named 'meta: <dataset>' and share the 'meta' weight.
    */
-  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny'];
+  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny', 'game help'];
   const groupOf = (source) => (source.startsWith('meta') ? 'meta' : source);
 
   function noteOf(ctx, code) {
@@ -306,6 +311,23 @@
       }
     }
 
+    // the game's own drafting help: live recommendation + database built from past ones
+    if (ctx.gameHelp) {
+      const gh = ctx.gameHelp;
+      const live = gh.live && opts.side === gh.live.player && gh.live.phase === 'pick' ? gh.live.recs.indexOf(hero.code) : -1;
+      if (live >= 0) push(W.gameHelpLive * Math.max(0.4, 1 - live * 0.15), `Game's drafting help suggests it now (#${live + 1})`, 'game help');
+      if (gh.stats) {
+        for (const e of enemies) {
+          const n = (gh.stats.against.get(e.code) || new Map()).get(hero.code) || 0;
+          if (n >= 2) push(W.gameHelpAgainst * Math.min(n, 5), `Game recommended it vs ${e.name} ${n}×`, 'game help');
+        }
+        for (const a of allies) {
+          const n = (gh.stats.with.get(a.code) || new Map()).get(hero.code) || 0;
+          if (n >= 2) push(W.gameHelpWith * Math.min(n, 5), `Game recommended it with ${a.name} ${n}×`, 'game help');
+        }
+      }
+    }
+
     // presets (only for my own picks)
     if (ctx.presets && opts.side === 'me') {
       const allyCodes = new Set(allies.map((a) => a.code));
@@ -420,6 +442,13 @@
     return theirs
       .map((h) => {
         const r = scoreCandidate(h, theirs.filter((t) => t.code !== h.code), mine, ctx, { side: other });
+        // the game's drafting help recommending this postban right now
+        const gl = ctx.gameHelp && ctx.gameHelp.live;
+        if (forPlayer === 'me' && gl && gl.phase === 'postban' && gl.player === 'me' && gl.recs.includes(h.code)) {
+          const v3 = W.gameHelpLive * Math.max(0.4, 1 - gl.recs.indexOf(h.code) * 0.15);
+          r.score = Math.round((r.score + v3) * 10) / 10;
+          r.reasons = [{ text: `Game's drafting help suggests banning it (#${gl.recs.indexOf(h.code) + 1})`, source: 'game help', value: Math.round(v3 * 10) / 10 }, ...r.reasons];
+        }
         // when predicting THEIR ban of my hero, use this opponent's postban habits
         if (forPlayer === 'opp' && ctx.profile) {
           const hit = (ctx.profile.postbans || []).find((p) => p.code === h.code);
@@ -475,6 +504,13 @@
             const val = (0.5 - myWr) * W.learnedMatchup;
             if (val >= MIN_SHOW) push(val, `You win only ${pct(s.vsMe.wins / s.vsMe.games)} against it (${gm(s.vsMe.games)})`, 'learned');
           }
+        }
+        if (ctx.gameHelp) {
+          const gh = ctx.gameHelp;
+          const live = gh.live && gh.live.phase === 'preban' && gh.live.player === 'me' ? gh.live.recs.indexOf(h.code) : -1;
+          if (live >= 0) push(W.gameHelpLive * Math.max(0.4, 1 - live * 0.15), `Game's drafting help suggests banning it (#${live + 1})`, 'game help');
+          const n = gh.stats ? gh.stats.bans.get(h.code) || 0 : 0;
+          if (n >= 2) push(W.gameHelpBan * Math.min(n, 8), `Game recommended banning it ${n}×`, 'game help');
         }
         for (const m of ctx.meta || []) {
           const row = m.rows[h.code];

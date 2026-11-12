@@ -186,7 +186,7 @@
 
   // =================================================================== loop
   function rebuildSlots() {
-    slots = V.slotLayout(cfg().regions);
+    slots = [...V.slotLayout(cfg().regions), ...V.helpSlots(cfg().regions, cfg().helpCount)];
     for (const s of slots) if (!track.has(s.id)) track.set(s.id, { candidate: null, count: 0, empties: 0, confirmed: null, result: null, lastVec: null, feature: null });
   }
 
@@ -252,6 +252,7 @@
     }
     if (c.apply) applyBoard();
     if (c.apply && c.detectPostban) detectPostbans();
+    recordGameHelp();
     maybeReadName();
     maybeReadResult();
     maybeAutoReadCR();
@@ -355,6 +356,37 @@
       const code = step.player === 'me' ? ban.opp.code : ban.me.code;
       if (!code || L.canSelect(App.store.draft, code)) break;
       App.selectHero(code);
+    }
+  }
+
+  // ===================================================== game's drafting help
+  /*
+   * Reads the heroes the game's own RTA drafting help recommends at each draft
+   * step and saves them (source 'game help'). The same list twice in a row
+   * counts; each new list for a draft step is stored once.
+   */
+  const help = { key: null, n: 0, saved: new Set() };
+  function recordGameHelp() {
+    const hs = slots.filter((s) => s.side === 'help');
+    if (!hs.length) return;
+    const recs = [];
+    for (const s of hs) {
+      const t = track.get(s.id);
+      const r = t && t.result;
+      if (r && !r.empty && V.isConfident(r, cfg().threshold) && !recs.includes(r.best.code)) recs.push(r.best.code);
+    }
+    const d = App.store.draft;
+    const step = L.currentStep(d);
+    if (!recs.length || !step) {
+      help.key = null;
+      return;
+    }
+    const key = `${d.id}|${d.actions.length}|${recs.join(',')}`;
+    if (key === help.key) help.n++;
+    else Object.assign(help, { key, n: 1 });
+    if (help.n >= 2 && !help.saved.has(key)) {
+      help.saved.add(key);
+      App.addGameHelp({ phase: step.phase, player: step.player, recs });
     }
   }
 
@@ -512,6 +544,13 @@
   let calib = null; // { steps, step, regions, frame: canvas, drag }
   const CR_STEPS = [{ key: 'crBar', label: 'the CR (turn order) bar, from its 0% end to its 100% end, as tall/wide as the portraits on it' }];
   const RESULT_STEPS = [{ key: 'result', label: 'where VICTORY / DEFEAT is written on the result screen' }];
+  function calibrateHelp() {
+    const n = prompt("How many heroes does the game's drafting help show at once?", String(cfg().helpCount || 5));
+    if (!n || !(Number(n) >= 1)) return;
+    cfg().helpCount = Math.min(10, Math.round(Number(n)));
+    App.save();
+    startCalibration(V.GAME_HELP_STEPS);
+  }
 
   function startCalibration(steps = V.REGION_STEPS) {
     if (!source || !frameSize()) {
@@ -560,6 +599,7 @@
     if (calib.regions.oppName) box(calib.regions.oppName, '#ff8f6b', 'name');
     if (calib.regions.crBar) box(calib.regions.crBar, '#3ecf8e', 'CR bar');
     if (calib.regions.result) box(calib.regions.result, '#f3d36b', 'result');
+    for (const h of V.helpSlots(calib.regions, cfg().helpCount)) box(h.rect, '#b07cff', `G${h.index + 1}`);
     for (const k of ['mePickFirst', 'mePickLast', 'oppPickFirst', 'oppPickLast']) if (calib.regions[k] && !V.slotLayout(calib.regions).length) box(calib.regions[k], '#c9a24a');
     if (calib.drag) box(calib.drag.rect, '#c9a24a');
     const step = calib.steps[calib.step];
@@ -617,7 +657,9 @@
   $('#calib-done').addEventListener('click', () => {
     if (!calib) return;
     if (calib.steps !== V.REGION_STEPS) {
-      cfg().regions = calib.regions; // CR bar / result box: just save
+      cfg().regions = calib.regions; // CR bar / result / drafting help: just save
+      track.clear();
+      rebuildSlots();
       App.save();
     } else if (!V.isCalibrated(calib.regions)) {
       if (!confirm('Some required boxes are missing. Close anyway?')) return;
@@ -698,7 +740,7 @@
     }
     if (box.children.length !== slots.length) {
       box.innerHTML = slots
-        .map((s) => `<button class="aslot ${s.side}" data-slot="${s.id}"><canvas width="44" height="44"></canvas><div><div class="t">${s.side === 'me' ? 'Me' : 'Opp'} ${s.kind} ${s.index + 1}</div><div class="h">—</div><div class="t sc"></div></div></button>`)
+        .map((s) => `<button class="aslot ${s.side}" data-slot="${s.id}"><canvas width="44" height="44"></canvas><div><div class="t">${s.side === 'me' ? 'Me' : s.side === 'opp' ? 'Opp' : 'Game help'} ${s.kind === 'rec' ? '#' : s.kind + ' '}${s.index + 1}</div><div class="h">—</div><div class="t sc"></div></div></button>`)
         .join('');
     }
     slots.forEach((s, i) => {
@@ -775,6 +817,7 @@
   $('#auto-calib-cr').addEventListener('click', () => startCalibration(CR_STEPS));
   $('#auto-calib-result').addEventListener('click', () => startCalibration(RESULT_STEPS));
   $('#auto-read-cr').addEventListener('click', () => readCR());
+  $('#auto-calib-help').addEventListener('click', calibrateHelp);
   const clearSrc = (src, label) => () => {
     if (!confirm(`Delete all ${label}?`)) return;
     cfg().corrections = cfg().corrections.filter((c) => c.source !== src);

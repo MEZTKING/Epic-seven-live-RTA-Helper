@@ -166,6 +166,22 @@
     return slots;
   }
 
+  /*
+   * The game's own RTA "drafting help" shows a row (or column) of recommended
+   * heroes. You box the FIRST and LAST recommended icon and say how many there
+   * are; the ones in between are spaced evenly.
+   */
+  const GAME_HELP_STEPS = [
+    { key: 'helpFirst', label: "the FIRST hero recommended by the game's drafting help" },
+    { key: 'helpLast', label: "the LAST hero recommended by the game's drafting help" },
+  ];
+  function helpSlots(regions, count) {
+    const r = regions || {};
+    const n = Math.max(1, Math.min(10, Number(count) || 0));
+    if (!r.helpFirst || !r.helpLast || !count) return [];
+    return interpolate(r.helpFirst, r.helpLast, n).map((rect, i) => ({ id: `help-rec-${i}`, side: 'help', kind: 'rec', index: i, rect }));
+  }
+
   function isCalibrated(regions) {
     return REGION_STEPS.filter((s) => !s.optional).every((s) => regions && regions[s.key]);
   }
@@ -180,7 +196,7 @@
     return s.length >= 2 && s.length <= 24 ? s : '';
   }
 
-  const api = { SIZE, DIM, featureFromRGBA, similarity, classify, isConfident, quantize, dequantize, REGION_STEPS, interpolate, slotLayout, isCalibrated, cleanName };
+  const api = { GAME_HELP_STEPS, helpSlots, SIZE, DIM, featureFromRGBA, similarity, classify, isConfident, quantize, dequantize, REGION_STEPS, interpolate, slotLayout, isCalibrated, cleanName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAVision = api;
 })(typeof window !== 'undefined' ? window : globalThis);

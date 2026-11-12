@@ -88,3 +88,12 @@ test('confidence: high score + small lead, or lower score + big lead', () => {
   assert.equal(V.isConfident(r(0.68, 0.6)), false);
   assert.equal(V.isConfident(r(0.5, 0.1)), false); // too low whatever the lead
 });
+
+test('game drafting-help strip: N evenly spaced icons between first and last', () => {
+  const regions = { helpFirst: { x: 0.3, y: 0.8, w: 0.05, h: 0.08 }, helpLast: { x: 0.5, y: 0.8, w: 0.05, h: 0.08 } };
+  const s = V.helpSlots(regions, 5);
+  assert.equal(s.length, 5);
+  assert.deepEqual(s.map((x) => +x.rect.x.toFixed(2)), [0.3, 0.35, 0.4, 0.45, 0.5]);
+  assert.equal(s[0].side, 'help');
+  assert.deepEqual(V.helpSlots({}, 5), []);
+});

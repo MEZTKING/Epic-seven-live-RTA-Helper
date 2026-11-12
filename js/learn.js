@@ -307,7 +307,63 @@
     return { picks, followed, mostly, rarely };
   }
 
-  const api = { scoutSummary, sessionStats, suggestionFollow, median, PRIOR, smoothed, buildStats, buildProfile, getProfile, matchupOf, pairOf, topCombos, presetRecord, lineups };
+
+  // ------------------------------------------------- the game's drafting help
+  /*
+   * Source 'game help': what the game's own RTA drafting help recommended.
+   * entry: { draftId, matchId?, phase: 'preban'|'pick'|'postban', player, recs: [codes],
+   *          board: { myPicks, oppPicks, myPrebans, oppPrebans }, opponent, at }
+   * From many entries we build our own database:
+   *   against  enemyCode -> Map(recommendedCode -> times)  (recommended while that enemy was picked)
+   *   with     allyCode  -> Map(recommendedCode -> times)  (recommended while that ally was on the team)
+   *   picks    code -> times recommended as a pick
+   *   bans     code -> times recommended as a ban (pre or post)
+   *   follow   how often I picked one of the recommendations, and my win rate when I did
+   */
+  function gameHelpStats(entries, matches = []) {
+    const against = new Map();
+    const withAlly = new Map();
+    const picks = new Map();
+    const bans = new Map();
+    const add2 = (m, a, b) => {
+      if (!m.has(a)) m.set(a, new Map());
+      count(m.get(a), b);
+    };
+    for (const e of entries || []) {
+      const recs = e.recs || [];
+      if (!recs.length) continue;
+      if (e.phase === 'pick') {
+        const mine = e.player === 'me';
+        const b = e.board || {};
+        const enemies = (mine ? b.oppPicks : b.myPicks) || [];
+        const allies = (mine ? b.myPicks : b.oppPicks) || [];
+        for (const r of recs) {
+          count(picks, r);
+          for (const en of enemies) add2(against, en, r);
+          for (const al of allies) add2(withAlly, al, r);
+        }
+      } else for (const r of recs) count(bans, r);
+    }
+    // follow-through: did I pick something the game recommended, and did I win?
+    const byDraft = new Map();
+    for (const e of entries || []) if (e.phase === 'pick' && e.player === 'me' && e.draftId) {
+      if (!byDraft.has(e.draftId)) byDraft.set(e.draftId, new Set());
+      for (const r of e.recs || []) byDraft.get(e.draftId).add(r);
+    }
+    const followed = { games: 0, wins: 0 };
+    const ignored = { games: 0, wins: 0 };
+    for (const m of matches) {
+      const recs = m.draftId && byDraft.get(m.draftId);
+      if (!recs) continue;
+      const hits = (m.myPicks || []).filter((c) => recs.has(c)).length;
+      const bucket = hits >= 2 ? followed : ignored;
+      bucket.games++;
+      if (m.result === 'win') bucket.wins++;
+    }
+    return { entries: (entries || []).length, against, with: withAlly, picks, bans, followed, ignored };
+  }
+
+  const api = { gameHelpStats, scoutSummary, sessionStats, suggestionFollow, median, PRIOR, smoothed, buildStats, buildProfile, getProfile, matchupOf, pairOf, topCombos, presetRecord, lineups };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTALearn = api;
 })(typeof window !== 'undefined' ? window : globalThis);
