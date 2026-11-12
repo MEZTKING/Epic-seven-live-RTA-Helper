@@ -459,7 +459,9 @@
       }
     }
     if (v.picks.me.length >= 3) {
-      const warns = L.compositionWarnings(v.picks.me, v.picks.opp, store.settings.useNotes ? store.notes : null);
+      const CB = window.CeciliaBot;
+      const auto = CB && CB.enabled() ? { tags: Object.fromEntries([...v.picks.me, ...v.picks.opp].map((c) => [c, CB.tagsFor(c)])), source: 'ceciliabot' } : null;
+      const warns = L.compositionWarnings(v.picks.me, v.picks.opp, store.settings.useNotes ? store.notes : null, auto);
       if (warns.length) out.push(`<div class="ins warn"><h4>Team check</h4>${warns.map((w) => `<div>${srcBadge(w.source)} ${esc(w.text)}</div>`).join('')}</div>`);
     }
     $('#insights').innerHTML = out.join('');
@@ -1641,6 +1643,7 @@
       },
     });
   }
+  if (window.HeroInfo) window.HeroInfo.onTagsReady(() => render());
   // another tab (Gear, Guild War) changed this device's RTA data: reload instead of overwriting it later
   window.addEventListener('storage', (e) => {
     if (e.key !== KEY || !e.newValue) return;

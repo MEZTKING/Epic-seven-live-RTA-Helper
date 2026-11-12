@@ -582,6 +582,9 @@
     calib = { steps: Array.isArray(steps) ? steps : V.REGION_STEPS, step: 0, regions: { ...cfg().regions }, frame, drag: null, preview: false };
     $('#calib').classList.remove('hidden');
     drawCalib();
+    // bring the whole picture into view: a drag that ends off-screen would draw the wrong box
+    $('#calib').scrollIntoView({ block: 'start' });
+    window.scrollBy(0, -($('.topbar') ? $('.topbar').offsetHeight + 8 : 0));
   }
 
   function showOverlay() {

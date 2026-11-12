@@ -210,7 +210,9 @@ input.full { width: 100%; }
 .pending { margin-top: 10px; padding: 10px 12px; background: var(--panel); border-radius: var(--radius); border-left: 4px solid var(--accent); }
 .calib-step { font-weight: 600; color: var(--accent); }
 .calib-wrap { margin-top: 8px; overflow: auto; }
-#calib-canvas { width: 100%; height: auto; cursor: crosshair; touch-action: none; border-radius: 6px; display: block; }
+#calib-canvas { max-width: 100%; max-height: 62vh; width: auto; height: auto; cursor: crosshair; touch-action: none; border-radius: 6px; display: block; margin: 0 auto; }
+/* the whole frame stays visible while drawing boxes (no scrolling mid-drag) */
+.calib-canvas { max-width: 100%; max-height: 62vh; width: auto !important; height: auto; display: block; margin: 8px auto 0; cursor: crosshair; touch-action: none; }
 .auto-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .aslot { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); cursor: pointer; text-align: left; }
 .aslot canvas { width: 44px; height: 44px; border-radius: 4px; flex: none; background: #000; }
@@ -370,3 +372,5 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .heroinfo .hi-edit textarea { width: 100%; }
 .heroinfo .hi-tg { margin: 4px 0; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
 .slot.filled[data-hero] { cursor: pointer; }
+
+.cb-buff { color: #3ecf8e; } .cb-debuff { color: #ff8f6b; }

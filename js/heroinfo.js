@@ -4,8 +4,9 @@
  * a link to the hero's full, current skill text on epic7x.com.
  *
  * Sources (never merged):
- *   'my notes'  your own tags / skill notes   (stored with your RTA notes on this device)
- *   'guild'     shared by your guild          (Guild War sync; cached on this device for other pages)
+ *   'my notes'   your own tags / skill notes   (stored with your RTA notes on this device)
+ *   'guild'      shared by your guild          (Guild War sync; cached on this device for other pages)
+ *   'ceciliabot' full skill text + automatic tags from game effect data (js/ceciliabot.js; can be switched off)
  *
  * A page can plug in its own storage with HeroInfo.configure({...}); otherwise
  * it reads/writes this device's storage directly.
@@ -56,11 +57,15 @@
     adapter = { ...adapter, ...a };
   }
 
+  const CB = window.CeciliaBot || null;
   function tagList(code) {
     const mine = (adapter.getMyNote(code) || {}).tags || [];
     const guild = (adapter.getGuildNote(code) || {}).tags || [];
-    return R.tagSources({ 'my notes': mine, guild });
+    return R.tagSources({ 'my notes': mine, guild, ceciliabot: CB ? CB.tagsFor(code) : [] });
   }
+  // load CeciliaBot's effect list in the background so automatic tags show up; pages can re-render when ready
+  const readyFns = [];
+  if (CB && CB.enabled()) CB.loadList().then(() => readyFns.forEach((f) => f())).catch(() => {});
   /** Small tag chips for quick overview next to a hero. */
   function tagChips(code, max = 3) {
     const t = tagList(code);
@@ -121,6 +126,25 @@
     if (!dlg && !current) return;
     const d = ensureDialog();
     const h = byCode.get(current) || { code: current, name: current };
+    const forCode = current;
+    if (CB && CB.enabled()) {
+      CB.loadHero(forCode)
+        .then((data) => {
+          const box = d.querySelector('.hi-cb');
+          if (!box || current !== forCode) return;
+          const skills = CB.skillsOf(data);
+          box.innerHTML = skills.length
+            ? skills
+                .map((s) => `<div class="hi-skill"><b>S${s.n} · ${esc(s.name)}</b>${s.passive ? ' <span class="hint">(passive)</span>' : ''}${s.cooldown ? ` <span class="hint">· ${s.cooldown} turn cooldown</span>` : ''}<div>${CB.renderText(s.text, s.values)}</div>${s.awakenedText ? `<div class="hint">Awakened: ${CB.renderText(s.awakenedText, s.awakenedValues)}</div>` : ''}</div>`)
+                .join('')
+            : '<p class="hint">No skill text available.</p>';
+          box.insertAdjacentHTML('beforeend', '<p class="hint">Numbers shown at max skill enhancement.</p>');
+        })
+        .catch((e) => {
+          const box = d.querySelector('.hi-cb');
+          if (box && current === forCode) box.innerHTML = `<p class="hint">Couldn't load skills from CeciliaBot (${esc(e.message)}). Use the epic7x link above.</p>`;
+        });
+    }
     const mine = adapter.getMyNote(current);
     const guild = adapter.getGuildNote(current);
     const tags = tagList(current);
@@ -131,6 +155,8 @@
       ${tags.length ? `<div class="hi-tags">${tags.map((x) => `<span class="tag" title="from ${esc(x.sources.join(' + '))}">${esc(x.tag)}${x.sources.length > 1 ? ' ✓' : ''}</span>`).join('')}</div>` : '<p class="hint">No role tags yet. Add yours below; the guild can add shared ones from the Guild War page.</p>'}
       <p><a href="${esc(R.epic7xUrl(h.name))}" target="_blank" rel="noopener">Full, current skill descriptions on epic7x.com ↗</a></p>
       ${adapter.extras ? adapter.extras(current) || '' : ''}
+      ${CB ? `<div class="hi-src"><h4><span class="src other">ceciliabot</span> Skills <span class="hint">· from <a href="${esc(CB.heroPage(current))}" target="_blank" rel="noopener">CeciliaBot</a></span>
+        <label class="inline" style="margin-left:auto"><input type="checkbox" data-hi="toggle-cb" ${CB.enabled() ? 'checked' : ''}/> use</label></h4><div class="hi-cb">${CB.enabled() ? '<p class="hint">Loading skills…</p>' : '<p class="hint">Switched off.</p>'}</div></div>` : ''}
       ${editing === 'mine' ? editor('mine', mine) : sourceBlock('my notes', 'notes', mine, true, 'mine')}
       ${editing === 'guild' ? editor('guild', guild) : sourceBlock('guild', 'game', guild, !!adapter.saveGuildNote, 'guild')}
       ${!adapter.saveGuildNote ? '<p class="hint">Guild notes are edited on the Guild War page and shown here from this device\'s last sync.</p>' : ''}`;
@@ -139,8 +165,14 @@
   async function onClick(e) {
     const b = e.target.closest('[data-hi]');
     if (!b) return;
+    if (b.dataset.hi === 'toggle-cb' && e.target !== b) return;
     const a = b.dataset.hi;
     if (a === 'close') return dlg.close();
+    if (a === 'toggle-cb' && CB) {
+      CB.setEnabled(b.checked);
+      if (b.checked) CB.loadList().then(() => readyFns.forEach((f) => f())).catch(() => {});
+      readyFns.forEach((f) => f());
+    }
     if (a === 'cancel') editing = null;
     else if (a === 'edit-mine') editing = 'mine';
     else if (a === 'edit-guild') editing = 'guild';
@@ -165,5 +197,5 @@
     open(el.dataset.hero);
   }, true);
 
-  window.HeroInfo = { open, configure, tagChips, tagList, ALL_TAGS, TAG_GROUPS, refresh: render };
+  window.HeroInfo = { open, configure, tagChips, tagList, ALL_TAGS, TAG_GROUPS, refresh: render, onTagsReady: (fn) => readyFns.push(fn) };
 })();
