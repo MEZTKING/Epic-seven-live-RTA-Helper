@@ -7,6 +7,33 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #15 · Automatic Windows .exe build (GitHub Actions) · this commit (previous: `605855e`)
+
+**Asked for:** set up the automatic exe build (after explaining how to install on Windows), so the app can be
+downloaded without installing Node.js or using a command line.
+
+**Changed**
+- `.github/workflows/desktop-build.yml` (new):
+  - Runs `npm test` on Ubuntu, then on `windows-latest` runs `npm ci` + `npm run dist` in `desktop/`.
+  - Uploads `desktop/dist/*.exe` as the artifact **Epic-7-Engine-windows** (30 days).
+  - On `v*` tags, also attaches it to a GitHub Release (`softprops/action-gh-release@v2`, the only reason for
+    `contents: write`).
+  - Triggers: pushes to `main` / the dev branch that touch app files, tags, and manual "Run workflow".
+- `desktop/package.json`:
+  - `dist` = `electron-builder --win portable --publish never` (never tries to publish by itself).
+  - Output name `Epic-7-Engine-${version}-portable.exe`; `author` set (electron-builder warns without it).
+- `desktop/package-lock.json` (new): made with `npm install --package-lock-only --ignore-scripts`. It pins Electron
+  33.2.1 / electron-builder 25.1.8 and their dependencies, so CI uses `npm ci`.
+- Docs: README "Install on Windows", desktop/README, HANDOFF (CI section), SOURCES (actions used).
+
+**Tested:** workflow YAML parses; `npm test` 74 passing. The first real build runs on GitHub after this push; result
+noted in the next entry or below.
+
+**Open:** the .exe is unsigned (Windows SmartScreen asks once). Code signing needs a certificate (paid).
+Downloading Actions artifacts requires being signed in to GitHub; tagged Releases don't.
+
+---
+
 ## 2026-11-12 · #14 · Steam version: typed hero speeds; docs updated · this commit (previous: `bc29f70`)
 
 **Asked / told:** can the Steam version be used instead of an emulator? (Yes: the app only reads the screen, so any PC

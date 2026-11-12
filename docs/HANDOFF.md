@@ -161,4 +161,11 @@ npm run update-heroes                  # refresh js/sources/official-heroes.js
 npm run update-fribbels-data           # refresh js/sources/fribbels-data.js (RexQian fork data)
 python3 -m http.server 8766            # serve locally (needed for service worker / BroadcastChannel tests)
 cd desktop && npm install && npm start # desktop overlay app
+cd desktop && npm run dist             # portable Windows .exe in desktop/dist/
 ```
+
+**CI:**
+- `.github/workflows/pages.yml` runs the tests and publishes the site from `main`.
+- `.github/workflows/desktop-build.yml` runs the tests, then builds the Windows .exe on `windows-latest` for every push
+  that touches the app (on `main` and the dev branch). It's uploaded as the artifact `Epic-7-Engine-windows`; `v*`
+  tags also attach it to a GitHub Release.

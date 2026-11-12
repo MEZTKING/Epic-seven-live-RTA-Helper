@@ -6,7 +6,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win portable --publish never"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -15,14 +15,36 @@
   "build": {
     "appId": "app.epic7engine.desktop",
     "productName": "Epic 7 Engine",
-    "files": ["main.js", "package.json"],
+    "files": [
+      "main.js",
+      "package.json"
+    ],
     "extraResources": [
       {
         "from": "..",
         "to": "web",
-        "filter": ["index.html", "rta.html", "gear.html", "guild.html", "live.html", "overlay.html", "manifest.webmanifest", "icon.svg", "firestore.rules", "css/**", "js/**", "docs/**"]
+        "filter": [
+          "index.html",
+          "rta.html",
+          "gear.html",
+          "guild.html",
+          "live.html",
+          "overlay.html",
+          "manifest.webmanifest",
+          "icon.svg",
+          "firestore.rules",
+          "css/**",
+          "js/**",
+          "docs/**"
+        ]
       }
     ],
-    "win": { "target": "portable" }
-  }
+    "win": {
+      "target": "portable"
+    },
+    "portable": {
+      "artifactName": "Epic-7-Engine-${version}-portable.exe"
+    }
+  },
+  "author": "Epic 7 Engine (fan-made)"
 }
