@@ -10,7 +10,13 @@ The same Epic 7 Engine pages, plus what a browser can't do:
 
 It only **reads** the screen and never clicks or types into the game.
 
-## Run it (Windows, macOS or Linux)
+## Easiest: download the ready-made .exe (Windows)
+
+GitHub builds it automatically (`.github/workflows/desktop-build.yml`): repository → **Actions** → **Build Windows app**
+→ newest green run → **Artifacts** → **Epic-7-Engine-windows**. Unzip and run `Epic-7-Engine-<version>-portable.exe`
+("Windows protected your PC" → **More info → Run anyway**, because the app isn't signed). Tags `v*` also attach the .exe to a Release.
+
+## Run it from source (Windows, macOS or Linux)
 
 1. Install [Node.js](https://nodejs.org) (LTS).
 2. In a terminal:
@@ -31,7 +37,8 @@ cd desktop
 npm install
 npm run dist
 ```
-The portable `Epic 7 Engine.exe` appears in `desktop/dist/`.
+The portable `Epic-7-Engine-<version>-portable.exe` appears in `desktop/dist/`. `package-lock.json` pins the exact
+dependency versions (`npm ci` uses it).
 
 ## Notes
 

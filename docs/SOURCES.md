@@ -30,6 +30,7 @@ importer doesn't work with the Steam version of the game**, owner-reported 2026-
 | **Electron 33.2.1**, **electron-builder 25.1.8** | npm | `desktop/` (overlay app) | Versions confirmed on npm 2026-11-12. The app has not been run yet (no display in the dev environment) |
 | **Playwright** (Chromium) | dev only | `tests/e2e/*.e2e.js` | Pre-installed in Claude Code cloud sessions; elsewhere `npm i -D playwright` |
 | GitHub Actions: `actions/checkout@v4`, `setup-node@v4`, `configure-pages@v5`, `upload-pages-artifact@v3`, `deploy-pages@v4` | GitHub | `.github/workflows/pages.yml` | Publishes the site from `main` |
+| GitHub Actions: `actions/checkout@v4`, `setup-node@v4`, `upload-artifact@v4`, `softprops/action-gh-release@v2`; runner `windows-latest` | GitHub | `.github/workflows/desktop-build.yml` | Builds the Windows .exe; the Release action is only used on `v*` tags |
 
 ## 3. Facts and formulas taken from research (no code or data copied)
 

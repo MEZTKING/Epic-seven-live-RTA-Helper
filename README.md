@@ -46,6 +46,18 @@ Tap **ⓘ**, a hero in a draft slot, or a hero chip in Guild War to open the her
   These are facts, not opinions, so the team check works with no manual tagging.
 - A link to the hero's page on **epic7x.com**, plus your build, RTA record and opponents' speeds seen.
 
+## Install on Windows (desktop app with the overlay)
+
+No Node.js or command line needed. GitHub builds the app automatically:
+1. Open the repository on GitHub → **Actions** tab → **Build Windows app** → the newest run with a green tick.
+2. At the bottom, under **Artifacts**, download **Epic-7-Engine-windows** (you must be signed in to GitHub) and unzip it.
+3. Run **`Epic-7-Engine-<version>-portable.exe`**. It's a portable app, so there's no installer; put it anywhere, e.g. on your desktop.
+   Windows may say "Windows protected your PC" because the app isn't signed: **More info → Run anyway**.
+
+When a version tag (e.g. `v0.1.0`) is pushed, the same .exe is also attached to a **Release** (Releases section of the repo).
+Without the desktop app you can simply open `index.html` in Chrome or Edge (everything except the overlay).
+Building it yourself: see [desktop/README.md](desktop/README.md).
+
 ## Steam version
 
 Everything works with the Steam version (or any PC client or emulator), because the app only reads the screen.
