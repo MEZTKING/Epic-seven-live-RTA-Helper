@@ -47,7 +47,10 @@
   let timer = null;
   let slots = []; // from calibration
   const track = new Map(); // slot id -> tracker
-  let templates = { official: [], learned: [] };
+  let templates = { official: [], learned: [], faces: [], faceLearned: [] }; // faces: js/faces.js (round icons)
+  const F = window.RTAFaces;
+  const ROUND = (s) => s.kind === 'preban'; // round hero icons: matched with the face matcher (picks are banners: old matcher)
+  const FACE_BASE = F ? F.GAME_VARIANTS.findIndex((v) => v.k === 1 && v.dx === 0 && v.dy === 0) : -1;
   let officialLoad = { started: false, done: 0, total: 0, failed: 0 };
   let fps = { t: 0, n: 0, value: 0 };
   let lastFirstPick = null;
@@ -94,6 +97,7 @@
   }
 
   function stopCapture() {
+    clearInterval(autoSave);
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null;
     if (source && source.stopGameArea) source.stopGameArea();
@@ -124,11 +128,53 @@
     timer = null;
     if (live) timer = setInterval(tick, cfg().intervalMs);
     if (!V.isCalibrated(cfg().regions)) {
-      setStatus('Capturing. Now calibrate: press "Calibrate slots" while the draft screen is showing.');
-      startCalibration();
+      if (live) {
+        // never interrupt a match: keep pictures, calibrate afterwards
+        setStatus('Not calibrated yet. Just play: a picture of the game is saved every 15 s (or press Ctrl+Shift+S in the desktop app on the draft screen). After the match press "Calibrate on a saved picture".');
+        startAutoSave();
+      } else startCalibration();
     } else tick();
     render();
   }
+
+  // ============================================================ saved pictures (calibrate after the match)
+  let autoSave = null;
+  function startAutoSave() {
+    clearInterval(autoSave);
+    autoSave = setInterval(() => {
+      if (!live || !source || V.isCalibrated(cfg().regions)) return clearInterval(autoSave);
+      if (window.E7Pictures) window.E7Pictures.capture(source, 'auto (RTA not calibrated)').catch(() => {});
+    }, 15000);
+  }
+  async function savePicture() {
+    if (!live || !source) return alert('Start watching the game first.');
+    await window.E7Pictures.capture(source, 'saved by hand');
+    setStatus('Picture saved. Use "Calibrate on a saved picture" whenever you have time.');
+  }
+  async function pickPicture() {
+    const list = window.E7Pictures ? await window.E7Pictures.list() : [];
+    if (!list.length) return alert('No saved pictures yet. While watching, press Ctrl+Shift+S (desktop app) or "Save a game picture" on the draft screen. While the RTA reader isn\'t calibrated, it also saves one every 15 s.');
+    const d = $('#pics');
+    $('#pics-list').innerHTML = list.map((p) => `<button class="pic" data-pic="${p.id}" title="${esc(new Date(p.at).toLocaleString())}"><img alt="" src="${p.url}" /><span>${esc(new Date(p.at).toLocaleTimeString())} ${esc(p.note || '')}</span></button>`).join('');
+    d.showModal();
+  }
+  $('#pics-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-pic]');
+    if (!b) return;
+    const p = await window.E7Pictures.get(b.dataset.pic);
+    $('#pics').close();
+    const img = new Image();
+    img.onload = () => startCalibration(V.REGION_STEPS, { img, w: p.w, h: p.h, frameKey: p.frameKey });
+    img.src = p.url;
+  });
+  $('#pics-close').addEventListener('click', () => $('#pics').close());
+  $('#pics-clear').addEventListener('click', async () => {
+    if (!confirm('Delete all saved game pictures?')) return;
+    await window.E7Pictures.clear();
+    $('#pics').close();
+  });
+  $('#auto-pics').addEventListener('click', pickPicture);
+  $('#auto-save-pic').addEventListener('click', savePicture);
 
   // ============================================================== templates
   function featureFromSource(img, rect, inset, shiftX = 0, shiftY = 0) {
@@ -157,6 +203,7 @@
         try {
           const r = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
           for (const inset of TEMPLATE_INSETS) templates.official.push({ code: h.code, vec: featureFromSource(img, r, inset).vec, source: 'official' });
+          if (F) templates.faces.push({ code: h.code, vec: F.fromPortrait(img), source: 'official' });
         } catch (_) {
           officialLoad.failed++;
         }
@@ -176,6 +223,17 @@
 
   function rebuildLearned() {
     templates.learned = cfg().corrections.map((c) => ({ code: c.code, vec: V.dequantize(c.q), source: c.source }));
+    templates.faceLearned = F ? (cfg().faceCorrections || []).map((c) => ({ code: c.code, vec: F.dequantize(c.q), source: 'my corrections' })) : [];
+  }
+  function activeFaceTemplates() {
+    const c = cfg();
+    return [...(c.useOfficial ? templates.faces : []), ...(c.useCorrections ? templates.faceLearned : [])];
+  }
+  /** Face-matcher result in the shape the slot code uses ({empty, best:{code, sim, source}, second, sure}). */
+  function faceResult(fr) {
+    if (fr.empty) return { empty: true, best: null, second: null, sure: false };
+    const src = (x) => (x.source === 'official' ? 'official (face match)' : x.source);
+    return { empty: false, best: { code: fr.best.code, sim: fr.best.score, source: src(fr.best) }, second: fr.second && { code: fr.second.code, sim: fr.second.score }, sure: F.isConfident(fr) };
   }
 
   function activeTemplates() {
@@ -233,7 +291,10 @@
       t.feature = feature;
       const unchanged = t.lastVec && t.result && V.similarity(feature.vec, t.lastVec) > 0.995;
       t.lastVec = feature.vec;
-      if (!unchanged) {
+      if (!unchanged && F && ROUND(s) && templates.faces.length > 50) {
+        t.faces = F.fromRect(source, rect);
+        t.result = faceResult(F.classify(t.faces, activeFaceTemplates(), { preferSource: 'my corrections' }));
+      } else if (!unchanged) {
         const opts = { preferSource: 'my corrections', allow: s.side === 'me' && s.kind === 'pick' ? owned : null };
         let best = null;
         for (const v of SLOT_VARIANTS) {
@@ -258,7 +319,7 @@
         continue;
       }
       t.empties = 0;
-      if (!V.isConfident(r, c.threshold)) continue; // unsure: keep what we had
+      if (!('sure' in r ? r.sure : V.isConfident(r, c.threshold))) continue; // unsure: keep what we had
       if (t.candidate === r.best.code) t.count++;
       else {
         t.candidate = r.best.code;
@@ -580,20 +641,21 @@
     startCalibration(V.GAME_HELP_STEPS);
   }
 
-  function startCalibration(steps = V.REGION_STEPS) {
-    if (!source || !frameSize()) {
-      alert('Start watching the emulator (or load a screenshot) first, with the draft screen visible.');
+  /** pic (optional): { img, w, h, frameKey } from a saved game picture: calibrate on it instead of the live picture. */
+  function startCalibration(steps = V.REGION_STEPS, pic = null) {
+    if (!pic && (!source || !frameSize())) {
+      alert('Start watching the game (or load a screenshot / saved picture) first, with the draft screen visible.');
       return;
     }
-    const f = frameSize();
+    const f = pic ? { w: pic.w, h: pic.h } : frameSize();
     const cv = $('#calib-canvas');
     cv.width = f.w;
     cv.height = f.h;
     const frame = document.createElement('canvas');
     frame.width = f.w;
     frame.height = f.h;
-    frame.getContext('2d').drawImage(source, 0, 0);
-    calib = { steps: Array.isArray(steps) ? steps : V.REGION_STEPS, step: 0, regions: { ...cfg().regions }, frame, drag: null, preview: false };
+    frame.getContext('2d').drawImage(pic ? pic.img : source, 0, 0);
+    calib = { steps: Array.isArray(steps) ? steps : V.REGION_STEPS, step: 0, regions: { ...cfg().regions }, frame, drag: null, preview: false, frameKey: pic ? pic.frameKey : null };
     $('#calib').classList.remove('hidden');
     drawCalib();
     // bring the whole picture into view: a drag that ends off-screen would draw the wrong box
@@ -672,14 +734,22 @@
     }
     drawCalib();
   });
+  /** Close calibration without saving anything. */
+  function cancelCalibration() {
+    calib = null;
+    $('#calib').classList.add('hidden');
+    render();
+  }
   $('#calib-back').addEventListener('click', () => {
     if (!calib) return;
     if (calib.preview) {
       calib.preview = false;
       calib.step = 0;
     } else if (calib.step > 0) calib.step--;
+    else return cancelCalibration(); // Back on the first step closes it
     drawCalib();
   });
+  $('#calib-cancel').addEventListener('click', () => calib && cancelCalibration());
   $('#calib-skip').addEventListener('click', () => {
     if (!calib) return;
     delete calib.regions[calib.steps[calib.step].key];
@@ -690,7 +760,7 @@
     if (!calib) return;
     if (calib.steps !== V.REGION_STEPS) {
       cfg().regions = calib.regions; // CR bar / result / drafting help: just save
-      if (window.GameArea && live) window.GameArea.markCalibrated('rta', source);
+      if (window.GameArea && (calib.frameKey || live)) window.GameArea.markCalibrated('rta', calib.frameKey || source);
       track.clear();
       rebuildSlots();
       App.save();
@@ -698,7 +768,7 @@
       if (!confirm('Some required boxes are missing. Close anyway?')) return;
     } else {
       cfg().regions = calib.regions;
-      if (window.GameArea && live) window.GameArea.markCalibrated('rta', source);
+      if (window.GameArea && (calib.frameKey || live)) window.GameArea.markCalibrated('rta', calib.frameKey || source);
       track.clear();
       rebuildSlots();
       App.save();
@@ -727,6 +797,16 @@
     const t = track.get(fixing);
     if (!t || !t.feature) return;
     addLearned(h.code, t.feature, 'my corrections');
+    if (F && t.faces && FACE_BASE >= 0) {
+      // round icon: also remember the face itself, so the face matcher knows this hero's in-game picture
+      const c = cfg();
+      c.faceCorrections = c.faceCorrections || [];
+      c.faceCorrections.push({ code: h.code, q: F.quantize(t.faces[FACE_BASE].vec), at: new Date().toISOString() });
+      const mine = c.faceCorrections.filter((x) => x.code === h.code);
+      if (mine.length > MAX_CORRECTIONS_PER_HERO) c.faceCorrections.splice(c.faceCorrections.indexOf(mine[0]), 1);
+      rebuildLearned();
+      App.save();
+    }
     t.confirmed = { code: h.code, sim: 1, source: 'my corrections' };
     t.candidate = h.code;
     t.count = CONFIRM_FRAMES;
@@ -890,7 +970,7 @@
   // ================================================================ wiring
   $('#auto-start').addEventListener('click', startCapture);
   $('#auto-stop').addEventListener('click', stopCapture);
-  $('#auto-calibrate').addEventListener('click', startCalibration);
+  $('#auto-calibrate').addEventListener('click', () => startCalibration());
   $('#auto-overlay').addEventListener('click', showOverlay);
   $('#auto-shot').addEventListener('change', (e) => {
     const f = e.target.files[0];
@@ -928,6 +1008,7 @@
   const clearSrc = (src, label) => () => {
     if (!confirm(`Delete all ${label}?`)) return;
     cfg().corrections = cfg().corrections.filter((c) => c.source !== src);
+    if (src === 'my corrections') cfg().faceCorrections = []; // face-matcher copies of your corrections
     rebuildLearned();
     App.save();
     render();

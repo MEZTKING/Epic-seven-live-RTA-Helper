@@ -25,6 +25,7 @@
       case 'vision:started': return `Started watching "${d.name}"`;
       case 'vision:stopped': return 'Stopped watching';
       case 'vision:warning': return `⚠ ${d.text}`;
+      case 'picture:saved': return `Saved a game picture (${d.note || ''}): use it to draw boxes later`;
       default: return e.type;
     }
   };
@@ -45,7 +46,7 @@
     warning = d.text;
     render();
   });
-  bus.on(['gear:*', 'guild:*', 'screen:changed', 'vision:started', 'vision:stopped', 'vision:warning'], () => setTimeout(renderLog, 0));
+  bus.on(['gear:*', 'guild:*', 'screen:changed', 'vision:started', 'vision:stopped', 'vision:warning', 'picture:saved'], () => setTimeout(renderLog, 0));
   if ($('#vw-start'))
     $('#vw-start').addEventListener('click', () => {
       warning = '';

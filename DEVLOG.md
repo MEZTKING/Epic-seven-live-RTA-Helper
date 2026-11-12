@@ -7,6 +7,81 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #23 · Stronger face matcher, calibrate after the match, gear art, gear per hero, dev screenshot tool · this commit (previous: `7f6836d`)
+
+**Asked for** (several messages):
+- "do the stronger face matcher"
+- "pressing back on calibration should close it currently does nothing"
+- "there should be a live version to calibrate automatically since while im in a game i dont have time to adjust"
+- "for the gear images use fable to draw a better one that is closer to the game"
+- "gears should also be shown per hero too"
+- "since the icons dont change it not a big problem, except for hero maybe whos got a different skin"
+- "you should set up a dev tool to take screenshots automatically for your own learning"
+
+**Research: face matcher** (real pre-ban grid, `tests/fixtures/screens/steam-rta-preban-select.png`)
+- The official portrait `{code}_s.png` (112×112, round, transparent corners) is the **same artwork** as the in-game round
+  icon. In game it sits inside a gold ring, with the class icon top-left, the element icon top-right and stars at the
+  bottom.
+- Mapping found by search on 6 sure faces: the portrait window centred at (+2, +4) px with half-size 56 equals the in-game
+  ring box. Masked normalised cross-correlation at 32×32 scored 0.94 on average for those 6.
+- The owner confirmed that four of the old matcher's guesses were **wrong** ("these are all wrong"). Many remaining
+  faces are probably **skins** (different art, per the owner). A correction teaches a skin once, since icons never change.
+- In the browser, a one-step canvas shrink (84 → 32 px) lowered the scores; shrinking in two steps (→ 64 → 32) and a
+  3×3 shift search fixed that.
+
+**Changed**
+- `js/faces.js` (new, `RTAFaces`; pure parts tested):
+  - face mask (circle minus icon corners and the star band); 32×32 colour vector, zero-mean and normalised
+  - `classify` (best of all alignment variants), and `isConfident`: score ≥ 0.80 **and** ≥ 0.10 ahead of the next hero
+  - corrections stored as int8 base64
+  - browser helpers `fromPortrait` / `fromRect` (36 alignment variants)
+- `js/auto.js`:
+  - The **pre-ban slots (round icons) use the face matcher** (source shown as "official (face match)"). Pick banners keep
+    the old matcher until real draft screenshots exist.
+  - A correction on a round slot also saves the face (`auto.faceCorrections`), so skins are learned once.
+  - "Delete my corrections" clears those too.
+- Calibration:
+  - **Back on step 1 now closes it**; new **Cancel** button (both close without saving).
+  - **No calibration during a match:** when the RTA reader is watching but not calibrated, it no longer pops the
+    calibration open. It saves a game picture every 15 s instead.
+  - **Calibrate on a saved picture** opens the boxes on any saved picture after the match. Boxes are fractions of the
+    game picture, so they work in every later game.
+  - **Save a game picture** button. Desktop: **Ctrl+Shift+S anywhere** (and Game window menu) asks the game watcher to save
+    one (`save-picture` command).
+  - `js/pictures.js` (new): IndexedDB `e7-pictures`, newest 24.
+- Gear art: `js/gear-icons.js` (new, drawn by a Fable sub-agent): original SVGs, six slots in a dark-steel/gold/red
+  style and 24 round set emblems; **not game art**. Used on gear tiles and the details card (emoji/letters remain as
+  fallback).
+- **Gear per hero:** Gear page "View: by hero". One row per hero with their six slots in order, full sets, the gear score
+  total and speed from gear; clicking a slot opens the details card. The hero box filters it.
+- **Developer tool** (desktop): menu **Developer → Collect screenshots automatically** (off by default) and "Open the
+  screenshot folder".
+  - The game watcher saves a full-size PNG of the game when the scene changes and holds still for 2 passes (at most
+    every 2 s), plus once a minute.
+  - Next to each PNG is a `.json` with the time, why it was saved, the detected screen, each reader's note and the frame
+    key.
+  - Saved to `Pictures/Epic 7 Engine/<date>/` on the owner's PC; nothing is uploaded. The owner drags pictures into the
+    chat to share them.
+- `sw.js` v17 (new files). Docs: HANDOFF, ROADMAP, CLAUDE.md.
+
+**Tested**
+- `npm test`: 88 passing (5 new for faces).
+- Browser suite 15/15 clean:
+  - `faces-real.e2e.js` (new): on the **real** grid with all 367 official portraits, **14/15** confirmed faces named
+    confidently and correctly, and **0** confident answers on any unconfirmed face (Genesis Ras: right name, but its lead
+    is too small, so it stays "unsure"). About 43 ms per face.
+  - `rta-pictures.e2e.js` (new): saved pictures listed (including one saved by the watcher command); calibration opens
+    on a saved picture; Back on step 1 closes; Back after a box goes to step 1; Cancel closes without saving.
+  - `gear-cards.e2e.js`: + the by-hero view (8 heroes, 6 slots each; details card from a hero row).
+- Packaged desktop app: new `tests/desktop/devshots.js` (3 PNG + JSON pairs for a first picture and two scene changes,
+  nothing in between); watcher, popout, cancel, zoom, winpick still pass.
+- **Not tested:** the face matcher on live drafts (no draft screenshots as files yet), skins, Windows.
+
+**Open:** labels for the faces the matcher is unsure about (some are skins). Real draft / CR / Defeat screenshots, which
+the dev tool can now collect.
+
+---
+
 ## 2026-11-12 · #22 · First real game screenshots: what the readers get right and wrong · this commit (previous: `06ae25a`)
 
 **Asked for:** the owner sent two Steam screenshots as files: the RTA **pre-ban picker** ("Select Pre-Ban Hero" grid) and a

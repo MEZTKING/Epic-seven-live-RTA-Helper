@@ -34,6 +34,14 @@ const { chromium } = require('playwright');
       await g.reload();
       const remembered = await g.$eval('#f-view', (e) => e.value);
       console.log(`table view: rows ${rows}, cards hidden ${cardsHidden}, remembered "${remembered}"`);
+      // by hero: one row per hero with their 6 slots
+      await g.selectOption('#f-view', 'heroes');
+      const hv = await g.$$eval('.hg-row', (rows) => rows.map((r) => [r.querySelector('.hg-hero b').textContent, r.querySelectorAll('.hg-slots .gtile:not(.hg-empty)').length, r.querySelector('.hg-sets').textContent.trim().slice(0, 40)]));
+      console.log('by hero:', hv.length, 'heroes;', JSON.stringify(hv.slice(0, 3)));
+      await g.click('.hg-row .gtile[data-item]');
+      console.log('detail from hero view:', await g.$eval('#gs-detail', (d) => !d.classList.contains('hidden') && d.querySelector('.gd-rank').textContent));
+      await g.screenshot({ path: `${OUT}/gear-by-hero.png` });
+      await g.selectOption('#f-view', 'cards');
     }
     await g.close();
   }

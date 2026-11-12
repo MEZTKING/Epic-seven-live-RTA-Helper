@@ -53,6 +53,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `js/screens.js` | `RTAScreens` | Screen detector (32×18 fingerprints, detect, stabilizer, gating) |
 | `js/statparse.js` | `RTAStatParse` | OCR text → gear item (stat lines, set, slot, enhance, level, rank) |
 | `js/ceciliabot.js` | `CeciliaBot` | CeciliaBot API: effect list → automatic tags, skill text rendering (pure parts tested) |
+| `js/faces.js` | `RTAFaces` | Round hero-icon matcher: masked 32×32 NCC vs official portraits (+ face corrections), confidence = score ≥0.80 and lead ≥0.10 (DEVLOG #23) |
 | `js/vision/core.js` | `E7VisionCore` | Game-watcher event bus (`createBus`: publish/on/request/handle, fact log) and `repeatGate` |
 
 **Game watcher (vision service, DEVLOG #21):** one watcher captures the game, detects the screen and runs readers; modules
@@ -67,6 +68,9 @@ only receive events.
 - Consumer `js/vision/consumers/gear.js` (runs next to the watcher) saves items via `js/gearstore.js` (`GearStore`) and
   publishes `gear:added` / `gear:dup`. The Guild War page itself consumes `guild:name-read` (it needs the guild data).
 - **Not moved yet:** the RTA reader (`js/auto.js`) still captures on its own (step 1b).
+- Developer tool (desktop menu **Developer**): the watcher saves PNG + JSON notes on scene changes (`devTick` in hub.js);
+  `E7Desktop.dev()/saveDevShot()`; main writes to `Pictures/Epic 7 Engine/<date>/`.
+- Gear art: `js/gear-icons.js` (`E7GearIcons.slot/set`), original SVG (not game art).
 
 **Browser-only helpers:** `js/screen-watch.js` (`E7Screens`), `js/overlay-bus.js` (`E7Overlay`), `js/heroinfo.js`
 (`HeroInfo` card, `data-hero` attribute opens it anywhere).
@@ -87,7 +91,10 @@ only receive events.
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
-| `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card) or `table` |
+| `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card), `table` or `heroes` (gear per hero) |
+| IndexedDB `e7-pictures` | `js/pictures.js` | Saved game pictures (newest 24) to calibrate on after a match: Ctrl+Shift+S (desktop), "Save a game picture", or auto every 15 s while RTA isn't calibrated |
+| `rta-helper-v2`.`auto.faceCorrections` | `js/auto.js` | Face-matcher copies of your corrections on round slots (`{code, q}`) |
+| Desktop `config.devCapture` + `Pictures/Epic 7 Engine/<date>/` | `desktop/main.js`, `js/vision/hub.js` | Developer tool: automatic PNG + JSON notes when the scene changes |
 | `localStorage['e7-frame-of']` | `js/game-area.js` | Which picture each module's calibration boxes were drawn on (`{rta, gear, guild}` → `window` / `area:x,y,w,h` / `full`); readers warn once when it changed |
 | `localStorage['e7-game-area']` | `js/game-area.js` | Where the game is inside a whole-screen capture: `{x,y,w,h}` fractions + capture size `fw,fh`, or `{full:true,fw,fh}`. Asked again when the capture size changes; "Reset game area" buttons clear it. `overlay.html` reads it too |
 | `localStorage['e7-cecilia-heroes']`, `['e7-cecilia-hero-<slug>']`, `['e7-use-cecilia']` | `js/ceciliabot.js` | CeciliaBot effect list (weekly), per-hero skills (weekly), on/off |
@@ -169,7 +176,7 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #21)
+## 7. Status (end of DEVLOG #23)
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).
@@ -212,7 +219,7 @@ python3 -m http.server 8766            # serve locally (needed for service worke
 cd desktop && npm install && npm start # desktop overlay app
 cd desktop && npm run dist             # Windows installer + portable .exe in desktop/dist/ (needs Windows or wine)
 cd desktop && npx electron-builder --linux dir --publish never   # packaged Linux build, for tests here
-xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js, zoom.js, cancel.js, watcher.js; $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
+xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js, zoom.js, cancel.js, watcher.js, devshots.js; $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
 ```
 
 **CI:**

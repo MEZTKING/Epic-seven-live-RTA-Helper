@@ -83,10 +83,15 @@
   const SET_COLOR = { SpeedSet: '#2f8f5b', AttackSet: '#b33a3a', DestructionSet: '#a3452a', LifestealSet: '#8a2d5c', CounterSet: '#2f5fa8', RageSet: '#a32a2a', RevengeSet: '#7a3aa8', InjurySet: '#8a5a2a', HealthSet: '#3a8a3a', DefenseSet: '#3a6a8a', CriticalSet: '#a8842a', HitSet: '#2a8a8a', ResistSet: '#5a5aa8', UnitySet: '#5a8a2a', ImmunitySet: '#2a7a6a', PenetrationSet: '#6a6a6a', ProtectionSet: '#4a7aa8', TorrentSet: '#a85a2a', ReversalSet: '#6a3a8a', RiposteSet: '#3a4a8a', PursuitSet: '#8a3a3a', WarfareSet: '#8a6a2a', WeakeningSet: '#5a3a5a', FervorSet: '#a8432a' };
   const pct = (t) => /Percent/.test(t);
   const val = (s) => `${s.value}${pct(s.type) ? '%' : ''}`;
-  const setBadge = (set) => `<span class="setb" style="--set:${SET_COLOR[set] || '#555'}" title="${esc(setLabel(set))} set">${esc(setLabel(set).slice(0, 2))}</span>`;
+  const ICONS = window.E7GearIcons; // original SVG drawings (js/gear-icons.js); emoji/letters if missing
+  const setBadge = (set) =>
+    ICONS && ICONS.set(set)
+      ? `<span class="setb setb-svg" title="${esc(setLabel(set))} set">${ICONS.set(set)}</span>`
+      : `<span class="setb" style="--set:${SET_COLOR[set] || '#555'}" title="${esc(setLabel(set))} set">${esc(setLabel(set).slice(0, 2))}</span>`;
+  const slotArt = (g) => (ICONS && ICONS.slot(g) ? `<span class="gt-art">${ICONS.slot(g)}</span>` : esc(SLOT_ICON[g] || '?'));
   const rankCls = (rank) => `rk-${['Epic', 'Heroic', 'Rare', 'Good', 'Normal'].includes(rank) ? rank : 'Epic'}`;
   function iconBox(it) {
-    return `<div class="gt-icon ${rankCls(it.rank)}">${it.locked ? '<span class="gt-lock" title="Locked">🔒</span>' : ''}<span class="gt-lv">${it.level || ''}</span>${esc(SLOT_ICON[it.gear] || '?')}${it.enhance ? `<span class="gt-enh">+${it.enhance}</span>` : ''}${it.equipped ? `<span class="gt-hero" title="On ${esc(nameOf(it.equipped))}">${portrait(it.equipped)}</span>` : ''}${it.set ? setBadge(it.set) : ''}</div>`;
+    return `<div class="gt-icon ${rankCls(it.rank)}">${it.locked ? '<span class="gt-lock" title="Locked">🔒</span>' : ''}<span class="gt-lv">${it.level || ''}</span>${slotArt(it.gear)}${it.enhance ? `<span class="gt-enh">+${it.enhance}</span>` : ''}${it.equipped ? `<span class="gt-hero" title="On ${esc(nameOf(it.equipped))}">${portrait(it.equipped)}</span>` : ''}${it.set ? setBadge(it.set) : ''}</div>`;
   }
   function tile(r) {
     const it = r.item;
@@ -113,6 +118,39 @@
       <div class="gd-block"><span class="vd ${r.verdict}">${VERDICT_LABEL[r.verdict]}</span> <span class="hint">${esc(r.reason)}</span></div>
       ${it.equipped ? `<div class="gd-block">Equipped on <span class="clickable" data-hero="${esc(it.equipped)}">${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</span></div>` : ''}
       <div class="gd-block"><b>Best for</b>${best}</div>`;
+  }
+  /** One row per hero: their 6 slots in order, active sets, gear score total. */
+  function heroRows() {
+    const q = $('#f-hero').value.trim();
+    const qh = q ? HEROES.find((h) => R.normName(h.name) === R.normName(q)) : null;
+    const byHero = new Map();
+    for (const r of evald.results) {
+      const c = r.item.equipped;
+      if (!c || (qh && c !== qh.code)) continue;
+      if (!byHero.has(c)) byHero.set(c, {});
+      byHero.get(c)[r.item.gear] = r;
+    }
+    if (!byHero.size) return `<p class="hint">${gs.items.length ? 'No equipped gear found (import a gear.txt that includes your heroes).' : 'Import gear.txt to start.'}</p>`;
+    return [...byHero.entries()]
+      .sort((a, b) => nameOf(a[0]).localeCompare(nameOf(b[0])))
+      .map(([code, slots]) => {
+        const items = Object.values(slots);
+        const counts = {};
+        for (const r of items) if (r.item.set) counts[r.item.set] = (counts[r.item.set] || 0) + 1;
+        const sets = Object.entries(counts)
+          .map(([st, n]) => {
+            const need = (G.SETS[st] || [0, 2])[1];
+            const full = Math.floor(n / need);
+            return full ? `<span class="hg-set">${setBadge(st)} ${esc(setLabel(st))}${full > 1 ? ` ×${full}` : ''}</span>` : '';
+          })
+          .join('') || '<span class="hint">no full set</span>';
+        const spd = items.reduce((n, r) => n + (r.item.main.type === 'Speed' ? r.item.main.value : 0) + r.item.subs.filter((x) => x.type === 'Speed').reduce((m, x) => m + x.value, 0), 0);
+        const total = items.reduce((n, r) => n + r.wss, 0);
+        return `<div class="hg-row"><div class="hg-hero clickable" data-hero="${esc(code)}">${portrait(code)}<b>${esc(nameOf(code))}</b>
+            <div class="hint">gear score ${Math.round(total)} · +${spd} speed from gear</div><div class="hg-sets">${sets}</div></div>
+          <div class="hg-slots">${G.GEAR_SLOTS.map((g) => (slots[g] ? tile(slots[g]) : `<div class="gtile hg-empty"><span class="hint">${g}: empty</span></div>`)).join('')}</div></div>`;
+      })
+      .join('');
   }
   const VIEW_KEY = 'e7-gear-view';
   let selected = null;
@@ -181,11 +219,14 @@
             <td><span class="vd ${r.verdict}">${VERDICT_LABEL[r.verdict]}</span><div class="hint">${esc(r.reason)}</div></td></tr>`;
         })
         .join('') || `<tr><td colspan="5" class="hint">${gs.items.length ? 'No items match.' : 'Import gear.txt to start.'}</td></tr>`;
-    const cards = view() === 'cards';
+    const cards = view() === 'cards' || view() === 'heroes';
     $('#gs-table').classList.toggle('hidden', cards);
     $('#gs-browse').classList.toggle('hidden', !cards);
+    $('#gs-cards').classList.toggle('hidden', view() !== 'cards');
+    $('#gs-heroview').classList.toggle('hidden', view() !== 'heroes');
+    if (view() === 'heroes') $('#gs-heroview').innerHTML = heroRows();
     if (cards) {
-      $('#gs-cards').innerHTML = list.slice(0, shown).map(tile).join('') || `<p class="hint">${gs.items.length ? 'No items match.' : 'Import gear.txt to start.'}</p>`;
+      if (view() === 'cards') $('#gs-cards').innerHTML = list.slice(0, shown).map(tile).join('') || `<p class="hint">${gs.items.length ? 'No items match.' : 'Import gear.txt to start.'}</p>`;
       const sel = selected && evald.results.find((r) => r.item.id === selected);
       const selR = sel && (list.find((r) => r.item.id === selected) || sel);
       $('#gs-detail').classList.toggle('hidden', !selR);
@@ -206,6 +247,13 @@
     if (!b) return;
     $('#f-verdict').value = $('#f-verdict').value === b.dataset.v ? '' : b.dataset.v;
     render();
+  });
+  $('#gs-heroview').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-item]');
+    if (!t) return;
+    selected = selected === t.dataset.item ? null : t.dataset.item;
+    render();
+    if (selected && innerWidth < 1100) $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
   $('#gs-cards').addEventListener('click', (e) => {
     const t = e.target.closest('[data-item]');

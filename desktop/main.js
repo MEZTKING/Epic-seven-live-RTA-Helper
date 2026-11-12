@@ -15,9 +15,9 @@
  *  - In-app updates (updater.js): checks GitHub Releases at start and from the
  *    menu "Check for updates…"; downloads, then restarts on the new version.
  *
- * Shortcuts: Ctrl+Shift+O show/hide overlay · Ctrl+Shift+E show the main window
+ * Shortcuts: Ctrl+Shift+O show/hide overlay · Ctrl+Shift+E show the main window · Ctrl+Shift+S save a game picture
  */
-const { app, BrowserWindow, protocol, net, screen, session, desktopCapturer, globalShortcut, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, protocol, net, screen, session, desktopCapturer, globalShortcut, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -36,7 +36,7 @@ let overlay = null;
 let vision = null; // the game watcher: hidden window running vision.html (js/vision/hub.js)
 let quitting = false;
 // capture: null (not chosen yet) | { mode: 'window', id, name } | { mode: 'screen', id, displayId, name }
-let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25, capture: null };
+let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25, capture: null, devCapture: false };
 let tracker = null;
 let gameState = null; // last tracker state of the game window
 const clampZoom = (z) => Math.min(2.5, Math.max(0.6, Math.round(z * 100) / 100));
@@ -123,6 +123,32 @@ ipcMain.on('e7:choose', (e, choice) => {
   d && d(choice ? config.capture : null);
 });
 ipcMain.handle('e7:pick', () => pickWindow());
+// ---- developer tool: collect game screenshots automatically (for improving the readers) ----
+const devFolder = () => path.join(app.getPath('pictures'), 'Epic 7 Engine', new Date().toISOString().slice(0, 10));
+let devCount = 0;
+ipcMain.on('e7:dev', (e) => {
+  e.returnValue = { on: !!config.devCapture, folder: devFolder(), count: devCount };
+});
+/** { dataUrl (PNG), meta } from the game watcher -> <Pictures>/Epic 7 Engine/<date>/<time>-<screen>.png + .json */
+ipcMain.on('e7:dev-shot', (_e, shot) => {
+  if (!config.devCapture || !shot || !/^data:image\/png;base64,/.test(shot.dataUrl || '')) return;
+  try {
+    const dir = devFolder();
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, '');
+    const tag = String((shot.meta && shot.meta.screen) || 'unknown').replace(/[^a-z0-9-]/gi, '').slice(0, 30) || 'unknown';
+    const base = path.join(dir, `${stamp}-${tag}-${++devCount}`);
+    fs.writeFileSync(base + '.png', Buffer.from(shot.dataUrl.split(',')[1], 'base64'));
+    fs.writeFileSync(base + '.json', JSON.stringify(shot.meta || {}, null, 2));
+  } catch (_) { /* disk full / no permission: skip */ }
+});
+function setDevCapture(on) {
+  config.devCapture = !!on;
+  saveConfig();
+  if (vision && !vision.isDestroyed()) vision.webContents.send('e7:dev-changed', config.devCapture);
+  buildMenu();
+}
+
 // a hidden window (the game watcher) shows itself while it needs the user, e.g. "Where is the game?"
 ipcMain.on('e7:show-self', (e, show) => {
   const w = BrowserWindow.fromWebContents(e.sender);
@@ -313,7 +339,7 @@ function buildMenu() {
         { label: 'Live (overlay & screens)', click: () => main && main.loadURL(`${ORIGIN}/live.html`) },
         { type: 'separator' },
         { label: 'Check for updates…', click: () => updater.check(true) },
-        { label: `Version ${app.getVersion()} · release notes`, click: () => require('electron').shell.openExternal(updater.RELEASES) },
+        { label: `Version ${app.getVersion()} · release notes`, click: () => shell.openExternal(updater.RELEASES) },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },
@@ -335,8 +361,17 @@ function buildMenu() {
         { label: config.capture ? `Reading: ${config.capture.mode === 'window' ? 'window' : 'screen'} "${config.capture.name}"` : 'Reading: not chosen yet', enabled: false },
         { label: 'Pick the game window…', click: () => pickWindow() },
         { label: 'Show the game watcher', click: () => vision && (vision.show(), vision.focus()) },
+        { label: 'Save a game picture (to draw boxes on later)', accelerator: 'Ctrl+Shift+S', click: savePicture },
         { type: 'separator' },
         { label: 'The game watcher restarts by itself after a change.', enabled: false },
+      ],
+    },
+    {
+      label: 'Developer',
+      submenu: [
+        { label: 'Collect screenshots automatically (to improve the readers)', type: 'checkbox', checked: !!config.devCapture, click: (mi) => setDevCapture(mi.checked) },
+        { label: 'Open the screenshot folder', click: () => { fs.mkdirSync(devFolder(), { recursive: true }); shell.openPath(devFolder()); } },
+        { label: `Saves a PNG + notes when the game screen changes (and once a minute). Stays on this PC.`, enabled: false },
       ],
     },
     {
@@ -378,6 +413,11 @@ function setOverlayZoom(z) {
   sendZoom();
 }
 
+/** Ctrl+Shift+S: the game watcher saves a picture of the game (js/pictures.js) to calibrate on after the match. */
+function savePicture() {
+  if (vision && !vision.isDestroyed()) vision.webContents.send('e7:hotkey', 'save-picture');
+}
+
 function toggleOverlay() {
   if (!overlay) return;
   config.overlay = !config.overlay;
@@ -400,6 +440,7 @@ app.whenReady().then(() => {
   if (config.capture && config.capture.mode === 'window') resolveSourceQuiet();
   globalShortcut.register('Ctrl+Shift+O', toggleOverlay);
   globalShortcut.register('Ctrl+Shift+E', () => main && (main.show(), main.focus()));
+  globalShortcut.register('Ctrl+Shift+S', savePicture);
   screen.on('display-added', buildMenu);
   screen.on('display-removed', () => {
     buildMenu();
