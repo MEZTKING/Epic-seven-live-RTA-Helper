@@ -47,7 +47,23 @@
       matchSources: { manual: { enabled: true, addedAt: new Date().toISOString() } },
       settings: { ...DEFAULT_SETTINGS },
       draft: { ...L.newDraft('me'), opponent: '' },
+      pending: null, // a finished draft that was replaced before its result was recorded
       sim: defaultSim(),
+      auto: defaultAuto(),
+    };
+  }
+  function defaultAuto() {
+    return {
+      regions: {},
+      threshold: 0.72,
+      intervalMs: 500,
+      apply: true,
+      ocr: true,
+      useOfficial: true,
+      useCorrections: true,
+      useAutoLearned: false,
+      autoLearn: false,
+      corrections: [], // [{ code, source: 'my corrections'|'auto-learned', q, at }]
     };
   }
 
@@ -79,6 +95,12 @@
     s.settings = { ...DEFAULT_SETTINGS, ...(raw.settings || {}) };
     if (raw.draft && Array.isArray(raw.draft.actions)) s.draft = { opponent: '', ...raw.draft };
     if (Array.isArray(raw.sim)) s.sim = raw.sim;
+    if (raw.pending && Array.isArray(raw.pending.actions)) s.pending = raw.pending;
+    if (raw.auto && typeof raw.auto === 'object') {
+      s.auto = { ...defaultAuto(), ...raw.auto };
+      if (!Array.isArray(s.auto.corrections)) s.auto.corrections = [];
+      if (!s.auto.regions || typeof s.auto.regions !== 'object') s.auto.regions = {};
+    }
     return s;
   }
 
@@ -241,6 +263,7 @@
     players: () => renderPlayers(),
     history: () => renderHistory(),
     data: () => renderData(),
+    auto: () => window.RTAAuto && window.RTAAuto.render(),
   };
   function render() {
     $('#hero-names').innerHTML = cache.heroes.map((h) => `<option value="${esc(h.name)}"></option>`).join('');
@@ -258,6 +281,7 @@
     $('#first-pick').value = d.firstPick;
     if (document.activeElement !== $('#opp-name')) $('#opp-name').value = d.opponent || '';
     renderProfileStrip();
+    renderPending();
 
     const st = $('#draft-status');
     st.className = 'status' + (step ? ' ' + step.player : '');
@@ -320,6 +344,24 @@
         })
         .join('') || '<p class="hint">No heroes match.</p>';
   }
+
+  function renderPending() {
+    const box = $('#pending-box');
+    const p = store.pending;
+    box.classList.toggle('hidden', !p);
+    if (!p) return;
+    const v = L.draftView(p);
+    box.innerHTML = `<b>Previous draft not recorded</b>${p.opponent ? ` vs ${esc(p.opponent)}` : ''}: ${heroList(v.picks.me)} <i>vs</i> ${heroList(v.picks.opp)}
+      <div class="btn-row"><button class="btn win" data-pending="win">Win</button><button class="btn loss" data-pending="loss">Loss</button><button class="btn" data-pending="discard">Discard</button></div>`;
+  }
+  $('#pending-box').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pending]');
+    if (!b || !store.pending) return;
+    if (b.dataset.pending !== 'discard') store.matches.unshift(matchFromDraft(store.pending, b.dataset.pending, ''));
+    store.pending = null;
+    save();
+    renderDraft();
+  });
 
   function renderProfileStrip() {
     const box = $('#opp-profile');
@@ -418,23 +460,26 @@
     renderDraft();
   });
 
-  function recordResult(result) {
-    const v = L.draftView(store.draft);
-    store.matches.unshift({
+  function matchFromDraft(draft, result, notes) {
+    const v = L.draftView(draft);
+    return {
       id: newId(),
       source: 'manual',
       date: new Date().toISOString(),
       result,
-      opponent: (store.draft.opponent || '').trim(),
-      firstPick: store.draft.firstPick,
+      opponent: (draft.opponent || '').trim(),
+      firstPick: draft.firstPick,
       myPrebans: v.prebans.me,
       oppPrebans: v.prebans.opp,
       myPicks: v.picks.me,
       oppPicks: v.picks.opp,
       iBanned: v.postbans.me[0] || null,
       theyBanned: v.postbans.opp[0] || null,
-      notes: $('#result-notes').value.trim(),
-    });
+      notes,
+    };
+  }
+  function recordResult(result) {
+    store.matches.unshift(matchFromDraft(store.draft, result, $('#result-notes').value.trim()));
     $('#result-notes').value = '';
     store.draft = { ...L.newDraft(store.draft.firstPick), opponent: '' };
     save();
@@ -991,6 +1036,37 @@
     save();
     render();
   });
+
+  // ============================================== API for auto-detection (auto.js)
+  window.RTAApp = {
+    get store() {
+      return store;
+    },
+    get cache() {
+      return cache;
+    },
+    save,
+    render,
+    renderDraft,
+    nameOf,
+    portrait,
+    bestMatch,
+    esc,
+    activeTab: () => activeTab,
+    /** Replace the draft (auto-detection). A finished, unrecorded draft is kept as pending. */
+    replaceDraft(next, { newMatch = false } = {}) {
+      if (newMatch && L.isComplete(store.draft)) store.pending = { ...store.draft };
+      store.draft = { opponent: newMatch ? '' : store.draft.opponent || '', ...next };
+      save();
+      if (activeTab === 'draft') renderDraft();
+    },
+    setOpponent(name) {
+      if (store.draft.opponent) return;
+      store.draft.opponent = name;
+      save();
+      if (activeTab === 'draft') renderDraft();
+    },
+  };
 
   // ======================================================================== go
   render();

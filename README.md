@@ -7,6 +7,22 @@ with no install, account or server. All your data stays in your browser.
 
 ## Features
 
+**Auto: no typing during the draft** (PC with an emulator, in Chrome or Edge)
+1. Open the helper in Chrome or Edge **next to** the emulator, not minimized.
+2. **Auto → Watch emulator window** and choose the emulator window.
+3. With the draft screen showing, press **Calibrate slots** and drag a box over each slot when asked:
+   both prebans for each side, then the **first and last** pick slot for each side
+   (the app spaces the middle three evenly), and optionally the opponent's name. You only do this once.
+4. Play. A few times a second the app recognizes the hero in every slot, fills the Draft tab in game order,
+   works out who picked first, starts a new draft when new prebans appear, and reads the opponent's name.
+5. If it gets a hero wrong, click that slot in **What I see** and type the right hero. The app keeps that
+   screen image as a **my corrections** example and prefers it from then on, so it improves the more you play.
+
+It only reads the screen and never clicks or types into the game. Recognition starts from the official portraits,
+so the in-game art may need a few corrections at first. **Check alignment** shows your boxes over the current frame.
+**Use a screenshot** lets you calibrate or test with a saved screenshot instead of a live window.
+Postbans are still one click in the Draft tab.
+
 **Draft**
 - Tracks the RTA draft: 2 prebans each, picks in 1-2-2-2-2-1 order, then 1 postban each.
 - Shows hero portraits. Click a hero, or type part of a name and press **Enter**.
@@ -41,6 +57,8 @@ in the **Data** tab without touching the rest.
 | `manual` matches | Matches you logged from the Draft tab | You |
 | `import:<name>` matches | Each imported CSV dataset, under its own name | Files you import |
 | `learned` | Win rates, matchups, pairs, player profiles | Calculated only from the match sources you have switched on |
+| `my corrections` | Screen images of slots you labeled | You, in the Auto tab |
+| `auto-learned` | Screen images saved automatically from confident matches (off by default) | Auto-detection |
 
 ## How suggestions are scored
 
@@ -76,7 +94,9 @@ js/sources/official-heroes.js  built-in copy of the official hero list (generate
 js/roster.js    official list parsing, Fribbels + CSV import      (pure, tested)
 js/learn.js     learning engine: stats, matchups, pairs, players  (pure, tested)
 js/logic.js     draft rules, suggestion scoring, speed math       (pure, tested)
+js/vision.js    image matching, calibration layout, confidence  (pure, tested)
 js/app.js       UI and storage
+js/auto.js      screen capture, calibration UI, detection loop, OCR
 tools/update-official-heroes.js  regenerates the built-in hero list
 ```
 
@@ -86,6 +106,7 @@ npm run update-heroes  # refresh js/sources/official-heroes.js
 ```
 
 ## Roadmap
-- [ ] **Auto-detect the draft from the game screen** (screen capture + portrait recognition), so nothing needs typing
-- [ ] Read opponent names from the screen for automatic player profiles
+- [x] Auto-detect the draft from the emulator window
+- [x] Read the opponent's name from the screen (OCR via tesseract.js, loaded on demand)
+- [ ] Detect postbans and the Win/Defeat screen automatically
 - [ ] Optional import of official battle records, if they can be reached from the browser

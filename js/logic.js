@@ -89,6 +89,39 @@
     return { ...draft, actions: draft.actions.slice(0, -1) };
   }
 
+  /**
+   * Build a draft from what is visible on the board (used by auto-detection).
+   *   board = { prebans: {me:[], opp:[]}, picks: {me:[], opp:[]}, postbans: {me:[], opp:[]} }
+   * Picks are in slot order. Actions are replayed in official draft order and
+   * replay stops at the first step whose hero isn't on the board yet, so a
+   * misread far-away slot can never jump ahead of the real draft.
+   */
+  function boardToDraft(board, firstPick) {
+    let d = newDraft(firstPick);
+    const used = { preban: { me: 0, opp: 0 }, pick: { me: 0, opp: 0 }, postban: { me: 0, opp: 0 } };
+    const src = { preban: board.prebans || {}, pick: board.picks || {}, postban: board.postbans || {} };
+    for (const step of draftSteps(d.firstPick)) {
+      const list = src[step.phase][step.player] || [];
+      const code = list[used[step.phase][step.player]];
+      if (!code || canSelect(d, code)) break;
+      d = select(d, code);
+      used[step.phase][step.player]++;
+    }
+    return d;
+  }
+
+  /**
+   * Guess who picked first from pick counts. Only certain while exactly one
+   * side has picks; returns null when it can't tell.
+   */
+  function inferFirstPick(board) {
+    const me = (board.picks.me || []).length;
+    const opp = (board.picks.opp || []).length;
+    if (me && !opp) return 'me';
+    if (opp && !me) return 'opp';
+    return null;
+  }
+
   // ------------------------------------------------------------- elements
 
   // Fire > Earth > Ice > Fire ; Light <-> Dark.  The game calls Earth "wind".
@@ -396,6 +429,8 @@
     canSelect,
     select,
     undo,
+    boardToDraft,
+    inferFirstPick,
     elementAdvantage,
     scoreCandidate,
     suggestPicks,

@@ -12,6 +12,7 @@
     <h1>RTA Live Helper</h1>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="draft" role="tab">Draft</button>
+      <button class="tab" data-tab="auto" role="tab">Auto <span id="auto-dot" class="live-dot"></span></button>
       <button class="tab" data-tab="speed" role="tab">Speed</button>
       <button class="tab" data-tab="heroes" role="tab">Heroes</button>
       <button class="tab" data-tab="teams" role="tab">Teams</button>
@@ -38,6 +39,7 @@
         <button id="draft-reset" class="btn">New draft</button>
       </div>
       <div id="opp-profile" class="profile-strip hidden"></div>
+      <div id="pending-box" class="pending hidden"></div>
 
       <div id="draft-status" class="status"></div>
 
@@ -81,6 +83,67 @@
           </div>
         </aside>
       </div>
+    </section>
+
+    <!-- ============================== AUTO =============================== -->
+    <section id="tab-auto" class="panel">
+      <div id="auto-status" class="status">Not watching.</div>
+      <div class="btn-row">
+        <button id="auto-start" class="btn primary">Watch emulator window</button>
+        <button id="auto-stop" class="btn hidden">Stop</button>
+        <button id="auto-calibrate" class="btn">Calibrate slots</button>
+        <label class="btn file-btn">Use a screenshot<input id="auto-shot" type="file" accept="image/*" hidden /></label>
+        <button id="auto-overlay" class="btn">Check alignment</button>
+      </div>
+      <p class="hint">Keep this browser window visible next to the emulator (not minimised). It only <b>looks</b> at the screen; it never clicks or types into the game.</p>
+
+      <div id="calib" class="card wide hidden">
+        <h3 id="calib-title">Calibration</h3>
+        <p id="calib-step" class="calib-step"></p>
+        <div class="btn-row">
+          <button id="calib-back" class="btn">Back</button>
+          <button id="calib-skip" class="btn">Skip</button>
+          <button id="calib-done" class="btn primary">Done</button>
+        </div>
+        <div class="calib-wrap"><canvas id="calib-canvas"></canvas></div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <h3>Detection</h3>
+          <label>Confidence needed <span id="auto-thr-val"></span>
+            <input id="auto-thr" type="range" min="0.5" max="0.95" step="0.01" />
+          </label>
+          <label>Check every
+            <select id="auto-interval"><option value="300">0.3 s</option><option value="500">0.5 s</option><option value="1000">1 s</option></select>
+          </label>
+          <label class="inline block"><input id="auto-apply" type="checkbox" /> Fill the draft automatically</label>
+          <label class="inline block"><input id="auto-ocr" type="checkbox" /> Read opponent name from screen</label>
+        </div>
+        <div class="card">
+          <h3>Recognition sources</h3>
+          <label class="inline block"><input id="auto-use-official" type="checkbox" /> <span class="src official">official</span> hero portraits</label>
+          <label class="inline block"><input id="auto-use-corr" type="checkbox" /> <span class="src notes">my corrections</span> slots I labelled</label>
+          <label class="inline block"><input id="auto-use-learned" type="checkbox" /> <span class="src learned">auto-learned</span> confident matches saved automatically</label>
+          <label class="inline block"><input id="auto-learn" type="checkbox" /> Save confident matches as auto-learned</label>
+          <div id="auto-tpl" class="hint"></div>
+          <div class="btn-row"><button id="auto-clear-learned" class="btn danger">Clear auto-learned</button><button id="auto-clear-corr" class="btn danger">Clear my corrections</button></div>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>What I see</h3>
+        <p class="hint">Click a slot to correct it. The app saves that image as a "my corrections" example and recognises the hero better next time.</p>
+        <div id="auto-slots" class="auto-slots"></div>
+        <div id="auto-fix" class="auto-fix hidden">
+          <span id="auto-fix-label"></span>
+          <input id="auto-fix-input" list="hero-names" placeholder="Correct hero name" autocomplete="off" />
+          <button id="auto-fix-save" class="btn primary">Save</button>
+          <button id="auto-fix-clear" class="btn">It's empty</button>
+          <button id="auto-fix-cancel" class="btn">Cancel</button>
+        </div>
+      </div>
+      <video id="auto-video" class="hidden" muted playsinline></video>
     </section>
 
     <!-- ============================== SPEED ============================== -->
@@ -296,6 +359,8 @@
   <script src="js/roster.js"></script>
   <script src="js/learn.js"></script>
   <script src="js/logic.js"></script>
+  <script src="js/vision.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/auto.js"></script>
 </body>
 </html>
