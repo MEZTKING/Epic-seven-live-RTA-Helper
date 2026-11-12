@@ -448,3 +448,8 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .hg-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
 .hg-empty { display: grid; place-items: center; min-height: 90px; cursor: default; }
 @media (max-width: 700px) { .hg-row { grid-template-columns: 1fr; } }
+.pics-what { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.pics-what img { width: 100%; border-radius: 6px; background: #000; }
+.pics-parts { display: flex; flex-direction: column; gap: 8px; }
+.pics-parts .btn { text-align: left; }
+@media (max-width: 700px) { .pics-what { grid-template-columns: 1fr; } }

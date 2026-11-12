@@ -7,6 +7,33 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #24 · Saved picture: choose which part to calibrate first · this commit (previous: `62deec4`)
+
+**Asked for:** "when pressing calibrate on a saved picture its supposed to let you choose which part it is first, not
+start calibration from step 1".
+
+**Changed**
+- `rta.html` / `js/auto.js`: picking a saved picture now opens **"What's on this picture?"**: the picture next to a
+  list of parts. Each part shows ✓ when it's already set:
+  - draft screen: all slots
+  - redo **one** draft box (dropdown with the 9 boxes: prebans, pick slots, opponent name)
+  - CR bar
+  - expanded CR bar
+  - Victory / Defeat
+  - the game's drafting help (asks how many heroes it shows, as before)
+- Only that part's boxes are then drawn. Single parts save straight into the existing boxes (the others are kept).
+  "← Other picture" goes back to the list.
+- `calibrateHelp` accepts a saved picture. `css/styles.css`: layout for the chooser (stacks on phones).
+
+**Tested:** `rta-pictures.e2e.js` extended:
+- choosing a picture shows the 5 parts and 9 single boxes, with calibration not opened yet
+- the CR part → "Step 1/1 … CR bar"; one box (opponent pick #1) → "Step 1/1 … OPPONENT's pick slot #1"
+- the whole draft → "Step 1/9"; Back / Cancel still close
+
+`npm test` 88 passing; rta-auto-full, rta-basics and drafthelp-gearsorter clean.
+
+---
+
 ## 2026-11-12 · #23 · Stronger face matcher, calibrate after the match, gear art, gear per hero, dev screenshot tool · this commit (previous: `7f6836d`)
 
 **Asked for** (several messages):
