@@ -428,3 +428,23 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
   .gt-stats .main { font-size: 14px; }
 }
 .warn-text { color: var(--accent); }
+/* saved game pictures */
+.pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; max-height: 60vh; overflow: auto; margin: 10px 0; }
+.pic { all: unset; cursor: pointer; display: block; background: #1a1c26; border: 2px solid #2c2f3d; border-radius: 8px; padding: 6px; }
+.pic:hover, .pic:focus-visible { border-color: #c9a24a; }
+.pic img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 4px; }
+.pic span { display: block; font-size: 13px; color: #a6a9b8; margin-top: 4px; }
+.gt-art { display: block; width: 80%; height: 80%; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.gt-art svg, .setb-svg svg { display: block; width: 100%; height: 100%; }
+.setb.setb-svg { background: none; border: none; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+/* gear by hero */
+.hero-gear { display: flex; flex-direction: column; gap: 12px; }
+.hg-row { display: grid; grid-template-columns: 200px 1fr; gap: 12px; background: #15171f; border: 1px solid #2c2f3d; border-radius: 10px; padding: 10px; }
+.hg-hero { display: flex; flex-direction: column; gap: 4px; }
+.hg-hero .pt.sm { width: 56px; height: 56px; border-radius: 50%; }
+.hg-sets { display: flex; flex-wrap: wrap; gap: 6px; }
+.hg-set { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.hg-set .setb { position: static; width: 20px; height: 20px; }
+.hg-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 8px; }
+.hg-empty { display: grid; place-items: center; min-height: 90px; cursor: default; }
+@media (max-width: 700px) { .hg-row { grid-template-columns: 1fr; } }

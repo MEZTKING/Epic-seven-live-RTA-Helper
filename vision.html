@@ -33,6 +33,7 @@
   <script src="js/game-area.js"></script>
   <script src="js/vision/core.js"></script>
   <script src="js/vision/bus.js"></script>
+  <script src="js/pictures.js"></script>
   <script src="js/vision/hub.js"></script>
   <script src="js/vision/readers/gear-item.js"></script>
   <script src="js/vision/readers/guild-name.js"></script>
@@ -46,6 +47,8 @@
       if (!D) return;
       const go = () => window.E7Vision.start().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message }));
       if (D.capture().chosen) go();
+      // Ctrl+Shift+S (desktop, anywhere): save a picture of the game to calibrate on later
+      if (D.onHotkey) D.onHotkey((name) => name === 'save-picture' && window.E7Bus.request('save-picture', { note: 'Ctrl+Shift+S' }).catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));
       D.onCapture(() => window.E7Vision.restart().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));
     })();
   </script>

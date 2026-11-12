@@ -10,7 +10,7 @@
  *   E7Vision.register({ id, label, screen, every, module, ready(), hasBoxes(), read(ctx), idle(ctx) })
  *   ctx: { source, w, h, crop(rect, {minH, filter}), ocr(canvas), publish(type, data), note(text) }
  *
- * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach.
+ * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach, save-picture.
  * Events it publishes: vision:status (every 3 s + on change), vision:started / vision:stopped,
  * vision:warning, screen:changed, plus whatever readers publish.
  * Only READS the screen; never sends anything to the game.
@@ -178,9 +178,61 @@
       }
     },
   });
+  // ------------------------------------------------------------- developer tool: collect screenshots
+  // Desktop menu Developer → Collect screenshots automatically. Saves the game picture (PNG) whenever the scene
+  // changes and stays changed for 2 passes (not mid-animation), at most every 2 s, and once a minute otherwise.
+  // Next to it: what the watcher thought (screen, reader notes), so readers can be checked against the picture.
+  const devOn = () => !!(window.E7Desktop && window.E7Desktop.dev && window.E7Desktop.dev().on);
+  let dev = { on: false, fp: null, cand: null, candN: 0, at: 0 };
+  const fpCanvas = document.createElement('canvas');
+  function fingerprint() {
+    const S = window.RTAScreens;
+    fpCanvas.width = S.W;
+    fpCanvas.height = S.H;
+    const c = fpCanvas.getContext('2d', { willReadFrequently: true });
+    c.drawImage(source, 0, 0, S.W, S.H);
+    return S.fingerprint(c.getImageData(0, 0, S.W, S.H).data);
+  }
+  function devShot(reason) {
+    const cv = document.createElement('canvas');
+    cv.width = w();
+    cv.height = h();
+    cv.getContext('2d').drawImage(source, 0, 0);
+    const SW = window.E7Screens;
+    const meta = { at: new Date().toISOString(), reason, capture: captureName, size: [cv.width, cv.height], screen: SW && SW.current(), screenLabel: SW && SW.current() ? SW.label(SW.current()) : '', readers: readers.map((r) => ({ id: r.id, ready: !!r.ready(), note: r.note || '' })), frameKey: window.GameArea ? window.GameArea.frameKey(source) : 'full' };
+    window.E7Desktop.saveDevShot(cv.toDataURL('image/png'), meta);
+    dev.at = Date.now();
+  }
+  function devTick() {
+    if (!devOn() || !window.RTAScreens) return;
+    const fp = fingerprint();
+    const S = window.RTAScreens;
+    const now = Date.now();
+    if (!dev.fp) {
+      dev.fp = fp;
+      return devShot('first picture');
+    }
+    if (S.similarity(fp, dev.fp) < 0.93) {
+      // the scene changed: wait until it holds still for a moment
+      if (dev.cand && S.similarity(fp, dev.cand) > 0.98) dev.candN++;
+      else {
+        dev.cand = fp;
+        dev.candN = 1;
+      }
+      if (dev.candN >= 2 && now - dev.at > 2000) {
+        dev.fp = fp;
+        dev.cand = null;
+        devShot('scene changed');
+      }
+    } else if (now - dev.at > 60000) devShot('once a minute');
+  }
+
   /** One pass: screen detection, then each due reader. `force` ignores reader intervals (tests). */
   async function tick(force) {
     if (!source) return;
+    try {
+      devTick();
+    } catch (_) { /* never let the dev tool break reading */ }
     const SW = window.E7Screens;
     if (SW) {
       SW.update(source);
@@ -223,6 +275,12 @@
       cv.height = h();
       cv.getContext('2d').drawImage(source, 0, 0);
       return { url: cv.toDataURL('image/jpeg', 0.92), w: cv.width, h: cv.height, frameKey: window.GameArea ? window.GameArea.frameKey(source) : 'full' };
+    });
+    bus.handle('save-picture', async (d) => {
+      if (!source) throw new Error('The game watcher is not watching, so there is no game picture to save.');
+      const pic = await window.E7Pictures.capture(source, (d && d.note) || 'saved by hand');
+      bus.publish('picture:saved', { id: pic.id, at: pic.at, note: pic.note });
+      return { id: pic.id };
     });
     bus.handle('teach', (d) => {
       if (!source) throw new Error('The game watcher is not watching. Start it first.');
