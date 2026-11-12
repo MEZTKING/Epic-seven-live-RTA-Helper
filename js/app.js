@@ -1,10 +1,13 @@
-/* UI layer. Depends on RTASources, RTARoster, RTALearn, RTALogic (loaded before this file). */
+/* UI layer. Depends on RTASources, RTARoster, RTAGear, RTALearn, RTALogic, RTATune (loaded before this file). */
 (function () {
   'use strict';
   const L = window.RTALogic;
   const R = window.RTARoster;
   const Learn = window.RTALearn;
+  const G = window.RTAGear;
+  const Tune = window.RTATune;
   const SNAPSHOT = window.RTASources.officialSnapshot;
+  const FRIB_SNAPSHOT = window.RTASources.fribbelsSnapshot;
 
   // =================================================================== storage
   /*
@@ -16,6 +19,9 @@
    *   manualOwned   heroes you ticked as owned by hand
    *   matches       every match, tagged with `source`
    *   matchSources  per-source on/off switch
+   *   fribbelsData  hero base stats + artifact list (null = bundled snapshot)
+   *   scouting      what you saw of opponents' heroes: speed, sets, artifact
+   *   meta          imported meta datasets (pick/ban/win rates), one per name
    */
   const KEY = 'rta-helper-v2';
   const OLD_KEY = 'rta-helper-v1';
@@ -27,6 +33,12 @@
     usePlayer: true,
     useFribbels: true,
     useManualOwned: true,
+    useMeta: true,
+    useSpeed: true,
+    useDeny: true,
+    sound: true,
+    autoRecord: true, // record results detected on screen (as source 'auto')
+    sourceWeights: null, // { group: multiplier } from "Tune from my matches" or sliders
     variance: 5,
   };
 
@@ -46,11 +58,17 @@
       matches: [],
       matchSources: { manual: { enabled: true, addedAt: new Date().toISOString() } },
       settings: { ...DEFAULT_SETTINGS },
-      draft: { ...L.newDraft('me'), opponent: '' },
+      draft: freshDraft('me'),
       pending: null, // a finished draft that was replaced before its result was recorded
       sim: defaultSim(),
       auto: defaultAuto(),
+      fribbelsData: null,
+      scouting: [],
+      meta: {},
     };
+  }
+  function freshDraft(firstPick, opponent = '') {
+    return { ...L.newDraft(firstPick), opponent, id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), suggestLog: [] };
   }
   function defaultAuto() {
     return {
@@ -63,6 +81,9 @@
       useCorrections: true,
       useAutoLearned: false,
       autoLearn: false,
+      detectPostban: true,
+      detectResult: true,
+      autoReadCR: true,
       corrections: [], // [{ code, source: 'my corrections'|'auto-learned', q, at }]
     };
   }
@@ -93,7 +114,11 @@
     s.matchSources = { ...s.matchSources, ...(raw.matchSources || {}) };
     for (const m of s.matches) if (!s.matchSources[m.source]) s.matchSources[m.source] = { enabled: true, addedAt: m.date || null };
     s.settings = { ...DEFAULT_SETTINGS, ...(raw.settings || {}) };
-    if (raw.draft && Array.isArray(raw.draft.actions)) s.draft = { opponent: '', ...raw.draft };
+    if (raw.draft && Array.isArray(raw.draft.actions)) s.draft = { ...freshDraft(raw.draft.firstPick), ...raw.draft };
+    if (!Array.isArray(s.draft.suggestLog)) s.draft.suggestLog = [];
+    s.fribbelsData = raw.fribbelsData && raw.fribbelsData.stats ? raw.fribbelsData : null;
+    s.scouting = arr(raw.scouting);
+    s.meta = raw.meta && typeof raw.meta === 'object' ? raw.meta : {};
     if (Array.isArray(raw.sim)) s.sim = raw.sim;
     if (raw.pending && Array.isArray(raw.pending.actions)) s.pending = raw.pending;
     if (raw.auto && typeof raw.auto === 'object') {
@@ -167,7 +192,23 @@
     const stars = new Map((store.fribbels ? store.fribbels.heroes : []).map((h) => [h.code, h.stars]));
     const enabledMatches = store.matches.filter((m) => (store.matchSources[m.source] || {}).enabled !== false);
     const stats = Learn.buildStats(enabledMatches);
-    cache = { heroes, byCode, owned, stars, enabledMatches, stats };
+    const fdata = store.fribbelsData || FRIB_SNAPSHOT;
+    const builds = new Map();
+    const mySpeeds = new Map();
+    if (store.settings.useFribbels && store.fribbels && store.fribbels.builds) {
+      for (const [code, b] of Object.entries(store.fribbels.builds)) {
+        const r = G.computeBuild(code, b, fdata.stats);
+        builds.set(code, r);
+        if (r.speed) mySpeeds.set(code, r.speed);
+      }
+    }
+    const scout = Learn.scoutSummary(store.scouting);
+    const meta = store.settings.useMeta
+      ? Object.entries(store.meta)
+          .filter(([, m]) => m.enabled !== false)
+          .map(([name, m]) => ({ name, rows: m.rows }))
+      : [];
+    cache = { heroes, byCode, owned, stars, enabledMatches, stats, fdata, builds, mySpeeds, scout, meta };
   }
 
   function clone(x) {
@@ -189,8 +230,8 @@
   const gm = (n) => `${n} ${n === 1 ? 'game' : 'games'}`;
   const pct = (w, g) => (g ? Math.round((w / g) * 100) + '%' : '—');
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const SRC_CLASS = { 'my notes': 'notes', learned: 'learned', 'game rule': 'rule', presets: 'presets', player: 'player' };
-  const srcBadge = (src) => `<span class="src ${SRC_CLASS[src] || 'other'}">${esc(src)}</span>`;
+  const SRC_CLASS = { 'my notes': 'notes', learned: 'learned', 'game rule': 'rule', presets: 'presets', player: 'player', speed: 'speed', deny: 'deny', scouting: 'player', gear: 'fribbels' };
+  const srcBadge = (src) => `<span class="src ${SRC_CLASS[src] || (src.startsWith('meta') ? 'meta' : 'other')}">${esc(src)}</span>`;
 
   function portrait(code, cls = 'pt', lazy = false) {
     const h = hero(code);
@@ -242,7 +283,22 @@
       profile: s.usePlayer ? Learn.getProfile(cache.stats, store.draft.opponent) : null,
       owned: cache.owned.size ? cache.owned : null,
       useElement: s.useElement,
+      meta: cache.meta,
+      speed: s.useSpeed
+        ? { mine: cache.mySpeeds, player: s.usePlayer ? cache.scout.byPlayer.get(String(store.draft.opponent || '').trim().toLowerCase()) || null : null, all: cache.scout.all }
+        : null,
+      deny: s.useDeny,
+      sourceWeights: s.sourceWeights,
     };
+  }
+
+  /** Typical speed seen for an enemy hero: { speed, low, high, n, who } or null. */
+  function scoutedSpeed(code, opponent) {
+    const p = cache.scout.byPlayer.get(String(opponent || '').trim().toLowerCase());
+    const mine = p && p.get(code);
+    if (mine && mine.speed) return { ...mine, who: 'this player' };
+    const all = cache.scout.all.get(code);
+    return all && all.speed ? { ...all, who: 'all players' } : null;
   }
 
   // ====================================================================== tabs
@@ -268,6 +324,8 @@
   function render() {
     $('#hero-names').innerHTML = cache.heroes.map((h) => `<option value="${esc(h.name)}"></option>`).join('');
     $('#player-names').innerHTML = [...cache.stats.players.values()].map((p) => `<option value="${esc(p.name)}"></option>`).join('');
+    $('#set-names').innerHTML = G.SET_NAMES.map((n) => `<option value="${esc(n)}"></option>`).join('');
+    $('#artifact-names').innerHTML = cache.fdata.artifacts.map((x) => `<option value="${esc(x.name)}"></option>`).join('');
     RENDER[activeTab]();
   }
 
@@ -282,6 +340,7 @@
     if (document.activeElement !== $('#opp-name')) $('#opp-name').value = d.opponent || '';
     renderProfileStrip();
     renderPending();
+    renderTilt();
 
     const st = $('#draft-status');
     st.className = 'status' + (step ? ' ' + step.player : '');
@@ -301,7 +360,10 @@
       let html = '';
       for (let i = 0; i < total; i++) {
         const c = codes[i];
-        if (c) html += `<div class="slot filled${banned && banned.includes(c) ? ' banned' : ''}">${portrait(c, 'pt sm')}<span>${esc(nameOf(c))}</span></div>`;
+        if (c) {
+          const spd = cache.mySpeeds.get(c);
+          html += `<div class="slot filled${banned && banned.includes(c) ? ' banned' : ''}">${portrait(c, 'pt sm')}<span>${esc(nameOf(c))}</span>${spd && codes === v.picks.me ? `<small class="spd" title="Your speed (gear.txt)">${spd}</small>` : ''}</div>`;
+        }
         else html += `<div class="slot${isNextHere && i === codes.length ? ' next' : ''}">—</div>`;
       }
       return html;
@@ -316,8 +378,159 @@
 
     renderHeroGrid();
     renderSuggestions(step);
+    renderInsights(step);
+    renderScout();
     $('#result-box').classList.toggle('hidden', !!step);
+    if (!step && document.activeElement !== $('#result-points')) {
+      const last = Learn.sessionStats(cache.enabledMatches).points.slice(-1)[0];
+      $('#result-points').placeholder = last ? `Points after match (last: ${last.points})` : 'Points after match (optional)';
+    }
+    cueTurn(step);
+    for (const fn of draftListeners) fn();
   }
+  const draftListeners = [];
+
+  // ------------------------------------------------------------ turn sound
+  let lastCueKey = null;
+  let audioCtx = null;
+  function cueTurn(step) {
+    const key = step ? `${store.draft.id}:${store.draft.actions.length}` : null;
+    const myTurnStarts = step && step.player === 'me' && (store.draft.actions.length === 0 || L.draftSteps(store.draft.firstPick)[store.draft.actions.length - 1].player !== 'me');
+    if (!store.settings.sound || !myTurnStarts || key === lastCueKey) {
+      lastCueKey = key;
+      return;
+    }
+    lastCueKey = key;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.15, audioCtx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+      o.connect(g).connect(audioCtx.destination);
+      o.start();
+      o.stop(audioCtx.currentTime + 0.4);
+    } catch (_) { /* audio not available */ }
+  }
+
+  // ------------------------------------------------------- tilt / session
+  function renderTilt() {
+    const s = Learn.sessionStats(cache.enabledMatches);
+    const box = $('#tilt-box');
+    const tilt = s.streak.result === 'loss' && s.streak.n >= 3;
+    box.classList.toggle('hidden', !tilt);
+    if (tilt) box.innerHTML = `<b>${s.streak.n} losses in a row.</b> Today: ${s.today.wins}-${s.today.games - s.today.wins}. A short break often helps.`;
+  }
+
+  // ------------------------------------------------- pairs, risks, warnings
+  function renderInsights(step) {
+    const d = store.draft;
+    const ctx = suggestionContext();
+    const v = L.draftView(d);
+    const out = [];
+    if (step && step.phase === 'pick' && step.player === 'me') {
+      const pairs = L.suggestPairs(d, cache.heroes, ctx);
+      if (pairs.length) {
+        out.push(`<div class="ins"><h4>Best pairs for this turn</h4>${pairs
+          .map((p) => `<div class="pair"><button class="link" data-code="${esc(p.heroes[0].code)}">${heroChip(p.heroes[0].code)}</button>+<button class="link" data-code="${esc(p.heroes[1].code)}">${heroChip(p.heroes[1].code)}</button> <span class="score">+${p.score}</span>${p.together.length ? `<span class="why">${p.together.map((r) => `${srcBadge(r.source)} ${esc(r.text)}`).join(' ')}</span>` : ''}</div>`)
+          .join('')}</div>`);
+      }
+      const risk = L.postbanRisk(d, cache.heroes, ctx);
+      if (risk && risk.score > 0) {
+        out.push(`<div class="ins warn"><h4>Postban risk</h4>${heroChip(risk.hero.code)} is their most likely ban (${Math.round(risk.share * 100)}% of your team's threat). Keep a plan without it.
+          <span class="why">${risk.reasons.slice(0, 3).map((r) => `${srcBadge(r.source)} ${esc(r.text)}`).join(' ')}</span></div>`);
+      }
+    }
+    if (v.picks.me.length >= 3) {
+      const warns = L.compositionWarnings(v.picks.me, v.picks.opp, store.settings.useNotes ? store.notes : null);
+      if (warns.length) out.push(`<div class="ins warn"><h4>Team check</h4>${warns.map((w) => `<div>${srcBadge(w.source)} ${esc(w.text)}</div>`).join('')}</div>`);
+    }
+    $('#insights').innerHTML = out.join('');
+  }
+  $('#insights').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-code]');
+    if (b) selectHero(b.dataset.code);
+  });
+
+  // ------------------------------------------------------------- scouting
+  /*
+   * Scouting entries are ONE source ('scouting'): what you saw of the
+   * opponent's heroes in this match. Speed can come from the CR-bar reader
+   * (method 'cr-read') or be typed (method 'manual').
+   */
+  function scoutEntry(code) {
+    return store.scouting.find((e) => e.draftId === store.draft.id && e.code === code);
+  }
+  function upsertScout(code, patch) {
+    let e = scoutEntry(code);
+    if (!e) {
+      e = { id: newId(), draftId: store.draft.id, code, player: (store.draft.opponent || '').trim(), method: 'manual', at: new Date().toISOString(), sets: [], artifact: '' };
+      store.scouting.push(e);
+    }
+    Object.assign(e, patch, { player: (store.draft.opponent || '').trim() });
+    if (!e.speed && !(e.sets || []).length && !e.artifact && !e.notes) store.scouting = store.scouting.filter((x) => x !== e);
+    save();
+  }
+
+  function renderScout() {
+    const v = L.draftView(store.draft);
+    const box = $('#scout');
+    const enemies = v.picks.opp.filter((c) => !v.postbans.me.includes(c));
+    box.classList.toggle('hidden', !enemies.length);
+    if (!enemies.length) return;
+    if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // don't rebuild while typing
+    const opp = store.draft.opponent;
+    const myFighters = v.picks.me.filter((c) => !v.postbans.opp.includes(c));
+    const myFast = myFighters.map((c) => [c, cache.mySpeeds.get(c)]).filter(([, s]) => s).sort((a, b) => b[1] - a[1])[0];
+    let theirFast = null;
+    const rows = enemies
+      .map((c) => {
+        const e = scoutEntry(c) || {};
+        const seen = scoutedSpeed(c, opp);
+        const sp = Number(e.speed) || (seen && seen.speed) || null;
+        if (sp && (!theirFast || sp > theirFast[1])) theirFast = [c, sp];
+        const base = cache.fdata.stats[c] && cache.fdata.stats[c].spd;
+        const hist = (() => {
+          const all = cache.scout.all.get(c);
+          const p = opp && cache.scout.byPlayer.get(opp.trim().toLowerCase());
+          const ph = p && p.get(c);
+          const bits = [];
+          if (ph && ph.n) bits.push(`${esc(opp)}: ${ph.speed ? '~' + ph.speed : '?'} (${ph.n}×)${ph.sets[0] ? ' · ' + esc(ph.sets[0].name) : ''}${ph.artifacts[0] ? ' · ' + esc(ph.artifacts[0].name) : ''}`);
+          if (all && all.speeds) bits.push(`all: ${all.low === all.high ? '~' + all.low : `${all.low}–${all.high}`} (${all.speeds})`);
+          return bits.join('<br>') || '<span class="hint">not seen yet</span>';
+        })();
+        return `<tr data-code="${esc(c)}">
+          <td>${heroChip(c)}${base ? `<div class="hint">base ${base}</div>` : ''}</td>
+          <td><input type="number" min="1" max="400" data-f="speed" value="${esc(e.speed || '')}" placeholder="${seen && seen.speed ? '~' + seen.speed : 'speed'}" />${e.method === 'cr-read' ? '<div class="hint">from CR bar</div>' : ''}</td>
+          <td><input data-f="sets" list="set-names" value="${esc((e.sets || []).join(', '))}" placeholder="e.g. Speed, Critical" /></td>
+          <td><input data-f="artifact" list="artifact-names" value="${esc(e.artifact || '')}" placeholder="artifact" /></td>
+          <td class="small">${hist}</td></tr>`;
+      })
+      .join('');
+    let check = '';
+    if (myFast && theirFast) {
+      const os = L.speedToOutspeed(theirFast[1], store.settings.variance);
+      const ok = myFast[1] >= os.guaranteed;
+      const maybe = !ok && myFast[1] > theirFast[1];
+      check = `<div class="ins ${ok ? 'good' : 'warn'}">${srcBadge('speed')} Your fastest ${esc(nameOf(myFast[0]))} <b>${myFast[1]}</b> vs their fastest known ${esc(nameOf(theirFast[0]))} <b>~${Math.round(theirFast[1])}</b>: ${ok ? 'you should move first.' : maybe ? 'close — random starting CR can flip it.' : 'they likely move first.'}</div>`;
+    }
+    box.innerHTML = `<h3>Scouting ${srcBadge('scouting')}</h3>
+      <p class="hint">Note what you see of their heroes. It's saved per player and per hero, and used for speed checks next time. Speeds fill in automatically when the CR bar is read.</p>
+      ${check}
+      <div class="table-wrap"><table class="mini scout-table"><thead><tr><th>Enemy</th><th>Speed</th><th>Sets</th><th>Artifact</th><th>Seen before</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  $('#scout').addEventListener('change', (e) => {
+    const f = e.target.dataset.f;
+    const tr = e.target.closest('tr[data-code]');
+    if (!f || !tr) return;
+    let val = e.target.value.trim();
+    if (f === 'speed') val = Number(val) || null;
+    if (f === 'sets') val = val.split(/[,+]/).map((x) => x.trim()).filter(Boolean);
+    upsertScout(tr.dataset.code, { [f]: val, ...(f === 'speed' ? { method: 'manual' } : {}) });
+    renderScout();
+  });
 
   function gridCandidates() {
     const d = store.draft;
@@ -357,7 +570,11 @@
   $('#pending-box').addEventListener('click', (e) => {
     const b = e.target.closest('[data-pending]');
     if (!b || !store.pending) return;
-    if (b.dataset.pending !== 'discard') store.matches.unshift(matchFromDraft(store.pending, b.dataset.pending, ''));
+    if (b.dataset.pending !== 'discard') {
+      const m = matchFromDraft(store.pending, b.dataset.pending, '');
+      store.matches.unshift(m);
+      linkScouting(store.pending, m.id);
+    }
     store.pending = null;
     save();
     renderDraft();
@@ -407,10 +624,19 @@
 
   function selectHero(code) {
     if (L.canSelect(store.draft, code)) return false;
+    logSuggestion(code);
     store.draft = { ...L.select(store.draft, code), opponent: store.draft.opponent };
     save();
     renderDraft();
     return true;
+  }
+
+  /** Remember what was suggested when I made each pick (to measure if suggestions help). */
+  function logSuggestion(code) {
+    const step = L.currentStep(store.draft);
+    if (!step || step.phase !== 'pick' || step.player !== 'me') return;
+    const top = L.suggestPicks(store.draft, cache.heroes, suggestionContext(), 3).map((s) => s.hero.code);
+    store.draft.suggestLog = [...(store.draft.suggestLog || []), { chosen: code, top }];
   }
 
   $('#hero-grid').addEventListener('click', (e) => {
@@ -444,7 +670,7 @@
       e.target.value = store.draft.firstPick;
       return;
     }
-    store.draft = hasPicks ? { ...L.newDraft(e.target.value), opponent: store.draft.opponent } : { ...store.draft, firstPick: e.target.value };
+    store.draft = hasPicks ? freshDraft(e.target.value, store.draft.opponent) : { ...store.draft, firstPick: e.target.value };
     save();
     renderDraft();
   });
@@ -455,16 +681,16 @@
   });
   $('#draft-reset').addEventListener('click', () => {
     if (store.draft.actions.length && !confirm('Clear the current draft?')) return;
-    store.draft = { ...L.newDraft(store.draft.firstPick), opponent: '' };
+    store.draft = freshDraft(store.draft.firstPick);
     save();
     renderDraft();
   });
 
-  function matchFromDraft(draft, result, notes) {
+  function matchFromDraft(draft, result, notes, source = 'manual', points = null) {
     const v = L.draftView(draft);
     return {
       id: newId(),
-      source: 'manual',
+      source,
       date: new Date().toISOString(),
       result,
       opponent: (draft.opponent || '').trim(),
@@ -476,12 +702,24 @@
       iBanned: v.postbans.me[0] || null,
       theyBanned: v.postbans.opp[0] || null,
       notes,
+      points: typeof points === 'number' && !Number.isNaN(points) ? points : undefined,
+      draftId: draft.id,
+      suggestLog: draft.suggestLog || [],
     };
   }
-  function recordResult(result) {
-    store.matches.unshift(matchFromDraft(store.draft, result, $('#result-notes').value.trim()));
+  /** Link this draft's scouting entries to the recorded match and opponent. */
+  function linkScouting(draft, matchId) {
+    for (const e of store.scouting) if (e.draftId === draft.id) Object.assign(e, { matchId, player: (draft.opponent || '').trim() });
+  }
+  function recordResult(result, source = 'manual') {
+    const pts = $('#result-points').value.trim();
+    const m = matchFromDraft(store.draft, result, $('#result-notes').value.trim(), source, pts === '' ? null : Number(pts));
+    if (!store.matchSources[source]) store.matchSources[source] = { enabled: true, addedAt: new Date().toISOString() };
+    store.matches.unshift(m);
+    linkScouting(store.draft, m.id);
     $('#result-notes').value = '';
-    store.draft = { ...L.newDraft(store.draft.firstPick), opponent: '' };
+    $('#result-points').value = '';
+    store.draft = freshDraft(store.draft.firstPick);
     save();
     renderDraft();
   }
@@ -575,7 +813,9 @@
       for (const c of v.picks[side]) {
         if (banned.has(c)) continue;
         const old = store.sim.find((u) => u.name === nameOf(c));
-        units.push(old || { name: nameOf(c), side, speed: 200, startCR: 0, pushAllies: 0, pushOnce: false });
+        const scouted = side === 'opp' ? (scoutEntry(c) && Number(scoutEntry(c).speed)) || (scoutedSpeed(c, store.draft.opponent) || {}).speed : null;
+        const speed = side === 'me' ? cache.mySpeeds.get(c) : scouted;
+        units.push({ ...(old || { name: nameOf(c), side, speed: 200, startCR: 0, pushAllies: 0, pushOnce: false }), ...(speed ? { speed: Math.round(speed) } : {}) });
       }
     }
     if (!units.length) return alert('Pick some heroes in the Draft tab first.');
@@ -598,11 +838,17 @@
         const st = cache.stats.hero.get(h.code);
         const fr = cache.stars.has(h.code) ? `<span class="src fribbels" title="From Fribbels import">${cache.stars.get(h.code) || ''}★</span>` : '';
         const learned = st && st.team.games ? `${pct(st.team.wins, st.team.games)} <small>(${st.team.games})</small>` : '—';
+        const b = cache.builds.get(h.code);
+        const build = b
+          ? `<b>${b.speed ?? '?'}</b> spd${b.eeSpeedPossible ? '<span title="Exclusive equipment can add speed; not included">*</span>' : ''}<br>${esc(b.sets.join(' + ') || 'no sets')}${b.artifact ? '<br>' + esc(b.artifact) : ''}${b.note ? `<br><span class="hint">${esc(b.note)}</span>` : ''}`
+          : '';
+        const tags = (n.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('');
         return `<tr data-code="${esc(h.code)}">
           <td><input type="checkbox" data-owned ${store.manualOwned.includes(h.code) ? 'checked' : ''} title="Owned (set by hand)" /> ${fr}</td>
           <td class="hcell">${portrait(h.code, 'pt', true)}<span>${esc(h.name)}${h.source === 'custom' ? ' <span class="src other">custom</span>' : ''}</span></td>
           <td>${dot(h.element)} ${esc(R.ROLE_LABEL[h.role] || h.role)}</td>
-          <td>${esc(n.tier || '—')}</td>
+          <td>${esc(n.tier || '—')}${tags ? '<br>' + tags : ''}</td>
+          <td class="small">${build}</td>
           <td class="small">${heroList(n.counters)}</td>
           <td class="small">${heroList(n.synergies)}</td>
           <td class="small">${learned}</td>
@@ -652,6 +898,7 @@
     form.tier.value = n.tier || '';
     form.owned.checked = !!code && store.manualOwned.includes(code);
     form.notes.value = n.notes || '';
+    $('#tag-boxes').innerHTML = L.TAGS.map((t) => `<label class="inline tagbox"><input type="checkbox" value="${esc(t)}" ${(n.tags || []).includes(t) ? 'checked' : ''}/> ${esc(t)}</label>`).join('');
     form.querySelectorAll('.chip-input').forEach((i) => (i.value = ''));
     renderChips();
     dlg.showModal();
@@ -693,8 +940,9 @@
         Object.assign(store.custom.find((h) => h.code === code), { name, element: form.element.value, role: form.role.value });
       }
     }
-    const note = { tier: form.tier.value, counters: editing.counters, synergies: editing.synergies, notes: form.notes.value.trim() };
-    if (note.tier || note.counters.length || note.synergies.length || note.notes) store.notes[code] = note;
+    const tags = [...document.querySelectorAll('#tag-boxes input:checked')].map((i) => i.value);
+    const note = { tier: form.tier.value, counters: editing.counters, synergies: editing.synergies, notes: form.notes.value.trim(), tags };
+    if (note.tier || note.counters.length || note.synergies.length || note.notes || tags.length) store.notes[code] = note;
     else delete store.notes[code];
     store.manualOwned = store.manualOwned.filter((c) => c !== code);
     if (form.owned.checked) store.manualOwned.push(code);
@@ -818,7 +1066,15 @@
         <div><h3>Prebans</h3><ul class="plain-list">${list(p.prebans.slice(0, 6))}</ul></div>
         <div><h3>First picks</h3><ul class="plain-list">${list(p.firstPicks.slice(0, 6))}</ul></div>
         <div><h3>Postbans your…</h3><ul class="plain-list">${list(p.postbans.slice(0, 6))}</ul></div>
-      </div>`;
+      </div>${scoutTable(cache.scout.byPlayer.get(selectedPlayer))}`;
+  }
+  function scoutTable(map) {
+    if (!map || !map.size) return '';
+    const rows = [...map.entries()]
+      .sort((a, b) => b[1].n - a[1].n)
+      .map(([c, x]) => `<tr><td>${heroChip(c)}</td><td>${x.speed ? `~${x.speed}${x.speeds > 1 ? ` <small>(${x.low}–${x.high})</small>` : ''}` : '—'}</td><td class="small">${esc((x.sets[0] || {}).name || '—')}</td><td class="small">${esc((x.artifacts[0] || {}).name || '—')}</td><td>${x.n}</td></tr>`)
+      .join('');
+    return `<h3 style="margin-top:12px">Their builds ${srcBadge('scouting')}</h3><div class="table-wrap"><table class="mini"><thead><tr><th>Hero</th><th>Speed</th><th>Sets</th><th>Artifact</th><th>Seen</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   $('#pl-search').addEventListener('input', renderPlayers);
   $('#pl-rows').addEventListener('click', (e) => {
@@ -840,6 +1096,14 @@
       <div class="card"><div class="hint">Win rate</div><div class="stat">${pct(wins, ms.length)}</div></div>
       <div class="card"><div class="hint">When I pick first</div><div class="stat">${wr(fp)}</div><div class="hint">${gm(fp.length)}</div></div>
       <div class="card"><div class="hint">When they pick first</div><div class="stat">${wr(sp)}</div><div class="hint">${gm(sp.length)}</div></div>`;
+    const ses = Learn.sessionStats(ms);
+    const fol = Learn.suggestionFollow(ms);
+    $('#hist-session').innerHTML = `
+      <div class="card"><div class="hint">Today</div><div class="stat">${ses.today.wins}-${ses.today.games - ses.today.wins}</div>
+        <div class="hint">Streak: ${ses.streak.n ? `${ses.streak.n} ${ses.streak.result === 'win' ? 'win' : 'loss'}${ses.streak.n > 1 ? (ses.streak.result === 'win' ? 's' : 'es') : ''}` : '—'}</div></div>
+      <div class="card"><div class="hint">Following suggestions ${srcBadge('learned')}</div>
+        ${fol.picks ? `<div class="stat">${pct(fol.followed, fol.picks)}</div><div class="hint">of your picks were in the top 3.<br>Mostly followed (3+ picks): ${pct(fol.mostly.wins, fol.mostly.games)} win (${gm(fol.mostly.games)}) · Otherwise: ${pct(fol.rarely.wins, fol.rarely.games)} (${gm(fol.rarely.games)})</div>` : '<div class="hint">Recorded once you log matches drafted with this version.</div>'}</div>
+      <div class="card wide2"><div class="hint">Rank points</div>${pointsChart(ses.points)}</div>`;
 
     const H = [...cache.stats.hero.entries()];
     const rows = (key) =>
@@ -865,10 +1129,23 @@
           return `<li class="${off ? 'off' : ''}"><span class="res ${m.result}">${m.result === 'win' ? 'WIN' : 'LOSS'}</span>
           <div><div><b>Me:</b> ${heroList(m.myPicks)}${m.theyBanned ? ` <span class="meta">(lost ${esc(nameOf(m.theyBanned))})</span>` : ''}</div>
           <div><b>${esc(m.opponent || 'Opp')}:</b> ${heroList(m.oppPicks)}${m.iBanned ? ` <span class="meta">(banned ${esc(nameOf(m.iBanned))})</span>` : ''}</div>
-          <div class="meta"><span class="src other">${esc(m.source)}</span> ${m.date ? new Date(m.date).toLocaleString() : ''} · ${m.firstPick === 'me' ? 'I picked first' : 'They picked first'}${m.notes ? ' · ' + esc(m.notes) : ''}</div></div>
+          <div class="meta"><span class="src other">${esc(m.source)}</span>${typeof m.points === 'number' ? ` ${m.points} pts ·` : ''} ${m.date ? new Date(m.date).toLocaleString() : ''} · ${m.firstPick === 'me' ? 'I picked first' : 'They picked first'}${m.notes ? ' · ' + esc(m.notes) : ''}</div></div>
           <button class="btn" data-del="${esc(m.id)}" title="Delete">✕</button></li>`;
         })
         .join('') || '<li class="hint">Finish a draft and press Win or Loss to log a match.</li>';
+  }
+  function pointsChart(points) {
+    if (points.length < 2) return '<div class="hint">Enter your points when you record results to see them here.</div>';
+    const W = 320;
+    const H = 90;
+    const ys = points.map((p) => p.points);
+    const lo = Math.min(...ys);
+    const hi = Math.max(...ys);
+    const x = (i) => 6 + (i * (W - 12)) / (points.length - 1);
+    const y = (v) => H - 8 - ((v - lo) / (hi - lo || 1)) * (H - 20);
+    const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.points).toFixed(1)}`).join(' ');
+    const dots = points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.points).toFixed(1)}" r="2.5" class="${p.result}"><title>${p.points}</title></circle>`).join('');
+    return `<svg class="pts" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rank points over time"><path d="${path}" /> ${dots}<text x="4" y="12">${hi}</text><text x="4" y="${H - 1}">${lo}</text></svg><div class="hint">Now: <b>${ys[ys.length - 1]}</b> (${ys[ys.length - 1] - ys[0] >= 0 ? '+' : ''}${ys[ys.length - 1] - ys[0]} over ${points.length} entries)</div>`;
   }
   $('#hist-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-del]');
@@ -887,6 +1164,11 @@
     '#use-player': 'usePlayer',
     '#use-fribbels': 'useFribbels',
     '#use-manual-owned': 'useManualOwned',
+    '#use-meta': 'useMeta',
+    '#use-speed': 'useSpeed',
+    '#use-deny': 'useDeny',
+    '#use-sound': 'sound',
+    '#use-auto-record': 'autoRecord',
   };
 
   function renderData() {
@@ -897,6 +1179,15 @@
       ? `${fr.heroes.length} heroes from <b>${esc(fr.fileName)}</b> (${new Date(fr.importedAt).toLocaleDateString()})${fr.unmatched.length ? `<br>Not recognised (${fr.unmatched.length}): ${esc(fr.unmatched.slice(0, 15).join(', '))}${fr.unmatched.length > 15 ? '…' : ''}` : ''}`
       : 'Nothing imported yet.';
     for (const [sel, k] of Object.entries(SETTING_BOXES)) $(sel).checked = !!store.settings[k];
+    const fd = cache.fdata;
+    $('#src-fdata').innerHTML = `${Object.keys(fd.stats).length} heroes' base stats · ${fd.artifacts.length} artifacts · ${store.fribbelsData ? 'updated' : 'built-in copy from'} ${new Date(fd.fetchedAt).toLocaleDateString()}`;
+    $('#src-builds').textContent = cache.builds.size ? `${cache.builds.size} builds from your gear.txt · ${[...cache.builds.values()].filter((b) => b.itemCount >= 6).length} fully geared` : 'No gear yet: import gear.txt (it includes your equipped items).';
+    $('#src-scouting').textContent = `${store.scouting.length} observations of ${new Set(store.scouting.map((e) => e.player).filter(Boolean)).size} players`;
+    $('#meta-sources').innerHTML =
+      Object.entries(store.meta)
+        .map(([k, m]) => `<tr data-meta="${esc(k)}"><td><input type="checkbox" data-toggle ${m.enabled !== false ? 'checked' : ''} /></td><td><span class="src meta">meta: ${esc(k)}</span></td><td>${Object.keys(m.rows).length}</td><td class="small">${m.addedAt ? new Date(m.addedAt).toLocaleDateString() : ''}</td><td><button class="btn danger" data-del-meta>Delete</button></td></tr>`)
+        .join('') || '<tr><td colspan="5" class="hint">No meta datasets yet.</td></tr>';
+    renderWeights();
     $('#src-notes').textContent = `${Object.keys(store.notes).length} heroes have notes · ${store.manualOwned.length} owned ticked by hand · ${store.custom.length} custom heroes`;
 
     const counts = {};
@@ -956,11 +1247,14 @@
     e.target.value = '';
     if (!file) return;
     try {
-      const r = R.parseFribbels(await file.text(), cache.heroes);
-      store.fribbels = { source: 'fribbels', fileName: file.name, importedAt: new Date().toISOString(), ...r };
+      const text = await file.text();
+      const r = R.parseFribbels(text, cache.heroes);
+      const builds = G.extractBuilds(JSON.parse(text), cache.heroes);
+      store.fribbels = { source: 'fribbels', fileName: file.name, importedAt: new Date().toISOString(), ...r, builds };
       store.settings.useFribbels = true;
       save();
-      alert(`Imported ${r.heroes.length} owned heroes${r.unmatched.length ? `. ${r.unmatched.length} names were not recognised (listed in the Data tab).` : '.'}`);
+      const geared = Object.values(builds).filter((b) => b.items.length).length;
+      alert(`Imported ${r.heroes.length} owned heroes and gear for ${geared} of them${r.unmatched.length ? `. ${r.unmatched.length} names were not recognised (listed in the Data tab).` : '.'}`);
     } catch (err) {
       alert('Could not import: ' + err.message);
     }
@@ -971,6 +1265,132 @@
     store.fribbels = null;
     save();
     render();
+  });
+
+  $('#fdata-refresh').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    try {
+      const [h, a] = await Promise.all([fetch(G.HERO_STATS_URL, { cache: 'no-cache' }).then((r) => r.json()), fetch(G.ARTIFACT_URL, { cache: 'no-cache' }).then((r) => r.json())]);
+      const stats = G.normalizeHeroStats(h);
+      const artifacts = G.normalizeArtifacts(a);
+      if (Object.keys(stats).length < 100) throw new Error('Data looks incomplete; keeping the current copy.');
+      store.fribbelsData = { source: 'fribbels-data', fetchedAt: new Date().toISOString(), stats, artifacts };
+      save();
+      alert(`Updated: ${Object.keys(stats).length} heroes, ${artifacts.length} artifacts.`);
+    } catch (err) {
+      alert('Could not update: ' + err.message);
+    }
+    btn.disabled = false;
+    render();
+  });
+  $('#scouting-clear').addEventListener('click', () => {
+    if (!store.scouting.length || !confirm('Delete all scouting observations?')) return;
+    store.scouting = [];
+    save();
+    render();
+  });
+
+  // ------------------------------------------------------------ meta data
+  $('#meta-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const rows = parseMetaCsv(await file.text());
+      const name = prompt('Name this meta dataset (e.g. "Spring 2026 Champion+"):', file.name.replace(/\.[^.]+$/, ''));
+      if (!name) return;
+      store.meta[name.trim()] = { enabled: true, addedAt: new Date().toISOString(), rows: rows.rows };
+      save();
+      alert(`Imported ${Object.keys(rows.rows).length} heroes into "meta: ${name.trim()}".${rows.unknown.length ? `\nUnknown names skipped: ${rows.unknown.join(', ')}` : ''}`);
+    } catch (err) {
+      alert('Could not import: ' + err.message);
+    }
+    render();
+  });
+  /** hero,pick_rate,ban_rate,preban_rate,win_rate  (rates as 12.5 or 0.125 or 12.5%) */
+  function parseMetaCsv(text) {
+    const rows = R.parseCsv(text).filter((r) => r.some((c) => String(c).trim()));
+    if (rows.length < 2) throw new Error('Needs a header row and at least one hero.');
+    const head = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, '_'));
+    const col = (n) => head.findIndex((h) => h === n || h === n.replace('_rate', ''));
+    if (col('hero') < 0) throw new Error('Needs a "hero" column.');
+    const rate = (v) => {
+      const x = parseFloat(String(v || '').replace('%', ''));
+      if (Number.isNaN(x)) return undefined;
+      return x > 1 ? x / 100 : x;
+    };
+    const idx = R.nameIndex(cache.heroes);
+    const out = {};
+    const unknown = [];
+    for (const r of rows.slice(1)) {
+      const h = R.findHero(r[col('hero')], cache.heroes, idx);
+      if (!h) {
+        unknown.push(r[col('hero')]);
+        continue;
+      }
+      const get = (n) => (col(n) >= 0 ? rate(r[col(n)]) : undefined);
+      out[h.code] = { pick: get('pick_rate'), ban: get('ban_rate'), preban: get('preban_rate'), win: get('win_rate') };
+    }
+    return { rows: out, unknown };
+  }
+  $('#meta-template').addEventListener('click', () => download('rta-meta-template.csv', 'hero,pick_rate,ban_rate,preban_rate,win_rate\nArbiter Vildred,35%,10%,8%,52%\n', 'text/csv'));
+  $('#meta-sources').addEventListener('change', (e) => {
+    if (!e.target.matches('[data-toggle]')) return;
+    store.meta[e.target.closest('tr').dataset.meta].enabled = e.target.checked;
+    save();
+  });
+  $('#meta-sources').addEventListener('click', (e) => {
+    if (!e.target.matches('[data-del-meta]')) return;
+    const k = e.target.closest('tr').dataset.meta;
+    if (!confirm(`Delete meta dataset "${k}"?`)) return;
+    delete store.meta[k];
+    save();
+    renderData();
+  });
+
+  // --------------------------------------------------------------- weights
+  const WEIGHT_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny'];
+  function renderWeights() {
+    const w = store.settings.sourceWeights || {};
+    $('#weights').innerHTML = WEIGHT_GROUPS.map(
+      (g) => `<label class="wrow">${srcBadge(g)} <input type="range" min="0" max="3" step="0.1" data-w="${esc(g)}" value="${w[g] ?? 1}" /> <span>${(w[g] ?? 1).toFixed(1)}×</span></label>`,
+    ).join('');
+  }
+  $('#weights').addEventListener('input', (e) => {
+    const g = e.target.dataset.w;
+    if (!g) return;
+    store.settings.sourceWeights = { ...(store.settings.sourceWeights || {}), [g]: Number(e.target.value) };
+    e.target.nextElementSibling.textContent = Number(e.target.value).toFixed(1) + '×';
+    save();
+  });
+  $('#weights-reset').addEventListener('click', () => {
+    store.settings.sourceWeights = null;
+    $('#tune-out').textContent = '';
+    save();
+    renderWeights();
+  });
+  $('#weights-tune').addEventListener('click', () => {
+    const s = store.settings;
+    const base = {
+      notes: s.useNotes ? store.notes : null,
+      presets: s.usePresets ? store.presets : null,
+      useElement: s.useElement,
+      meta: cache.meta,
+      speed: s.useSpeed ? { mine: cache.mySpeeds, all: cache.scout.all } : null,
+    };
+    $('#tune-out').textContent = 'Working…';
+    setTimeout(() => {
+      const r = Tune.tuneWeights(cache.enabledMatches, cache.byCode, base, Learn, L);
+      if (!r.ok) {
+        $('#tune-out').textContent = r.reason;
+        return;
+      }
+      store.settings.sourceWeights = { ...(store.settings.sourceWeights || {}), ...r.weights };
+      save();
+      renderWeights();
+      $('#tune-out').innerHTML = `Tuned on ${r.n} matches. Correctly called ${Math.round(r.accuracyBefore * 100)}% of results before, ${Math.round(r.accuracyAfter * 100)}% after (measured on the same matches, so treat it as a rough guide).`;
+    }, 30);
   });
 
   $('#csv-file').addEventListener('change', async (e) => {
@@ -1030,11 +1450,38 @@
     }
   });
   $('#reset-all').addEventListener('click', () => {
-    if (!confirm('Erase all data in this browser (notes, roster, matches, presets)? Export a backup first if unsure.')) return;
+    if (!confirm('Erase all data in this browser (notes, roster, matches, presets, scouting)? Export a backup first if unsure.')) return;
     store = emptyStore();
     $('#sim-units').innerHTML = '';
     save();
     render();
+  });
+
+  // ========================================================= keyboard shortcuts
+  /*
+   * Work anywhere except while typing in a box:
+   *   1/2/3  pick the 1st/2nd/3rd suggestion     U  undo        N  new draft
+   *   W / L  record win / loss                    P  pop-out mini window
+   *   R      read the CR bar now (auto tab)       ?  show this list
+   */
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    const k = e.key.toLowerCase();
+    const step = L.currentStep(store.draft);
+    if (['1', '2', '3'].includes(k)) {
+      const b = document.querySelectorAll('#suggest-list button[data-code]')[Number(k) - 1];
+      if (b) selectHero(b.dataset.code);
+    } else if (k === 'u') $('#draft-undo').click();
+    else if (k === 'n') $('#draft-reset').click();
+    else if (k === 'w' && !step) recordResult('win');
+    else if (k === 'l' && !step) recordResult('loss');
+    else if (k === 'p' && window.RTAPip) window.RTAPip.toggle();
+    else if (k === 'r' && window.RTAAuto) window.RTAAuto.readCR();
+    else if (k === '?') alert('Shortcuts:\n1 / 2 / 3  pick suggestion\nU  undo\nN  new draft\nW / L  record win / loss\nP  pop-out mini window\nR  read CR bar now\n?  this list');
+    else return;
+    e.preventDefault();
   });
 
   // ============================================== API for auto-detection (auto.js)
@@ -1054,9 +1501,20 @@
     esc,
     activeTab: () => activeTab,
     /** Replace the draft (auto-detection). A finished, unrecorded draft is kept as pending. */
+    selectHero,
+    recordResult,
+    suggestionContext,
+    scoutedSpeed,
+    onDraftRender: (fn) => draftListeners.push(fn),
+    /** Speeds read from the CR bar -> scouting entries for this draft (source 'scouting', method 'cr-read'). */
+    addScoutSpeeds(list) {
+      for (const r of list) if (r.side === 'opp' && r.speed) upsertScout(r.code, { speed: Math.round(r.speed), min: r.min, max: r.max, method: 'cr-read' });
+      if (activeTab === 'draft') renderDraft();
+    },
     replaceDraft(next, { newMatch = false } = {}) {
       if (newMatch && L.isComplete(store.draft)) store.pending = { ...store.draft };
-      store.draft = { opponent: newMatch ? '' : store.draft.opponent || '', ...next };
+      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '' };
+      store.draft = { ...keep, ...next };
       save();
       if (activeTab === 'draft') renderDraft();
     },

@@ -21,7 +21,43 @@ with no install, account or server. All your data stays in your browser.
 It only reads the screen and never clicks or types into the game. Recognition starts from the official portraits,
 so the in-game art may need a few corrections at first. **Check alignment** shows your boxes over the current frame.
 **Use a screenshot** lets you calibrate or test with a saved screenshot instead of a live window.
-Postbans are still one click in the Draft tab.
+**Also automatic (each needs its own one-time box):**
+- **Postbans** (experimental): spotted when one pick slot on each side changes look after the picks.
+- **Victory/Defeat:** press *Calibrate result banner* on the result screen. The result is recorded under its own
+  source `auto`. You can switch this off.
+- **Enemy speeds:** press *Calibrate CR bar* on a battle screen. At battle start the app finds every hero on the bar and
+  works out enemy speeds from your heroes' known speeds. These are saved to Scouting.
+
+**Floating mini window.** **Pop out ⧉** (or press **P**) opens a small window that stays on top of the emulator.
+It shows whose turn it is, the top 3 suggestions (click to pick), the best pair, postban risk, the opponent's habits,
+enemy speeds, and Win/Loss/Undo. In Chrome or Edge it stays on top of the emulator; other browsers open it as an ordinary pop-up.
+
+**Gear, sets and artifacts (yours and your opponents')**
+- **Yours, exact:** importing `gear.txt` reads every equipped item. The app calculates each hero's real speed
+  (base × Speed or Revenge set bonus + flat speed from main stats and substats) and lists sets and artifacts.
+  Speeds appear on your draft slots, in the Heroes tab, in speed checks and in the turn simulator.
+  Not included: exclusive-equipment speed (those heroes are marked *).
+- **Opponents', observed:** the **Scouting** panel in the Draft tab saves each enemy hero's speed, sets and artifact,
+  per player. Speeds fill in automatically when the CR bar is read at battle start. Next time you meet that player,
+  or that hero, you'll see what they ran before, and suggestions use speed edges like
+  "Faster than Seaside Bellona (242 vs ~230)".
+
+**Smarter drafting**
+- **Best pair** on 2-pick turns. The second hero is scored with the first already on the team.
+- **First-pick safety:** heroes with many known counters, or that often get postbanned, rank lower.
+- **Postban risk:** which of your heroes they are most likely to ban, using their own ban history.
+- **Deny:** a bonus for heroes that would also be strong for the opponent.
+- **Team check:** tag heroes (cleanse, dispel, debuffer, AoE, heal…) to get warnings like
+  "No cleanse or immunity against 2 debuffers".
+- **Meta datasets:** import season pick, ban and win rates as their own sources.
+- **Tune from my matches** learns how much to trust each source from your own wins and losses.
+  You can also set the weights by hand with sliders.
+
+**Session:** today's record, current streak, a warning after 3 losses in a row, rank points over time, and whether
+following the suggestions actually wins you more games.
+
+**Shortcuts** (when not typing): `1` `2` `3` pick a suggestion · `U` undo · `N` new draft · `W`/`L` record win/loss ·
+`P` pop-out · `R` read CR bar · `?` help. The app also beeps when your turn starts (can be switched off).
 
 **Draft**
 - Tracks the RTA draft: 2 prebans each, picks in 1-2-2-2-2-1 order, then 1 postban each.
@@ -58,6 +94,10 @@ in the **Data** tab without touching the rest.
 | `import:<name>` matches | Each imported CSV dataset, under its own name | Files you import |
 | `learned` | Win rates, matchups, pairs, player profiles | Calculated only from the match sources you have switched on |
 | `my corrections` | Screen images of slots you labeled | You, in the Auto tab |
+| `fribbels-data` | Hero base stats and artifact names | Public data used by the Fribbels optimizer (built-in copy + **Update**) |
+| `scouting` | Opponents' speeds, sets and artifacts, per player and per hero | You, or the CR-bar reader |
+| `meta: <name>` | Season pick, ban and win rates | Meta CSVs you import |
+| `auto` matches | Results read from the Victory/Defeat screen | Auto-detection |
 | `auto-learned` | Screen images saved automatically from confident matches (off by default) | Auto-detection |
 
 ## How suggestions are scored
@@ -72,6 +112,9 @@ Each signal adds or subtracts points. You can switch each one off.
 | Element advantage (Fire > Earth > Ice > Fire, Light ↔ Dark) | game rule | ±0.5 per enemy |
 | Hero's win rate, its win rate against each enemy, and with each ally | learned | (win rate − 50%) × 6 / 8 / 6 |
 | Completes a preset you've started | presets | +2.5 |
+| Meta win rate / pick rate (for their picks) / ban rate (for prebans) | meta | (win − 50%) × 10, pick × 3, ban × 4 |
+| Faster or slower than each enemy (your gear vs scouted speed) | speed | ±0.6 per enemy |
+| Would also be strong for the opponent | deny | their score × 0.3 |
 | The opponent's pick habits (predicting their picks, and prebans) | player | pick rate × 5 |
 
 Learned win rates are smoothed toward 50% (4 imaginary games at 50%), so 1–2 lucky games don't dominate.
@@ -95,18 +138,33 @@ js/roster.js    official list parsing, Fribbels + CSV import      (pure, tested)
 js/learn.js     learning engine: stats, matchups, pairs, players  (pure, tested)
 js/logic.js     draft rules, suggestion scoring, speed math       (pure, tested)
 js/vision.js    image matching, calibration layout, confidence  (pure, tested)
+js/gear.js      gear.txt builds, set bonuses, speed calculation   (pure, tested)
+js/tune.js      learns suggestion weights from your matches       (pure, tested)
+js/sources/fribbels-data.js  built-in copy of hero base stats + artifacts (generated)
 js/app.js       UI and storage
-js/auto.js      screen capture, calibration UI, detection loop, OCR
+js/auto.js      screen capture, calibration, detection loop, OCR, postbans, result, CR bar
+js/pip.js       always-on-top mini window
+sw.js, manifest.webmanifest  install as an app / offline (when served over https)
 tools/update-official-heroes.js  regenerates the built-in hero list
 ```
 
 ```
 npm test               # unit tests (Node 18+)
 npm run update-heroes  # refresh js/sources/official-heroes.js
+npm run update-fribbels-data  # refresh js/sources/fribbels-data.js
 ```
+
+### Install it / open it on any device (GitHub Pages)
+1. Merge this branch into `main`.
+2. In the repository, go to **Settings → Pages → Source** and choose **GitHub Actions**. You only do this once.
+3. Every push to `main` runs the tests and publishes the app at `https://<user>.github.io/<repo>/`.
+   In Chrome or Edge, use the install icon in the address bar to get a desktop app that also works offline.
 
 ## Roadmap
 - [x] Auto-detect the draft from the emulator window
 - [x] Read the opponent's name from the screen (OCR via tesseract.js, loaded on demand)
-- [ ] Detect postbans and the Win/Defeat screen automatically
+- [x] Detect postbans, Victory/Defeat and CR-bar speeds from the screen
+- [x] Your gear: real speeds, sets and artifacts from gear.txt
+- [x] Opponent scouting: speeds, sets and artifacts per player
+- [ ] Default slot positions for common emulator resolutions (needs real screenshots)
 - [ ] Optional import of official battle records, if they can be reached from the browser

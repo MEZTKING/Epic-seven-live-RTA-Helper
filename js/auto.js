@@ -246,11 +246,15 @@
       }
       if (t.count >= CONFIRM_FRAMES && (!t.confirmed || t.confirmed.code !== r.best.code)) {
         t.confirmed = { ...r.best };
+        t.ref = { code: r.best.code, vec: feature.vec }; // what the slot looked like when confirmed (postban detection)
         if (c.autoLearn && r.best.source === 'official' && r.best.sim >= Math.max(0.8, c.threshold)) addLearned(r.best.code, feature, 'auto-learned');
       }
     }
     if (c.apply) applyBoard();
+    if (c.apply && c.detectPostban) detectPostbans();
     maybeReadName();
+    maybeReadResult();
+    maybeAutoReadCR();
     fps.n++;
     const now = performance.now();
     if (now - fps.t > 2000) {
@@ -313,23 +317,153 @@
     if (changed && nextNonPost >= nonPost) App.replaceDraft(next);
   }
 
+  // ================================================================ postbans
+  /*
+   * Experimental. When all 10 picks are in, a postbanned hero's slot changes
+   * look (greyed out / marked). For each side we watch how much every pick
+   * slot differs from how it looked when its hero was confirmed; one slot
+   * clearly changing more than the others, for 3 checks in a row, is the ban.
+   * A banned slot on MY side = the opponent's postban, and vice versa.
+   */
+  const ban = { draftId: null, me: { slot: null, n: 0, code: null }, opp: { slot: null, n: 0, code: null } };
+  function detectPostbans() {
+    const d = App.store.draft;
+    const v = L.draftView(d);
+    if (ban.draftId !== d.id) Object.assign(ban, { draftId: d.id, me: { slot: null, n: 0, code: null }, opp: { slot: null, n: 0, code: null } });
+    if (v.picks.me.length < 5 || v.picks.opp.length < 5) return;
+    for (const side of ['me', 'opp']) {
+      const st = ban[side];
+      if (st.code) continue;
+      const sims = [];
+      for (let i = 0; i < 5; i++) {
+        const t = track.get(`${side}-pick-${i}`);
+        if (!t || !t.ref || !t.feature) return;
+        sims.push({ i, code: t.ref.code, sim: V.similarity(t.feature.vec, t.ref.vec) });
+      }
+      sims.sort((a, b) => a.sim - b.sim);
+      const [lo, next] = sims;
+      if (lo.sim < 0.85 && next.sim - lo.sim >= 0.08) {
+        if (st.slot === lo.i) st.n++;
+        else Object.assign(st, { slot: lo.i, n: 1 });
+        if (st.n >= 3) st.code = lo.code;
+      } else Object.assign(st, { slot: null, n: 0 });
+    }
+    // banned slot on the opponent's side = MY postban; apply in draft order
+    for (let k = 0; k < 2; k++) {
+      const step = L.currentStep(App.store.draft);
+      if (!step || step.phase !== 'postban') break;
+      const code = step.player === 'me' ? ban.opp.code : ban.me.code;
+      if (!code || L.canSelect(App.store.draft, code)) break;
+      App.selectHero(code);
+    }
+  }
+
+  // ================================================================== result
+  const res = { draftId: null, last: null, done: false, at: 0 };
+  async function maybeReadResult() {
+    const c = cfg();
+    const reg = c.regions.result;
+    const d = App.store.draft;
+    if (!c.detectResult || !reg || !L.isComplete(d) || ocr.failed || ocr.busy) return;
+    if (res.draftId !== d.id) Object.assign(res, { draftId: d.id, last: null, done: false });
+    if (res.done || performance.now() - res.at < 2000) return;
+    res.at = performance.now();
+    const text = (await ocrRegion(reg)).toUpperCase();
+    const r = /VICTORY|\bWIN\b/.test(text) ? 'win' : /DEFEAT|\bLOSE\b|\bLOSS\b/.test(text) ? 'loss' : null;
+    if (r && r === res.last && !res.done && App.store.draft.id === res.draftId) {
+      res.done = true;
+      if (App.store.settings.autoRecord) App.recordResult(r, 'auto');
+      setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded)' : ' — press Win/Loss to record'}`);
+    }
+    res.last = r;
+  }
+
+  // ================================================================ CR bar
+  /*
+   * Reads where each hero's portrait sits on the CR (turn order) bar at the
+   * start of a battle, then turns positions into speeds using YOUR heroes'
+   * real speeds from gear.txt as the reference (RTALogic.speedsFromCR).
+   */
+  const crState = { draftId: null, done: false, at: 0 };
+  function crEnd(rect) {
+    const e = cfg().crEnd || 'auto';
+    if (e !== 'auto') return e;
+    return rect.h > rect.w ? 'top' : 'right';
+  }
+  function readCR({ quiet = false } = {}) {
+    const c = cfg();
+    const reg = c.regions.crBar;
+    const out = $('#auto-cr-out');
+    const say = (t) => {
+      if (out) out.innerHTML = t;
+    };
+    if (!reg) return !quiet && say('Calibrate the CR bar first (on a battle screen).');
+    if (!source || !frameSize()) return !quiet && say('Start watching or load a screenshot first.');
+    const v = L.draftView(App.store.draft);
+    const fighters = [
+      ...v.picks.me.filter((x) => !v.postbans.opp.includes(x)).map((code) => ({ code, side: 'me' })),
+      ...v.picks.opp.filter((x) => !v.postbans.me.includes(x)).map((code) => ({ code, side: 'opp' })),
+    ];
+    if (!fighters.length) return !quiet && say('No heroes in the draft yet.');
+    const r = pxRect(reg);
+    const vertical = r.h > r.w;
+    const size = vertical ? r.w : r.h;
+    const span = (vertical ? r.h : r.w) - size;
+    const steps = Math.max(8, Math.min(120, Math.round(span / 3)));
+    const feats = [];
+    for (let k = 0; k <= steps; k++) {
+      const off = (span * k) / steps;
+      const box = vertical ? { x: r.x, y: r.y + off, w: size, h: size } : { x: r.x + off, y: r.y, w: size, h: size };
+      feats.push({ off, f: featureFromSource(source, box, 0.1) });
+    }
+    const tplFor = (code) => activeTemplates().filter((t) => t.code === code);
+    const end = crEnd(r);
+    const readings = [];
+    for (const fgt of fighters) {
+      const tpls = tplFor(fgt.code);
+      if (!tpls.length) continue;
+      let best = null;
+      for (const p of feats) {
+        if (p.f.std < 8) continue;
+        for (const t of tpls) {
+          const sim = V.similarity(p.f.vec, t.vec);
+          if (!best || sim > best.sim) best = { sim, off: p.off };
+        }
+      }
+      if (!best || best.sim < 0.55) continue;
+      const frac = span ? best.off / span : 0;
+      const cr = Math.round((end === 'right' || end === 'bottom' ? frac : 1 - frac) * 1000) / 10;
+      readings.push({ ...fgt, cr, sim: best.sim });
+    }
+    const speeds = L.speedsFromCR(readings, App.cache.mySpeeds, App.store.settings.variance);
+    if (!speeds.length) {
+      if (!quiet) say(readings.length ? `Found ${readings.length} heroes on the bar, but none of your heroes there has a known speed. Import gear.txt (Data tab).` : 'Could not find the heroes on the CR bar. Check the CR bar box.');
+      return false;
+    }
+    App.addScoutSpeeds(speeds);
+    say(
+      `${speeds.length} heroes read · ` +
+        speeds
+          .map((x) => `<span class="${x.side}">${App.esc(App.nameOf(x.code))}</span> ${x.cr}% → ${x.known ? `<b>${x.known}</b> (yours)` : `~<b>${Math.round(x.speed)}</b> (${Math.round(x.min)}–${Math.round(x.max)})`}`)
+          .join(' · '),
+    );
+    return speeds.filter((x) => x.side === 'opp').length >= 2;
+  }
+  function maybeAutoReadCR() {
+    const c = cfg();
+    const d = App.store.draft;
+    if (!c.autoReadCR || !c.regions.crBar || !L.isComplete(d)) return;
+    if (crState.draftId !== d.id) Object.assign(crState, { draftId: d.id, done: false, at: 0 });
+    if (crState.done || performance.now() - crState.at < 2000) return;
+    crState.at = performance.now();
+    if (readCR({ quiet: true })) crState.done = true;
+  }
+
   // ==================================================================== OCR
   let ocr = { worker: null, loading: false, busy: false, last: '', lastAt: 0, failed: false };
-  function loadScript(src) {
-    return new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = src;
-      s.onload = res;
-      s.onerror = () => rej(new Error('Could not load ' + src));
-      document.head.appendChild(s);
-    });
-  }
-  async function maybeReadName() {
-    const c = cfg();
-    const reg = c.regions.oppName;
-    if (!c.ocr || !reg || ocr.failed || ocr.busy || App.store.draft.opponent) return;
-    if (performance.now() - ocr.lastAt < 2500) return;
-    ocr.lastAt = performance.now();
+  /** Read the text inside a calibrated region ('' if OCR is unavailable). */
+  async function ocrRegion(reg) {
+    if (ocr.failed || ocr.busy) return '';
     ocr.busy = true;
     try {
       if (!ocr.worker) {
@@ -345,20 +479,41 @@
       cx.filter = 'grayscale(1) contrast(1.6)';
       cx.drawImage(source, r.x, r.y, r.w, r.h, 0, 0, cv.width, cv.height);
       const { data } = await ocr.worker.recognize(cv);
-      const name = V.cleanName(data && data.text);
-      if (name && name === ocr.last) App.setOpponent(name);
-      ocr.last = name;
+      return (data && data.text) || '';
     } catch (e) {
       console.warn('OCR unavailable:', e);
       ocr.failed = true;
+      return '';
+    } finally {
+      ocr.busy = false;
     }
-    ocr.busy = false;
+  }
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = res;
+      s.onerror = () => rej(new Error('Could not load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+  async function maybeReadName() {
+    const c = cfg();
+    const reg = c.regions.oppName;
+    if (!c.ocr || !reg || ocr.failed || ocr.busy || App.store.draft.opponent) return;
+    if (performance.now() - ocr.lastAt < 2500) return;
+    ocr.lastAt = performance.now();
+    const name = V.cleanName(await ocrRegion(reg));
+    if (name && name === ocr.last) App.setOpponent(name);
+    ocr.last = name;
   }
 
   // ============================================================ calibration
-  let calib = null; // { step, regions, frame: canvas, drag }
+  let calib = null; // { steps, step, regions, frame: canvas, drag }
+  const CR_STEPS = [{ key: 'crBar', label: 'the CR (turn order) bar, from its 0% end to its 100% end, as tall/wide as the portraits on it' }];
+  const RESULT_STEPS = [{ key: 'result', label: 'where VICTORY / DEFEAT is written on the result screen' }];
 
-  function startCalibration() {
+  function startCalibration(steps = V.REGION_STEPS) {
     if (!source || !frameSize()) {
       alert('Start watching the emulator (or load a screenshot) first, with the draft screen visible.');
       return;
@@ -371,7 +526,7 @@
     frame.width = f.w;
     frame.height = f.h;
     frame.getContext('2d').drawImage(source, 0, 0);
-    calib = { step: 0, regions: { ...cfg().regions }, frame, drag: null, preview: false };
+    calib = { steps: Array.isArray(steps) ? steps : V.REGION_STEPS, step: 0, regions: { ...cfg().regions }, frame, drag: null, preview: false };
     $('#calib').classList.remove('hidden');
     drawCalib();
   }
@@ -379,7 +534,7 @@
   function showOverlay() {
     if (!source || !frameSize()) return alert('Start watching or load a screenshot first.');
     startCalibration();
-    calib.step = V.REGION_STEPS.length;
+    calib.step = calib.steps.length;
     calib.preview = true;
     drawCalib();
   }
@@ -403,14 +558,16 @@
     };
     for (const s of V.slotLayout(calib.regions)) box(s.rect, s.side === 'me' ? '#4aa3ff' : '#ff5d6c', `${s.kind === 'pick' ? 'P' : 'B'}${s.index + 1}`);
     if (calib.regions.oppName) box(calib.regions.oppName, '#ff8f6b', 'name');
+    if (calib.regions.crBar) box(calib.regions.crBar, '#3ecf8e', 'CR bar');
+    if (calib.regions.result) box(calib.regions.result, '#f3d36b', 'result');
     for (const k of ['mePickFirst', 'mePickLast', 'oppPickFirst', 'oppPickLast']) if (calib.regions[k] && !V.slotLayout(calib.regions).length) box(calib.regions[k], '#c9a24a');
     if (calib.drag) box(calib.drag.rect, '#c9a24a');
-    const step = V.REGION_STEPS[calib.step];
+    const step = calib.steps[calib.step];
     $('#calib-title').textContent = calib.preview ? 'Alignment check' : 'Calibration';
     $('#calib-step').textContent = calib.preview
       ? 'Blue = your slots, red = opponent. Boxes should sit on the hero pictures. Press Done, or Back to redraw.'
       : step
-        ? `Step ${calib.step + 1}/${V.REGION_STEPS.length}: drag a box over ${step.label}`
+        ? `Step ${calib.step + 1}/${calib.steps.length}: drag a box over ${step.label}`
         : 'All set. Press Done to save.';
     $('#calib-skip').classList.toggle('hidden', !(step && step.optional) || calib.preview);
   }
@@ -421,7 +578,7 @@
     return { x: Math.min(1, Math.max(0, (e.clientX - b.left) / b.width)), y: Math.min(1, Math.max(0, (e.clientY - b.top) / b.height)) };
   }
   $('#calib-canvas').addEventListener('pointerdown', (e) => {
-    if (!calib || calib.preview || calib.step >= V.REGION_STEPS.length) return;
+    if (!calib || calib.preview || calib.step >= calib.steps.length) return;
     const p = canvasPoint(e);
     calib.drag = { start: p, rect: { x: p.x, y: p.y, w: 0, h: 0 } };
     e.target.setPointerCapture(e.pointerId);
@@ -438,7 +595,7 @@
     const r = calib.drag.rect;
     calib.drag = null;
     if (r.w > 0.004 && r.h > 0.004) {
-      calib.regions[V.REGION_STEPS[calib.step].key] = r;
+      calib.regions[calib.steps[calib.step].key] = r;
       calib.step++;
     }
     drawCalib();
@@ -453,13 +610,16 @@
   });
   $('#calib-skip').addEventListener('click', () => {
     if (!calib) return;
-    delete calib.regions[V.REGION_STEPS[calib.step].key];
+    delete calib.regions[calib.steps[calib.step].key];
     calib.step++;
     drawCalib();
   });
   $('#calib-done').addEventListener('click', () => {
     if (!calib) return;
-    if (!V.isCalibrated(calib.regions)) {
+    if (calib.steps !== V.REGION_STEPS) {
+      cfg().regions = calib.regions; // CR bar / result box: just save
+      App.save();
+    } else if (!V.isCalibrated(calib.regions)) {
       if (!confirm('Some required boxes are missing. Close anyway?')) return;
     } else {
       cfg().regions = calib.regions;
@@ -570,6 +730,10 @@
     $('#auto-use-corr').checked = c.useCorrections;
     $('#auto-use-learned').checked = c.useAutoLearned;
     $('#auto-learn').checked = c.autoLearn;
+    $('#auto-postban').checked = c.detectPostban;
+    $('#auto-result').checked = c.detectResult;
+    $('#auto-cr').checked = c.autoReadCR;
+    $('#auto-cr-end').value = c.crEnd || 'auto';
     if (!slots.length) rebuildSlots();
     renderTemplateInfo();
     renderSlots();
@@ -604,6 +768,13 @@
   bind('#auto-use-corr', 'useCorrections', (el) => el.checked);
   bind('#auto-use-learned', 'useAutoLearned', (el) => el.checked);
   bind('#auto-learn', 'autoLearn', (el) => el.checked);
+  bind('#auto-postban', 'detectPostban', (el) => el.checked);
+  bind('#auto-result', 'detectResult', (el) => el.checked);
+  bind('#auto-cr', 'autoReadCR', (el) => el.checked);
+  bind('#auto-cr-end', 'crEnd', (el) => el.value);
+  $('#auto-calib-cr').addEventListener('click', () => startCalibration(CR_STEPS));
+  $('#auto-calib-result').addEventListener('click', () => startCalibration(RESULT_STEPS));
+  $('#auto-read-cr').addEventListener('click', () => readCR());
   const clearSrc = (src, label) => () => {
     if (!confirm(`Delete all ${label}?`)) return;
     cfg().corrections = cfg().corrections.filter((c) => c.source !== src);
@@ -614,6 +785,6 @@
   $('#auto-clear-learned').addEventListener('click', clearSrc('auto-learned', 'auto-learned examples'));
   $('#auto-clear-corr').addEventListener('click', clearSrc('my corrections', 'of your corrections'));
 
-  window.RTAAuto = { render, tick, board, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();
