@@ -71,7 +71,8 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
-| `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes |
+| `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
+| `localStorage['e7-game-area']` | `js/game-area.js` | Where the game is inside a whole-screen capture: `{x,y,w,h}` fractions + capture size `fw,fh`, or `{full:true,fw,fh}`. Asked again when the capture size changes; "Reset game area" buttons clear it. `overlay.html` reads it too |
 | `localStorage['e7-cecilia-heroes']`, `['e7-cecilia-hero-<slug>']`, `['e7-use-cecilia']` | `js/ceciliabot.js` | CeciliaBot effect list (weekly), per-hero skills (weekly), on/off |
 | BroadcastChannel `e7-overlay` | `js/overlay-bus.js` → `overlay.html`, `js/live.js` | Overlay layers `{layer, items}`; items use fractions of the game frame |
 | BroadcastChannel `rta-guild-<code>` | `js/sync.js` | Live sync between tabs in local mode |
@@ -106,11 +107,18 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 - **Hero card:** `js/heroinfo.js` combines tags from `my notes` / `guild` / `ceciliabot` (`RTARoster.tagSources`),
   skill notes per source, CeciliaBot skill text (`CeciliaBot.loadHero`), and an epic7x link. Pages plug in storage with
   `HeroInfo.configure`.
+- **Game area** (`js/game-area.js`): every reader (RTA `auto.js`, Guild `guild-watch.js`, Gear `gear-scan.js`) passes its
+  capture video through `GameArea.wrap(video)`. The first time (or when the capture size changes) the user boxes the
+  game window; from then on readers get a canvas holding only the game (refreshed every 100 ms), so all calibration
+  boxes are fractions of the game, not the screen. In desktop mode `overlay.html` maps overlay positions back to the
+  real screen with the same box. Test: `tests/e2e/game-area.e2e.js`.
 - **Desktop app** (`desktop/main.js`):
   - Serves the files at `e7://app/` (one origin, so storage and channels are shared).
   - Auto-approves `getDisplayMedia` for the chosen display.
   - Overlay window: transparent, click-through, always on top, `setContentProtection(true)` so readers never read it.
   - Ctrl+Shift+O / Ctrl+Shift+E.
+  - Text size: pages open at 125% zoom (`config.zoom`, saved in the app's config file). View menu: Ctrl+= bigger,
+    Ctrl+- smaller, Ctrl+0 back to 125%. Overlay menu: bigger/smaller overlay text (`config.overlayZoom`).
 
 ## 6. Testing
 
@@ -124,7 +132,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     caps it at 62vh.
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #14)
+## 7. Status (end of DEVLOG #16)
 
 **Game client:** works with any PC window (Steam version, official PC client, Google Play Games, emulators), because
 it only reads the screen; calibrate per client. **Fribbels' gear importer does NOT work with the Steam version**

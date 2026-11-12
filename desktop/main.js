@@ -26,7 +26,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'e7', privileges: { standard: tr
 
 let main = null;
 let overlay = null;
-let config = { displayId: null, overlay: true };
+let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25 };
+const clampZoom = (z) => Math.min(2.5, Math.max(0.6, Math.round(z * 100) / 100));
 
 function loadConfig() {
   try {
@@ -73,6 +74,9 @@ function createMain() {
     webPreferences: { backgroundThrottling: false }, // keep reading the game while this window is behind it
   });
   main.loadURL(`${ORIGIN}/index.html`);
+  // bigger text by default (View menu / Ctrl + Ctrl − Ctrl 0 to change; remembered)
+  main.webContents.on('did-finish-load', () => main.webContents.setZoomFactor(config.zoom));
+  main.webContents.on('did-create-window', (child) => child.webContents.on('did-finish-load', () => child.webContents.setZoomFactor(config.zoom)));
   // pop-out windows (mini windows) stay on top of the game
   main.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { alwaysOnTop: true, width: 380, height: 620, backgroundColor: '#12131a', webPreferences: { backgroundThrottling: false } } }));
   main.on('closed', () => {
@@ -102,6 +106,7 @@ function createOverlay() {
   overlay.setContentProtection(true); // not visible to screen capture -> readers never read the overlay itself
   overlay.setVisibleOnAllWorkspaces(true);
   overlay.loadURL(`${ORIGIN}/overlay.html?desktop=1`);
+  overlay.webContents.on('did-finish-load', () => overlay.webContents.setZoomFactor(config.overlayZoom));
 }
 
 function placeOverlay() {
@@ -126,9 +131,20 @@ function buildMenu() {
       ],
     },
     {
+      label: 'View',
+      submenu: [
+        { label: 'Bigger text', accelerator: 'CmdOrCtrl+=', click: () => setZoom(config.zoom + 0.1) },
+        { label: 'Bigger text', accelerator: 'CmdOrCtrl+Plus', visible: false, acceleratorWorksWhenHidden: true, click: () => setZoom(config.zoom + 0.1) },
+        { label: 'Smaller text', accelerator: 'CmdOrCtrl+-', click: () => setZoom(config.zoom - 0.1) },
+        { label: 'Normal size (125%)', accelerator: 'CmdOrCtrl+0', click: () => setZoom(1.25) },
+      ],
+    },
+    {
       label: 'Overlay',
       submenu: [
         { label: 'Show / hide overlay', accelerator: 'Ctrl+Shift+O', click: toggleOverlay },
+        { label: 'Bigger overlay text', click: () => setOverlayZoom(config.overlayZoom + 0.15) },
+        { label: 'Smaller overlay text', click: () => setOverlayZoom(config.overlayZoom - 0.15) },
         { type: 'separator' },
         ...displays.map((d, i) => ({
           label: `Game is on display ${i + 1} (${d.size.width}×${d.size.height})${d.id === screen.getPrimaryDisplay().id ? ' · primary' : ''}`,
@@ -144,6 +160,17 @@ function buildMenu() {
     },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function setZoom(z) {
+  config.zoom = clampZoom(z);
+  saveConfig();
+  for (const w of BrowserWindow.getAllWindows()) if (w !== overlay) w.webContents.setZoomFactor(config.zoom);
+}
+function setOverlayZoom(z) {
+  config.overlayZoom = clampZoom(z);
+  saveConfig();
+  if (overlay) overlay.webContents.setZoomFactor(config.overlayZoom);
 }
 
 function toggleOverlay() {

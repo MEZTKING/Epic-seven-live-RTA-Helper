@@ -26,9 +26,12 @@ GitHub builds it automatically (`.github/workflows/desktop-build.yml`): reposito
    npm start
    ```
 3. If the game is on a second monitor: **Overlay → Game is on display N**.
-4. In each module, calibrate once and teach its screens (RTA → Auto, Guild War → Watch game, Gear → Read gear).
+4. The first time a module starts reading, it shows your whole screen: **drag a box around the game window** and Save.
+   If you move or resize the game window later, press **Reset game area** and start reading again.
+5. In each module, calibrate once and teach its screens (RTA → Auto, Guild War → Watch game, Gear → Read gear).
 
-Shortcuts: **Ctrl+Shift+O** show/hide overlay · **Ctrl+Shift+E** bring back the main window.
+Shortcuts: **Ctrl+Shift+O** show/hide overlay · **Ctrl+Shift+E** bring back the main window ·
+**Ctrl+=** bigger text · **Ctrl+-** smaller text · **Ctrl+0** normal (125%). Overlay text size: **Overlay** menu.
 
 ## Build a single .exe
 

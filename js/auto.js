@@ -41,7 +41,8 @@
 
   const cfg = () => App.store.auto;
 
-  let source = null; // HTMLVideoElement | HTMLImageElement
+  let source = null; // HTMLVideoElement | game-area canvas (live) | HTMLImageElement (screenshot)
+  let live = false; // true while capturing the screen (vs a screenshot file)
   let stream = null;
   let timer = null;
   let slots = []; // from calibration
@@ -58,8 +59,8 @@
   // ================================================================ sources
   function frameSize() {
     if (!source) return null;
-    const w = source.videoWidth || source.naturalWidth;
-    const h = source.videoHeight || source.naturalHeight;
+    const w = source.videoWidth || source.naturalWidth || source.width;
+    const h = source.videoHeight || source.naturalHeight || source.height;
     return w && h ? { w, h } : null;
   }
 
@@ -77,7 +78,9 @@
     const video = $('#auto-video');
     video.srcObject = stream;
     await video.play();
-    source = video;
+    // only the game window, if the capture is the whole screen (the box is drawn once)
+    source = window.GameArea ? await window.GameArea.wrap(video) : video;
+    live = true;
     stream.getVideoTracks()[0].addEventListener('ended', stopCapture);
     begin();
   }
@@ -85,7 +88,9 @@
   function stopCapture() {
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null;
-    if (source && source.tagName === 'VIDEO') source = null;
+    if (source && source.stopGameArea) source.stopGameArea();
+    if (live) source = null;
+    live = false;
     if (timer) clearInterval(timer);
     timer = null;
     setStatus('Not watching.');
@@ -96,6 +101,7 @@
     const img = new Image();
     img.onload = () => {
       if (stream) stopCapture();
+      live = false;
       source = img;
       begin();
     };
@@ -108,7 +114,7 @@
     rebuildSlots();
     if (timer) clearInterval(timer);
     timer = null;
-    if (source.tagName === 'VIDEO') timer = setInterval(tick, cfg().intervalMs);
+    if (live) timer = setInterval(tick, cfg().intervalMs);
     if (!V.isCalibrated(cfg().regions)) {
       setStatus('Capturing. Now calibrate: press "Calibrate slots" while the draft screen is showing.');
       startCalibration();
@@ -273,7 +279,7 @@
       fps.n = 0;
     }
     if (App.activeTab() === 'auto') renderSlots();
-    setStatus(source.tagName === 'VIDEO' ? `Watching · ${fps.value ? fps.value.toFixed(1) : '…'} checks/s · ${boardSummary()}` : `Screenshot · ${boardSummary()}`);
+    setStatus(live ? `Watching · ${fps.value ? fps.value.toFixed(1) : '…'} checks/s · ${boardSummary()}` : `Screenshot · ${boardSummary()}`);
   }
 
   /** Confirmed heroes per slot list, cut at the first gap (slots fill in order). */

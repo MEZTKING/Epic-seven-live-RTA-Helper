@@ -23,7 +23,7 @@ html, body { margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 h1, h2, h3 { margin: 0 0 8px; font-weight: 600; }
 h1 { font-size: 18px; color: var(--accent); letter-spacing: .5px; }
@@ -72,7 +72,7 @@ main { padding: 16px; max-width: 1200px; margin: 0 auto; }
 .btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 .spacer { flex: 1; }
 .hidden { display: none !important; }
-.hint { color: var(--muted); font-size: 12.5px; margin: 6px 0; }
+.hint { color: var(--muted); font-size: 13.5px; margin: 6px 0; }
 
 /* -------- draft -------- */
 .draft-controls { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
