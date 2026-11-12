@@ -1,0 +1,11 @@
+{
+  "name": "RTA Live Helper",
+  "short_name": "RTA Helper",
+  "description": "Fan-made draft, speed, scouting and match tracker for Epic Seven RTA.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12131a",
+  "theme_color": "#12131a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

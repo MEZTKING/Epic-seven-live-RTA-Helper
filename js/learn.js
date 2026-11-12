@@ -211,7 +211,103 @@
     return r;
   }
 
-  const api = { PRIOR, smoothed, buildStats, buildProfile, getProfile, matchupOf, pairOf, topCombos, presetRecord, lineups };
+
+  // ------------------------------------------------------------ scouting
+  /*
+   * Scouting = what you observed about OPPONENTS' heroes during matches
+   * (source 'scouting'): speed (read from the CR bar or typed), sets, artifact.
+   * entry: { player, code, speed?, min?, max?, sets?: [], artifact?, method, at }
+   */
+  function median(xs) {
+    const a = xs.slice().sort((x, y) => x - y);
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  }
+  function summarize(list) {
+    const speeds = list.map((e) => Number(e.speed)).filter((x) => x > 0);
+    const sets = new Map();
+    const arts = new Map();
+    for (const e of list) {
+      if (e.sets && e.sets.length) count(sets, e.sets.slice().sort().join(' + '));
+      if (e.artifact) count(arts, e.artifact);
+    }
+    const top = (m) => [...m.entries()].sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, n }));
+    const latest = list.slice().sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+    return {
+      n: list.length,
+      speed: speeds.length ? Math.round(median(speeds)) : null,
+      low: speeds.length ? Math.min(...speeds) : null,
+      high: speeds.length ? Math.max(...speeds) : null,
+      speeds: speeds.length,
+      sets: top(sets),
+      artifacts: top(arts),
+      latest,
+    };
+  }
+  /** -> { all: Map code -> summary, byPlayer: Map playerLower -> Map code -> summary } */
+  function scoutSummary(entries) {
+    const byCode = new Map();
+    const byPlayer = new Map();
+    for (const e of entries || []) {
+      if (!e || !e.code) continue;
+      if (!byCode.has(e.code)) byCode.set(e.code, []);
+      byCode.get(e.code).push(e);
+      const p = String(e.player || '').trim().toLowerCase();
+      if (!p) continue;
+      if (!byPlayer.has(p)) byPlayer.set(p, new Map());
+      const m = byPlayer.get(p);
+      if (!m.has(e.code)) m.set(e.code, []);
+      m.get(e.code).push(e);
+    }
+    const all = new Map([...byCode].map(([c, l]) => [c, summarize(l)]));
+    const players = new Map([...byPlayer].map(([p, m]) => [p, new Map([...m].map(([c, l]) => [c, summarize(l)]))]));
+    return { all, byPlayer: players };
+  }
+
+  // ------------------------------------------------------------ sessions
+  /** Today's record, current streak and the points history. */
+  function sessionStats(matches, now = new Date()) {
+    const sorted = matches.filter((m) => m.date).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const day = (d) => new Date(d).toDateString();
+    const today = sorted.filter((m) => day(m.date) === now.toDateString());
+    let streak = { result: null, n: 0 };
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      if (!streak.result) streak = { result: sorted[i].result, n: 1 };
+      else if (sorted[i].result === streak.result) streak.n++;
+      else break;
+    }
+    return {
+      today: { games: today.length, wins: today.filter((m) => m.result === 'win').length },
+      streak,
+      points: sorted.filter((m) => typeof m.points === 'number' && !Number.isNaN(m.points)).map((m) => ({ date: m.date, points: m.points, result: m.result })),
+    };
+  }
+
+  // ------------------------------------------------ did the suggestions help?
+  /*
+   * match.suggestLog = [{ chosen, top: [codes] }] for each of MY picks.
+   * Compares win rates of drafts where you mostly followed the suggestions
+   * (3+ of your picks were in the top 3) against drafts where you didn't.
+   */
+  function suggestionFollow(matches) {
+    let picks = 0;
+    let followed = 0;
+    const mostly = { games: 0, wins: 0 };
+    const rarely = { games: 0, wins: 0 };
+    for (const m of matches) {
+      const log = m.suggestLog || [];
+      if (!log.length) continue;
+      const f = log.filter((x) => (x.top || []).includes(x.chosen)).length;
+      picks += log.length;
+      followed += f;
+      const bucket = f >= 3 ? mostly : rarely;
+      bucket.games++;
+      if (m.result === 'win') bucket.wins++;
+    }
+    return { picks, followed, mostly, rarely };
+  }
+
+  const api = { scoutSummary, sessionStats, suggestionFollow, median, PRIOR, smoothed, buildStats, buildProfile, getProfile, matchupOf, pairOf, topCombos, presetRecord, lineups };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTALearn = api;
 })(typeof window !== 'undefined' ? window : globalThis);

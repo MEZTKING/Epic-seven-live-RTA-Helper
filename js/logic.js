@@ -147,13 +147,18 @@
    *   'presets'    your saved team presets
    *   'player'     the current opponent's history
    *
-   * ctx = { notes, stats, presets, profile, owned, useElement, learn }
+   * ctx = { notes, stats, presets, profile, owned, useElement, learn,
+   *         meta, speed, deny, sourceWeights }
    *   notes    { [code]: { tier, counters[], synergies[] } } or null (off)
    *   stats    RTALearn.buildStats(...) result or null (off)
    *   presets  [{ name, heroes[] }] or null (off)
    *   profile  opponent profile from RTALearn or null
    *   owned    Set of codes I own, or null (no roster -> no filter)
    *   learn    the RTALearn module (needed when stats is given)
+   *   meta     [{ name, rows: { [code]: { pick, ban, preban, win } } }]  imported meta datasets
+   *   speed    { mine: Map code->speed (your gear), player: Map, all: Map code->{speed,n} (scouting) }
+   *   deny     false to turn off "also strong for them"
+   *   sourceWeights { [group]: multiplier }  see SOURCE_GROUPS
    */
   const TIER_SCORE = { S: 3, A: 2, B: 1, C: 0, '': 0 };
   const W = {
@@ -165,21 +170,54 @@
     learnedPair: 6,
     learnedHero: 6,
     playerHabit: 5, // x pick rate of this opponent
+    playerBan: 4, // x rate this opponent postbans the hero
     preset: 2.5,
+    metaWin: 10, // x (meta win rate - 0.5)
+    metaPick: 3, // x meta pick rate (predicting the opponent)
+    metaBan: 4, // x meta (pre)ban rate (preban ideas)
+    speedEdge: 0.6, // per enemy you out- or under-speed
+    firstPickCounter: 0.5, // per known counter, when first-picking
+    firstPickBanned: 3, // x how often it gets postbanned, when first-picking
+    deny: 0.3, // x how good it would be for the opponent
   };
   const MIN_SHOW = 0.3; // hide tiny learned effects from the reason list
+
+  /*
+   * Every signal belongs to one source group. ctx.sourceWeights can scale a
+   * whole group (1 = normal, 0 = off) — e.g. the values "Tune from my matches"
+   * finds. Meta sources are named 'meta: <dataset>' and share the 'meta' weight.
+   */
+  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny'];
+  const groupOf = (source) => (source.startsWith('meta') ? 'meta' : source);
 
   function noteOf(ctx, code) {
     return (ctx.notes && ctx.notes[code]) || null;
   }
 
-  function scoreCandidate(hero, allies, enemies, ctx = {}, opts = {}) {
-    const reasons = [];
-    let score = 0;
-    const push = (value, text, source) => {
-      score += value;
-      if (text) reasons.push({ text, source, value: Math.round(value * 10) / 10 });
+  function makeAcc(ctx) {
+    const acc = { score: 0, reasons: [], bySource: {} };
+    acc.add = (value, text, source) => {
+      const w = ctx.sourceWeights && ctx.sourceWeights[groupOf(source)] !== undefined ? ctx.sourceWeights[groupOf(source)] : 1;
+      const v = value * w;
+      acc.score += v;
+      acc.bySource[groupOf(source)] = (acc.bySource[groupOf(source)] || 0) + value;
+      if (text && v !== 0) acc.reasons.push({ text, source, value: Math.round(v * 10) / 10 });
     };
+    acc.result = () => ({ score: Math.round(acc.score * 10) / 10, reasons: acc.reasons, bySource: acc.bySource });
+    return acc;
+  }
+
+  /** Typical speed of an enemy hero: this opponent's scouting first, then everyone's. */
+  function enemySpeedOf(ctx, code) {
+    const sp = ctx.speed;
+    if (!sp) return null;
+    return (sp.player && sp.player.get(code)) || (sp.all && sp.all.get(code)) || null;
+  }
+
+  function scoreCandidate(hero, allies, enemies, ctx = {}, opts = {}) {
+    const acc = makeAcc(ctx);
+    const push = acc.add;
+    const quiet = (v, source) => push(v, null, source); // counts, but not listed
     const n = noteOf(ctx, hero.code);
 
     // my notes
@@ -209,24 +247,62 @@
       const L = ctx.learn;
       const h = ctx.stats.hero.get(hero.code);
       if (h && h.team.games) {
-        const wr = L.smoothed(h.team.wins, h.team.games);
-        const v = (wr - 0.5) * W.learnedHero;
+        const v = (L.smoothed(h.team.wins, h.team.games) - 0.5) * W.learnedHero;
         if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(h.team.wins / h.team.games)} win rate overall (${gm(h.team.games)})`, 'learned');
-        else score += v;
+        else quiet(v, 'learned');
       }
       for (const e of enemies) {
         const m = L.matchupOf(ctx.stats, hero.code, e.code);
         if (!m) continue;
         const v = (m.wr - 0.5) * W.learnedMatchup;
         if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(m.raw)} vs ${e.name} (${gm(m.games)})`, 'learned');
-        else score += v;
+        else quiet(v, 'learned');
       }
       for (const a of allies) {
         const p = L.pairOf(ctx.stats, hero.code, a.code);
         if (!p) continue;
         const v = (p.wr - 0.5) * W.learnedPair;
         if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(p.raw)} with ${a.name} (${gm(p.games)})`, 'learned');
-        else score += v;
+        else quiet(v, 'learned');
+      }
+    }
+
+    // meta datasets (each its own source)
+    for (const m of ctx.meta || []) {
+      const row = m.rows[hero.code];
+      if (!row) continue;
+      if (typeof row.win === 'number') {
+        const v = (row.win - 0.5) * W.metaWin;
+        if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(row.win)} meta win rate`, `meta: ${m.name}`);
+        else quiet(v, `meta: ${m.name}`);
+      }
+      if (opts.side === 'opp' && typeof row.pick === 'number' && row.pick >= 0.05) push(row.pick * W.metaPick, `${pct(row.pick)} meta pick rate`, `meta: ${m.name}`);
+    }
+
+    // speed: your gear vs. what you've scouted
+    if (ctx.speed && ctx.speed.mine) {
+      const mineSpd = (code) => ctx.speed.mine.get(code);
+      for (const e of enemies) {
+        const my = opts.side === 'opp' ? enemySpeedOf(ctx, hero.code) : mineSpd(hero.code);
+        const their = opts.side === 'opp' ? mineSpd(e.code) : enemySpeedOf(ctx, e.code);
+        const a = my && (my.speed || my);
+        const b = their && (their.speed || their);
+        if (!a || !b) continue;
+        if (a > b * 1.03) push(W.speedEdge, `Faster than ${e.name} (${Math.round(a)} vs ~${Math.round(b)})`, 'speed');
+        else if (a * 1.03 < b) push(-W.speedEdge, `Slower than ${e.name} (${Math.round(a)} vs ~${Math.round(b)})`, 'speed');
+      }
+    }
+
+    // first pick safety (no picks on the board yet)
+    if (opts.side === 'me' && !allies.length && !enemies.length && opts.firstPick) {
+      const counterers = new Set();
+      if (ctx.notes) for (const [code, note] of Object.entries(ctx.notes)) if ((note.counters || []).includes(hero.code)) counterers.add(code);
+      if (counterers.size) push(-W.firstPickCounter * Math.min(counterers.size, 6), `${counterers.size} known counter${counterers.size > 1 ? 's' : ''} left in the pool`, 'my notes');
+      const s = ctx.stats && ctx.stats.hero.get(hero.code);
+      if (s && s.pickedByMe >= 3) {
+        const banRate = s.postbanned / (s.pickedByMe + s.pickedByOpp);
+        if (banRate >= 0.15) push(-banRate * W.firstPickBanned, `Postbanned in ${pct(banRate)} of games it was picked`, 'learned');
+        else push(W.firstPickBanned * 0.15, `Rarely postbanned (${pct(banRate)})`, 'learned');
       }
     }
 
@@ -246,7 +322,13 @@
       if (hit) push(hit.rate * W.playerHabit, `${ctx.profile.name} picks it in ${pct(hit.rate)} of games`, 'player');
     }
 
-    return { score: Math.round(score * 10) / 10, reasons };
+    // deny: also great for the opponent? (my picks only)
+    if (opts.side === 'me' && opts.deny) {
+      const theirs = scoreCandidate(hero, enemies, allies, ctx, { side: 'opp' });
+      if (theirs.score >= 3) push(theirs.score * W.deny, `Deny: also strong for them (+${theirs.score})`, 'deny');
+    }
+
+    return acc.result();
   }
 
   const gm = (n) => `${n} ${n === 1 ? 'game' : 'games'}`;
@@ -260,24 +342,72 @@
     return m;
   }
 
-  /** Rank heroes for the current pick (mine or the opponent's). */
-  function suggestPicks(draft, heroes, ctx = {}, limit = 8) {
+  function pickContext(draft, heroes) {
     const step = currentStep(draft);
-    if (!step || step.phase !== 'pick') return [];
+    if (!step || step.phase !== 'pick') return null;
     const byCode = heroMap(heroes);
     const v = draftView(draft);
     const side = step.player;
     const other = side === 'me' ? 'opp' : 'me';
-    const taken = new Set([...v.prebans.me, ...v.prebans.opp, ...v.picks.me, ...v.picks.opp]);
-    const allies = v.picks[side].map((c) => byCode.get(c)).filter(Boolean);
-    const enemies = v.picks[other].map((c) => byCode.get(c)).filter(Boolean);
-    const owned = side === 'me' && ctx.owned && ctx.owned.size ? ctx.owned : null;
+    return {
+      step,
+      side,
+      taken: new Set([...v.prebans.me, ...v.prebans.opp, ...v.picks.me, ...v.picks.opp]),
+      allies: v.picks[side].map((c) => byCode.get(c)).filter(Boolean),
+      enemies: v.picks[other].map((c) => byCode.get(c)).filter(Boolean),
+      firstPick: !v.picks.me.length && !v.picks.opp.length,
+    };
+  }
+
+  /** Rank heroes for the current pick (mine or the opponent's). */
+  function suggestPicks(draft, heroes, ctx = {}, limit = 8) {
+    const pc = pickContext(draft, heroes);
+    if (!pc) return [];
+    const owned = pc.side === 'me' && ctx.owned && ctx.owned.size ? ctx.owned : null;
+    const opts = { side: pc.side, deny: ctx.deny !== false, firstPick: pc.firstPick };
     return heroes
-      .filter((h) => !taken.has(h.code) && (!owned || owned.has(h.code)))
-      .map((h) => ({ hero: h, ...scoreCandidate(h, allies, enemies, ctx, { side }) }))
+      .filter((h) => !pc.taken.has(h.code) && (!owned || owned.has(h.code)))
+      .map((h) => ({ hero: h, ...scoreCandidate(h, pc.allies, pc.enemies, ctx, opts) }))
       .filter((s) => s.reasons.length)
       .sort((x, y) => y.score - x.score || x.hero.name.localeCompare(y.hero.name))
       .slice(0, limit);
+  }
+
+  /** How many picks the current player makes in this turn (1 or 2). */
+  function picksThisTurn(draft) {
+    const steps = draftSteps(draft.firstPick);
+    const i = draft.actions.length;
+    const s = steps[i];
+    if (!s || s.phase !== 'pick') return 0;
+    let n = 0;
+    for (let k = i; k < steps.length && steps[k].phase === 'pick' && steps[k].player === s.player; k++) n++;
+    // only count the picks left in THIS turn (a turn is at most 2)
+    let before = 0;
+    for (let k = i - 1; k >= 0 && steps[k].phase === 'pick' && steps[k].player === s.player; k--) before++;
+    return Math.min(n, 2 - (before % 2));
+  }
+
+  /**
+   * Best PAIR for a 2-pick turn: the second hero is scored with the first
+   * already on the team (so synergy between them counts).
+   */
+  function suggestPairs(draft, heroes, ctx = {}, limit = 3) {
+    if (picksThisTurn(draft) < 2) return [];
+    const pc = pickContext(draft, heroes);
+    const singles = suggestPicks(draft, heroes, ctx, 12);
+    const pairs = [];
+    for (let i = 0; i < singles.length; i++) {
+      for (let j = i + 1; j < singles.length; j++) {
+        const a = singles[i];
+        const b = singles[j];
+        const bWithA = scoreCandidate(b.hero, [...pc.allies, a.hero], pc.enemies, ctx, { side: pc.side, deny: ctx.deny !== false });
+        const aWithB = scoreCandidate(a.hero, [...pc.allies, b.hero], pc.enemies, ctx, { side: pc.side, deny: ctx.deny !== false });
+        const score = Math.round(Math.max(a.score + bWithA.score, b.score + aWithB.score) * 10) / 10;
+        const together = bWithA.reasons.filter((r) => r.text.includes(a.hero.name));
+        pairs.push({ heroes: [a.hero, b.hero], score, together });
+      }
+    }
+    return pairs.sort((x, y) => y.score - x.score).slice(0, limit);
   }
 
   /** Rank the other side's heroes by threat (what `forPlayer` should postban). */
@@ -288,14 +418,40 @@
     const mine = v.picks[forPlayer].map((c) => byCode.get(c)).filter(Boolean);
     const theirs = v.picks[other].map((c) => byCode.get(c)).filter(Boolean);
     return theirs
-      .map((h) => ({ hero: h, ...scoreCandidate(h, theirs.filter((t) => t.code !== h.code), mine, ctx, { side: other }) }))
+      .map((h) => {
+        const r = scoreCandidate(h, theirs.filter((t) => t.code !== h.code), mine, ctx, { side: other });
+        // when predicting THEIR ban of my hero, use this opponent's postban habits
+        if (forPlayer === 'opp' && ctx.profile) {
+          const hit = (ctx.profile.postbans || []).find((p) => p.code === h.code);
+          if (hit) {
+            const v2 = hit.rate * W.playerBan;
+            r.score = Math.round((r.score + v2) * 10) / 10;
+            r.reasons = [...r.reasons, { text: `${ctx.profile.name} postbans it in ${pct(hit.rate)} of games`, source: 'player', value: Math.round(v2 * 10) / 10 }];
+          }
+        }
+        return { hero: h, ...r };
+      })
       .sort((x, y) => y.score - x.score);
   }
 
   /**
+   * Postban risk while I'm still picking: which of my heroes the opponent is
+   * most likely to ban, and how much of my team's value it carries.
+   */
+  function postbanRisk(draft, heroes, ctx = {}) {
+    const v = draftView(draft);
+    if (v.picks.me.length < 3) return null;
+    const ranked = suggestPostban(draft, heroes, ctx, 'opp');
+    if (!ranked.length) return null;
+    const total = ranked.reduce((s, r) => s + Math.max(0, r.score), 0) || 1;
+    const top = ranked[0];
+    return { hero: top.hero, score: top.score, share: Math.max(0, top.score) / total, reasons: top.reasons, ranked };
+  }
+
+  /**
    * Preban ideas: heroes that hurt me. Uses my tiers, my noted counters of
-   * heroes I own, how badly I do against each hero (learned) and what the
-   * current opponent likes to pick.
+   * heroes I own, how badly I do against each hero (learned), meta ban rates
+   * and what the current opponent likes to pick.
    */
   function suggestPrebans(draft, heroes, ctx = {}, limit = 8) {
     const v = draftView(draft);
@@ -304,12 +460,8 @@
     return heroes
       .filter((h) => !taken.has(h.code))
       .map((h) => {
-        const reasons = [];
-        let score = 0;
-        const push = (val, text, source) => {
-          score += val;
-          reasons.push({ text, source, value: Math.round(val * 10) / 10 });
-        };
+        const acc = makeAcc(ctx);
+        const push = acc.add;
         const n = noteOf(ctx, h.code);
         if (ctx.notes && n) {
           if (n.tier && TIER_SCORE[n.tier]) push(TIER_SCORE[n.tier], `Tier ${n.tier}`, 'my notes');
@@ -324,15 +476,78 @@
             if (val >= MIN_SHOW) push(val, `You win only ${pct(s.vsMe.wins / s.vsMe.games)} against it (${gm(s.vsMe.games)})`, 'learned');
           }
         }
+        for (const m of ctx.meta || []) {
+          const row = m.rows[h.code];
+          if (!row) continue;
+          const ban = Math.max(row.preban || 0, row.ban || 0);
+          if (ban >= 0.05) push(ban * W.metaBan, `${pct(ban)} meta ban rate`, `meta: ${m.name}`);
+        }
         if (ctx.profile) {
           const hit = ctx.profile.picks.find((p) => p.code === h.code);
           if (hit) push(hit.rate * W.playerHabit, `${ctx.profile.name} picks it in ${pct(hit.rate)} of games`, 'player');
         }
-        return { hero: h, score: Math.round(score * 10) / 10, reasons };
+        return { hero: h, ...acc.result() };
       })
       .filter((s) => s.score > 0)
       .sort((x, y) => y.score - x.score || x.hero.name.localeCompare(y.hero.name))
       .slice(0, limit);
+  }
+
+  // ----------------------------------------------------------- team checks
+  /** Role tags you can put on heroes (stored in your notes). */
+  const TAGS = ['cleanse', 'dispel', 'immunity', 'debuffer', 'control', 'aoe', 'nuker', 'speed buff', 'cr push', 'cr reduce', 'heal', 'barrier', 'revive', 'tank', 'counter'];
+
+  /**
+   * Simple composition warnings from the tags in your notes.
+   * Returns [{ text, source: 'my notes', level: 'warn'|'info' }]
+   */
+  function compositionWarnings(myCodes, enemyCodes, notes) {
+    if (!notes) return [];
+    const tagsOf = (codes) => {
+      const c = {};
+      for (const code of codes) for (const t of (notes[code] && notes[code].tags) || []) c[t] = (c[t] || 0) + 1;
+      return c;
+    };
+    const me = tagsOf(myCodes);
+    const them = tagsOf(enemyCodes);
+    const tagged = myCodes.some((c) => notes[c] && (notes[c].tags || []).length);
+    const out = [];
+    const warn = (text, level = 'warn') => out.push({ text, source: 'my notes', level });
+    if ((them.debuffer || 0) >= 2 && !me.cleanse && !me.immunity) warn(`No cleanse or immunity against ${them.debuffer} debuffers`);
+    if ((them.barrier || 0) + (them.immunity || 0) + (them['speed buff'] || 0) >= 2 && !me.dispel) warn('No dispel against their buffs');
+    if ((them.counter || 0) >= 1 && (me.aoe || 0) >= 3) warn('Lots of AoE into a counter team');
+    if (tagged && myCodes.length >= 4 && !me.heal && !me.barrier && !me.revive) warn('No sustain (heal, barrier or revive)', 'info');
+    if (tagged && myCodes.length >= 4 && !me['speed buff'] && !me['cr push']) warn('No speed buff or CR push', 'info');
+    return out;
+  }
+
+  // ------------------------------------------------------------ CR reading
+  /**
+   * Turn CR-bar positions into speeds. At the first turn every unit has gained
+   * CR for the same time t, so cr = speed * t. Your heroes with known speed
+   * (from gear.txt) pin down t; then speed = cr / t for everyone else.
+   *   readings  [{ code, side: 'me'|'opp', cr }]   cr in %
+   *   mySpeeds  Map code -> speed
+   * Returns [{ code, side, cr, speed, min, max, known }]
+   */
+  function speedsFromCR(readings, mySpeeds, startVariance = 5) {
+    const refs = readings.filter((r) => r.side === 'me' && mySpeeds.get(r.code) && r.cr > 5);
+    if (!refs.length) return [];
+    const t = refs.reduce((s, r) => s + r.cr / mySpeeds.get(r.code), 0) / refs.length;
+    const v = Math.max(0, Number(startVariance) || 0);
+    return readings.map((r) => {
+      const known = r.side === 'me' ? mySpeeds.get(r.code) || null : null;
+      const est = r.cr / t;
+      return {
+        code: r.code,
+        side: r.side,
+        cr: r.cr,
+        known,
+        speed: round1(est),
+        min: round1(Math.max(0, (r.cr - v) / t)),
+        max: round1(r.cr / t / (1 - v / 100)),
+      };
+    });
   }
   // ---------------------------------------------------------------- speed
 
@@ -436,6 +651,14 @@
     suggestPicks,
     suggestPostban,
     suggestPrebans,
+    suggestPairs,
+    picksThisTurn,
+    postbanRisk,
+    compositionWarnings,
+    speedsFromCR,
+    TAGS,
+    SOURCE_GROUPS,
+    W,
     estimateEnemySpeed,
     speedToOutspeed,
     simulateTurns,
