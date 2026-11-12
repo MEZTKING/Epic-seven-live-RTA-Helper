@@ -53,6 +53,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `js/screens.js` | `RTAScreens` | Screen detector (32×18 fingerprints, detect, stabilizer, gating) |
 | `js/statparse.js` | `RTAStatParse` | OCR text → gear item (stat lines, set, slot, enhance, level, rank) |
 | `js/ceciliabot.js` | `CeciliaBot` | CeciliaBot API: effect list → automatic tags, skill text rendering (pure parts tested) |
+| `js/layouts.js` | `E7Layouts` | Built-in screen positions (Steam 16:9: draft by eye, result exact), `effective` (built-in + yours), per-part `status`, `ownOnly` (DEVLOG #25) |
 | `js/faces.js` | `RTAFaces` | Round hero-icon matcher: masked 32×32 NCC vs official portraits (+ face corrections), confidence = score ≥0.80 and lead ≥0.10 (DEVLOG #23) |
 | `js/vision/core.js` | `E7VisionCore` | Game-watcher event bus (`createBus`: publish/on/request/handle, fact log) and `repeatGate` |
 
@@ -132,6 +133,9 @@ only receive events.
 - **Hero card:** `js/heroinfo.js` combines tags from `my notes` / `guild` / `ceciliabot` (`RTARoster.tagSources`),
   skill notes per source, CeciliaBot skill text (`CeciliaBot.loadHero`), and an epic7x link. Pages plug in storage with
   `HeroInfo.configure`.
+- **Built-in layout** (DEVLOG #25): in window mode the title bar is cut off (`GameArea.window16x9`, same rule in
+  overlay.html), so the game picture is 16:9; `js/auto.js` `regions()` = `E7Layouts.effective(own boxes, layoutFor(w,h))`.
+  Your boxes (`rta-helper-v2`.`auto.regions`) only hold what differs from built-in. Auto tab card shows per-part status.
 - **Game area** (`js/game-area.js`): every reader (RTA `auto.js`, Guild `guild-watch.js`, Gear `gear-scan.js`) passes its
   capture video through `GameArea.wrap(video)`. The first time (or when the capture size changes) the user boxes the
   game window; from then on readers get a canvas holding only the game (refreshed every 100 ms), so all calibration
@@ -176,7 +180,7 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #24)
+## 7. Status (end of DEVLOG #25)
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).

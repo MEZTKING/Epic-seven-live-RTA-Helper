@@ -107,6 +107,9 @@ const log = (...a) => console.log(...a);
 
   await p.click('.tab[data-tab=auto]');
   await p.setInputFiles('#auto-shot', draftShot);
+  // 16:9 pictures use the built-in Steam layout now (nothing pops open); this made-up screen needs its own boxes
+  await p.waitForTimeout(300);
+  if (await p.$eval('#calib', (e) => e.classList.contains('hidden'))) await p.click('#auto-calibrate');
   await p.waitForSelector('#calib:not(.hidden)');
   const sh = (S * W) / H;
   const box = async (fx, fy, fw, fh) => {

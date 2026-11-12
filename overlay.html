@@ -43,7 +43,12 @@
       const readZoom = (z) => { scale = z && z.zoom ? z.overlayZoom / z.zoom : 1; };
       if (window.E7Desktop && E7Desktop.zoom) { try { readZoom(E7Desktop.zoom()); } catch (_) {} E7Desktop.onZoom((z) => { readZoom(z); draw(); }); }
       const area = () => {
-        if (windowMode()) return { x: 0, y: 0, w: 1, h: 1 };
+        if (windowMode()) {
+          // the overlay covers the whole game window; the game picture is its 16:9 part below the title bar
+          // (same rule as GameArea.window16x9 in js/game-area.js)
+          const W = innerWidth, H = innerHeight, b = Math.round(W / 450), cw = W - 2 * b, ch = Math.round((cw * 9) / 16);
+          return H - ch < 8 ? { x: 0, y: 0, w: 1, h: 1 } : { x: b / W, y: Math.max(0, H - ch - b) / H, w: cw / W, h: ch / H };
+        }
         try {
           const a = JSON.parse(localStorage.getItem('e7-game-area') || 'null');
           return a && !a.full ? a : { x: 0, y: 0, w: 1, h: 1 };

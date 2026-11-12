@@ -7,6 +7,64 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #25 · Built-in screen positions (no drawing for Steam 16:9) and a clear "what's set" table · this commit (previous: `0041c80`)
+
+**Asked for:** "why does it say not calibrated yet, and its hard to tell what is calibrated and what is not, and this
+should be a one time thing that users shouldn't have to go through" + "do the other recommended" (step 2 of the plan:
+built-in layouts; step 1b is next).
+
+**Findings**
+- "Not calibrated yet" meant: all 8 draft boxes are required (4 pre-bans + first/last pick on each side). Setting other
+  parts (CR bar, result, single boxes) never made it "calibrated", and nothing on screen said what was missing.
+- In window mode the capture includes the **Windows title bar** (owner's screenshots: 1348×794 window, 1342×755 game at
+  (3, 36)). Fixed positions need the same picture every time, so the title bar is now cut off automatically.
+- On the real Victory screenshot, the built-in result box OCRs as **"VICEFORY"** (the sword crosses the T). The old exact
+  `/VICTORY/` test would have missed the win.
+
+**Changed**
+- `js/game-area.js`: `window16x9(W, H)`. A captured game window that's taller than 16:9 is cropped to its 16:9 game
+  picture (bottom, full width minus the border), recomputed if the window is resized; frame key `window-16x9`.
+  `overlay.html` uses the same rule, so the overlay still lines up. Checked on the owner's sizes: 1348×794 → (3, 36,
+  1342×755), exactly the hand crop.
+- `js/layouts.js` (new, `E7Layouts`, pure + tested): built-in **Steam 16:9** positions.
+  - Draft: 4 pre-ban icons and the first/last pick slot per side, **measured by eye** from the owner's chat screenshots,
+    so possibly a few px off.
+  - Result banner: **pixel exact**, from the Victory file.
+  - Not built in yet: CR bars, opponent name, drafting help (they need screenshot files).
+  - `effective` (built-in + yours, yours win), `status` per part (yours / built-in / mixed / not set), `ownOnly` (save
+    only boxes that differ from built-in).
+- `js/auto.js`:
+  - Every reader uses `regions()` = built-in + yours. So a 16:9 Steam picture is ready with nothing drawn, and the
+    "not calibrated" message only shows for other shapes (it now says why and what to do).
+  - Calibration starts from the boxes in use and saves only your changes.
+  - The pre-ban face search is wider (±21%, `RTAFaces.WIDE_VARIANTS`) when a box is built-in, to absorb by-eye errors.
+- RTA Auto tab, new card **"What the reader knows about the screen"**:
+  - A headline says whether the built-in positions are in use for this game picture.
+  - A table lists each part (draft, opponent name, CR bar, expanded CR bar, Victory/Defeat, drafting help) as
+    **Built-in / Yours / Built-in + yours / Not set (optional)**.
+  - Buttons per part: **Check** (shows the boxes on the live picture, or the newest saved picture), **Set/Redo**, and
+    **Use built-in** (forgets your boxes for that part).
+- `js/vision.js`: `resultWord(text)`, a tolerant VICTORY/DEFEAT reader (within 2 edits, spaced letters, ignores "Victory
+  Points"), used by the result reader.
+- `sw.js` v18. Docs: HANDOFF, ROADMAP, CLAUDE.md.
+
+**Bugs found and fixed:** the exact VICTORY match (see findings). Two older tests assumed calibration pops open on any
+uncalibrated picture. Their made-up screens now open it themselves, since 16:9 pictures use the built-in layout.
+
+**Tested**
+- `npm test` 93 passing (layouts: 4 new, `resultWord`: 1 new).
+- Browser suite 16/16 clean. New `rta-layout.e2e.js`:
+  - with no boxes, the real Victory screenshot gives "built-in positions in use", nothing pops open, and draft/result
+    both show "Built-in"
+  - the built-in result box OCRs "VICEFORY", which `resultWord` reads as a win
+  - Check shows the alignment view
+  - your own result box shows as "Yours"; Use built-in returns to "Built-in"
+- **Not tested on real draft pictures:** the by-eye draft positions. The first real draft screenshot (dev tool or Ctrl+Shift+S)
+  should be checked with **Check**, then the numbers fixed in `js/layouts.js`. Emulators with side toolbars still need
+  boxes drawn once.
+
+---
+
 ## 2026-11-12 · #24 · Saved picture: choose which part to calibrate first · this commit (previous: `62deec4`)
 
 **Asked for:** "when pressing calibrate on a saved picture its supposed to let you choose which part it is first, not
