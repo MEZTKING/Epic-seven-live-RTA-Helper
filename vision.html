@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · Game watcher</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <meta name="theme-color" content="#12131a" />
+</head>
+<!-- The desktop app's always-on game watcher (a hidden window; Game window menu → Show game watcher). -->
+<body data-vision-host="always">
+  <main>
+    <div class="card wide">
+      <h3>Game watcher</h3>
+      <p class="hint">This window runs in the background in the desktop app: it watches the game window and tells every module what it sees.
+        You can close it; it keeps running. Only reads the screen.</p>
+      <div class="btn-row"><button id="vw-start" class="btn primary">Start watching</button><button id="vw-stop" class="btn">Stop</button></div>
+      <p id="vw-status" class="hint"></p>
+      <ul id="vw-readers" class="plain-list"></ul>
+      <h4>Recent events</h4>
+      <ul id="vw-log" class="plain-list small"></ul>
+    </div>
+  </main>
+  <script src="js/sources/official-heroes.js"></script>
+  <script src="js/sources/fribbels-data.js"></script>
+  <script src="js/gear.js"></script>
+  <script src="js/gearsort.js"></script>
+  <script src="js/statparse.js"></script>
+  <script src="js/gearstore.js"></script>
+  <script src="js/screens.js"></script>
+  <script src="js/screen-watch.js"></script>
+  <script src="js/overlay-bus.js"></script>
+  <script src="js/game-area.js"></script>
+  <script src="js/vision/core.js"></script>
+  <script src="js/vision/bus.js"></script>
+  <script src="js/vision/hub.js"></script>
+  <script src="js/vision/readers/gear-item.js"></script>
+  <script src="js/vision/readers/guild-name.js"></script>
+  <script src="js/vision/consumers/gear.js"></script>
+  <script src="js/vision/client.js"></script>
+  <script src="js/vision/panel.js"></script>
+  <script>
+    // desktop: start by itself once a game window (or screen) has been chosen; follow changes of that choice
+    (function () {
+      const D = window.E7Desktop;
+      if (!D) return;
+      const go = () => window.E7Vision.start().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message }));
+      if (D.capture().chosen) go();
+      D.onCapture(() => window.E7Vision.restart().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));
+    })();
+  </script>
+</body>
+</html>

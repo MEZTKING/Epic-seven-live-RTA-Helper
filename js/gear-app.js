@@ -5,7 +5,7 @@
   const G = window.RTAGear;
   const S = window.RTAGearSort;
   const HEROES = window.RTASources.officialSnapshot.heroes;
-  const GEAR_KEY = 'rta-gear-v1'; // { fileName, importedAt, items, rules, overrides }
+  const GS = window.GearStore; // shared with the game watcher's gear consumer (storage key 'rta-gear-v1')
   const MAIN_KEY = 'rta-helper-v2'; // the RTA Helper's store (we only update its `fribbels` roster)
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -14,40 +14,24 @@
   const portrait = (c) => (byCode.get(c) ? `<img class="pt sm" loading="lazy" alt="" src="${esc(R.PORTRAIT_URL(c))}" onerror="this.classList.add('broken')" />` : '');
   const setLabel = (s) => (G.SETS[s] ? G.SETS[s][0] : String(s || '').replace(/Set$/, ''));
 
-  let gs = load();
+  let gs = GS.load();
   let evald = { profiles: [], results: [] };
   let shown = 150;
 
-  function load() {
-    let g = null;
-    try {
-      g = JSON.parse(localStorage.getItem(GEAR_KEY));
-    } catch (_) { /* ignore */ }
-    g = g && typeof g === 'object' ? g : {};
-    return {
-      fileName: g.fileName || '',
-      importedAt: g.importedAt || null,
-      items: Array.isArray(g.items) ? g.items : [], // source 'fribbels' (gear.txt)
-      scanned: Array.isArray(g.scanned) ? g.scanned : [], // source 'screen' (read from the game, see gear-scan.js)
-      useScanned: g.useScanned !== false,
-      rules: { ...S.DEFAULT_RULES, ...(g.rules || {}) },
-      overrides: g.overrides || {},
-    };
-  }
+  const load = () => GS.load();
   function save() {
     try {
-      localStorage.setItem(GEAR_KEY, JSON.stringify(gs));
+      GS.save(gs);
     } catch (e) {
       alert('Could not save (browser storage full?): ' + e.message);
     }
   }
+
   function recompute() {
     evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules);
   }
   /** gear.txt items + screen-read items (kept as separate sources; screen items aren't linked to a hero). */
-  function allItems() {
-    return gs.useScanned ? [...gs.items, ...gs.scanned] : gs.items;
-  }
+  const allItems = () => GS.allItems(gs);
 
   // ------------------------------------------------------------------ import
   $('#gs-file').addEventListener('change', async (e) => {
@@ -317,28 +301,18 @@
     nameOf,
     /** Add an item read from the screen (source 'screen'). Returns the evaluation, or null if it was already there. */
     addScanned(item, key) {
-      if (gs.scanned.some((x) => x.key === key)) return null;
-      const slim = {
-        id: 'scan-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-        key,
-        source: 'screen',
-        gear: item.gear,
-        set: item.set,
-        rank: item.rank,
-        level: item.level,
-        enhance: item.enhance,
-        name: '',
-        locked: false,
-        main: item.main,
-        subs: item.substats.map((x) => ({ type: x.type, value: x.value })),
-        equipped: null,
-        at: new Date().toISOString(),
-      };
-      gs.scanned.push(slim);
+      const slim = GS.addScanned(gs, item, key);
+      if (!slim) return null;
       save();
       recompute();
       render();
       return evald.results.find((r) => r.item.id === slim.id) || null;
+    },
+    /** Reload from storage (the game watcher saved new items, or another tab changed something). */
+    reload() {
+      gs = load();
+      recompute();
+      render();
     },
     clearScanned() {
       gs.scanned = [];
@@ -353,6 +327,11 @@
       render();
     },
   };
+
+  // the game watcher (another window) adds screen-read items straight to storage
+  addEventListener('storage', (e) => {
+    if (e.key === GS.KEY) window.GearApp.reload();
+  });
 
   recompute();
   render();

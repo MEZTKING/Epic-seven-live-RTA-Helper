@@ -8,70 +8,40 @@
   const A = window.GuildApp;
   const GW = window.RTAGuildWar;
   const $ = (s) => document.querySelector(s);
-  const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
-  let stream = null;
-  let video = null;
-  let timer = null;
-  let worker = null;
-  let busy = false;
+  const C = window.VisionClient;
+  const bus = window.E7Bus;
   let last = { name: null, n: 0 };
+  let lastRect = null;
 
   const box = () => A.conn.watchBox || null;
-
-  async function start() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return alert('This browser cannot capture the screen. Use Chrome or Edge on PC.');
-    try {
-      stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false });
-    } catch (_) {
-      return;
-    }
-    const v = document.createElement('video');
-    v.muted = true;
-    v.srcObject = stream;
-    await v.play();
-    const s0 = stream;
-    s0.getVideoTracks()[0].addEventListener('ended', stop);
-    const src = window.GameArea ? await window.GameArea.wrap(v) : v; // only the game window
-    if (stream !== s0 || !src) {
-      if (stream === s0) stop();
-      return;
-    }
-    video = src;
-    if (window.GameArea) window.GameArea.warnIfStale('guild', video, !!box(), 'press "Set name box" and draw it again');
-    if (!box()) calibrate();
-    timer = setInterval(tick, 2000);
-    update();
-  }
-  function stop() {
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    stream = null;
-    if (video && video.stopGameArea) video.stopGameArea();
-    clearInterval(timer);
-    timer = null;
-    update();
-  }
+  const watching = () => {
+    const s = C.status();
+    return C.alive() && !!(s && s.watching);
+  };
   function update() {
-    $('#gw-watch').textContent = timer ? 'Stop watching' : 'Watch game';
-    $('#gw-watch-box').classList.toggle('hidden', !timer);
-    $('#gw-teach').classList.toggle('hidden', !timer);
+    $('#gw-watch').textContent = watching() ? 'Stop watching' : 'Watch game';
     renderScreen();
     postOverlay();
     if (window.GuildPip) window.GuildPip.render();
   }
+  C.onStatus(() => {
+    $('#gw-watch').textContent = watching() ? 'Stop watching' : 'Watch game';
+    renderScreen();
+  });
 
   // --- one box: where the enemy's name is shown in game
-  function calibrate() {
-    const fw = video && (video.videoWidth || video.width);
-    const fh = video && (video.videoHeight || video.height);
-    if (!fw) return alert('Start "Watch game" first, with an enemy profile or defense showing.');
+  async function calibrate() {
+    let snap;
+    try {
+      snap = await C.snapshot();
+    } catch (e) {
+      return alert(`Start "Watch game" first, with an enemy profile or defense showing. (${e.message})`);
+    }
     const cv = $('#gw-calib-canvas');
-    cv.width = fw;
-    cv.height = fh;
+    cv.width = snap.w;
+    cv.height = snap.h;
     const ctx = cv.getContext('2d');
-    const frame = document.createElement('canvas');
-    frame.width = cv.width;
-    frame.height = cv.height;
-    frame.getContext('2d').drawImage(video, 0, 0);
+    const frame = snap.img;
     let drag = null;
     let rect = box();
     const draw = () => {
@@ -106,76 +76,45 @@
     $('#gw-calib-save').onclick = () => {
       if (!rect) return alert('Drag a box over the enemy player name first.');
       A.conn.watchBox = rect;
-      if (window.GameArea && video) window.GameArea.markCalibrated('guild', video);
+      if (window.GameArea) window.GameArea.markCalibrated('guild', snap.frameKey);
       A.saveConn();
       $('#gw-calib').close();
-      tick();
     };
     $('#gw-calib-cancel').onclick = () => $('#gw-calib').close();
     draw();
     $('#gw-calib').showModal();
   }
 
-  const vw = () => video.videoWidth || video.width;
-  const vh = () => video.videoHeight || video.height;
-  async function tick() {
-    const r = box();
-    if (!video || !r || busy) return;
-    // only read names on the enemy screen (if that screen was taught)
-    const SW = window.E7Screens;
-    if (SW) {
-      SW.update(video);
-      renderScreen();
-      if (!SW.allowed('gw-enemy')) {
-        if (window.E7Overlay) window.E7Overlay.clear('guild');
-        return;
-      }
+  /** The game watcher read text in the name box (js/vision/readers/guild-name.js). */
+  function onNameRead(d) {
+    if (d.away) {
+      last = { name: null, n: 0 };
+      lastRect = null;
+      if (window.E7Overlay) window.E7Overlay.clear('guild');
+      $('#gw-watch-read').textContent = '';
+      return;
     }
-    busy = true;
-    try {
-      if (!worker) {
-        if (!window.Tesseract) {
-          await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = TESSERACT_URL;
-            s.onload = res;
-            s.onerror = () => rej(new Error('Could not load the text reader.'));
-            document.head.appendChild(s);
-          });
-        }
-        worker = await window.Tesseract.createWorker('eng');
-      }
-      const w = r.w * vw();
-      const h = r.h * vh();
-      const scale = Math.max(1, 64 / h);
-      const cv = document.createElement('canvas');
-      cv.width = Math.round(w * scale);
-      cv.height = Math.round(h * scale);
-      const cx = cv.getContext('2d');
-      cx.filter = 'grayscale(1) contrast(1.6)';
-      cx.drawImage(video, r.x * vw(), r.y * vh(), w, h, 0, 0, cv.width, cv.height);
-      const { data } = await worker.recognize(cv);
-      const known = [...new Set(A.state.targets.map((t) => t.player).filter(Boolean))];
-      const name = GW.matchPlayer(data && data.text, known);
-      // same name twice in a row before switching (avoids flicker while screens change)
-      if (name && name === last.name) last.n++;
-      else last = { name, n: 1 };
-      if (name && last.n >= 2) A.setCurrent(name);
-      $('#gw-watch-read').textContent = name ? `Seeing: ${name}` : data && data.text.trim() ? `Read "${data.text.trim().slice(0, 24)}" (not a known player)` : 'No name visible';
-    } catch (e) {
-      $('#gw-watch-read').textContent = 'Text reader unavailable: ' + e.message;
-    }
-    busy = false;
+    lastRect = d.rect || box();
+    const known = [...new Set(A.state.targets.map((t) => t.player).filter(Boolean))];
+    const name = GW.matchPlayer(d.text, known);
+    // same name twice in a row before switching (avoids flicker while screens change)
+    if (name && name === last.name) last.n++;
+    else last = { name, n: 1 };
+    if (name && last.n >= 2) A.setCurrent(name);
+    $('#gw-watch-read').textContent = name ? `Seeing: ${name}` : d.text ? `Read "${d.text.slice(0, 24)}" (not a known player)` : 'No name visible';
+    postOverlay();
   }
+  bus.on('guild:name-read', onNameRead);
+  bus.on('vision:warning', (d) => d.module === 'guild' && ($('#gw-watch-read').textContent = '⚠ ' + d.text));
 
   // ----------------------------------------------------- overlay layer 'guild'
   /** Card next to the enemy's name in game: their dot, each team's verdict and your counter. */
   function postOverlay() {
     const O = window.E7Overlay;
-    const r = box();
+    const r = lastRect || box();
     if (!O || !r) return;
     const t = A.current() ? A.targetFor(A.current()) : null;
-    if (!t || !timer) return O.clear('guild');
+    if (!t || !watching() || !lastRect) return O.clear('guild');
     const v = A.verdict(t);
     const lines = (t.teams || []).slice(0, A.rules().teamsPerDefense).map((tm, i) => {
       const tv = v.teams[i] || {};
@@ -193,15 +132,22 @@
     const el = $('#gw-screen');
     if (!SW || !el) return;
     const n = SW.refs().filter((x) => x.screen === 'gw-enemy').length;
-    el.textContent = n ? `Enemy screen taught (${n}) · now: ${SW.current() ? SW.label(SW.current()) : 'other screen'}` : 'Tip: teach the enemy screen so names are only read there.';
+    el.textContent = `${C.line()} · ${box() ? 'name box set' : 'name box not set'} · ${n ? `enemy screen taught (${n})` : 'tip: teach the enemy screen so names are only read there'}`;
   }
-  $('#gw-teach').addEventListener('click', () => {
-    if (!video) return alert('Start "Watch game" first, with an enemy defense or profile showing.');
-    window.E7Screens.teach(video, 'gw-enemy');
-    renderScreen();
-  });
+  $('#gw-teach').addEventListener('click', () =>
+    C.teach('gw-enemy')
+      .then(renderScreen)
+      .catch((e) => alert('Could not teach: ' + e.message)),
+  );
 
-  $('#gw-watch').addEventListener('click', () => (timer ? stop() : start()));
+  $('#gw-watch').addEventListener('click', () => {
+    if (watching()) C.stop().catch(() => {});
+    else
+      C.ensure()
+        .then(() => !box() && calibrate())
+        .catch((e) => ($('#gw-watch-read').textContent = e.message));
+  });
   $('#gw-watch-box').addEventListener('click', calibrate);
-  window.GuildWatch = { start, stop, calibrate, tick, isWatching: () => !!timer, _useVideo: (v) => (video = v) };
+  update();
+  window.GuildWatch = { calibrate, isWatching: watching, onNameRead };
 })();

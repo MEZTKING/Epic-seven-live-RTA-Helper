@@ -43,12 +43,12 @@
 
     <div class="card wide">
       <h3>Read gear from the game <span class="src other">screen</span> <small class="hint">(no Fribbels needed)</small></h3>
-      <p class="hint">Open your inventory in the game and show an item's details. Press <b>Read gear from the game</b>, choose the emulator window, box the item panel once, then click through your items: each one is read, checked and added. Only reads the screen; nothing is sent anywhere. Items read this way aren't linked to a hero (use gear.txt or the hero screens later for that).</p>
+      <p class="hint">Open your inventory in the game and show an item's details. The <b>game watcher</b> (desktop app: always on; browser: the Live page) reads each item you click on, checks it and adds it here, even when this page is closed. Box the item panel once with <b>Set boxes</b> and teach the item screen. Only reads the screen; nothing is sent anywhere. Items read this way aren't linked to a hero (use gear.txt for that).</p>
       <div class="btn-row">
-        <button id="gs-scan" class="btn primary">Read gear from the game</button>
-        <button id="gs-scan-boxes" class="btn hidden">Set boxes</button>
-        <button class="btn" data-reset-game-area title="Draw the box around the game window again">Reset game area</button>
-        <button id="gs-scan-teach" class="btn hidden" title="Press while an item's details are showing">This is the item screen</button>
+        <button id="gs-scan" class="btn primary">Start the game watcher</button>
+        <button id="gs-scan-boxes" class="btn">Set boxes</button>
+        <button id="gs-scan-teach" class="btn" title="Press while an item's details are showing">This is the item screen</button>
+        <button class="btn" data-reset-game-area title="Pick the game window / draw the game area again">Reset game area</button>
         <label class="inline"><input id="gs-scan-use" type="checkbox" /> Use screen-read items</label>
         <button id="gs-scan-clear" class="btn danger">Delete screen-read items</button>
       </div>
@@ -124,8 +124,12 @@
   <script src="js/logic.js"></script>
   <script src="js/ceciliabot.js"></script>
   <script src="js/heroinfo.js"></script>
+  <script src="js/gearstore.js"></script>
   <script src="js/gear-app.js"></script>
   <script src="js/game-area.js"></script>
+  <script src="js/vision/core.js"></script>
+  <script src="js/vision/bus.js"></script>
+  <script src="js/vision/client.js"></script>
   <script src="js/gear-scan.js"></script>
 </body>
 </html>

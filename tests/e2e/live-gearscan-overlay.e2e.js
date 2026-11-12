@@ -23,8 +23,11 @@ const B = BASE;
   // overlay preview listening
   const ov = await ctx.newPage(); watch(ov);
   await ov.goto(B + 'overlay.html');
-  // fake game frames: item details panel, and some other screen
-  await g.evaluate(() => {
+  // the game watcher runs on the Live page in a browser (data-vision-host="browser")
+  const l = await ctx.newPage(); watch(l);
+  await l.goto(B + 'live.html'); await l.waitForTimeout(300);
+  // fake game frames: item details panel, and some other screen (made in the watcher's page)
+  await l.evaluate(() => {
     const mk = (lines, other) => {
       const c = document.createElement('canvas'); c.width = 1280; c.height = 720;
       const x = c.getContext('2d'); x.fillStyle = other ? '#3a1b1b' : '#141a26'; x.fillRect(0, 0, 1280, 720);
@@ -38,21 +41,20 @@ const B = BASE;
     window.__other = mk([['VICTORY', 300]], true);
     const box = (y, w = 380) => ({ x: 832 / 1280, y: (y - 30) / 720, w: w / 1280, h: 40 / 720 });
     localStorage.setItem('e7-gearscan-boxes', JSON.stringify({ gear: box(160), enhance: box(200, 80), set: box(240), main: box(300), sub0: box(360), sub1: box(400), sub2: box(440), sub3: box(480) }));
+    window.E7Screens.teach(window.__item, 'gear-item'); window.E7Screens.teach(window.__item2, 'gear-item');
   });
-  // teach the item screen with the first frame, then read
-  await g.evaluate(() => { window.E7Screens.teach(window.__item, 'gear-item'); window.E7Screens.teach(window.__item2, 'gear-item'); window.GearScan._useSource(window.__item); });
-  for (let i = 0; i < 3; i++) await g.evaluate(() => window.GearScan.tick());
-  await g.waitForTimeout(300);
-  console.log('status 1:', await g.textContent('#gs-scan-status'));
-  console.log('log 1:', (await g.textContent('#gs-scan-log')).replace(/\s+/g, ' '));
-  // second item
-  await g.evaluate(() => window.GearScan._useSource(window.__item2));
-  for (let i = 0; i < 3; i++) await g.evaluate(() => window.GearScan.tick());
-  console.log('status 2:', await g.textContent('#gs-scan-status'));
-  // other screen: reading must pause
-  await g.evaluate(() => window.GearScan._useSource(window.__other));
-  for (let i = 0; i < 3; i++) await g.evaluate(() => window.GearScan.tick());
-  console.log('status other screen:', await g.textContent('#gs-scan-status'));
+  const run = async (frame) => { await l.evaluate((f) => window.E7Vision._useSource(window[f]), frame); for (let i = 0; i < 3; i++) await l.evaluate(() => window.E7Vision.tick(true)); await g.waitForTimeout(300); };
+  console.log('is host: live', await l.evaluate(() => window.E7Vision.isHost), '/ gear page has no watcher', await g.evaluate(() => !window.E7Vision));
+  await run('__item');
+  console.log('status 1 (gear page):', await g.textContent('#gs-scan-status'));
+  console.log('log 1 (gear page):', (await g.textContent('#gs-scan-log')).replace(/\s+/g, ' '));
+  await run('__item2');
+  console.log('snapshot for Set boxes (gear page):', JSON.stringify(await g.evaluate(async () => { const s = await window.VisionClient.snapshot(); return [s.w, s.h, s.frameKey, s.img.naturalWidth]; })));
+  console.log('status 2 (gear page):', await g.textContent('#gs-scan-status'));
+  // other screen: the gear reader must pause
+  await run('__other');
+  console.log('reader on other screen:', await l.evaluate(() => window.E7Vision._readers.find((r) => r.id === 'gear-item').note));
+  console.log('watcher log:', (await l.textContent('#vw-log')).replace(/\s+/g, ' ').slice(0, 300));
   console.log('scanned items:', JSON.stringify(await g.evaluate(() => window.GearApp.gs.scanned.map((i) => [i.gear, i.set, i.enhance, i.main.type, i.main.value, i.subs.map((s) => s.type + ' ' + s.value).join(', ')]))));
   console.log('in sorter table:', await g.$$eval('#gs-rows tr', (r) => r.filter((x) => x.textContent.includes('screen')).length), 'rows with screen badge');
   await g.waitForTimeout(300);
@@ -60,10 +62,7 @@ const B = BASE;
   await ov.screenshot({ path: SP + '/v10-overlay.png' });
   await g.screenshot({ path: SP + '/v10-gear-scan.png' });
   // live page + home
-  const l = await ctx.newPage(); watch(l);
-  await l.goto(B + 'live.html'); await l.waitForTimeout(300);
   console.log('live screens:', (await l.textContent('#live-screens')).replace(/\s+/g, ' '));
-  await g.evaluate(() => window.GearScan._useSource(window.__item)); await g.evaluate(() => { window.GearApp; }); 
   await l.screenshot({ path: SP + '/v10-live.png', fullPage: true });
   const h = await ctx.newPage(); watch(h); await h.goto(B + 'index.html');
   console.log('home live card:', await h.textContent('#st-live'));

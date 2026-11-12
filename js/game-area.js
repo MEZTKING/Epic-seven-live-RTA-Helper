@@ -97,6 +97,7 @@
       const done = (val) => {
         d.onclick = null;
         d.close();
+        if (window.E7Desktop && window.E7Desktop.showSelf && document.body.dataset.visionHost === 'always') window.E7Desktop.showSelf(false);
         resolve(val);
       };
       d.onclick = (e) => {
@@ -114,6 +115,7 @@
         }
       };
       draw();
+      if (window.E7Desktop && window.E7Desktop.showSelf) window.E7Desktop.showSelf(true); // the game watcher window is hidden
       d.showModal();
       d.scrollTop = 0;
     });
@@ -170,10 +172,17 @@
     if (src && src.isGameArea && a && !a.full) return 'area:' + [a.x, a.y, a.w, a.h].map((v) => v.toFixed(3)).join(',');
     return 'full';
   }
+  /** src = the reader's source, or a frame key string (from the watcher's snapshot). */
   function markCalibrated(module, src) {
     const f = frames();
-    f[module] = frameKey(src);
+    f[module] = typeof src === 'string' ? src : frameKey(src);
     localStorage.setItem(FKEY, JSON.stringify(f));
+  }
+  /** True when this module's boxes were drawn on another picture (no alert; the watcher uses this). */
+  function isStale(module, src) {
+    const was = frames()[module];
+    if (was === frameKey(src)) return false;
+    return !(was === undefined && frameKey(src) === 'full');
   }
   const warned = {};
   /** Call when a reader starts with existing boxes. Alerts once per page load if they were drawn on another picture. */
@@ -202,5 +211,5 @@
     alert('Game area cleared. Stop and start reading again, then drag a box around the game.');
   });
 
-  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode, frameKey, markCalibrated, warnIfStale };
+  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode, frameKey, markCalibrated, warnIfStale, isStale };
 })();

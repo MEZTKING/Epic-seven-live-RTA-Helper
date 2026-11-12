@@ -427,3 +427,4 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
   .gt-stats { font-size: 13px; }
   .gt-stats .main { font-size: 14px; }
 }
+.warn-text { color: var(--accent); }

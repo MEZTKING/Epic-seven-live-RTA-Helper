@@ -73,15 +73,20 @@ const U = BASE + 'guild.html';
   console.log('logged:', JSON.stringify(await p.evaluate(() => window.GuildApp.state.attacks.filter((a) => a.notes === 'logged from pop-out').map((a) => [a.by, a.team, a.result, a.heroes.map(window.GuildApp.nameOf), a.speeds]))));
   console.log('pop after win:', (await T()).slice(0, 200));
   // ---- watch game: OCR a fake game frame with a slightly wrong name
-  const res = await p.evaluate(async () => {
+  // the name box is saved on the Guild War page; the game watcher (Live page) reads it and sends the text back
+  await p.evaluate(() => { window.GuildApp.conn.watchBox = { x: 500 / 1280, y: 60 / 720, w: 300 / 1280, h: 50 / 720 }; window.GuildApp.saveConn(); });
+  const lv = await p.context().newPage();
+  lv.on('pageerror', (e) => errs.push('live: ' + e.message));
+  await lv.goto(BASE + 'live.html');
+  await lv.evaluate(async () => {
     const cv = document.createElement('canvas'); cv.width = 1280; cv.height = 720;
     const g = cv.getContext('2d'); g.fillStyle = '#1a2030'; g.fillRect(0, 0, 1280, 720);
     g.fillStyle = '#0b0e14'; g.fillRect(500, 60, 300, 50); g.fillStyle = '#fff'; g.font = 'bold 34px sans-serif'; g.fillText('Quiet', 520, 98);
-    window.GuildApp.conn.watchBox = { x: 500 / 1280, y: 60 / 720, w: 300 / 1280, h: 50 / 720 };
-    window.GuildWatch._useVideo(cv);
-    for (let i = 0; i < 3; i++) await window.GuildWatch.tick();
-    return { current: window.GuildApp.current(), read: document.querySelector('#gw-watch-read').textContent };
+    window.E7Vision._useSource(cv);
+    for (let i = 0; i < 3; i++) await window.E7Vision.tick(true);
   });
+  await p.waitForTimeout(400);
+  const res = await p.evaluate(() => ({ current: window.GuildApp.current(), read: document.querySelector('#gw-watch-read').textContent }));
   console.log('watch:', JSON.stringify(res));
   await pop.waitForTimeout(300);
   console.log('pop now shows:', (await T()).slice(0, 60));

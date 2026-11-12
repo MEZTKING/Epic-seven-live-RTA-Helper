@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#12131a" />
 </head>
-<body>
+<body data-vision-host="browser">
   <header class="topbar">
     <div class="appbar">
       <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
@@ -19,6 +19,19 @@
   </header>
   <main>
     <div id="live-env" class="status"></div>
+
+    <div class="card wide" id="watch">
+      <h3>Game watcher</h3>
+      <p class="hint">One watcher for the whole app: it captures the game once, works out which screen is showing and runs every reader
+        (Gear item details, Guild War enemy name; RTA moves here next). Modules just receive what it finds, so there's no "start" button per module.
+        <b>Desktop app:</b> it runs by itself in the background after you pick the game window once.
+        <b>Browser:</b> it runs on this page; keep this tab open.</p>
+      <div class="btn-row"><button id="vw-start" class="btn primary">Start watching</button><button id="vw-stop" class="btn hidden">Stop</button></div>
+      <p id="vw-status" class="hint"></p>
+      <ul id="vw-readers" class="plain-list"></ul>
+      <h4 style="margin:12px 0 6px">Recent events</h4>
+      <ul id="vw-log" class="plain-list small"></ul>
+    </div>
 
     <div class="card wide">
       <h3>How it works: four layers</h3>
@@ -34,7 +47,7 @@
     <div class="cards">
       <div class="card">
         <h3>Screens taught on this device</h3>
-        <p class="hint">Teach a screen from its module while capturing: RTA → Auto, Guild War → Watch game, Gear → Read gear. 2–3 examples each work best.</p>
+        <p class="hint">Teach a screen from its module while the game watcher is watching (Gear → "This is the item screen", Guild War → "This is the enemy screen", RTA → Auto). 2–3 examples each work best.</p>
         <table class="mini"><thead><tr><th>Screen</th><th>Module</th><th>Examples</th><th></th></tr></thead><tbody id="live-screens"></tbody></table>
       </div>
       <div class="card">
@@ -58,9 +71,24 @@
     </div>
   </main>
   <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+  <script src="js/sources/official-heroes.js"></script>
+  <script src="js/sources/fribbels-data.js"></script>
+  <script src="js/gear.js"></script>
+  <script src="js/gearsort.js"></script>
+  <script src="js/statparse.js"></script>
+  <script src="js/gearstore.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/screen-watch.js"></script>
+  <script src="js/overlay-bus.js"></script>
   <script src="js/game-area.js"></script>
+  <script src="js/vision/core.js"></script>
+  <script src="js/vision/bus.js"></script>
+  <script src="js/vision/hub.js"></script>
+  <script src="js/vision/readers/gear-item.js"></script>
+  <script src="js/vision/readers/guild-name.js"></script>
+  <script src="js/vision/consumers/gear.js"></script>
+  <script src="js/vision/client.js"></script>
+  <script src="js/vision/panel.js"></script>
   <script src="js/live.js"></script>
 </body>
 </html>

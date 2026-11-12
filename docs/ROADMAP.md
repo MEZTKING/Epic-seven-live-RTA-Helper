@@ -20,6 +20,17 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - **Automation later:** recognise the content screen (screen detector) and show the matching setup in the overlay.
 - **Needs from the owner:** which content matters most first, and screenshots of their stage/boss screens.
 
+## Architecture plan (docs/DESIGN_REVIEW.md)
+
+1. ~~Game watcher + event bus~~: done for Gear and Guild War (DEVLOG #21). **1b:** move the RTA reader (`js/auto.js`) into
+   `js/vision/readers/` (draft board, prebans/postbans, opponent name, CR bar, Victory/Defeat), with a consumer that updates
+   the RTA store, so the RTA page only listens.
+2. Built-in screen layouts ("layout packs", fractions of a 16:9 game picture) from real Steam screenshots → no boxes.
+   The owner shared draft (preban / picks / postban / Ready), battle (CR bar normal + expanded with exact CR %),
+   Defeat, inventory and item-detail screenshots in chat; they're needed as files (e.g. `tests/fixtures/screens/`).
+3. IndexedDB storage, one store per source; append-only match / gear history.
+4. A fixed-font digit/glyph reader for gear stats (tesseract stays for names).
+
 ## Other planned items
 
 - **Top priority: read each hero's equipped gear from the hero gear screen.** Fribbels' importer doesn't work with

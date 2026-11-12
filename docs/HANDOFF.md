@@ -53,6 +53,20 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `js/screens.js` | `RTAScreens` | Screen detector (32×18 fingerprints, detect, stabilizer, gating) |
 | `js/statparse.js` | `RTAStatParse` | OCR text → gear item (stat lines, set, slot, enhance, level, rank) |
 | `js/ceciliabot.js` | `CeciliaBot` | CeciliaBot API: effect list → automatic tags, skill text rendering (pure parts tested) |
+| `js/vision/core.js` | `E7VisionCore` | Game-watcher event bus (`createBus`: publish/on/request/handle, fact log) and `repeatGate` |
+
+**Game watcher (vision service, DEVLOG #21):** one watcher captures the game, detects the screen and runs readers; modules
+only receive events.
+- `js/vision/hub.js` (`E7Vision`): the watcher. Hosted by `vision.html` (desktop: hidden window started with the app,
+  `data-vision-host="always"`) or `live.html` in a browser (`data-vision-host="browser"`); does nothing elsewhere.
+  Answers `start`, `stop`, `status`, `snapshot`, `teach`; publishes `vision:status` (3 s), `vision:started`/`stopped`,
+  `vision:warning`, `screen:changed`. One shared tesseract worker for all readers.
+- `js/vision/bus.js` (`E7Bus`, BroadcastChannel `e7-vision`), `js/vision/client.js` (`VisionClient`: status, ensure,
+  teach, snapshot for drawing boxes), `js/vision/panel.js` (status/readers/events panel).
+- Readers `js/vision/readers/gear-item.js` → `gear:item`; `guild-name.js` → `guild:name-read`.
+- Consumer `js/vision/consumers/gear.js` (runs next to the watcher) saves items via `js/gearstore.js` (`GearStore`) and
+  publishes `gear:added` / `gear:dup`. The Guild War page itself consumes `guild:name-read` (it needs the guild data).
+- **Not moved yet:** the RTA reader (`js/auto.js`) still captures on its own (step 1b).
 
 **Browser-only helpers:** `js/screen-watch.js` (`E7Screens`), `js/overlay-bus.js` (`E7Overlay`), `js/heroinfo.js`
 (`HeroInfo` card, `data-hero` attribute opens it anywhere).
@@ -72,6 +86,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
+| `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card) or `table` |
 | `localStorage['e7-frame-of']` | `js/game-area.js` | Which picture each module's calibration boxes were drawn on (`{rta, gear, guild}` → `window` / `area:x,y,w,h` / `full`); readers warn once when it changed |
 | `localStorage['e7-game-area']` | `js/game-area.js` | Where the game is inside a whole-screen capture: `{x,y,w,h}` fractions + capture size `fw,fh`, or `{full:true,fw,fh}`. Asked again when the capture size changes; "Reset game area" buttons clear it. `overlay.html` reads it too |
@@ -98,14 +113,15 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
      posted from `postOverlay()`.
 - **Suggestions:** `RTALogic.scoreCandidate` adds signals by source group: my notes, learned, game rule, presets,
   player, meta, speed, deny, game help. `sourceWeights` scales each group (sliders or `RTATune`).
-- **Gear:** `gear.txt` → `RTAGear.extractBuilds` (RTA speeds) and `RTAGearSort.slimInventory` (Gear Sorter). The screen
-  reader `js/gear-scan.js` OCRs the boxed item panel → `RTAStatParse.itemFromReadings` → `GearApp.addScanned`
-  (source `screen`, not linked to heroes).
+- **Gear:** `gear.txt` → `RTAGear.extractBuilds` (RTA speeds) and `RTAGearSort.slimInventory` (Gear Sorter). Screen
+  reading: the game watcher's `gear-item` reader OCRs the boxed item panel → `RTAStatParse.itemFromReadings` →
+  `gear:item` → gear consumer → `GearStore.addScanned` (source `screen`, not linked to heroes) → `gear:added`. The Gear page
+  (`js/gear-scan.js`) draws boxes on a watcher snapshot, teaches the screen, and reloads on `gear:added` / storage.
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all
-  wars/seasons. The pop-out is `js/guild-pip.js`; "Watch game" (`js/guild-watch.js`) OCRs the enemy name
-  (`matchPlayer`) and posts the overlay layer `guild`.
+  wars/seasons. The pop-out is `js/guild-pip.js`; "Watch game" (`js/guild-watch.js`) starts the game watcher, whose `guild-name`
+  reader sends `guild:name-read`; the page matches it (`matchPlayer`) and posts the overlay layer `guild`.
 - **Hero card:** `js/heroinfo.js` combines tags from `my notes` / `guild` / `ceciliabot` (`RTARoster.tagSources`),
   skill notes per source, CeciliaBot skill text (`CeciliaBot.loadHero`), and an epic7x link. Pages plug in storage with
   `HeroInfo.configure`.
@@ -149,7 +165,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     caps it at 62vh.
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #20)
+## 7. Status (end of DEVLOG #21)
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).
@@ -192,7 +208,7 @@ python3 -m http.server 8766            # serve locally (needed for service worke
 cd desktop && npm install && npm start # desktop overlay app
 cd desktop && npm run dist             # Windows installer + portable .exe in desktop/dist/ (needs Windows or wine)
 cd desktop && npx electron-builder --linux dir --publish never   # packaged Linux build, for tests here
-xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js, zoom.js, cancel.js; $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
+xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js, zoom.js, cancel.js, watcher.js; $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
 ```
 
 **CI:**
