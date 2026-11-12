@@ -3,3 +3,4 @@ node_modules/
 *.log
 desktop/node_modules/
 desktop/dist/
+tests/e2e/out/

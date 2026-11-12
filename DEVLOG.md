@@ -7,6 +7,63 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #13 · Full handoff docs + sources list; CeciliaBot skills and automatic tags; e2e tests in the repo · this commit (previous: `52c9339`)
+
+**Asked for:** document everything so any future task can continue; list all sources and where they're used; "you can
+use Cecilia bot website maybe".
+
+**Research: CeciliaBot**
+- Site `https://ceciliabot.github.io` (Vue app). Its code calls `https://cecilia-bot-api.vercel.app/api/v1`
+  (`getList?list=hero|buff|debuff|common`, `getItem?list=hero&id=<slug>`). CORS `*`, so other sites can call it.
+- `getList?list=hero`: 389 heroes with `id` = official code (e.g. `c1144`), `_id` slug, `buff` / `debuff` / `common`
+  effect ids.
+- `getItem`: full skills (`description` with `**bold**`, `++buff++`, `--debuff--`, `{{variable}}` placeholders and
+  per-placeholder `values` [base, +enh…], an `awakened` version, cooldown, passive).
+- `data/HeroDatabase.json` on the site has only basic info; its `tags` field is availability (1 = limited), not roles.
+- No explicit licence found. Used at runtime only (nothing copied into the repo), credited with a link, only hero ids
+  sent, can be switched off. Logged in `docs/SOURCES.md`.
+
+**Changed**
+- `js/ceciliabot.js` (new): list (weekly cache) + per-hero skills (weekly cache, only when a card opens).
+  - `EFFECT_TAGS` maps game effect ids to our tags; 2+ different debuffs → `debuffer`.
+  - `renderText` escapes everything and allows bold/buff/debuff markup and filled `{{variable}}` values at max
+    enhancement (e.g. "revives to **10%** Health").
+- `js/heroinfo.js`: third tag source `ceciliabot`; CeciliaBot skill section (normal + awakened, cooldown, passive)
+  with a use switch; pages re-render when the effect list first arrives (`HeroInfo.onTagsReady`).
+- `js/logic.js`: `compositionWarnings(my, enemy, notes, extra)` accepts automatic tags as their own labelled source.
+  RTA passes CeciliaBot tags, so "No cleanse or immunity against 2 debuffers" works with no manual tagging.
+- Calibration usability (found by the tests): the calibration image is capped at 62% of the window height and
+  scrolled into view when calibration starts. A drag ending off-screen used to draw the wrong box. The Guild War and
+  Gear calibration canvases use the same cap.
+- Docs:
+  - `docs/HANDOFF.md` (new): what it is, rules, code map, every storage key, source labels, flows, testing, status, commands.
+  - `docs/SOURCES.md` (new): every runtime data source, library and research reference, with file usage, label, what
+    is sent and when checked; rejected sources and why; privacy summary.
+  - `CLAUDE.md` "Start here" + rules to keep SOURCES/HANDOFF current; README Development section.
+- `tests/e2e/` (new): the 10 Playwright scripts used during development, made portable (`BASE`/`OUT`/`FX`), with fixtures
+  and `run-all.sh`. `tests/e2e/out/` is git-ignored. `sw.js` cache v11.
+
+**Bugs found and fixed**
+- CeciliaBot skill text showed raw `{{variable}}`: placeholders are now filled from `values`.
+- The drafting-help e2e test failed after the Auto tab grew (Screens card): the calibration image ran below the window,
+  so two drags missed and the pick columns were spread sideways. Fixed in the product (cap + scroll into view), not by
+  just enlarging the test window.
+- A converted test script declared `BASE` twice (test-only).
+
+**Tested**
+- `npm test`: 74 passing (new: effect → tag mapping incl. Arbiter Vildred's real effects, all mapped tags exist,
+  text escaping/markup, placeholder values, team check with an automatic-tag source).
+- `bash tests/e2e/run-all.sh`: **all 10 browser tests pass**.
+  - CeciliaBot live: 389 heroes cached; tags AV = aoe, attack buff, cr push, revive; Belian = aoe, control, cr reduce,
+    debuffer, dispel, heal, provoke; card shows S1–S3 with awakened text and "10%"; switch-off removes tags.
+
+**Open / unverified**
+- CeciliaBot terms aren't stated. If its maintainers object, switch the source off by default (one line in `js/ceciliabot.js`).
+- Judgement roles (nuker, tank, support, bruiser, healer, speed control) still come only from you and your guild.
+- Everything in HANDOFF "Never tested on the real game" still applies.
+
+---
+
 ## 2026-11-12 · #12 · Expanded CR bar, hero info card (skills + role tags) · this commit (previous: `b1867c6`)
 
 **Asked for**

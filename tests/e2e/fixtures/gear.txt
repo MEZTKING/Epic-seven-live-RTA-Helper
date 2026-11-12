@@ -1,0 +1,1 @@
+{"items":[{"id":1},{"id":2}],"heroes":[{"name":"Arbiter Vildred","stars":6},{"name":"Landy","stars":6},{"name":"Ravi","stars":5},{"name":"Ruele of Light","stars":6},{"name":"Fake Hero Zzz","stars":3}]}

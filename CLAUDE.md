@@ -1,5 +1,8 @@
 # Notes for Claude sessions
 
+**Start here:** `docs/HANDOFF.md` (how everything works, storage, flows, testing, status), then `DEVLOG.md`
+(history, newest first), `docs/SOURCES.md` (every outside source and where it's used) and `docs/ROADMAP.md`.
+
 ## Privacy (owner's standing instruction)
 - Never put the owner's email address, real name or other personal details in commits, code,
   comments, issues, PRs, artifacts or any request to an outside service.
@@ -14,7 +17,7 @@
   Electron app that puts the overlay on top of the game. Readers only READ the screen; never send input to the game,
   never sniff or decode game network traffic.
 - Later plans live in `docs/ROADMAP.md` (e.g. the PvE & events module). Add owner's "later" ideas there.
-- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`, `js/screens.js`, `js/statparse.js`).
+- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`, `js/screens.js`, `js/statparse.js`, `js/ceciliabot.js`).
 - **Keep data separated by source.** Official roster, Fribbels import, the owner's notes, learned
   stats and each imported dataset are stored apart and can be toggled off individually. Never merge
   one source into another; label every suggestion reason with its source.
@@ -26,3 +29,9 @@
   using the template at the bottom of that file: what was asked, research findings, what changed, bugs found
   and fixed, how it was tested (and what wasn't), and open questions or assumptions.
 - Number entries in order (#1, #2, …) and reference the previous commit hash where relevant.
+
+## Sources and handoff (owner's standing instruction)
+- Every new outside source (data, API, library, website, research reference) goes into `docs/SOURCES.md` in the same
+  commit: address, what it provides, which files use it, its source label, what is sent to it, and the date it was checked.
+- Keep `docs/HANDOFF.md` current when architecture, storage keys, flows or status change, so any future session can continue.
+- Browser tests: `bash tests/e2e/run-all.sh` (fixtures in `tests/e2e/fixtures/`); unit tests: `npm test`.

@@ -543,18 +543,23 @@
    * Simple composition warnings from the tags in your notes.
    * Returns [{ text, source: 'my notes', level: 'warn'|'info' }]
    */
-  function compositionWarnings(myCodes, enemyCodes, notes) {
-    if (!notes) return [];
+  function compositionWarnings(myCodes, enemyCodes, notes, extra = null) {
+    // extra = { tags: { code: [tags] }, source: 'ceciliabot' }  automatic tags from another source
+    if (!notes && !extra) return [];
+    const label = [notes ? 'my notes' : null, extra ? extra.source : null].filter(Boolean).join(' + ');
     const tagsOf = (codes) => {
       const c = {};
-      for (const code of codes) for (const t of (notes[code] && notes[code].tags) || []) c[t] = (c[t] || 0) + 1;
+      for (const code of codes) {
+        const all = new Set([...((notes && notes[code] && notes[code].tags) || []), ...((extra && extra.tags[code]) || [])]);
+        for (const t of all) c[t] = (c[t] || 0) + 1;
+      }
       return c;
     };
     const me = tagsOf(myCodes);
     const them = tagsOf(enemyCodes);
-    const tagged = myCodes.some((c) => notes[c] && (notes[c].tags || []).length);
+    const tagged = myCodes.some((c) => (notes && notes[c] && (notes[c].tags || []).length) || (extra && (extra.tags[c] || []).length));
     const out = [];
-    const warn = (text, level = 'warn') => out.push({ text, source: 'my notes', level });
+    const warn = (text, level = 'warn') => out.push({ text, source: label, level });
     if ((them.debuffer || 0) >= 2 && !me.cleanse && !me.immunity) warn(`No cleanse or immunity against ${them.debuffer} debuffers`);
     if ((them.barrier || 0) + (them.immunity || 0) + (them['speed buff'] || 0) >= 2 && !me.dispel) warn('No dispel against their buffs');
     if ((them.counter || 0) >= 1 && (me.aoe || 0) >= 3) warn('Lots of AoE into a counter team');

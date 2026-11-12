@@ -40,11 +40,11 @@ Tap **ⓘ**, a hero in a draft slot, or a hero chip in Guild War to open the her
   and Guild War cards. ✓ means both sources agree.
 - **Skill notes**, short reminders per skill, kept by source: `my notes` (yours, this device) and `guild` (shared with
   your guild through Guild War sync, edited on the Guild War page).
-- A link to the hero's **full, current skill descriptions on epic7x.com**, plus your build, RTA record and opponents'
-  speeds seen.
-
-The app doesn't copy skill text into itself: the public skill database (EpicSevenDB) is offline, and copying
-third-party data would bring unclear licences and outdated text after reworks. The link always shows the live text.
+- **Full skill descriptions from [CeciliaBot](https://ceciliabot.github.io)** (normal + awakened, numbers at max
+  enhancement), loaded when you open a card and cached on your device. Only hero ids are sent; it can be switched off on the card.
+- **Automatic role tags** (`ceciliabot`) from each hero's game effects (AoE, defense break, stun, cleanse, barrier…).
+  These are facts, not opinions, so the team check works with no manual tagging.
+- A link to the hero's page on **epic7x.com**, plus your build, RTA record and opponents' speeds seen.
 
 ## Gear without Fribbels
 
@@ -248,7 +248,13 @@ You can tune the weights in `js/logic.js` (`W`, `TIER_SCORE`).
 
 ## Development
 
-The full history of changes, research notes, bugs and open questions is in [DEVLOG.md](DEVLOG.md).
+Documentation for anyone continuing the project:
+- [docs/HANDOFF.md](docs/HANDOFF.md): how everything works (code map, storage, flows, testing, status).
+- [DEVLOG.md](DEVLOG.md): every change, with research, bugs fixed and what was tested.
+- [docs/SOURCES.md](docs/SOURCES.md): every outside source, where it's used and what's sent to it.
+- [docs/ROADMAP.md](docs/ROADMAP.md): later plans.
+
+Tests: `npm test` (unit) and `bash tests/e2e/run-all.sh` (browser, Playwright).
 
 Plain HTML, CSS and JavaScript with no build step. Open `index.html` (the home page) and pick a module.
 

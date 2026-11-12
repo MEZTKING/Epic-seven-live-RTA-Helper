@@ -152,6 +152,7 @@
     } catch (_) { /* ignore */ }
   }
   if (window.HeroInfo) {
+    window.HeroInfo.onTagsReady(() => render());
     window.HeroInfo.configure({
       getGuildNote: (code) => (state.heroNotes || []).find((r) => r.code === code) || null,
       async saveGuildNote(code, note) {
