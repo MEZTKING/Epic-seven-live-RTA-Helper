@@ -163,6 +163,10 @@ only receive events.
   - Each test prints `errors: []` at the end when clean; the runner fails otherwise.
   - Gotcha: calibration drags must stay inside the viewport. The app now scrolls the calibration image into view and
     caps it at 62vh.
+- **Real screenshots:** `tests/fixtures/screens/` (Steam client, cropped to the game, names blacked out). Checks that run
+  the current readers on them: `tests/real/ocr-victory.js`, `tests/real/match-portraits.js` (serve the repo on :8766
+  first). They print results; no labelled answers yet.
+- **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
 ## 7. Status (end of DEVLOG #21)
