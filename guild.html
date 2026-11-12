@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · Guild War</title>
+  <meta name="description" content="Epic 7 Engine Guild War tracker: enemy defenses, attacks, counters and member records, shared live with your guild." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#12131a" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Epic 7 Engine <small class="sub">Guild War</small></h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="war">War</button>
+      <button class="tab" data-tab="counters">Counters</button>
+      <button class="tab" data-tab="members">Members</button>
+      <button class="tab" data-tab="enemies">Enemies</button>
+      <button class="tab" data-tab="setup">Setup <span id="sync-dot" class="live-dot"></span></button>
+      <a class="tab" href="index.html">RTA ↗</a>
+      <a class="tab" href="gear.html">Gear ↗</a>
+    </nav>
+  </header>
+
+  <main>
+    <div id="conn-status" class="status"></div>
+
+    <!-- ================================ WAR ================================ -->
+    <section id="tab-war" class="panel active">
+      <div class="draft-controls">
+        <label class="grow">War <select id="war-select"></select></label>
+        <button id="war-new" class="btn">New war</button>
+        <button id="war-done" class="btn">Mark finished</button>
+        <button id="target-add" class="btn primary">Add enemy defense</button>
+      </div>
+      <div id="war-summary" class="cards" style="margin-top:12px"></div>
+      <div id="war-ideas" class="card wide hidden"></div>
+      <div class="filters">
+        <input id="target-search" type="search" placeholder="Search enemy player / tower / hero…" autocomplete="off" />
+        <select id="target-filter"><option value="">All targets</option><option value="open">Not cleared</option><option value="cleared">Cleared</option><option value="mine">Assigned to me</option></select>
+      </div>
+      <div id="targets" class="targets"></div>
+    </section>
+
+    <!-- ============================== COUNTERS ============================= -->
+    <section id="tab-counters" class="panel">
+      <div class="card wide">
+        <h3>What beats this defense? <span class="src game">guild history</span></h3>
+        <p class="hint">Enter an enemy defense team. Results come from every attack your guild has logged: exact matches first, then teams sharing 2 of 3 heroes. "Owned by" lists guildmates who shared a roster that has all three heroes.</p>
+        <div class="hero3"><input class="h3" list="gw-heroes" placeholder="Hero 1" /><input class="h3" list="gw-heroes" placeholder="Hero 2" /><input class="h3" list="gw-heroes" placeholder="Hero 3" /></div>
+        <div id="counter-out"></div>
+      </div>
+      <div class="cards">
+        <div class="card"><h3>Enemy heroes we lose to most</h3><table class="mini"><thead><tr><th>Hero</th><th>Attacks</th><th>Our loss %</th></tr></thead><tbody id="threats"></tbody></table></div>
+        <div class="card"><h3>Best attack teams overall</h3><ul id="best-attacks" class="plain-list"></ul></div>
+      </div>
+    </section>
+
+    <!-- ============================== MEMBERS ============================== -->
+    <section id="tab-members" class="panel">
+      <div class="table-wrap">
+        <table class="db-table">
+          <thead><tr><th>Member</th><th>Attacks left (today)</th><th>Attacks</th><th>Win %</th><th>Defense held / lost</th><th>Roster shared</th></tr></thead>
+          <tbody id="member-rows"></tbody>
+        </table>
+      </div>
+      <div class="cards" style="margin-top:12px">
+        <div class="card">
+          <h3>My defense</h3>
+          <p class="hint">Your current Guild War defense, so guildmates can see it.</p>
+          <div>Team 1</div><div class="hero3" id="mydef-1"><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /></div>
+          <div>Team 2</div><div class="hero3" id="mydef-2"><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /></div>
+          <div class="btn-row"><button id="mydef-save" class="btn primary">Save my defense</button></div>
+        </div>
+        <div class="card">
+          <h3>Log an attack on my defense</h3>
+          <label>Attacker (enemy player) <input id="dl-attacker" placeholder="name" /></label>
+          <label>Which team <select id="dl-team"><option value="1">Team 1</option><option value="2">Team 2</option></select></label>
+          <div>Their attack team (optional)</div><div class="hero3" id="dl-heroes"><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /></div>
+          <div class="btn-row"><button class="btn win" data-dl="held">Held</button><button class="btn loss" data-dl="lost">Lost</button></div>
+        </div>
+        <div class="card">
+          <h3>Share my roster</h3>
+          <p class="hint">Shares only <b>which heroes you own</b> (no gear), so the app can tell the guild who can run each counter. Taken from your RTA helper roster (Fribbels import + owned ticks).</p>
+          <div id="roster-info" class="hint"></div>
+          <div class="btn-row"><button id="roster-share" class="btn">Share / update my roster</button><button id="roster-unshare" class="btn danger">Remove</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== ENEMIES ============================== -->
+    <section id="tab-enemies" class="panel">
+      <div class="filters"><input id="enemy-search" list="gw-enemies" type="search" placeholder="Enemy player name…" autocomplete="off" /></div>
+      <div id="enemy-out"></div>
+    </section>
+
+    <!-- =============================== SETUP =============================== -->
+    <section id="tab-setup" class="panel">
+      <div class="cards">
+        <div class="card">
+          <h3>You</h3>
+          <label>Your in-game name <input id="my-name" placeholder="as your guild knows you" /></label>
+          <p class="hint">Shown to guildmates on your attacks. No email or account needed.</p>
+        </div>
+        <div class="card">
+          <h3>Guild</h3>
+          <div id="guild-info" class="hint"></div>
+          <label>Guild name <input id="guild-name" placeholder="e.g. Moonlight" /></label>
+          <div class="btn-row">
+            <button id="guild-create" class="btn primary">Create guild</button>
+            <button id="guild-invite" class="btn">Copy invite link</button>
+          </div>
+          <label>Or join with a guild code <input id="guild-code" placeholder="code from a guildmate" /></label>
+          <div class="btn-row"><button id="guild-join" class="btn">Join</button></div>
+        </div>
+        <div class="card">
+          <h3>Sharing (Firebase)</h3>
+          <p class="hint">Without this the guild data stays on this device only. Paste your Firebase web config to share live with guildmates. Setup steps: <a href="docs/GUILD_SETUP.md" target="_blank" rel="noopener">docs/GUILD_SETUP.md</a>. Invite links carry the config, so guildmates don't need to paste anything.</p>
+          <textarea id="fb-config" rows="5" placeholder='const firebaseConfig = { apiKey: "...", authDomain: "...", projectId: "...", appId: "..." };'></textarea>
+          <div class="btn-row"><button id="fb-connect" class="btn primary">Connect</button><button id="fb-disconnect" class="btn">Use this device only</button></div>
+        </div>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <h3>Guild War rules</h3>
+          <p class="hint">Shared with the guild. Change them if the game's rules change.</p>
+          <label>Attacks per member per day <input id="rule-attacks" type="number" min="1" max="10" /></label>
+          <label>Defense teams per player <input id="rule-teams" type="number" min="1" max="3" /></label>
+        </div>
+        <div class="card">
+          <h3>Backup</h3>
+          <p class="hint">Export the guild's data to a file, or import one (e.g. shared in Discord).</p>
+          <div class="btn-row"><button id="gw-export" class="btn">Export</button><label class="btn file-btn">Import<input id="gw-import" type="file" accept="application/json" hidden /></label></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- target editor -->
+  <dialog id="target-dialog">
+    <form id="target-form" method="dialog">
+      <h3 id="target-title">Enemy defense</h3>
+      <div class="two">
+        <label>Enemy player <input name="player" list="gw-enemies" required /></label>
+        <label>Tower / fort <input name="tower" placeholder="e.g. Left 3" /></label>
+      </div>
+      <div id="team-editors"></div>
+      <label>Notes <textarea name="notes" rows="2"></textarea></label>
+      <div class="btn-row"><button type="button" id="target-delete" class="btn danger">Delete</button><span class="spacer"></span><button type="button" id="target-cancel" class="btn">Cancel</button><button type="submit" class="btn primary">Save</button></div>
+    </form>
+  </dialog>
+
+  <!-- attack logger -->
+  <dialog id="attack-dialog">
+    <form id="attack-form" method="dialog">
+      <h3 id="attack-title">Log attack</h3>
+      <div class="two">
+        <label>Against team <select name="team"></select></label>
+        <label>Attacker <input name="by" list="gw-members" /></label>
+      </div>
+      <div>My team</div>
+      <div class="hero3" id="atk-heroes"><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /><input class="h3" list="gw-heroes" /></div>
+      <div id="atk-counters" class="hint"></div>
+      <label>Notes <input name="notes" placeholder="speeds, what went wrong…" /></label>
+      <div class="btn-row"><button type="button" id="attack-cancel" class="btn">Cancel</button><span class="spacer"></span><button type="button" class="btn loss" data-res="loss">Lost</button><button type="button" class="btn win" data-res="win">Won</button></div>
+    </form>
+  </dialog>
+
+  <datalist id="gw-heroes"></datalist>
+  <datalist id="gw-enemies"></datalist>
+  <datalist id="gw-members"></datalist>
+  <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+
+  <script src="js/sources/official-heroes.js"></script>
+  <script src="js/roster.js"></script>
+  <script src="js/guildwar.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/guild-app.js"></script>
+</body>
+</html>

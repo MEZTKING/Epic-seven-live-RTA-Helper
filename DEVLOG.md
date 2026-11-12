@@ -1,9 +1,74 @@
 # Devlog
 
-A running record of every change to the RTA Live Helper: what changed, why, what was found while researching,
+A running record of every change to the Epic 7 Engine (formerly the RTA Live Helper): what changed, why, what was found while researching,
 bugs found and fixed, how it was tested, and what is still open. Newest entries first.
 
 **Rule:** every change to the project adds an entry here **in the same commit**. Use the template at the bottom.
+
+---
+
+## 2026-11-12 · #7 · Epic 7 Engine + Guild War (shared with the guild) · this commit (previous: `93abee7`)
+
+**Asked for:** turn the app into a bigger toolkit, named **"Epic 7 Engine"** (the owner corrected an earlier
+"RTA engine": it helps with the whole game, not just RTA). Add a Guild War feature that tracks everything for every
+player and is shared between guildmates.
+
+**Decisions (asked and answered)**
+- "Guild Wars" = **Epic Seven's Guild War mode**, not the separate game Guild Wars 2.
+- Sharing: **free Firebase** (Firestore + anonymous sign-in), chosen over sharing files in Discord or a GitHub repo.
+- Rename now.
+
+**Research:** Firebase JS SDK 10.12.2 "compat" builds load from `www.gstatic.com` (checked: HTTP 200), so no build step is needed.
+
+**Changed**
+- Rename: page titles and headers ("Epic 7 Engine · RTA / Gear / Guild War"), shared nav links between the 3 pages,
+  manifest (`Epic 7 Engine` / `E7 Engine`), `package.json` name `epic7-engine`, README intro, footer, CLAUDE.md.
+  Service worker cache `epic7-engine-v6` now includes the guild files. Pages workflow publishes `guild.html`,
+  `docs/` and `firestore.rules`. The repository name is unchanged.
+- `js/guildwar.js` (new, pure): all guild data is a flat list of records (`member`, `war`, `target`, `attack`,
+  `defense`, `settings`), and the newest copy of each record wins. Functions:
+  - `warSummary` (cleared, attacks left per member per day)
+  - `targetStatus`
+  - `counterBook` (enemy defense → our attack teams with record)
+  - `suggestCounters` (exact first, then 2-of-3 similar, plus which members own the team)
+  - `assignmentIdeas`, `enemyHistory` (case-insensitive across wars), `memberStats`, `threatHeroes`
+  - Rules (attacks per member per day = 2, teams per defense = 2) are shared settings, not hard-coded, because
+    the current in-game numbers are unconfirmed.
+- `js/sync.js` (new): one interface, two backends.
+  - `local`: localStorage, with BroadcastChannel so other tabs update live.
+  - `firebase`: Firestore `guilds/{code}/records/{id}`, live updates, anonymous sign-in, soft deletes.
+  - Also: pasted-config parser (accepts the `const firebaseConfig = {...}` snippet) and invite links
+    (`guild.html#g=<code>&c=<config>`). The hash never reaches a server and is cleared from the address bar after use.
+- `guild.html` + `js/guild-app.js` (new): War, Counters, Members (my defense, defense log, share roster),
+  Enemies and Setup (name, create/join guild, invite link, Firebase connect, rules, export/import that merges by
+  newest record).
+- Guild War data is its own source (`guild`) and is not mixed into RTA data. Sharing a roster sends only the codes
+  of heroes you own (from the RTA helper's Fribbels import + owned ticks), never gear.
+- `firestore.rules` (new): sign-in required, guild code at least 12 characters, known record types only, size limits,
+  everything else denied. `docs/GUILD_SETUP.md` (new): 10-minute setup for the guild leader.
+
+**Bugs found and fixed**
+- A test expected only Bob for an assignment, but Ann also had attacks left (the test was wrong; fixed).
+- Guild portraits were blank in screenshots: they loaded lazily and without `crossorigin`. Now loaded immediately (6/6 loaded).
+
+**Tested**
+- `npm test`: 56 passing. New tests: state merge/delete, war summary per day, counter book, exact vs similar
+  counters with owners, assignments, enemy history, member stats, threats, local sync, **Firebase sync against a
+  fake SDK** (anonymous sign-in, guild path, live updates, soft delete), config parsing, invite links.
+- Browser (over http, local mode):
+  - Guild created; war, defense and attacks logged; a second page updated live.
+  - In war 2 a similar enemy defense showed "Beaten before by …" and suggested the member who owns that team;
+    the attack form filled it in.
+  - Counters, enemy history across wars, my defense and defense log work; the invite link opened in a fresh profile
+    (lands on Setup, code saved, hash cleared).
+  - No console errors; no sideways scrolling on phones; RTA and Gear pages still load with the new titles.
+
+**Not tested / open**
+- **Real Firebase not tested** (no project exists yet). Only the fake-SDK test covers that code. The first real
+  connection should be checked by the owner following `docs/GUILD_SETUP.md`.
+- Guild War rules defaults are assumptions and can be edited in Setup.
+- Enemy defenses are entered by hand; reading them from the screen needs screenshots.
+- Anyone with the guild code can edit everything (no per-member permissions yet).
 
 ---
 

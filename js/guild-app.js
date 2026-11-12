@@ -1,0 +1,552 @@
+/* Guild War page. Uses RTARoster, RTAGuildWar, RTASync. */
+(function () {
+  'use strict';
+  const R = window.RTARoster;
+  const GW = window.RTAGuildWar;
+  const Sync = window.RTASync;
+  const HEROES = window.RTASources.officialSnapshot.heroes;
+  const CONN_KEY = 'e7-guild-conn'; // { guildCode, guildName, myName, config }
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const byCode = new Map(HEROES.map((h) => [h.code, h]));
+  const idx = R.nameIndex(HEROES);
+  const nameOf = (c) => (byCode.get(c) || {}).name || c;
+  const codeOf = (text) => {
+    const h = R.findHero(text, HEROES, idx);
+    return h ? h.code : null;
+  };
+  const pt = (c) => (byCode.get(c) ? `<img class="pt sm" alt="" crossorigin="anonymous" src="${esc(R.PORTRAIT_URL(c))}" onerror="this.classList.add('broken')" />` : '');
+  const chip = (c) => `<span class="hchip">${pt(c)}${esc(nameOf(c))}</span>`;
+  const team = (codes) => (codes || []).map(chip).join('') || '<span class="hint">—</span>';
+  const today = () => new Date().toISOString().slice(0, 10);
+  const pct = (w, g) => (g ? Math.round((w / g) * 100) + '%' : '—');
+
+  let conn = loadConn();
+  let backend = null;
+  let records = [];
+  let state = GW.buildState([]);
+  let activeTab = 'war';
+  let warId = null;
+
+  function loadConn() {
+    try {
+      return JSON.parse(localStorage.getItem(CONN_KEY)) || {};
+    } catch (_) {
+      return {};
+    }
+  }
+  function saveConn() {
+    localStorage.setItem(CONN_KEY, JSON.stringify(conn));
+  }
+  const rules = () => ({ ...GW.DEFAULT_RULES, ...((state.settings && state.settings.rules) || {}) });
+  const me = () => (conn.myName || '').trim();
+
+  // ------------------------------------------------------------- connecting
+  async function connect() {
+    if (backend) backend.close();
+    backend = null;
+    records = [];
+    if (!conn.guildCode) return status('No guild yet. Go to Setup to create or join one.', 'warn');
+    try {
+      backend = conn.config ? await Sync.firebase(conn.guildCode, conn.config) : await Sync.local(conn.guildCode);
+    } catch (e) {
+      status(`Could not connect to Firebase (${e.message}). Using this device only for now.`, 'warn');
+      backend = await Sync.local(conn.guildCode);
+    }
+    backend.subscribe((list) => {
+      records = list;
+      state = GW.buildState(records);
+      render();
+    });
+    status();
+  }
+  function status(msg, kind) {
+    const el = $('#conn-status');
+    const shared = backend && backend.kind === 'firebase';
+    $('#sync-dot').classList.toggle('on', !!shared);
+    el.className = 'status' + (kind === 'warn' ? ' opp' : shared ? ' me' : '');
+    el.textContent =
+      msg ||
+      `${conn.guildName || 'Guild'} · ${shared ? `shared live (Firebase: ${backend.projectId})` : 'this device only — connect Firebase in Setup to share'} · you are ${me() || '(set your name in Setup)'}`;
+  }
+  async function put(type, data) {
+    if (!backend) return alert('Create or join a guild first (Setup).');
+    const r = { ...data, type, id: data.id || `${type[0]}-${GW.newId(10)}`, updatedBy: me() };
+    await backend.put(r);
+    return r;
+  }
+  async function ensureMember() {
+    if (!me() || !backend) return;
+    const id = 'm-' + GW.playerKey(me()).replace(/[^a-z0-9]+/g, '-');
+    if (!state.members.some((m) => m.id === id)) await put('member', { id, name: me() });
+  }
+
+  // ------------------------------------------------------------------- tabs
+  $$('.tab[data-tab]').forEach((b) =>
+    b.addEventListener('click', () => {
+      activeTab = b.dataset.tab;
+      $$('.tab[data-tab]').forEach((x) => x.classList.toggle('active', x === b));
+      $$('.panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + activeTab));
+      render();
+    }),
+  );
+
+  function render() {
+    $('#gw-heroes').innerHTML = HEROES.map((h) => `<option value="${esc(h.name)}"></option>`).join('');
+    $('#gw-enemies').innerHTML = [...new Set(state.targets.map((t) => t.player).filter(Boolean))].map((n) => `<option value="${esc(n)}"></option>`).join('');
+    $('#gw-members').innerHTML = state.members.map((m) => `<option value="${esc(m.name)}"></option>`).join('');
+    if (!warId || !state.wars.some((w) => w.id === warId)) warId = (state.wars.find((w) => w.status !== 'done') || state.wars[0] || {}).id || null;
+    ({ war: renderWar, counters: renderCounters, members: renderMembers, enemies: renderEnemies, setup: renderSetup })[activeTab]();
+  }
+
+  // -------------------------------------------------------------------- war
+  function renderWar() {
+    $('#war-select').innerHTML = state.wars.length
+      ? state.wars.map((w) => `<option value="${esc(w.id)}" ${w.id === warId ? 'selected' : ''}>vs ${esc(w.enemyGuild)} · ${esc(String(w.startedAt || '').slice(0, 10))}${w.status === 'done' ? ' (finished)' : ''}</option>`).join('')
+      : '<option value="">No wars yet</option>';
+    const box = $('#targets');
+    if (!warId) {
+      $('#war-summary').innerHTML = '';
+      $('#war-ideas').classList.add('hidden');
+      box.innerHTML = '<p class="hint">Press <b>New war</b> when a Guild War starts, then add the enemy defenses you see.</p>';
+      return;
+    }
+    const R0 = rules();
+    const sum = GW.warSummary(state, warId, R0, today());
+    const myLeft = (sum.members.find((m) => GW.playerKey(m.name) === GW.playerKey(me())) || {}).left;
+    $('#war-summary').innerHTML = `
+      <div class="card"><div class="hint">Defenses cleared</div><div class="stat">${sum.cleared}/${sum.targets.length}</div><div class="hint">${sum.teamsCleared}/${sum.teamsTotal} teams</div></div>
+      <div class="card"><div class="hint">Attacks</div><div class="stat">${sum.wins}-${sum.attacks - sum.wins}</div><div class="hint">win rate ${pct(sum.wins, sum.attacks)}</div></div>
+      <div class="card"><div class="hint">Attacks left today (guild)</div><div class="stat">${sum.attacksLeft}</div><div class="hint">${me() ? `You: ${myLeft ?? R0.attacksPerMember}` : ''}</div></div>
+      <div class="card"><div class="hint">Members who still have attacks today</div><div class="small">${sum.members.filter((m) => m.left > 0).map((m) => `${esc(m.name)} (${m.left})`).join(', ') || '—'}</div></div>`;
+    const ideas = GW.assignmentIdeas(state, warId, R0, today()).filter((i) => i.members.length);
+    const ib = $('#war-ideas');
+    ib.classList.toggle('hidden', !ideas.length);
+    ib.innerHTML = `<h3>Who can take what <span class="src game">guild history</span></h3>${ideas
+      .slice(0, 12)
+      .map((i) => `<div class="pair"><b>${esc(i.target.player)}</b> team ${i.team}: ${esc(i.members.join(', '))} <span class="hint">(owns ${team(i.counters[0].attack)} · ${i.counters[0].wins}-${i.counters[0].games - i.counters[0].wins})</span></div>`)
+      .join('')}`;
+
+    const q = R.normName($('#target-search').value);
+    const f = $('#target-filter').value;
+    const book = GW.counterBook(state);
+    const list = sum.targets.filter((s) => {
+      const t = s.target;
+      if (f === 'open' && s.cleared) return false;
+      if (f === 'cleared' && !s.cleared) return false;
+      if (f === 'mine' && GW.playerKey(t.assignedTo) !== GW.playerKey(me())) return false;
+      if (!q) return true;
+      const hay = [t.player, t.tower, ...(t.teams || []).flatMap((x) => (x.heroes || []).map(nameOf))].map(R.normName).join(' ');
+      return hay.includes(q);
+    });
+    list.sort((a, b) => Number(a.cleared) - Number(b.cleared) || String(a.target.tower || '').localeCompare(String(b.target.tower || ''), undefined, { numeric: true }));
+    box.innerHTML =
+      list
+        .map((s) => {
+          const t = s.target;
+          const teams = (t.teams || []).slice(0, R0.teamsPerDefense).map((tm, i) => {
+            const st = s.teams[i] || {};
+            const counters = GW.suggestCounters(tm.heroes || [], book, { members: state.members, limit: 2 });
+            const speeds = Object.entries(tm.speeds || {}).filter(([, v]) => v);
+            return `<div class="gw-team ${st.cleared ? 'cleared' : ''}">
+              <div class="gw-team-head">Team ${i + 1} ${st.cleared ? `<span class="vd keep">cleared by ${esc(st.by)}</span>` : st.attempts ? `<span class="vd sell">${st.losses} failed</span>` : ''}</div>
+              <div>${team(tm.heroes)}</div>
+              ${speeds.length ? `<div class="hint">Speed: ${speeds.map(([c, v]) => `${esc(nameOf(c))} ${esc(v)}`).join(' · ')}</div>` : ''}
+              ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
+              ${!st.cleared && counters.length ? `<div class="hint">Beaten before by: ${counters.map((c) => `${c.attack.map(nameOf).map(esc).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', similar'})`).join(' · ')}</div>` : ''}
+              ${!st.cleared ? `<button class="btn" data-attack="${esc(t.id)}" data-team="${i + 1}">Log attack</button>` : ''}
+            </div>`;
+          });
+          return `<div class="card gw-card ${s.cleared ? 'done' : ''}">
+            <div class="gw-head"><b>${esc(t.player)}</b>${t.tower ? ` <span class="hint">· ${esc(t.tower)}</span>` : ''}
+              <span class="spacer"></span>
+              <select data-assign="${esc(t.id)}" title="Assigned to"><option value="">Unassigned</option>${state.members.map((m) => `<option ${GW.playerKey(m.name) === GW.playerKey(t.assignedTo) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+              <button class="btn" data-edit="${esc(t.id)}">Edit</button></div>
+            ${teams.join('')}
+            ${t.notes ? `<div class="hint">${esc(t.notes)}</div>` : ''}
+            <div class="hint">Last edit: ${esc(t.updatedBy || '?')}</div>
+          </div>`;
+        })
+        .join('') || '<p class="hint">No enemy defenses added for this war yet.</p>';
+  }
+  $('#war-select').addEventListener('change', (e) => {
+    warId = e.target.value;
+    renderWar();
+  });
+  ['#target-search', '#target-filter'].forEach((s) => $(s).addEventListener('input', renderWar));
+  $('#war-new').addEventListener('click', async () => {
+    const g = prompt('Enemy guild name?');
+    if (!g) return;
+    const w = await put('war', { enemyGuild: g.trim(), startedAt: new Date().toISOString(), status: 'active' });
+    warId = w.id;
+  });
+  $('#war-done').addEventListener('click', async () => {
+    const w = state.wars.find((x) => x.id === warId);
+    if (w && confirm(`Mark the war vs ${w.enemyGuild} as finished?`)) await put('war', { ...w, status: 'done' });
+  });
+  $('#targets').addEventListener('change', async (e) => {
+    const id = e.target.dataset.assign;
+    if (!id) return;
+    const t = state.targets.find((x) => x.id === id);
+    await put('target', { ...t, assignedTo: e.target.value });
+  });
+  $('#targets').addEventListener('click', (e) => {
+    const ed = e.target.closest('[data-edit]');
+    if (ed) return openTarget(ed.dataset.edit);
+    const at = e.target.closest('[data-attack]');
+    if (at) openAttack(at.dataset.attack, Number(at.dataset.team));
+  });
+
+  // ------------------------------------------------------------ target form
+  let editingTarget = null;
+  function openTarget(id) {
+    if (!warId) return alert('Start a war first (New war).');
+    const t = id ? state.targets.find((x) => x.id === id) : null;
+    editingTarget = t ? { ...t } : { warId, teams: [] };
+    const f = $('#target-form');
+    $('#target-title').textContent = t ? `Edit ${t.player}` : 'Add enemy defense';
+    f.player.value = t ? t.player : '';
+    f.tower.value = t ? t.tower || '' : '';
+    f.notes.value = t ? t.notes || '' : '';
+    $('#target-delete').classList.toggle('hidden', !t);
+    $('#team-editors').innerHTML = Array.from({ length: rules().teamsPerDefense }, (_, i) => {
+      const tm = (editingTarget.teams || [])[i] || {};
+      const hs = tm.heroes || [];
+      return `<fieldset class="gw-fs" data-team="${i}"><legend>Team ${i + 1}</legend>
+        ${[0, 1, 2]
+          .map((k) => `<div class="hrow"><input class="h3" list="gw-heroes" placeholder="Hero ${k + 1}" value="${esc(hs[k] ? nameOf(hs[k]) : '')}" /><input class="spd" type="number" min="1" max="400" placeholder="speed" value="${esc(hs[k] && tm.speeds ? tm.speeds[hs[k]] || '' : '')}" /></div>`)
+          .join('')}
+        <input class="build full" placeholder="Sets / artifacts / notes (e.g. AV: Speed+Crit, Alexa)" value="${esc(tm.build || '')}" /></fieldset>`;
+    }).join('');
+    $('#target-dialog').showModal();
+  }
+  $('#target-add').addEventListener('click', () => openTarget(null));
+  $('#target-cancel').addEventListener('click', () => $('#target-dialog').close());
+  $('#target-delete').addEventListener('click', async () => {
+    if (!editingTarget.id || !confirm('Delete this enemy defense?')) return;
+    await backend.remove(editingTarget.id, me());
+    $('#target-dialog').close();
+  });
+  $('#target-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const teams = $$('.gw-fs', f).map((fs) => {
+      const heroes = [];
+      const speeds = {};
+      $$('.hrow', fs).forEach((row) => {
+        const c = codeOf($('.h3', row).value);
+        if (!c) return;
+        heroes.push(c);
+        const s = Number($('.spd', row).value);
+        if (s) speeds[c] = s;
+      });
+      return { heroes, speeds, build: $('.build', fs).value.trim() };
+    });
+    const unknown = $$('.h3', f).filter((i) => i.value.trim() && !codeOf(i.value)).map((i) => i.value);
+    if (unknown.length && !confirm(`Unknown hero name(s): ${unknown.join(', ')}. Save without them?`)) return;
+    await put('target', { ...editingTarget, player: f.player.value.trim(), tower: f.tower.value.trim(), notes: f.notes.value.trim(), teams });
+    $('#target-dialog').close();
+  });
+
+  // ------------------------------------------------------------ attack form
+  let attackTarget = null;
+  function openAttack(targetId, teamNo) {
+    attackTarget = state.targets.find((t) => t.id === targetId);
+    const f = $('#attack-form');
+    $('#attack-title').textContent = `Attack ${attackTarget.player}${attackTarget.tower ? ' · ' + attackTarget.tower : ''}`;
+    f.team.innerHTML = Array.from({ length: rules().teamsPerDefense }, (_, i) => `<option value="${i + 1}" ${i + 1 === teamNo ? 'selected' : ''}>Team ${i + 1}: ${esc(((attackTarget.teams || [])[i] || {}).heroes ? attackTarget.teams[i].heroes.map(nameOf).join(', ') : '?')}</option>`).join('');
+    f.by.value = me();
+    f.notes.value = '';
+    $$('#atk-heroes .h3').forEach((i) => (i.value = ''));
+    showAttackCounters();
+    $('#attack-dialog').showModal();
+  }
+  function showAttackCounters() {
+    const tm = (attackTarget.teams || [])[Number($('#attack-form').team.value) - 1] || {};
+    const c = GW.suggestCounters(tm.heroes || [], GW.counterBook(state), { members: state.members, limit: 3 });
+    $('#atk-counters').innerHTML = c.length ? `Worked before: ${c.map((x) => `<button type="button" class="link" data-fill="${esc(x.attack.join(','))}">${esc(x.attack.map(nameOf).join(' + '))}</button> (${x.wins}-${x.games - x.wins})`).join(' · ')}` : '';
+  }
+  $('#attack-form').team.addEventListener('change', showAttackCounters);
+  $('#atk-counters').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fill]');
+    if (!b) return;
+    const codes = b.dataset.fill.split(',');
+    $$('#atk-heroes .h3').forEach((i, k) => (i.value = codes[k] ? nameOf(codes[k]) : ''));
+  });
+  $('#attack-cancel').addEventListener('click', () => $('#attack-dialog').close());
+  $('#attack-form').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-res]');
+    if (!b) return;
+    const f = $('#attack-form');
+    const heroes = $$('#atk-heroes .h3').map((i) => codeOf(i.value)).filter(Boolean);
+    const by = f.by.value.trim() || me();
+    if (!by) return alert('Who attacked? Set your name in Setup.');
+    await put('attack', { warId: attackTarget.warId, targetId: attackTarget.id, team: Number(f.team.value), by, heroes, result: b.dataset.res, notes: f.notes.value.trim(), at: new Date().toISOString() });
+    $('#attack-dialog').close();
+  });
+
+  // --------------------------------------------------------------- counters
+  function renderCounters() {
+    const codes = $$('#tab-counters .h3').map((i) => codeOf(i.value)).filter(Boolean);
+    const book = GW.counterBook(state);
+    const out = $('#counter-out');
+    if (codes.length < 2) out.innerHTML = '<p class="hint">Enter at least 2 heroes.</p>';
+    else {
+      const c = GW.suggestCounters(codes, book, { members: state.members, limit: 8 });
+      out.innerHTML = c.length
+        ? `<table class="mini"><thead><tr><th>Attack team</th><th>Record</th><th>Match</th><th>Used by</th><th>Owned by</th></tr></thead><tbody>${c
+            .map((x) => `<tr><td>${team(x.attack)}</td><td>${x.wins}-${x.games - x.wins}</td><td>${x.exact ? 'same team' : 'similar'}</td><td class="small">${esc(x.by.join(', '))}</td><td class="small">${esc(x.owners.join(', ') || '—')}</td></tr>`)
+            .join('')}</tbody></table>`
+        : '<p class="hint">No logged wins against this team or similar ones yet.</p>';
+    }
+    $('#threats').innerHTML =
+      GW.threatHeroes(state)
+        .map((t) => `<tr><td>${chip(t.code)}</td><td>${t.games}</td><td>${pct(t.losses, t.games)}</td></tr>`)
+        .join('') || '<tr><td colspan="3" class="hint">Needs a few logged attacks.</td></tr>';
+    const all = [];
+    for (const list of book.values()) for (const r of list) all.push(r);
+    const agg = new Map();
+    for (const r of all) {
+      const k = GW.teamKey(r.attack);
+      const a = agg.get(k) || { attack: r.attack, wins: 0, games: 0 };
+      a.wins += r.wins;
+      a.games += r.games;
+      agg.set(k, a);
+    }
+    $('#best-attacks').innerHTML =
+      [...agg.values()]
+        .filter((a) => a.games >= 2)
+        .sort((a, b) => b.wins / b.games - a.wins / a.games || b.games - a.games)
+        .slice(0, 10)
+        .map((a) => `<li>${team(a.attack)} <small class="hint">${a.wins}-${a.games - a.wins}</small></li>`)
+        .join('') || '<li class="hint">Needs a few logged attacks.</li>';
+  }
+  $$('#tab-counters .h3').forEach((i) => i.addEventListener('input', renderCounters));
+
+  // ---------------------------------------------------------------- members
+  function myMember() {
+    return state.members.find((m) => GW.playerKey(m.name) === GW.playerKey(me()));
+  }
+  function renderMembers() {
+    const R0 = rules();
+    const used = warId ? GW.attacksUsed(state.attacks, warId, today()) : new Map();
+    const stats = new Map(GW.memberStats(state).map((s) => [GW.playerKey(s.name), s]));
+    $('#member-rows').innerHTML =
+      state.members
+        .map((m) => {
+          const s = stats.get(GW.playerKey(m.name)) || { attacks: 0, wins: 0, held: 0, lost: 0 };
+          const left = Math.max(0, R0.attacksPerMember - (used.get(GW.playerKey(m.name)) || 0));
+          const def = (m.defense || []).map((d, i) => `<div class="hint">D${i + 1}: ${esc((d.heroes || []).map(nameOf).join(', ') || '—')}</div>`).join('');
+          return `<tr><td><b>${esc(m.name)}</b>${def}</td><td>${warId ? left : '—'}</td><td>${s.attacks}</td><td>${pct(s.wins, s.attacks)}</td><td>${s.held} / ${s.lost}</td><td>${(m.roster || []).length ? `${m.roster.length} heroes` : '—'}</td></tr>`;
+        })
+        .join('') || '<tr><td colspan="6" class="hint">No members yet. Each guildmate appears after setting their name.</td></tr>';
+    const mm = myMember();
+    [1, 2].forEach((n) => {
+      const hs = (mm && mm.defense && mm.defense[n - 1] && mm.defense[n - 1].heroes) || [];
+      $$(`#mydef-${n} .h3`).forEach((i, k) => {
+        if (document.activeElement !== i) i.value = hs[k] ? nameOf(hs[k]) : '';
+      });
+    });
+    const owned = localRoster();
+    $('#roster-info').textContent = `${owned.length} owned heroes found in your RTA helper data on this device. Shared: ${mm && mm.roster ? mm.roster.length : 0}.`;
+  }
+  /** Owned heroes from the RTA helper's own store on this device (Fribbels import + owned ticks). */
+  function localRoster() {
+    try {
+      const s = JSON.parse(localStorage.getItem('rta-helper-v2') || 'null');
+      if (!s) return [];
+      const set = new Set([...((s.fribbels && s.fribbels.heroes) || []).map((h) => h.code), ...(s.manualOwned || [])]);
+      return [...set];
+    } catch (_) {
+      return [];
+    }
+  }
+  $('#mydef-save').addEventListener('click', async () => {
+    if (!me()) return alert('Set your name in Setup first.');
+    await ensureMember();
+    const mm = myMember() || { id: 'm-' + GW.playerKey(me()).replace(/[^a-z0-9]+/g, '-'), name: me() };
+    const defense = [1, 2].map((n) => ({ heroes: $$(`#mydef-${n} .h3`).map((i) => codeOf(i.value)).filter(Boolean) }));
+    await put('member', { ...mm, defense });
+  });
+  $('#tab-members').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-dl]');
+    if (!b) return;
+    if (!me()) return alert('Set your name in Setup first.');
+    await put('defense', {
+      warId,
+      member: me(),
+      team: Number($('#dl-team').value),
+      attacker: $('#dl-attacker').value.trim(),
+      attackerHeroes: $$('#dl-heroes .h3').map((i) => codeOf(i.value)).filter(Boolean),
+      result: b.dataset.dl,
+      at: new Date().toISOString(),
+    });
+    $('#dl-attacker').value = '';
+    $$('#dl-heroes .h3').forEach((i) => (i.value = ''));
+  });
+  $('#roster-share').addEventListener('click', async () => {
+    if (!me()) return alert('Set your name in Setup first.');
+    const roster = localRoster();
+    if (!roster.length) return alert('No roster found. Import your gear.txt in the RTA helper (Data tab) first.');
+    await ensureMember();
+    await put('member', { ...(myMember() || { name: me() }), roster });
+  });
+  $('#roster-unshare').addEventListener('click', async () => {
+    const mm = myMember();
+    if (mm) await put('member', { ...mm, roster: [] });
+  });
+
+  // ---------------------------------------------------------------- enemies
+  function renderEnemies() {
+    const q = $('#enemy-search').value.trim();
+    const out = $('#enemy-out');
+    if (!q) {
+      const players = new Map();
+      for (const t of state.targets) {
+        const k = GW.playerKey(t.player);
+        const p = players.get(k) || { name: t.player, wars: new Set() };
+        p.wars.add(t.warId);
+        players.set(k, p);
+      }
+      out.innerHTML =
+        [...players.values()]
+          .sort((a, b) => b.wars.size - a.wars.size)
+          .map((p) => `<button class="btn" data-enemy="${esc(p.name)}">${esc(p.name)} <small class="hint">${p.wars.size} war${p.wars.size > 1 ? 's' : ''}</small></button>`)
+          .join(' ') || '<p class="hint">Enemy players appear here once you add their defenses.</p>';
+      return;
+    }
+    const h = GW.enemyHistory(state, q);
+    out.innerHTML =
+      h
+        .map((x) => `<div class="card gw-card"><b>vs ${esc(x.war ? x.war.enemyGuild : '?')}</b> <span class="hint">${esc(x.war ? String(x.war.startedAt).slice(0, 10) : '')}${x.target.tower ? ' · ' + esc(x.target.tower) : ''}</span>
+          ${(x.target.teams || []).map((tm, i) => `<div class="gw-team"><div class="gw-team-head">Team ${i + 1} ${x.status.teams[i] && x.status.teams[i].cleared ? '<span class="vd keep">cleared</span>' : ''}</div>${team(tm.heroes)}${Object.keys(tm.speeds || {}).length ? `<div class="hint">Speed: ${Object.entries(tm.speeds).map(([c, v]) => `${esc(nameOf(c))} ${v}`).join(' · ')}</div>` : ''}${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}</div>`).join('')}
+          <div class="hint">${x.attacks.map((a) => `${esc(a.by)}: ${esc(a.heroes.map(nameOf).join(' + ') || '?')} vs team ${a.team} — ${a.result}`).join('<br>')}</div></div>`)
+        .join('') || '<p class="hint">Not seen yet.</p>';
+  }
+  $('#enemy-search').addEventListener('input', renderEnemies);
+  $('#enemy-out').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-enemy]');
+    if (!b) return;
+    $('#enemy-search').value = b.dataset.enemy;
+    renderEnemies();
+  });
+
+  // ------------------------------------------------------------------ setup
+  function renderSetup() {
+    $('#my-name').value = conn.myName || '';
+    $('#guild-name').value = conn.guildName || '';
+    $('#guild-info').innerHTML = conn.guildCode ? `Guild code: <code>${esc(conn.guildCode)}</code> (keep it within your guild: anyone with it can read and edit).` : 'Not in a guild yet.';
+    if (conn.config && document.activeElement !== $('#fb-config')) $('#fb-config').value = JSON.stringify(conn.config, null, 1);
+    const R0 = rules();
+    $('#rule-attacks').value = R0.attacksPerMember;
+    $('#rule-teams').value = R0.teamsPerDefense;
+  }
+  $('#my-name').addEventListener('change', async (e) => {
+    conn.myName = e.target.value.trim();
+    saveConn();
+    status();
+    await ensureMember();
+  });
+  $('#guild-name').addEventListener('change', (e) => {
+    conn.guildName = e.target.value.trim();
+    saveConn();
+    status();
+  });
+  $('#guild-create').addEventListener('click', async () => {
+    if (conn.guildCode && !confirm('You are already in a guild. Create a new one?')) return;
+    conn.guildCode = GW.newId(16);
+    conn.guildName = $('#guild-name').value.trim() || 'My guild';
+    saveConn();
+    await connect();
+    await ensureMember();
+    render();
+  });
+  $('#guild-join').addEventListener('click', async () => {
+    const code = $('#guild-code').value.trim();
+    if (!code) return;
+    conn.guildCode = code;
+    saveConn();
+    await connect();
+    await ensureMember();
+    render();
+  });
+  $('#guild-invite').addEventListener('click', async () => {
+    if (!conn.guildCode) return alert('Create or join a guild first.');
+    const base = location.href.split('#')[0];
+    const link = Sync.inviteLink(base, conn.guildCode, conn.config || null);
+    try {
+      await navigator.clipboard.writeText(link);
+      alert('Invite link copied. Share it in your guild chat.' + (conn.config ? '' : '\n\nNote: Firebase is not connected yet, so guildmates would only get an empty local copy.'));
+    } catch (_) {
+      prompt('Copy this invite link:', link);
+    }
+  });
+  $('#fb-connect').addEventListener('click', async () => {
+    try {
+      conn.config = Sync.parseConfig($('#fb-config').value);
+    } catch (e) {
+      return alert('That does not look like a Firebase web config: ' + e.message);
+    }
+    saveConn();
+    await connect();
+    render();
+  });
+  $('#fb-disconnect').addEventListener('click', async () => {
+    if (!confirm('Stop sharing and use this device only? (Shared data stays in Firebase.)')) return;
+    delete conn.config;
+    saveConn();
+    await connect();
+    render();
+  });
+  const ruleInput = (sel, key) =>
+    $(sel).addEventListener('change', async (e) => {
+      const s = state.settings || { id: 'settings' };
+      await put('settings', { ...s, id: 'settings', rules: { ...(s.rules || {}), [key]: Math.max(1, Number(e.target.value) || 1) } });
+    });
+  ruleInput('#rule-attacks', 'attacksPerMember');
+  ruleInput('#rule-teams', 'teamsPerDefense');
+  $('#gw-export').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'epic7-engine-guild', guildName: conn.guildName, records }, null, 1)], { type: 'application/json' }));
+    a.download = `guild-${(conn.guildName || 'war').replace(/\W+/g, '-')}-${today()}.json`;
+    a.click();
+  });
+  $('#gw-import').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !backend) return;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!Array.isArray(data.records)) throw new Error('Not a guild export.');
+      // merge: keep the newest copy of each record
+      const merged = GW.buildState([...records, ...data.records]);
+      const keep = new Map(records.map((r) => [r.id, r]));
+      for (const r of data.records) if (!keep.has(r.id) || String(r.updatedAt) > String(keep.get(r.id).updatedAt)) keep.set(r.id, r);
+      await backend.replaceAll([...keep.values()]);
+      alert(`Imported. ${merged.targets.length} defenses, ${merged.attacks.length} attacks.`);
+    } catch (err) {
+      alert('Could not import: ' + err.message);
+    }
+  });
+
+  // ------------------------------------------------------------------ start
+  (async () => {
+    const inv = Sync.parseInvite(location.hash);
+    if (inv) {
+      if (!conn.guildCode || conn.guildCode === inv.guildCode || confirm('Join the guild from this invite link?')) {
+        conn.guildCode = inv.guildCode;
+        if (inv.config) conn.config = inv.config;
+        saveConn();
+      }
+      history.replaceState(null, '', location.pathname);
+      if (!conn.myName) {
+        activeTab = 'setup';
+        $$('.tab[data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === 'setup'));
+        $$('.panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-setup'));
+      }
+    }
+    await connect();
+    render();
+  })();
+})();

@@ -1,11 +1,34 @@
-# Epic Seven Live RTA Helper
+# Epic 7 Engine
 
-A fan-made helper for Epic Seven Real-Time Arena (RTA). It runs in any browser, including on a phone,
-with no install, account or server. All your data stays in your browser.
+A fan-made toolkit for Epic Seven. It runs in any browser, including on a phone, with no install. It has three parts:
 
-> Not affiliated with Smilegate or Epic Seven. The hero list and portraits load from the official Epic Seven site.
+| Page | What it does |
+|---|---|
+| **RTA** (`index.html`) | Live draft helper: reads the draft from your emulator, suggests picks and bans, scouts opponents, tracks speeds and learns from your matches |
+| **Gear** (`gear.html`) | Gear sorter: keep / enhance / reforge / extract / sell, and which hero each item suits |
+| **Guild War** (`guild.html`) | Enemy defenses, attacks, counters and member records, **shared live with your guild** |
 
-## Features
+RTA and Gear data stay in your browser. Guild War data is shared with your guild through a free Firebase project
+(see [docs/GUILD_SETUP.md](docs/GUILD_SETUP.md)), or kept on one device if you don't set that up.
+
+> Epic 7 Engine is fan-made and not affiliated with Smilegate or Epic Seven. The hero list and portraits load from the official Epic Seven site.
+
+## Guild War (shared with your guild)
+
+- **War board:** add each enemy player's defense (2 teams of 3, with speeds, sets and artifacts), see which teams are
+  cleared and by whom, assign targets to members, and log every attack with one click.
+- **Counters from guild history:** for any defense, see the attack teams that beat it before. Exact matches come first,
+  then teams sharing 2 of 3 heroes, with their record and who used them. The attack form can fill in a known counter.
+- **Who can take what:** for each uncleared team, the members with attacks left who **own** a known counter.
+  Members share only which heroes they own, taken from their RTA roster, never their gear.
+- **Members:** attacks left today, win rate, defense held/lost, and each member's current defense.
+- **Enemies:** everything seen of an enemy player across all wars (defenses, speeds, builds, who beat them with what).
+- **Counters tab:** enemy heroes your guild loses to most, and your best attack teams overall.
+- **Sharing:** live through Firebase, with anonymous sign-in (no emails). One person sets it up in about 10 minutes and
+  everyone else opens an invite link. You can also export or import files (for example, to share in Discord).
+- Rules such as attacks per day and teams per defense are shared guild settings, in case the game changes them.
+
+## RTA features
 
 **Auto: no typing during the draft** (PC with an emulator, in Chrome or Edge)
 1. Open the helper in Chrome or Edge **next to** the emulator, not minimized.
@@ -169,6 +192,10 @@ js/gearsort.js  gear score, reforge, hero fit, keep/sell verdicts (pure, tested)
 gear.html, js/gear-app.js  the Gear Sorter page
 js/tune.js      learns suggestion weights from your matches       (pure, tested)
 js/sources/fribbels-data.js  built-in copy of hero base stats + artifacts (generated)
+js/guildwar.js  Guild War logic: war summary, counters, assignments  (pure, tested)
+js/sync.js      shared storage: local (this device) or Firebase (guild)  (tested with a fake SDK)
+guild.html, js/guild-app.js  the Guild War page
+firestore.rules, docs/GUILD_SETUP.md  Firebase security rules + setup guide
 js/app.js       UI and storage
 js/auto.js      screen capture, calibration, detection loop, OCR, postbans, result, CR bar
 js/pip.js       always-on-top mini window
@@ -194,5 +221,7 @@ npm run update-fribbels-data  # refresh js/sources/fribbels-data.js
 - [x] Detect postbans, Victory/Defeat and CR-bar speeds from the screen
 - [x] Your gear: real speeds, sets and artifacts from gear.txt
 - [x] Opponent scouting: speeds, sets and artifacts per player
+- [x] Guild War tracker shared with the guild
 - [ ] Default slot positions for common emulator resolutions (needs real screenshots)
+- [ ] Guild War: read enemy defenses from the screen (needs screenshots)
 - [ ] Optional import of official battle records, if they can be reached from the browser
