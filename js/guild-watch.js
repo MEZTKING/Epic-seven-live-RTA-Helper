@@ -44,6 +44,9 @@
   function update() {
     $('#gw-watch').textContent = timer ? 'Stop watching' : 'Watch game';
     $('#gw-watch-box').classList.toggle('hidden', !timer);
+    $('#gw-teach').classList.toggle('hidden', !timer);
+    renderScreen();
+    postOverlay();
     if (window.GuildPip) window.GuildPip.render();
   }
 
@@ -106,6 +109,16 @@
   async function tick() {
     const r = box();
     if (!video || !r || busy) return;
+    // only read names on the enemy screen (if that screen was taught)
+    const SW = window.E7Screens;
+    if (SW) {
+      SW.update(video);
+      renderScreen();
+      if (!SW.allowed('gw-enemy')) {
+        if (window.E7Overlay) window.E7Overlay.clear('guild');
+        return;
+      }
+    }
     busy = true;
     try {
       if (!worker) {
@@ -142,6 +155,39 @@
     }
     busy = false;
   }
+
+  // ----------------------------------------------------- overlay layer 'guild'
+  /** Card next to the enemy's name in game: their dot, each team's verdict and your counter. */
+  function postOverlay() {
+    const O = window.E7Overlay;
+    const r = box();
+    if (!O || !r) return;
+    const t = A.current() ? A.targetFor(A.current()) : null;
+    if (!t || !timer) return O.clear('guild');
+    const v = A.verdict(t);
+    const lines = (t.teams || []).slice(0, A.rules().teamsPerDefense).map((tm, i) => {
+      const tv = v.teams[i] || {};
+      const st = v.status.teams[i] || {};
+      if (st.cleared) return `Team ${i + 1}: cleared`;
+      const c = tv.counter && tv.level !== 'red' ? ` — ${tv.counter.attack.map(A.nameOf).join(' + ')}` : '';
+      return `Team ${i + 1}: ${tv.label || '?'}${c}`;
+    });
+    O.post('guild', [{ ...r, kind: 'card', side: 'right', level: v.level, title: t.player, lines }]);
+  }
+  A.onChange(postOverlay);
+
+  function renderScreen() {
+    const SW = window.E7Screens;
+    const el = $('#gw-screen');
+    if (!SW || !el) return;
+    const n = SW.refs().filter((x) => x.screen === 'gw-enemy').length;
+    el.textContent = n ? `Enemy screen taught (${n}) · now: ${SW.current() ? SW.label(SW.current()) : 'other screen'}` : 'Tip: teach the enemy screen so names are only read there.';
+  }
+  $('#gw-teach').addEventListener('click', () => {
+    if (!video) return alert('Start "Watch game" first, with an enemy defense or profile showing.');
+    window.E7Screens.teach(video, 'gw-enemy');
+    renderScreen();
+  });
 
   $('#gw-watch').addEventListener('click', () => (timer ? stop() : start()));
   $('#gw-watch-box').addEventListener('click', calibrate);

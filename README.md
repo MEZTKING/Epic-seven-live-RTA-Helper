@@ -7,12 +7,43 @@ The home page (`index.html`) lets you pick a module, and every page has the same
 |---|---|
 | **RTA** (`rta.html`) | Live draft helper: reads the draft from your emulator, suggests picks and bans, scouts opponents, tracks speeds and learns from your matches |
 | **Gear** (`gear.html`) | Gear sorter: keep / enhance / reforge / extract / sell, and which hero each item suits |
+| **Live** (`live.html`) | Screen detector, readers and the overlay on top of the game (desktop app) |
 | **Guild War** (`guild.html`) | Enemy defenses, attacks, counters and member records, **shared live with your guild** |
 
 RTA and Gear data stay in your browser. Guild War data is shared with your guild through a free Firebase project
 (see [docs/GUILD_SETUP.md](docs/GUILD_SETUP.md)), or kept on one device if you don't set that up.
 
 > Epic 7 Engine is fan-made and not affiliated with Smilegate or Epic Seven. The hero list and portraits load from the official Epic Seven site.
+
+## Live: automatic, with an overlay on the game
+
+Everything works in four layers:
+1. **Capture:** a live picture of the game.
+2. **Screen detector:** recognises which game screen is showing. You teach each screen once by pressing
+   "This is that screen"; it's saved on your device and shared by all modules.
+3. **Readers:** each one runs only on its own screen.
+   - RTA: draft, drafting help, postbans, opponent name, CR bar, Victory/Defeat.
+   - Guild War: the enemy's name.
+   - Gear: item details.
+4. **Overlay:** suggestions next to the draft slot being picked, enemy speeds next to their heroes, the Guild War dot and
+   counter next to the enemy's name, and the gear verdict next to the item panel.
+
+The overlay sits **on top of the game** in the **desktop app** (`desktop/`, Electron: transparent, click-through, hidden
+from capture so the readers never read it, and no "choose what to share" prompt). In a browser you can preview it
+from the Live page. Everything only reads the screen.
+
+## Gear without Fribbels
+
+**Gear → Read gear from the game:** box the item details panel once, then click through your inventory. Each item is
+read with OCR, checked, and added as its own source (`screen`). Nothing is sent anywhere. Items read this way aren't
+linked to heroes yet; for hero speeds use `gear.txt` for now.
+Why not copy Fribbels' importer: it records the game's network traffic and decodes it on Fribbels' private server
+(see DEVLOG #10).
+
+## Later plans
+
+See [docs/ROADMAP.md](docs/ROADMAP.md): a PvE & events module (Advent, Dimensional Exploration, Hunts, Otherworldly Breach,
+Trial of Constellation, Strategic Archive…), a mobile app, importing official match history, and more.
 
 ## Guild War (shared with your guild)
 
@@ -222,6 +253,12 @@ js/guildwar.js  Guild War logic: war summary, counters, assignments  (pure, test
 js/sync.js      shared storage: local (this device) or Firebase (guild)  (tested with a fake SDK)
 guild.html, js/guild-app.js  the Guild War page
 firestore.rules, docs/GUILD_SETUP.md  Firebase security rules + setup guide
+js/screens.js   screen detector (fingerprints, detect, gating)    (pure, tested)
+js/statparse.js OCR text -> gear item (stat lines, set, slot)     (pure, tested)
+js/screen-watch.js, js/overlay-bus.js  shared browser helpers (current screen, overlay channel)
+live.html, js/live.js, overlay.html    the Live page and the overlay layer
+js/gear-scan.js the screen gear reader (Gear page)
+desktop/        Electron desktop app (overlay on top of the game)
 js/app.js       UI and storage
 js/auto.js      screen capture, calibration, detection loop, OCR, postbans, result, CR bar
 js/pip.js       always-on-top mini window

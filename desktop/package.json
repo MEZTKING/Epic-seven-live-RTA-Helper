@@ -1,0 +1,28 @@
+{
+  "name": "epic7-engine-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Epic 7 Engine desktop app: the same pages, plus a transparent click-through overlay on top of the game and screen capture without a prompt every session.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "app.epic7engine.desktop",
+    "productName": "Epic 7 Engine",
+    "files": ["main.js", "package.json"],
+    "extraResources": [
+      {
+        "from": "..",
+        "to": "web",
+        "filter": ["index.html", "rta.html", "gear.html", "guild.html", "live.html", "overlay.html", "manifest.webmanifest", "icon.svg", "firestore.rules", "css/**", "js/**", "docs/**"]
+      }
+    ],
+    "win": { "target": "portable" }
+  }
+}

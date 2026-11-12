@@ -7,6 +7,79 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #11 · Live layer system, desktop overlay app, gear read from the screen · this commit (previous: `0fe8ac4`)
+
+**Asked for:** "Make everything automatic, maybe use a layer system so a window over it can read everything on the
+game's screen." During the work: plan (not build) a PvE/events module (events, Advent, Dimensional Exploration, Hunts,
+Otherworldly Breach, Trial of Constellation, Strategic Archive), recorded in `docs/ROADMAP.md`.
+
+**Design: four layers**
+1. Capture.
+2. **Screen detector** (`js/screens.js`): whole frame → 32×18 fingerprint (zero-mean, unit length). Each screen is
+   taught by example (up to 5 per screen), matched against those examples, and must be the same twice in a row.
+   Untaught screens don't block anything, so nothing breaks before teaching.
+3. Readers gated by screen.
+4. **Overlay**: modules post items `{x,y,w,h as fractions of the game frame, kind, level, title, lines}` on the
+   BroadcastChannel `e7-overlay` (`js/overlay-bus.js`); `overlay.html` draws them.
+   - In the desktop app that page is a transparent, click-through, always-on-top window over the game display.
+   - In a browser it's a preview.
+
+**Changed**
+- `js/screens.js`, `js/screen-watch.js` (new): detector + shared helper (`E7Screens.update/teach/forget/allowed`);
+  fingerprints in localStorage `e7-screens`, shared by all modules on the device.
+- RTA (`js/auto.js`, `rta.html`):
+  - Draft-screen readers (slots, postbans, drafting help, name) run only on `rta-draft`, the result reader only on
+    `rta-result`, the CR reader only on `rta-battle`, each only once that screen has been taught.
+  - Teach / Forget controls and status in Auto.
+  - Overlay layer `rta`: top 3 suggestions next to the slot being picked, scouted enemy speeds next to their heroes.
+- Guild War (`js/guild-watch.js`, `guild.html`): name reading only on `gw-enemy` (once taught); "This is the enemy
+  screen" button; overlay layer `guild`: a card next to the enemy's name with their dot, each team's verdict and your counter.
+- Gear without Fribbels:
+  - `js/statparse.js` (new, pure): OCR text → stat lines (loose names, OCR slips like "Crit1cal", % vs flat,
+    plausible ranges), set, slot, enhance, level, rank → a Fribbels-shaped item, plus a list of problems.
+  - `js/gear-scan.js` (new): capture; box the panel once (main, 2–4 substats, optional set/slot/enhance/level);
+    OCR every 1.5 s on the `gear-item` screen; the same item twice in a row is added once.
+  - `js/gear-app.js`: `gs.scanned` kept separate from gear.txt items, with an on/off switch and a "screen" badge.
+  - Overlay layer `gear`: the verdict next to the panel.
+- `live.html` + `js/live.js` (new module "Live"): the four layers explained, taught screens (Forget), overlay preview,
+  a monitor of what modules send, desktop app instructions. App-bar link on every page, home card, manifest shortcut.
+- `overlay.html` (new): draws cards, labels and dots; flips a card to the other side of its box and clamps it to stay on screen.
+- `desktop/` (new, Electron 33.2.1, electron-builder 25.1.8 for a portable .exe):
+  - Serves the app under `e7://app` (one origin, so storage and channels are shared).
+  - Auto-approves screen capture for the chosen display.
+  - Overlay window: transparent, click-through, always-on-top, `setContentProtection(true)` so it's excluded from
+    capture and the readers never read the overlay.
+  - Pop-outs stay on top; menu to pick the game's display; Ctrl+Shift+O / Ctrl+Shift+E.
+- `sw.js` cache v9, Pages workflow publishes `live.html`/`overlay.html`, `.gitignore` for desktop builds,
+  README sections, CLAUDE.md (readers only read; never sniff game traffic), `docs/ROADMAP.md`.
+
+**Bugs found and fixed**
+- "Crit1cal Hit Chance 12 %" parsed as value 1 (a digit inside a word). The value is now the last number standing
+  on its own.
+- "Health 2,700": thousands separators broke the line split; parsing now uses the cleaned text.
+- Overlay card next to an item panel near the right edge was squeezed off screen; it now flips side and is clamped.
+- Gear overlay said "Best for Lilias (+2.2)" next to "not an upgrade"; it now only names a hero above the upgrade margin.
+
+**Tested**
+- `npm test`: 67 passing (new: detector through noise/brightness, unknown screens rejected, stabilizer, gating;
+  stat lines incl. OCR slips/percent/flat/ranges; set/slot/enhance/level/rank; whole item + problems; item key).
+- Browser (http):
+  - Generated item-details frames: Boots (Speed Set +15, Speed 45, 4 substats) read correctly → KEEP (best for Ravi);
+    Ring → EXTRACT. On another screen reading paused.
+  - The overlay page drew the gear card. The Live page lists taught screens; the home card reads "1 of 5 screens taught".
+  - Full RTA test still passes and its overlay shows enemy speeds; Guild War pop-out and live-sync tests pass.
+  - No console errors; Live and Gear pages don't scroll sideways on phones.
+- Desktop app: `node --check` only. **Not run** (no desktop/display here). Electron and electron-builder versions
+  checked to exist on npm.
+
+**Open / unverified**
+- Everything screen-based still needs **real game screens**: teaching, box positions, OCR on the game's font.
+- Screen-read gear isn't linked to heroes (roadmap: hero gear screens).
+- The desktop overlay needs the emulator in windowed or borderless mode (not exclusive full-screen).
+- Data inside the desktop app is separate from the browser's (export/import to move it).
+
+---
+
 ## 2026-11-12 · #10 · Guild War pop-out + "Watch game"; research on getting gear.txt without Fribbels · this commit (previous: `42a5d4b`)
 
 **Asked for**

@@ -14,7 +14,7 @@
   <header class="topbar">
     <div class="appbar">
       <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
-      <nav class="modules" aria-label="Modules"><a class="mod active" href="rta.html" aria-current="page">RTA</a><a class="mod" href="gear.html">Gear</a><a class="mod" href="guild.html">Guild War</a></nav>
+      <nav class="modules" aria-label="Modules"><a class="mod active" href="rta.html" aria-current="page">RTA</a><a class="mod" href="gear.html">Gear</a><a class="mod" href="guild.html">Guild War</a><a class="mod" href="live.html">Live</a></nav>
     </div>
     <nav class="tabs" role="tablist" aria-label="RTA">
       <button class="tab active" data-tab="draft" role="tab">Draft</button>
@@ -117,6 +117,17 @@
         </label>
       </div>
       <div id="auto-cr-out" class="hint"></div>
+      <div class="card wide" style="margin-top:10px">
+        <h3>Screens (automatic switching)</h3>
+        <p class="hint">Teach each screen once while it's showing, so readers only run on the right screen (e.g. the CR-bar reader only at battle start). Shared with the Guild War and Gear pages on this device. Teach 2–3 examples each for best results.</p>
+        <div class="btn-row">
+          <select id="auto-teach-screen"><option value="rta-draft">RTA draft (picks and bans)</option><option value="rta-battle">RTA battle start (CR bar visible)</option><option value="rta-result">RTA Victory / Defeat</option></select>
+          <button id="auto-teach" class="btn primary">This is that screen</button>
+          <button id="auto-forget" class="btn">Forget it</button>
+          <a class="btn" href="live.html">Overlay &amp; all screens ↗</a>
+        </div>
+        <div id="auto-screen" class="hint"></div>
+      </div>
       <p class="hint">Keep this browser window visible next to the emulator (not minimised). It only <b>looks</b> at the screen; it never clicks or types into the game.</p>
 
       <div id="calib" class="card wide hidden">
@@ -449,6 +460,9 @@
   <script src="js/logic.js"></script>
   <script src="js/tune.js"></script>
   <script src="js/vision.js"></script>
+  <script src="js/screens.js"></script>
+  <script src="js/screen-watch.js"></script>
+  <script src="js/overlay-bus.js"></script>
   <script src="js/app.js"></script>
   <script src="js/auto.js"></script>
   <script src="js/pip.js"></script>

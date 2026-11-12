@@ -14,7 +14,7 @@
   <header class="topbar">
     <div class="appbar">
       <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
-      <nav class="modules" aria-label="Modules"><a class="mod" href="rta.html">RTA</a><a class="mod active" href="gear.html" aria-current="page">Gear</a><a class="mod" href="guild.html">Guild War</a></nav>
+      <nav class="modules" aria-label="Modules"><a class="mod" href="rta.html">RTA</a><a class="mod active" href="gear.html" aria-current="page">Gear</a><a class="mod" href="guild.html">Guild War</a><a class="mod" href="live.html">Live</a></nav>
     </div>
   </header>
 
@@ -39,6 +39,21 @@
         <div id="gs-summary" class="verdicts"></div>
         <p class="hint">Extract = level 85+ gear (gives materials when extracted); Sell = lower level gear. Check in game before you extract or sell anything important.</p>
       </div>
+    </div>
+
+    <div class="card wide">
+      <h3>Read gear from the game <span class="src other">screen</span> <small class="hint">(no Fribbels needed)</small></h3>
+      <p class="hint">Open your inventory in the game and show an item's details. Press <b>Read gear from the game</b>, choose the emulator window, box the item panel once, then click through your items: each one is read, checked and added. Only reads the screen; nothing is sent anywhere. Items read this way aren't linked to a hero (use gear.txt or the hero screens later for that).</p>
+      <div class="btn-row">
+        <button id="gs-scan" class="btn primary">Read gear from the game</button>
+        <button id="gs-scan-boxes" class="btn hidden">Set boxes</button>
+        <button id="gs-scan-teach" class="btn hidden" title="Press while an item's details are showing">This is the item screen</button>
+        <label class="inline"><input id="gs-scan-use" type="checkbox" /> Use screen-read items</label>
+        <button id="gs-scan-clear" class="btn danger">Delete screen-read items</button>
+      </div>
+      <div id="gs-scan-info" class="hint"></div>
+      <div id="gs-scan-status" class="hint"></div>
+      <ul id="gs-scan-log" class="plain-list"></ul>
     </div>
 
     <div class="filters">
@@ -82,6 +97,12 @@
       </div>
     </div>
   </main>
+  <dialog id="gs-calib" class="wide-dialog">
+    <h3>Box the item panel</h3>
+    <p id="gs-calib-step" class="calib-step"></p>
+    <div class="btn-row"><button id="gs-calib-back" class="btn">Back</button><button id="gs-calib-skip" class="btn">Skip</button><span class="spacer"></span><button id="gs-calib-cancel" class="btn">Cancel</button><button id="gs-calib-save" class="btn primary">Save</button></div>
+    <canvas id="gs-calib-canvas" style="width:100%;height:auto;cursor:crosshair;touch-action:none;margin-top:8px"></canvas>
+  </dialog>
   <datalist id="gs-heroes"></datalist>
   <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
 
@@ -90,6 +111,11 @@
   <script src="js/roster.js"></script>
   <script src="js/gear.js"></script>
   <script src="js/gearsort.js"></script>
+  <script src="js/screens.js"></script>
+  <script src="js/screen-watch.js"></script>
+  <script src="js/overlay-bus.js"></script>
+  <script src="js/statparse.js"></script>
   <script src="js/gear-app.js"></script>
+  <script src="js/gear-scan.js"></script>
 </body>
 </html>

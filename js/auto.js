@@ -204,9 +204,15 @@
       if (App.activeTab() === 'auto') renderSlots();
       return;
     }
+    // which screen is showing? (readers below only run on their own taught screen)
+    const SW = window.E7Screens;
+    if (SW) SW.update(source);
+    const on = (screen) => !SW || SW.allowed(screen);
+    renderScreenInfo();
     const tpl = activeTemplates();
     const owned = App.cache.owned.size >= 20 ? App.cache.owned : null;
     for (const s of slots) {
+      if (!on('rta-draft') && s.side !== 'help') continue;
       const t = track.get(s.id);
       const rect = pxRect(s.rect);
       const feature = featureFromSource(source, rect, SLOT_INSET);
@@ -250,12 +256,15 @@
         if (c.autoLearn && r.best.source === 'official' && r.best.sim >= Math.max(0.8, c.threshold)) addLearned(r.best.code, feature, 'auto-learned');
       }
     }
-    if (c.apply) applyBoard();
-    if (c.apply && c.detectPostban) detectPostbans();
-    recordGameHelp();
-    maybeReadName();
-    maybeReadResult();
-    maybeAutoReadCR();
+    if (on('rta-draft')) {
+      if (c.apply) applyBoard();
+      if (c.apply && c.detectPostban) detectPostbans();
+      recordGameHelp();
+      maybeReadName();
+    }
+    if (on('rta-result')) maybeReadResult();
+    if (on('rta-battle')) maybeAutoReadCR();
+    postOverlay();
     fps.n++;
     const now = performance.now();
     if (now - fps.t > 2000) {
@@ -715,6 +724,77 @@
     renderSlots();
   });
 
+  // ================================================================ overlay
+  /*
+   * Layer 'rta' for the overlay: the top suggestions right next to the slot
+   * that is being filled, and scouted speeds under the enemy's heroes.
+   */
+  function postOverlay() {
+    const O = window.E7Overlay;
+    if (!O || !slots.length) return;
+    const d = App.store.draft;
+    const step = L.currentStep(d);
+    const v = L.draftView(d);
+    const items = [];
+    if (step) {
+      const ctx = App.suggestionContext();
+      let list = [];
+      if (step.phase === 'preban' && step.player === 'me') list = L.suggestPrebans(d, App.cache.heroes, ctx, 3);
+      else if (step.phase === 'pick') list = L.suggestPicks(d, App.cache.heroes, ctx, 3);
+      else if (step.phase === 'postban') list = L.suggestPostban(d, App.cache.heroes, ctx, step.player).slice(0, 3);
+      const kind = step.phase === 'postban' ? 'pick' : step.phase;
+      const side = step.phase === 'postban' ? (step.player === 'me' ? 'opp' : 'me') : step.player;
+      const idx = step.phase === 'preban' ? v.prebans[side].length : step.phase === 'pick' ? v.picks[side].length : 0;
+      const slot = slots.find((s) => s.side === side && s.kind === kind && s.index === Math.min(idx, kind === 'pick' ? 4 : 1)) || slots.find((s) => s.side === side);
+      if (slot && list.length) {
+        const who = step.player === 'me' ? 'Your' : 'Their likely';
+        items.push({
+          ...slot.rect,
+          kind: 'card',
+          side: side === 'me' ? 'right' : 'left',
+          title: `${who} ${step.phase}: ${list.map((x) => x.hero.name).join(' · ')}`,
+          lines: (list[0].reasons || []).slice(0, 2).map((r) => `${list[0].hero.name}: ${r.text}`),
+        });
+      }
+    }
+    // scouted speeds under each enemy pick
+    v.picks.opp.forEach((code, i) => {
+      const slot = slots.find((s) => s.side === 'opp' && s.kind === 'pick' && s.index === i);
+      const seen = App.scoutedSpeed(code, d.opponent);
+      const e = App.store.scouting.find((x) => x.draftId === d.id && x.code === code);
+      const sp = (e && e.speed) || (seen && seen.speed);
+      if (slot && sp) items.push({ ...slot.rect, kind: 'label', side: 'left', title: `~${Math.round(sp)} spd` });
+    });
+    O.post('rta', items);
+  }
+  App.onDraftRender(postOverlay);
+
+  // ======================================================== screen teaching
+  function renderScreenInfo() {
+    const SW = window.E7Screens;
+    const el = $('#auto-screen');
+    if (!SW || !el) return;
+    const cur = SW.current();
+    const counts = {};
+    for (const r of SW.refs()) counts[r.screen] = (counts[r.screen] || 0) + 1;
+    el.innerHTML = `Screen now: <b>${cur ? App.esc(SW.label(cur)) : 'not recognised'}</b> · taught: ${
+      SW.SCREENS.filter((x) => x.module === 'rta')
+        .map((x) => `${App.esc(x.label)} ${counts[x.id] ? `✓${counts[x.id]}` : '—'}`)
+        .join(' · ')
+    }`;
+  }
+  $('#auto-teach').addEventListener('click', () => {
+    if (!source || !frameSize()) return alert('Start watching (or load a screenshot) first, with that screen showing.');
+    const id = $('#auto-teach-screen').value;
+    window.E7Screens.teach(source, id);
+    renderScreenInfo();
+  });
+  $('#auto-forget').addEventListener('click', () => {
+    const id = $('#auto-teach-screen').value;
+    if (confirm(`Forget what "${window.E7Screens.label(id)}" looks like?`)) window.E7Screens.forget(id);
+    renderScreenInfo();
+  });
+
   // ================================================================= render
   function setStatus(text) {
     const el = $('#auto-status');
@@ -777,6 +857,7 @@
     $('#auto-cr').checked = c.autoReadCR;
     $('#auto-cr-end').value = c.crEnd || 'auto';
     if (!slots.length) rebuildSlots();
+    renderScreenInfo();
     renderTemplateInfo();
     renderSlots();
   }

@@ -24,7 +24,15 @@
       g = JSON.parse(localStorage.getItem(GEAR_KEY));
     } catch (_) { /* ignore */ }
     g = g && typeof g === 'object' ? g : {};
-    return { fileName: g.fileName || '', importedAt: g.importedAt || null, items: Array.isArray(g.items) ? g.items : [], rules: { ...S.DEFAULT_RULES, ...(g.rules || {}) }, overrides: g.overrides || {} };
+    return {
+      fileName: g.fileName || '',
+      importedAt: g.importedAt || null,
+      items: Array.isArray(g.items) ? g.items : [], // source 'fribbels' (gear.txt)
+      scanned: Array.isArray(g.scanned) ? g.scanned : [], // source 'screen' (read from the game, see gear-scan.js)
+      useScanned: g.useScanned !== false,
+      rules: { ...S.DEFAULT_RULES, ...(g.rules || {}) },
+      overrides: g.overrides || {},
+    };
   }
   function save() {
     try {
@@ -34,7 +42,11 @@
     }
   }
   function recompute() {
-    evald = S.evaluateAll(gs.items, HEROES, gs.overrides, gs.rules);
+    evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules);
+  }
+  /** gear.txt items + screen-read items (kept as separate sources; screen items aren't linked to a hero). */
+  function allItems() {
+    return gs.useScanned ? [...gs.items, ...gs.scanned] : gs.items;
   }
 
   // ------------------------------------------------------------------ import
@@ -111,7 +123,9 @@
   }
 
   function render() {
-    $('#gs-src').innerHTML = gs.items.length ? `${gs.items.length} items from <b>${esc(gs.fileName)}</b> (${new Date(gs.importedAt).toLocaleDateString()}) · ${gs.items.filter((i) => i.equipped).length} equipped · ${evald.profiles.length} heroes with gear` : 'Nothing imported yet.';
+    $('#gs-src').innerHTML =
+      (gs.items.length ? `${gs.items.length} items from <b>${esc(gs.fileName)}</b> (${new Date(gs.importedAt).toLocaleDateString()}) · ${gs.items.filter((i) => i.equipped).length} equipped · ${evald.profiles.length} heroes with gear` : 'No gear.txt imported.') +
+      (gs.scanned.length ? `<br>${gs.scanned.length} items read from the game screen <span class="src other">screen</span>${gs.useScanned ? '' : ' (switched off)'}` : '');
     for (const [sel, k] of Object.entries(RULE_INPUTS)) $(sel).value = gs.rules[k];
     const counts = {};
     for (const r of evald.results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
@@ -130,7 +144,7 @@
             .map((b) => `<div>${portrait(b.code)} ${esc(nameOf(b.code))} <small class="${b.delta > gs.rules.upgradeMargin ? 'up' : 'hint'}">${b.delta > 0 ? '+' + b.delta : 'current'}</small></div>`)
             .join('') || '<span class="hint">no upgrade</span>';
           return `<tr>
-            <td><b>${esc(it.gear)}</b> · ${esc(setLabel(it.set))}<div class="hint">${esc(it.rank)} lv${it.level} +${it.enhance}${it.locked ? ' 🔒' : ''}</div>
+            <td><b>${esc(it.gear)}</b> · ${esc(setLabel(it.set))}${it.source === 'screen' ? ' <span class="src other" title="Read from the game screen">screen</span>' : ''}<div class="hint">${esc(it.rank)} lv${it.level} +${it.enhance}${it.locked ? ' 🔒' : ''}</div>
               <div class="hint">Main: ${fmtSub(it.main)}</div>${it.equipped ? `<div class="hint">on ${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</div>` : ''}</td>
             <td class="small">${it.subs.map(fmtSub).join('<br>')}</td>
             <td><b>${r.wss}</b>${r.reforgedWss !== r.wss ? `<div class="hint">→ ${r.reforgedWss} reforged</div>` : ''}${r.potential.rollsLeft ? `<div class="hint">~${r.potential.expected} at +15</div>` : ''}</td>
@@ -223,6 +237,53 @@
     $('#b-out').innerHTML = `<div class="ins ${worth || r.verdict === 'enhance' ? 'good' : 'warn'}"><b>${worth ? 'Worth buying' : r.verdict === 'enhance' ? 'Maybe: good start, needs enhancing' : 'Probably skip'}</b> · gear score ${r.wss}${r.potential.rollsLeft ? ` (≈${r.potential.expected} at +15)` : ''}
       <div>${r.best.filter((b) => b.delta > 0).map((b) => `${portrait(b.code)} ${esc(nameOf(b.code))} +${b.delta}`).join(' · ') || 'Not an upgrade for any hero right now.'}</div></div>`;
   });
+
+  // ---------------------------------------------------- API for gear-scan.js
+  window.GearApp = {
+    get gs() {
+      return gs;
+    },
+    S,
+    esc,
+    nameOf,
+    /** Add an item read from the screen (source 'screen'). Returns the evaluation, or null if it was already there. */
+    addScanned(item, key) {
+      if (gs.scanned.some((x) => x.key === key)) return null;
+      const slim = {
+        id: 'scan-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+        key,
+        source: 'screen',
+        gear: item.gear,
+        set: item.set,
+        rank: item.rank,
+        level: item.level,
+        enhance: item.enhance,
+        name: '',
+        locked: false,
+        main: item.main,
+        subs: item.substats.map((x) => ({ type: x.type, value: x.value })),
+        equipped: null,
+        at: new Date().toISOString(),
+      };
+      gs.scanned.push(slim);
+      save();
+      recompute();
+      render();
+      return evald.results.find((r) => r.item.id === slim.id) || null;
+    },
+    clearScanned() {
+      gs.scanned = [];
+      save();
+      recompute();
+      render();
+    },
+    setUseScanned(on) {
+      gs.useScanned = on;
+      save();
+      recompute();
+      render();
+    },
+  };
 
   recompute();
   render();

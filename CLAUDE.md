@@ -10,7 +10,11 @@
   `index.html` is the **home page** (module picker). Modules: `rta.html` (RTA helper), `gear.html` (Gear Sorter),
   `guild.html` (Guild War, shared via Firebase; see `docs/GUILD_SETUP.md`). Every page has the same app bar
   (brand → home, module switcher); a module's own tabs sit underneath. New modules get a page, a home card and an app-bar link.
-- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`).
+  `live.html` (Live) holds the screen detector / overlay overview; `overlay.html` is the overlay layer; `desktop/` is the
+  Electron app that puts the overlay on top of the game. Readers only READ the screen; never send input to the game,
+  never sniff or decode game network traffic.
+- Later plans live in `docs/ROADMAP.md` (e.g. the PvE & events module). Add owner's "later" ideas there.
+- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`, `js/screens.js`, `js/statparse.js`).
 - **Keep data separated by source.** Official roster, Fribbels import, the owner's notes, learned
   stats and each imported dataset are stored apart and can be toggled off individually. Never merge
   one source into another; label every suggestion reason with its source.
