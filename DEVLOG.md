@@ -26,8 +26,12 @@ downloaded without installing Node.js or using a command line.
   33.2.1 / electron-builder 25.1.8 and their dependencies, so CI uses `npm ci`.
 - Docs: README "Install on Windows", desktop/README, HANDOFF (CI section), SOURCES (actions used).
 
-**Tested:** workflow YAML parses; `npm test` 74 passing. The first real build runs on GitHub after this push; result
-noted in the next entry or below.
+**Tested**
+- Workflow YAML parses; `npm test` 74 passing.
+- **First real build on GitHub: run #1 (id 43301060267), success.** Tests passed on Ubuntu; `windows-latest` ran
+  `npm ci` (24 s) and `npm run dist` (78 s). The artifact **Epic-7-Engine-windows** (74.3 MB zip, expires 2026-12-12)
+  was uploaded; the Release step was skipped as intended (no tag).
+- **The .exe itself has not been started yet** (no Windows/display here). The first launch is the owner's.
 
 **Open:** the .exe is unsigned (Windows SmartScreen asks once). Code signing needs a certificate (paid).
 Downloading Actions artifacts requires being signed in to GitHub; tagged Releases don't.
