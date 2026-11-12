@@ -7,6 +7,74 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #17 · Pop out fixed, in-app updater, read just the game window · this commit (previous: `d112aa5`)
+
+**Asked for:** (screenshot of Guild War in the desktop app) "POP OUT DOESNT DO ANYTHING"; then "make an inapp updater";
+then "can the window not lock on per window instead of the whole screen".
+
+**Findings**
+- Pop out: in Electron 33, `documentPictureInPicture` exists but `requestWindow()` **never resolves** (checked in the
+  packaged app: the promise hangs, no error). So the click did nothing. A try/catch alone wouldn't help.
+- electron-updater can update an NSIS-installed app from GitHub Releases, but **not a portable .exe**. The repo is public,
+  so Releases download without signing in. Every build needs a higher version, so CI sets `0.1.<run number>`.
+- Electron's capture sources include single windows (`window:<HWND>:0` on Windows). Capturing a window gives just the
+  game, even when other windows cover it. The overlay then has to know where that window is: read with
+  `DwmGetWindowAttribute` (physical pixels), converted with `screen.screenToDipRect`.
+
+**Changed**
+- `js/pip.js`, `js/guild-pip.js`: in the desktop app, open a normal window (the app keeps it always on top); in a browser,
+  Picture-in-Picture with a fallback to a normal pop-up if it fails.
+- In-app updater, `desktop/updater.js` (new):
+  - Checks about 10 s after start, quietly, and from the menu **Epic 7 Engine → Check for updates…**.
+  - Installed app: electron-updater. It asks first, shows progress on the taskbar icon, then "Restart now / Later".
+    Later = installs on close.
+  - Portable .exe: GitHub API `releases/latest`, downloads `*-portable.exe` next to the old one as `.update`. After the
+    app exits, a small `.cmd` retries `move` until the old file is free, then starts the new one if "Restart now" was
+    chosen. Same file name and place, so shortcuts keep working.
+  - The menu also shows the version and links to the Releases page.
+- `desktop/package.json`: targets `nsis` + `portable`. NSIS is one-click, per-user (no admin), with a desktop shortcut;
+  output `Epic-7-Engine-Setup-<v>.exe`. Adds a `publish` block (github, so `latest.yml` / `app-update.yml` are written)
+  and the dependency `electron-updater` 6.3.9. Lock file regenerated.
+- `.github/workflows/desktop-build.yml`: version `0.1.<run number>`. Every app change publishes Release `v0.1.<n>`
+  (marked latest) with the installer, its blockmap, `latest.yml` and the portable .exe. The `v*`-tag trigger was removed
+  (versions are automatic). `concurrency` keeps builds in order.
+- Read just the game window:
+  - `desktop/picker.html` (new): "Which window is the game?" with live previews. Emulators and Steam "Epic Seven" are
+    marked "looks like the game"; whole screens are a fallback.
+  - `desktop/preload.js` (new): `window.E7Desktop` `{capture, pickWindow, onCapture}`.
+  - `desktop/main.js`: `config.capture` (`{mode:'window'|'screen', id, name}`). `getDisplayMedia` gets that window;
+    the picker opens the first time, or when the window can't be found (matched by id, then by title).
+  - Menu **Game window**: shows the current choice; **Pick the game window…**.
+  - `desktop/wintrack.js` (new): one PowerShell loop reads the game window's position, minimized state and whether it
+    (or this app) is active. The overlay window follows it, and hides when the game is minimized or another program
+    is in front.
+  - `js/game-area.js`: in window mode no box is asked (the capture is already the game). **Reset game area** opens the
+    window picker in the desktop app.
+  - `overlay.html`: identity mapping in window mode. `js/live.js`: the status line shows the game window.
+- `sw.js` cache v13 (changed pages and scripts).
+- `tests/desktop.test.js` (new, 4 tests): tracker line parsing, HWND from source id, version compare.
+- `tests/desktop/` (new): Playwright-driven checks of the packaged app (pop-outs, window picker).
+
+**Tested**
+- `npm test`: 78 passing. Browser suite: 12/12 clean.
+- Packaged Linux build (`electron-builder --linux dir`), driven by Playwright under Xvfb + Openbox:
+  - Pop out on Guild War and on RTA opens a window with its content, always on top. The old code hung in
+    `requestWindow`.
+  - Window picker: a fake "Epic Seven" window (separate Chromium) was listed and marked; the app's own windows were not.
+    Picking it made `getDisplayMedia` capture only that window: the centre pixel was the game's gold colour, the
+    track label was the window title, and no box dialog appeared. The choice was saved in `config.json` and the next
+    capture skipped the picker. The overlay page and Live see window mode.
+- `app.asar` contains `updater.js`, `electron-updater`; `app-update.yml` is in resources. An AppImage build writes
+  `latest-linux.yml`, so the Windows build will write `latest.yml`.
+- **Not tested (needs Windows):** the PowerShell window tracker and the overlay following the window; the NSIS
+  installer and the actual update download and swap (first possible once two Releases exist); DPI scaling other than
+  100%.
+
+**Open:** updates are unsigned (SmartScreen may ask after an update). The first installed or portable version that has
+the updater is the one from this build. Older .exe files must be replaced by hand once.
+
+---
+
 ## 2026-11-12 · #16 · Box the game window (game area) + bigger text · this commit (previous: `e062f43`)
 
 **Asked for:** (with two screenshots of the desktop app on Windows) "make the ui and text size bigger" and "watch

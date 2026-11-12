@@ -48,16 +48,17 @@ Tap **ⓘ**, a hero in a draft slot, or a hero chip in Guild War to open the her
 
 ## Install on Windows (desktop app with the overlay)
 
-No Node.js or command line needed. GitHub builds the app automatically:
-1. Open the repository on GitHub → **Actions** tab → **Build Windows app** → the newest run with a green tick.
-2. At the bottom, under **Artifacts**, download **Epic-7-Engine-windows** (you must be signed in to GitHub) and unzip it.
-3. Run **`Epic-7-Engine-<version>-portable.exe`**. It's a portable app, so there's no installer; put it anywhere, e.g. on your desktop.
+No Node.js, command line or GitHub account needed:
+1. Open the repository's **Releases** page (right side of the repo on GitHub) and take the newest release.
+2. Download **`Epic-7-Engine-Setup-<version>.exe`** (installer, recommended) and run it. It installs for your user only
+   (no admin) and adds a desktop shortcut. Or take **`Epic-7-Engine-<version>-portable.exe`** if you don't want to install.
    Windows may say "Windows protected your PC" because the app isn't signed: **More info → Run anyway**.
+3. The first time a module starts reading, pick the **game window** (emulator or Steam) from the list. The app then
+   reads only that window and the overlay follows it. Change it later: menu **Game window**, or **Reset game area**.
+   Text too small or big? **Ctrl+=** / **Ctrl+-** (**Ctrl+0** resets).
 
-4. The first time you start reading (RTA Auto, Guild War Watch, Gear Read), drag a box around the game window. Moved the
-   game window? Press **Reset game area**. Text too small or big? **Ctrl+=** / **Ctrl+-** (**Ctrl+0** resets).
-
-When a version tag (e.g. `v0.1.0`) is pushed, the same .exe is also attached to a **Release** (Releases section of the repo).
+**Updates are built in:** the app checks for a new version when it starts (and from **Epic 7 Engine → Check for updates…**),
+downloads it and restarts on it. Every change pushed to the app makes a new release automatically.
 Without the desktop app you can simply open `index.html` in Chrome or Edge (everything except the overlay).
 Building it yourself: see [desktop/README.md](desktop/README.md).
 

@@ -25,7 +25,9 @@
   renderScreens();
 
   const ga = window.GameArea && window.GameArea.get();
-  $('#live-area').textContent = ga ? (ga.full ? 'Game area: the whole capture.' : `Game area set (${Math.round(ga.w * ga.fw)}×${Math.round(ga.h * ga.fh)} px of a ${ga.fw}×${ga.fh} capture).`) : 'Game area not set yet: you\'ll be asked to box the game the first time a reader starts.';
+  const dc = window.E7Desktop && window.E7Desktop.capture();
+  if (dc && dc.mode === 'window') $('#live-area').textContent = `Reading only the game window "${dc.name}" (change: Reset game area, or the Game window menu).`;
+  else $('#live-area').textContent = ga ? (ga.full ? 'Game area: the whole capture.' : `Game area set (${Math.round(ga.w * ga.fw)}×${Math.round(ga.h * ga.fh)} px of a ${ga.fw}×${ga.fh} capture).`) : 'Game area not set yet: you\'ll be asked to box the game the first time a reader starts.';
   $('#live-preview').addEventListener('click', () => window.open('overlay.html', 'e7-overlay-preview', 'width=1100,height=640'));
 
   const layers = {};

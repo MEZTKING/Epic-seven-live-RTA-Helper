@@ -117,6 +117,18 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
   - Auto-approves `getDisplayMedia` for the chosen display.
   - Overlay window: transparent, click-through, always on top, `setContentProtection(true)` so readers never read it.
   - Ctrl+Shift+O / Ctrl+Shift+E.
+  - **Capture** (`config.capture` in the app's `config.json`): `{mode:'window', id, name}` = only the game window
+    (picked in `desktop/picker.html`, matched again by id then title), or `{mode:'screen', …}`. `null` → the picker
+    opens on the first `getDisplayMedia`. Pages see it through `desktop/preload.js` → `window.E7Desktop`
+    (`capture()`, `pickWindow()`, `onCapture()`); `js/game-area.js` skips the box in window mode, `overlay.html` uses no
+    mapping. Menu **Game window**.
+  - **Overlay follows the game window** (Windows): `desktop/wintrack.js` runs one PowerShell loop reading
+    `DwmGetWindowAttribute` / `IsIconic` / `GetForegroundWindow` (read-only); the overlay is moved to the window
+    (`screen.screenToDipRect`) and hidden when it's minimized or another program is in front.
+  - **Updater** `desktop/updater.js`: installed app = electron-updater (GitHub provider, asks before download, restart to
+    install); portable = GitHub API `releases/latest` → download `*-portable.exe` as `<exe>.update` → `.cmd` swaps it
+    after exit. Checks 10 s after start and from the menu.
+  - Pop-outs (`js/pip.js`, `js/guild-pip.js`) use `window.open` in Electron: Document PiP's `requestWindow` hangs there.
   - Text size: pages open at 125% zoom (`config.zoom`, saved in the app's config file). View menu: Ctrl+= bigger,
     Ctrl+- smaller, Ctrl+0 back to 125%. Overlay menu: bigger/smaller overlay text (`config.overlayZoom`).
 
@@ -132,7 +144,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     caps it at 62vh.
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #16)
+## 7. Status (end of DEVLOG #17)
 
 **Game client:** works with any PC window (Steam version, official PC client, Google Play Games, emulators), because
 it only reads the screen; calibrate per client. **Fribbels' gear importer does NOT work with the Steam version**
@@ -169,11 +181,15 @@ npm run update-heroes                  # refresh js/sources/official-heroes.js
 npm run update-fribbels-data           # refresh js/sources/fribbels-data.js (RexQian fork data)
 python3 -m http.server 8766            # serve locally (needed for service worker / BroadcastChannel tests)
 cd desktop && npm install && npm start # desktop overlay app
-cd desktop && npm run dist             # portable Windows .exe in desktop/dist/
+cd desktop && npm run dist             # Windows installer + portable .exe in desktop/dist/ (needs Windows or wine)
+cd desktop && npx electron-builder --linux dir --publish never   # packaged Linux build, for tests here
+xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
 ```
 
 **CI:**
 - `.github/workflows/pages.yml` runs the tests and publishes the site from `main`.
-- `.github/workflows/desktop-build.yml` runs the tests, then builds the Windows .exe on `windows-latest` for every push
-  that touches the app (on `main` and the dev branch). It's uploaded as the artifact `Epic-7-Engine-windows`; `v*`
-  tags also attach it to a GitHub Release.
+- `.github/workflows/desktop-build.yml` runs the tests, then builds on `windows-latest` for every push that touches the
+  app (on `main` and the dev branch). Version = `0.1.<run number>`. It publishes **Release `v0.1.<n>`** (latest) with
+  `Epic-7-Engine-Setup-<v>.exe` (+ `.blockmap`, `latest.yml`) and `Epic-7-Engine-<v>-portable.exe`, and also uploads
+  them as the artifact `Epic-7-Engine-windows`. The in-app updater reads these Releases, so **every push to the dev
+  branch that touches the app ships an update to the owner**. Don't push broken app code.

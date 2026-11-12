@@ -16,11 +16,19 @@
 
   async function open() {
     if (win && !win.closed) return win.focus();
-    if (window.documentPictureInPicture) {
-      win = await window.documentPictureInPicture.requestWindow({ width: 340, height: 520 });
-    } else {
+    win = null;
+    // Picture-in-Picture (Chrome/Edge). The desktop app has no PiP: it opens a normal window that it keeps on top.
+    const desktop = /Electron/.test(navigator.userAgent);
+    if (window.documentPictureInPicture && !desktop) {
+      try {
+        win = await window.documentPictureInPicture.requestWindow({ width: 340, height: 520 });
+      } catch (_) {
+        win = null;
+      }
+    }
+    if (!win) {
       win = window.open('', 'rta-mini', 'width=340,height=560');
-      if (!win) return alert('The browser blocked the pop-up. Allow pop-ups for this page.');
+      if (!win) return alert('The pop-up was blocked. Allow pop-ups for this page.');
       win.document.title = 'RTA mini';
     }
     for (const link of document.querySelectorAll('link[rel=stylesheet]')) {
