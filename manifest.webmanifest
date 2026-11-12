@@ -14,5 +14,19 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "RTA",
+      "url": "./rta.html"
+    },
+    {
+      "name": "Gear",
+      "url": "./gear.html"
+    },
+    {
+      "name": "Guild War",
+      "url": "./guild.html"
+    }
   ]
 }

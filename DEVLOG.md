@@ -7,6 +7,48 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #8 · Epic 7 Engine home page and module switcher · this commit (previous: `2c0234e`)
+
+**Asked for:** "Epic 7 Engine" is the overall application; under it you select Guild War, Gear, RTA "and the rest".
+
+**Changed**
+- `index.html` is now the **home page** (module picker). The RTA helper moved to **`rta.html`** (`git mv`, history kept).
+  - Cards for RTA, Gear and Guild War, plus a "More coming" placeholder for future modules.
+  - Each card shows a one-line status from this device's storage (`js/home.js`, new): matches logged and win %,
+    gear items imported, and guild name with shared or local.
+  - A short getting-started list.
+- Every page has the same **app bar**: "Epic 7 Engine" (links home) plus a module switcher
+  (RTA · Gear · Guild War, current one highlighted). A module's own tabs sit underneath in a second row.
+  The old "Gear ↗ / RTA ↗ / Guild War ↗" links in each page's tabs were removed.
+- `manifest.webmanifest`: installed-app shortcuts for RTA, Gear and Guild War (`start_url` stays the home page).
+- `sw.js` cache `epic7-engine-v7` (adds `rta.html`, `js/home.js`); Pages workflow publishes `rta.html`.
+- README and CLAUDE.md describe the home page + modules layout and how to add a module
+  (a page, a home card, an app-bar link).
+
+**Bugs found and fixed**
+- Turn beep: the browser warned "AudioContext was not allowed to start" because the beep could fire before any
+  click. It now only plays after the user has interacted with the page (`navigator.userActivation.hasBeenActive`).
+- (Test only) The full RTA browser test stopped reading the opponent's name. The taller two-row header pushed the
+  bottom of the calibration image below the test window, so the name box drag missed and the box was never saved.
+  Checked that OCR itself still works (read "RivalOne"); made the test window taller. In real use you scroll.
+
+**Tested**
+- `npm test`: 56 passing.
+- Browser:
+  - Home page statuses are correct.
+  - Each module link opens the right page with the right module highlighted and its own tabs; the brand returns home.
+  - RTA tab switching still works; no sideways scrolling on phones for all 4 pages.
+- All earlier browser tests re-run against `rta.html`:
+  - Draft, postbans, OCR name, CR speeds, auto-recorded result.
+  - Drafting help, gear sorter (same 248-item result), Guild War live sync. No console errors.
+
+**Open / notes**
+- Old bookmarks to `index.html` now open the home page (one click to RTA). RTA data is unchanged
+  (same storage key `rta-helper-v2`).
+- "More coming" is a placeholder; tell me which modules you want next.
+
+---
+
 ## 2026-11-12 · #7 · Epic 7 Engine + Guild War (shared with the guild) · this commit (previous: `93abee7`)
 
 **Asked for:** turn the app into a bigger toolkit, named **"Epic 7 Engine"** (the owner corrected an earlier
