@@ -12,6 +12,7 @@
  *   attack   { warId, targetId, by: memberName, team: 1|2, heroes: [my 3 codes], speeds?: {code: n} (attacker's
  *              own speeds from their gear.txt, if they chose to share), result: 'win'|'loss', notes, at }
  *   defense  { warId?, member: memberName, team: 1|2, attacker?: enemyName, attackerHeroes?: [codes], result: 'held'|'lost', at }
+ *   hero     { code, tags: [], skills: { S1, S2, S3, other } }   guild-shared hero notes (id 'hero-<code>')
  *
  * The guild is its own data source ('guild'). Nothing here is mixed into the
  * RTA helper's own data.
@@ -40,6 +41,7 @@
       attacks: of('attack').sort((a, b) => String(a.at || '').localeCompare(String(b.at || ''))),
       defenses: of('defense'),
       settings: of('settings')[0] || null,
+      heroNotes: of('hero'), // guild-shared hero tags / skill notes
     };
   }
 

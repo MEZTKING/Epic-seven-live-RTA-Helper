@@ -263,7 +263,7 @@
       maybeReadName();
     }
     if (on('rta-result')) maybeReadResult();
-    if (on('rta-battle')) maybeAutoReadCR();
+    if (on('rta-battle') || (SW && SW.current() === 'rta-cr-expanded')) maybeAutoReadCR();
     postOverlay();
     fps.n++;
     const now = performance.now();
@@ -433,12 +433,16 @@
   }
   function readCR({ quiet = false } = {}) {
     const c = cfg();
-    const reg = c.regions.crBar;
+    // the EXPANDED CR bar (bigger portraits) is used when it's on screen, else the normal bar
+    const SW = window.E7Screens;
+    const expandedNow = SW && SW.current() === 'rta-cr-expanded';
+    const reg = (expandedNow && c.regions.crBarExpanded) || c.regions.crBar || c.regions.crBarExpanded;
+    const which = reg === c.regions.crBarExpanded ? 'expanded CR bar' : 'CR bar';
     const out = $('#auto-cr-out');
     const say = (t) => {
       if (out) out.innerHTML = t;
     };
-    if (!reg) return !quiet && say('Calibrate the CR bar first (on a battle screen).');
+    if (!reg) return !quiet && say('Calibrate the CR bar (or the expanded CR bar) first, on a battle screen.');
     if (!source || !frameSize()) return !quiet && say('Start watching or load a screenshot first.');
     const v = L.draftView(App.store.draft);
     const fighters = [
@@ -483,7 +487,7 @@
     }
     App.addScoutSpeeds(speeds);
     say(
-      `${speeds.length} heroes read · ` +
+      `${speeds.length} heroes read from the ${which} · ` +
         speeds
           .map((x) => `<span class="${x.side}">${App.esc(App.nameOf(x.code))}</span> ${x.cr}% → ${x.known ? `<b>${x.known}</b> (yours)` : `~<b>${Math.round(x.speed)}</b> (${Math.round(x.min)}–${Math.round(x.max)})`}`)
           .join(' · '),
@@ -493,7 +497,7 @@
   function maybeAutoReadCR() {
     const c = cfg();
     const d = App.store.draft;
-    if (!c.autoReadCR || !c.regions.crBar || !L.isComplete(d)) return;
+    if (!c.autoReadCR || !(c.regions.crBar || c.regions.crBarExpanded) || !L.isComplete(d)) return;
     if (crState.draftId !== d.id) Object.assign(crState, { draftId: d.id, done: false, at: 0 });
     if (crState.done || performance.now() - crState.at < 2000) return;
     crState.at = performance.now();
@@ -552,6 +556,7 @@
   // ============================================================ calibration
   let calib = null; // { steps, step, regions, frame: canvas, drag }
   const CR_STEPS = [{ key: 'crBar', label: 'the CR (turn order) bar, from its 0% end to its 100% end, as tall/wide as the portraits on it' }];
+  const CR_EXP_STEPS = [{ key: 'crBarExpanded', label: 'the EXPANDED CR bar (open it in battle first), from its 0% end to its 100% end, as tall/wide as the portraits' }];
   const RESULT_STEPS = [{ key: 'result', label: 'where VICTORY / DEFEAT is written on the result screen' }];
   function calibrateHelp() {
     const n = prompt("How many heroes does the game's drafting help show at once?", String(cfg().helpCount || 5));
@@ -607,6 +612,7 @@
     for (const s of V.slotLayout(calib.regions)) box(s.rect, s.side === 'me' ? '#4aa3ff' : '#ff5d6c', `${s.kind === 'pick' ? 'P' : 'B'}${s.index + 1}`);
     if (calib.regions.oppName) box(calib.regions.oppName, '#ff8f6b', 'name');
     if (calib.regions.crBar) box(calib.regions.crBar, '#3ecf8e', 'CR bar');
+    if (calib.regions.crBarExpanded) box(calib.regions.crBarExpanded, '#2fc7c0', 'CR bar (expanded)');
     if (calib.regions.result) box(calib.regions.result, '#f3d36b', 'result');
     for (const h of V.helpSlots(calib.regions, cfg().helpCount)) box(h.rect, '#b07cff', `G${h.index + 1}`);
     for (const k of ['mePickFirst', 'mePickLast', 'oppPickFirst', 'oppPickLast']) if (calib.regions[k] && !V.slotLayout(calib.regions).length) box(calib.regions[k], '#c9a24a');
@@ -896,6 +902,7 @@
   bind('#auto-cr', 'autoReadCR', (el) => el.checked);
   bind('#auto-cr-end', 'crEnd', (el) => el.value);
   $('#auto-calib-cr').addEventListener('click', () => startCalibration(CR_STEPS));
+  $('#auto-calib-cr-exp').addEventListener('click', () => startCalibration(CR_EXP_STEPS));
   $('#auto-calib-result').addEventListener('click', () => startCalibration(RESULT_STEPS));
   $('#auto-read-cr').addEventListener('click', () => readCR());
   $('#auto-calib-help').addEventListener('click', calibrateHelp);

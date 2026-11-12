@@ -3,13 +3,13 @@
  * App files: cache first, refreshed in the background. Everything else
  * (hero portraits, data updates, OCR library) goes to the network as normal.
  */
-const CACHE = 'epic7-engine-v9';
+const CACHE = 'epic7-engine-v10';
 const APP_FILES = [
   './', './index.html', './js/home.js', './rta.html', './css/styles.css', './manifest.webmanifest', './icon.svg',
   './js/sources/official-heroes.js', './js/sources/fribbels-data.js', './js/roster.js', './js/gear.js', './js/learn.js',
   './js/logic.js', './js/tune.js', './js/vision.js', './js/app.js', './js/auto.js', './js/pip.js',
   './gear.html', './js/gearsort.js', './js/gear-app.js',
-  './live.html', './overlay.html', './js/live.js', './js/screens.js', './js/screen-watch.js', './js/overlay-bus.js', './js/statparse.js', './js/gear-scan.js',
+  './live.html', './overlay.html', './js/live.js', './js/screens.js', './js/screen-watch.js', './js/overlay-bus.js', './js/statparse.js', './js/gear-scan.js', './js/heroinfo.js',
   './guild.html', './js/guildwar.js', './js/sync.js', './js/guild-app.js', './js/guild-pip.js', './js/guild-watch.js',
 ];
 self.addEventListener('install', (e) => {

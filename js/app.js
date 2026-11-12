@@ -375,7 +375,7 @@
         const c = codes[i];
         if (c) {
           const spd = cache.mySpeeds.get(c);
-          html += `<div class="slot filled${banned && banned.includes(c) ? ' banned' : ''}">${portrait(c, 'pt sm')}<span>${esc(nameOf(c))}</span>${spd && codes === v.picks.me ? `<small class="spd" title="Your speed (gear.txt)">${spd}</small>` : ''}</div>`;
+          html += `<div class="slot filled${banned && banned.includes(c) ? ' banned' : ''}" data-hero="${esc(c)}" title="Tap for skills and tags">${portrait(c, 'pt sm')}<span>${esc(nameOf(c))}</span>${spd && codes === v.picks.me ? `<small class="spd" title="Your speed (gear.txt)">${spd}</small>` : ''}</div>`;
         }
         else html += `<div class="slot${isNextHere && i === codes.length ? ' next' : ''}">—</div>`;
       }
@@ -517,7 +517,7 @@
           return bits.join('<br>') || '<span class="hint">not seen yet</span>';
         })();
         return `<tr data-code="${esc(c)}">
-          <td>${heroChip(c)}${base ? `<div class="hint">base ${base}</div>` : ''}</td>
+          <td><span data-hero="${esc(c)}" class="clickable">${heroChip(c)}</span>${window.HeroInfo ? window.HeroInfo.tagChips(c, 3) : ''}${base ? `<div class="hint">base ${base}</div>` : ''}</td>
           <td><input type="number" min="1" max="400" data-f="speed" value="${esc(e.speed || '')}" placeholder="${seen && seen.speed ? '~' + seen.speed : 'speed'}" />${e.method === 'cr-read' ? '<div class="hint">from CR bar</div>' : ''}</td>
           <td><input data-f="sets" list="set-names" value="${esc((e.sets || []).join(', '))}" placeholder="e.g. Speed, Critical" /></td>
           <td><input data-f="artifact" list="artifact-names" value="${esc(e.artifact || '')}" placeholder="artifact" /></td>
@@ -628,7 +628,8 @@
       ? items
           .map(
             (s) => `<li><button data-code="${esc(s.hero.code)}">${portrait(s.hero.code, 'pt sm')} ${esc(s.hero.name)}</button>
-              <span class="score">${s.score > 0 ? '+' : ''}${s.score}</span>
+              <button class="info" data-hero="${esc(s.hero.code)}" title="Skills, tags and notes">ⓘ</button>
+              <span class="score">${s.score > 0 ? '+' : ''}${s.score}</span>${window.HeroInfo ? window.HeroInfo.tagChips(s.hero.code, 3) : ''}
               <span class="why">${s.reasons.map((r) => `${srcBadge(r.source)} ${esc(r.text)}`).join('<br>') || 'No data yet'}</span></li>`,
           )
           .join('')
@@ -868,7 +869,7 @@
           <td class="small">${heroList(n.counters)}</td>
           <td class="small">${heroList(n.synergies)}</td>
           <td class="small">${learned}</td>
-          <td><button class="btn" data-edit>Edit</button></td></tr>`;
+          <td><button class="btn" data-edit>Edit</button> <button class="btn" data-hero="${esc(h.code)}" title="Skills, tags and notes">ⓘ</button></td></tr>`;
       })
       .join('');
   }
@@ -1618,6 +1619,37 @@
       if (activeTab === 'draft') renderDraft();
     },
   };
+
+  // ============================================================= hero info card
+  if (window.HeroInfo) {
+    window.HeroInfo.configure({
+      getMyNote: (code) => store.notes[code] || null,
+      saveMyNote(code, note) {
+        store.notes[code] = { ...(store.notes[code] || {}), ...note };
+        save();
+        render();
+      },
+      extras(code) {
+        const b = cache.builds.get(code);
+        const st = cache.stats.hero.get(code);
+        const parts = [];
+        if (b && b.speed) parts.push(`Your build: <b>${b.speed}</b> speed · ${esc(b.sets.join(' + ') || 'no sets')}${b.artifact ? ' · ' + esc(b.artifact) : ''}`);
+        if (st && st.team.games) parts.push(`RTA (learned): ${pct(st.team.wins, st.team.games)} win rate in ${gm(st.team.games)}`);
+        const sc = cache.scout.all.get(code);
+        if (sc && sc.speed) parts.push(`Opponents' speed seen: ~${sc.speed} (${sc.low}–${sc.high}, ${sc.speeds}×)`);
+        return parts.length ? `<div class="hint">${parts.join('<br>')}</div>` : '';
+      },
+    });
+  }
+  // another tab (Gear, Guild War) changed this device's RTA data: reload instead of overwriting it later
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY || !e.newValue) return;
+    try {
+      store = sanitize(JSON.parse(e.newValue));
+      derive();
+      render();
+    } catch (_) { /* ignore */ }
+  });
 
   // ======================================================================== go
   render();

@@ -183,7 +183,36 @@
     return rows;
   }
 
+  /** Address of a hero's page on epic7x.com (fan site with full, current skill text). */
+  function epic7xUrl(name) {
+    const slug = String(name || '')
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/['’]/g, '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    return `https://epic7x.com/character/${slug}/`;
+  }
+
+  /**
+   * Tags for one hero from several sources, kept apart:
+   *   sources = { 'my notes': [tags], guild: [tags], ... }
+   * -> [{ tag, sources: [names] }] sorted by how many sources agree, then A-Z.
+   */
+  function tagSources(sources) {
+    const m = new Map();
+    for (const [src, tags] of Object.entries(sources || {})) for (const t of tags || []) {
+      if (!m.has(t)) m.set(t, []);
+      if (!m.get(t).includes(src)) m.get(t).push(src);
+    }
+    return [...m.entries()].map(([tag, srcs]) => ({ tag, sources: srcs })).sort((a, b) => b.sources.length - a.sources.length || a.tag.localeCompare(b.tag));
+  }
+
   const api = {
+    epic7xUrl,
+    tagSources,
     OFFICIAL_HERO_URL,
     PORTRAIT_URL,
     ELEMENT_LABEL,

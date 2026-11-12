@@ -31,5 +31,5 @@
     screens = JSON.parse(localStorage.getItem('e7-screens') || '[]');
   } catch (_) { /* none */ }
   const kinds = new Set(screens.map((x) => x.screen)).size;
-  set('st-live', kinds ? `${kinds} of 5 screens taught` : 'Teach your game screens to switch on automation');
+  set('st-live', kinds ? `${kinds} of 6 screens taught` : 'Teach your game screens to switch on automation');
 })();

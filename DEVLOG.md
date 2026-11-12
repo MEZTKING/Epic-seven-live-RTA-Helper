@@ -7,6 +7,71 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #12 · Expanded CR bar, hero info card (skills + role tags) · this commit (previous: `b1867c6`)
+
+**Asked for**
+1. The CR bar has an expanded screen: read it too.
+2. Show any hero's skill descriptions in Guild War or RTA, in case someone forgets.
+3. A tag system per hero by role, for a quick overview.
+(Also answered, no code change: the owner said Fribbels only reads data sent to the player. I re-checked the RexQian
+fork at `1d7fef5`: `scanner.py` captures the game traffic locally, then `scanner.js` POSTs it to
+`krivpfvxi0.execute-api…/dev/getItems` to decode; the only alternative is a developer-only `127.0.0.1:5000` decoder
+that isn't in the repo. Conclusion from #10 unchanged.)
+
+**Research: skill text sources**
+- EpicSevenDB API (`api.epicsevendb.com`, used in old Fribbels code): unreachable; the website's certificate has expired.
+- Official static server (`static.smilegatemegaport.com/gameRecord/epic7/`): `epic7_artifact.json` exists, but no
+  skill file (`epic7_skill`, `epic7_hero_skill`, `epic7_hero_detail` → 403).
+- Fribbels herodata: skills have multipliers only, no text.
+- Community GitHub repos with old EpicSevenDB copies: not used (unclear licences, likely outdated after reworks).
+- **epic7x.com** hero pages are reachable, at `/character/<name>/`: lowercase, "&" → "and", apostrophes dropped,
+  other characters → "-". 12 sampled heroes all resolve.
+- Decision: link to epic7x for full text; skill **notes** come from `my notes` and `guild`, kept separate.
+
+**Changed**
+- `js/logic.js`: `TAG_GROUPS` (Role / Offense / Utility / Control, 31 tags); `TAGS` derived from it (team checks keep working).
+- `js/roster.js`: `epic7xUrl(name)`, `tagSources({source: tags})`.
+- `js/heroinfo.js` (new, shared): hero card dialog.
+  - Header, combined tags with ✓ when sources agree, epic7x link, page extras.
+  - `my notes` and `guild` blocks, each with tags and skill notes (S1, S2, S3, Passive/EE), editable per source.
+  - `tagChips()` for quick-overview chips. Any element with `data-hero` opens the card (capture phase, so an ⓘ
+    never also triggers a pick).
+- RTA (`js/app.js`):
+  - The card reads and saves through the in-memory store; extras show your build, learned win rate and scouted speeds.
+  - ⓘ + tag chips on suggestions, ⓘ in the Heroes tab, filled draft slots and scouting rows open the card.
+  - **New:** the RTA page reloads its data when another tab changes it (Guild War / Gear pages write the same
+    storage), so it no longer overwrites their changes.
+- Guild War:
+  - New shared record type `hero` (`hero-<code>`), also allowed in `firestore.rules`.
+  - Hero chips on cards are tappable and show tag chips.
+  - Guild notes are cached in localStorage `e7-guild-heroes` for the other pages (read-only there).
+  - The page now loads `js/logic.js` for the tag groups.
+- Gear: "best for" heroes open the card; loads `js/logic.js` + `js/heroinfo.js`.
+- Expanded CR bar:
+  - Screen type `rta-cr-expanded` and a "Calibrate expanded CR bar" box (`crBarExpanded`).
+  - The CR reader uses the expanded box when that screen is showing, else the normal bar, else whichever exists.
+  - Automatic reading also runs on the expanded screen; the result says which bar was used.
+- CSS for the card and chips; `sw.js` cache v10.
+
+**Bugs found and fixed:** epic7x link for names with apostrophes ("Archdemon's Shadow") pointed to `archdemon-s-shadow`
+(404); apostrophes are now dropped (`archdemons-shadow`, 200).
+
+**Tested**
+- `npm test`: 69 passing (new: epic7x addresses incl. "&" and apostrophes, tag sources).
+- Browser:
+  - RTA card opened from the Heroes tab; my tags and S3 note saved; chips show in suggestions; ⓘ opened the card
+    without picking.
+  - Guild War guild notes saved as a `hero` record "by Ann", shown with ✓ where sources agree, chips on the war card.
+  - The Gear page shows both sources (guild read-only); the RTA tab kept my notes after the other page wrote.
+  - Expanded CR: after teaching `rta-cr-expanded`, "8 heroes read from the expanded CR bar".
+  - All earlier browser tests pass; no console errors.
+
+**Open / unverified**
+- What the real expanded CR view looks like (it might show % numbers that could be read directly). Needs a screenshot.
+- No automatic tags from skill text (no permitted skill-text source); tags come from you and your guild.
+
+---
+
 ## 2026-11-12 · #11 · Live layer system, desktop overlay app, gear read from the screen · this commit (previous: `0fe8ac4`)
 
 **Asked for:** "Make everything automatic, maybe use a layer system so a window over it can read everything on the

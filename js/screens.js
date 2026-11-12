@@ -14,6 +14,7 @@
   const SCREENS = [
     { id: 'rta-draft', label: 'RTA draft (picks and bans)', module: 'rta' },
     { id: 'rta-battle', label: 'RTA battle start (CR bar visible)', module: 'rta' },
+    { id: 'rta-cr-expanded', label: 'RTA expanded CR bar', module: 'rta' },
     { id: 'rta-result', label: 'RTA Victory / Defeat', module: 'rta' },
     { id: 'gw-enemy', label: "Guild War enemy's defense / profile", module: 'guild' },
     { id: 'gear-item', label: 'Item details (inventory)', module: 'gear' },
