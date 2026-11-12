@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · Live</title>
+  <meta name="description" content="Epic 7 Engine Live: screen detection, readers and the overlay on top of the game." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#12131a" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="appbar">
+      <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
+      <nav class="modules" aria-label="Modules"><a class="mod" href="rta.html">RTA</a><a class="mod" href="gear.html">Gear</a><a class="mod" href="guild.html">Guild War</a><a class="mod active" href="live.html" aria-current="page">Live</a></nav>
+    </div>
+  </header>
+  <main>
+    <div id="live-env" class="status"></div>
+
+    <div class="card wide">
+      <h3>How it works: four layers</h3>
+      <ol class="layers">
+        <li><b>Capture:</b> a live picture of the game window.</li>
+        <li><b>Screen detector:</b> recognises which game screen is showing (taught once, below). Readers only run on their own screen.</li>
+        <li><b>Readers:</b> RTA draft, drafting help, postbans, opponent name, CR bar, Victory/Defeat · Guild War enemy name · Gear item details.</li>
+        <li><b>Overlay:</b> draws what the readers found next to the game's own UI: suggestions by the draft slot, enemy speeds, Guild War dots, gear verdicts.</li>
+      </ol>
+      <p class="hint">Everything only <b>reads</b> the screen. Nothing ever clicks or types into the game.</p>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Screens taught on this device</h3>
+        <p class="hint">Teach a screen from its module while capturing: RTA → Auto, Guild War → Watch game, Gear → Read gear. 2–3 examples each work best.</p>
+        <table class="mini"><thead><tr><th>Screen</th><th>Module</th><th>Examples</th><th></th></tr></thead><tbody id="live-screens"></tbody></table>
+      </div>
+      <div class="card">
+        <h3>Overlay</h3>
+        <p class="hint">In the <b>desktop app</b> the overlay is transparent, click-through and sits on top of the game. In a browser you can open a <b>preview</b> to see what it would draw.</p>
+        <div class="btn-row"><button id="live-preview" class="btn primary">Open overlay preview</button></div>
+        <h4 style="margin:12px 0 6px">What the modules are sending now</h4>
+        <ul id="live-layers" class="plain-list"><li class="hint">Nothing yet. Start reading in a module.</li></ul>
+      </div>
+      <div class="card">
+        <h3>Desktop app</h3>
+        <p class="hint">Needed for the overlay on top of the game, and to skip the "choose a window to share" prompt each session.</p>
+        <ol class="hint" style="padding-left:18px;margin:0">
+          <li>Install Node.js (LTS).</li>
+          <li>In the project folder: <code>cd desktop</code>, <code>npm install</code>, <code>npm start</code>.</li>
+          <li>Or build one .exe: <code>npm run dist</code>.</li>
+        </ol>
+        <p class="hint">Shortcuts: <b>Ctrl+Shift+O</b> overlay on/off · <b>Ctrl+Shift+E</b> main window. Details in <code>desktop/README.md</code>.</p>
+      </div>
+    </div>
+  </main>
+  <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+  <script src="js/screens.js"></script>
+  <script src="js/screen-watch.js"></script>
+  <script src="js/live.js"></script>
+</body>
+</html>

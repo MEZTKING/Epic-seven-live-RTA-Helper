@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · Overlay</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    html, body { background: transparent !important; overflow: hidden; height: 100%; }
+    body.preview { background: #0b0d14 !important; }
+    #layers { position: fixed; inset: 0; pointer-events: none; }
+    .ov { position: absolute; pointer-events: none; font: 13px/1.35 system-ui, sans-serif; color: #fff; }
+    .ov-card { background: rgba(12, 14, 22, .86); border: 1px solid rgba(201, 162, 74, .7); border-radius: 8px; padding: 6px 8px; min-width: 170px; max-width: 280px; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+    .ov-card b { color: #f0d48a; }
+    .ov-card .l { color: #cfd2de; font-size: 12px; }
+    .ov-label { background: rgba(12, 14, 22, .8); border-radius: 4px; padding: 1px 5px; font-weight: 700; font-size: 12px; }
+    .ov .gwdot { width: 14px; height: 14px; }
+    .preview-note { position: fixed; left: 12px; bottom: 10px; color: #9a9db0; font-size: 12px; }
+    .ov-frame { position: fixed; inset: 0; border: 2px dashed rgba(201,162,74,.35); pointer-events: none; display: none; }
+    body.preview .ov-frame { display: block; }
+  </style>
+</head>
+<body>
+  <div class="ov-frame"></div>
+  <div id="layers"></div>
+  <div class="preview-note" id="note"></div>
+  <script>
+    (function () {
+      const desktop = /desktop=1/.test(location.search);
+      if (!desktop) document.body.classList.add('preview');
+      const note = document.getElementById('note');
+      note.textContent = desktop ? '' : 'Overlay preview: in the desktop app this layer is transparent and sits on top of the game. The dashed box = the captured game area.';
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const layers = {};
+      const root = document.getElementById('layers');
+      function draw() {
+        const W = innerWidth, H = innerHeight;
+        root.innerHTML = Object.values(layers).flat().map((it) => {
+          let x = it.x * W, y = it.y * H;
+          const w = (it.w || 0) * W, h = (it.h || 0) * H;
+          const side = it.side || 'right';
+          let style = '';
+          if (it.kind === 'dot') style = `left:${x + w + 4}px;top:${y + h / 2 - 7}px`;
+          else if (side === 'right') style = `left:${x + w + 6}px;top:${y}px`;
+          else if (side === 'left') style = `right:${W - x + 6}px;top:${y}px`;
+          else if (side === 'below') style = `left:${x}px;top:${y + h + 4}px`;
+          else style = `left:${x}px;bottom:${H - y + 4}px`;
+          const dot = it.level ? `<span class="gwdot ${esc(it.level)}"></span> ` : '';
+          const box = `data-bx="${x}" data-by="${y}" data-bw="${w}" data-bh="${h}"`;
+          if (it.kind === 'dot') return `<div class="ov" ${box} style="${style}">${dot}</div>`;
+          if (it.kind === 'label') return `<div class="ov ov-label" ${box} style="${style}">${dot}${esc(it.title)}</div>`;
+          return `<div class="ov ov-card" ${box} style="${style}"><div>${dot}<b>${esc(it.title || '')}</b></div>${(it.lines || []).map((l) => `<div class="l">${esc(l)}</div>`).join('')}</div>`;
+        }).join('');
+        // keep everything on screen: flip to the other side of its box, then clamp
+        for (const el of root.children) {
+          const r = el.getBoundingClientRect();
+          const bx = +el.dataset.bx, bw = +el.dataset.bw;
+          if (r.right > W - 2) { el.style.right = ''; el.style.left = Math.max(2, bx - r.width - 6) + 'px'; }
+          else if (r.left < 2) { el.style.right = ''; el.style.left = Math.min(W - r.width - 2, bx + bw + 6) + 'px'; }
+          const r2 = el.getBoundingClientRect();
+          if (r2.bottom > H - 2) { el.style.bottom = ''; el.style.top = Math.max(2, H - r2.height - 2) + 'px'; }
+          if (r2.top < 2) { el.style.bottom = ''; el.style.top = '2px'; }
+        }
+      }
+      const chan = new BroadcastChannel('e7-overlay');
+      chan.onmessage = (e) => { if (e.data && e.data.layer) { layers[e.data.layer] = e.data.items || []; draw(); } };
+      chan.postMessage({ hello: true });
+      addEventListener('resize', draw);
+      window.E7OverlayView = { layers, draw };
+    })();
+  </script>
+</body>
+</html>

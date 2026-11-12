@@ -27,6 +27,10 @@
     {
       "name": "Guild War",
       "url": "./guild.html"
+    },
+    {
+      "name": "Live",
+      "url": "./live.html"
     }
   ]
 }

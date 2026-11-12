@@ -21,8 +21,15 @@
   } else set('st-rta', 'Not used on this device yet');
 
   const gear = read('rta-gear-v1');
-  set('st-gear', gear && Array.isArray(gear.items) && gear.items.length ? `${gear.items.length} items from ${gear.fileName || 'gear.txt'}` : 'Import gear.txt to start');
+  const nItems = gear ? (Array.isArray(gear.items) ? gear.items.length : 0) + (Array.isArray(gear.scanned) ? gear.scanned.length : 0) : 0;
+  set('st-gear', nItems ? `${nItems} items (gear.txt + read from screen)` : 'Import gear.txt or read gear from the game');
 
   const g = read('e7-guild-conn');
   set('st-guild', g && g.guildCode ? `${g.guildName || 'Guild'} · ${g.config ? 'shared live' : 'this device only'}${g.myName ? ` · you are ${g.myName}` : ''}` : 'Create or join your guild');
+  let screens = [];
+  try {
+    screens = JSON.parse(localStorage.getItem('e7-screens') || '[]');
+  } catch (_) { /* none */ }
+  const kinds = new Set(screens.map((x) => x.screen)).size;
+  set('st-live', kinds ? `${kinds} of 5 screens taught` : 'Teach your game screens to switch on automation');
 })();
