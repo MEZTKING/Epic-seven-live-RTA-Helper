@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RTA Live Helper</title>
+  <meta name="description" content="Fan-made draft, speed and match tracker for Epic Seven RTA." />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>RTA Live Helper</h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="draft" role="tab">Draft</button>
+      <button class="tab" data-tab="speed" role="tab">Speed</button>
+      <button class="tab" data-tab="heroes" role="tab">Heroes</button>
+      <button class="tab" data-tab="history" role="tab">History</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============================== DRAFT ============================== -->
+    <section id="tab-draft" class="panel active">
+      <div class="draft-controls">
+        <label>First pick:
+          <select id="first-pick">
+            <option value="me">Me</option>
+            <option value="opp">Opponent</option>
+          </select>
+        </label>
+        <button id="draft-undo" class="btn">Undo</button>
+        <button id="draft-reset" class="btn">New draft</button>
+      </div>
+
+      <div id="draft-status" class="status"></div>
+
+      <div class="board">
+        <div class="side me">
+          <h2>Me</h2>
+          <div class="row"><span class="label">Prebans</span><div id="me-prebans" class="slots"></div></div>
+          <div class="row"><span class="label">Picks</span><div id="me-picks" class="slots"></div></div>
+          <div class="row"><span class="label">I banned</span><div id="me-postban" class="slots"></div></div>
+        </div>
+        <div class="side opp">
+          <h2>Opponent</h2>
+          <div class="row"><span class="label">Prebans</span><div id="opp-prebans" class="slots"></div></div>
+          <div class="row"><span class="label">Picks</span><div id="opp-picks" class="slots"></div></div>
+          <div class="row"><span class="label">They banned</span><div id="opp-postban" class="slots"></div></div>
+        </div>
+      </div>
+
+      <div class="draft-lower">
+        <div class="picker">
+          <div class="filters">
+            <input id="hero-search" type="search" placeholder="Search hero…" autocomplete="off" />
+            <select id="filter-element">
+              <option value="">All elements</option>
+              <option value="fire">Fire</option><option value="ice">Ice</option><option value="earth">Earth</option>
+              <option value="light">Light</option><option value="dark">Dark</option>
+            </select>
+            <select id="filter-role">
+              <option value="">All classes</option>
+              <option value="warrior">Warrior</option><option value="knight">Knight</option><option value="thief">Thief</option>
+              <option value="ranger">Ranger</option><option value="mage">Mage</option><option value="soul-weaver">Soul Weaver</option>
+            </select>
+          </div>
+          <div id="hero-grid" class="hero-grid"></div>
+        </div>
+        <aside class="suggest">
+          <h3 id="suggest-title">Suggestions</h3>
+          <ol id="suggest-list" class="suggest-list"></ol>
+          <p class="hint">Suggestions use the tiers, counters and synergies you set in the <b>Heroes</b> tab, plus element advantage.</p>
+          <div id="result-box" class="result-box hidden">
+            <h3>Record this match</h3>
+            <textarea id="result-notes" rows="2" placeholder="Notes (optional)"></textarea>
+            <div class="btn-row">
+              <button id="record-win" class="btn win">Win</button>
+              <button id="record-loss" class="btn loss">Loss</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============================== SPEED ============================== -->
+    <section id="tab-speed" class="panel">
+      <div class="cards">
+        <div class="card">
+          <h3>Enemy speed from CR bar</h3>
+          <p class="hint">When your unit takes the first turn, read the enemy unit's CR % and enter it here.</p>
+          <label>My unit speed <input id="cr-myspeed" type="number" min="1" value="300" /></label>
+          <label>Enemy CR % <input id="cr-enemy" type="number" min="0" max="100" step="0.1" value="90" /></label>
+          <div id="cr-out" class="out"></div>
+        </div>
+        <div class="card">
+          <h3>Speed needed to outspeed</h3>
+          <label>Enemy speed <input id="os-enemy" type="number" min="1" value="285" /></label>
+          <div id="os-out" class="out"></div>
+        </div>
+        <div class="card">
+          <h3>Settings</h3>
+          <label>Random starting CR (max %)
+            <input id="cr-variance" type="number" min="0" max="20" step="0.5" value="5" />
+          </label>
+          <p class="hint">Units start a fight with a small random amount of CR. This range is the uncertainty used in both calculators. Change it if you know a better value.</p>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <h3>Turn order simulator</h3>
+        <p class="hint">"Push" = CR % given to all allies when that unit acts (e.g. a speed buffer). Tick "once" if it only happens on its first turn.</p>
+        <table class="sim-table">
+          <thead><tr><th>Name</th><th>Side</th><th>Speed</th><th>Start CR %</th><th>Push %</th><th>Once</th><th></th></tr></thead>
+          <tbody id="sim-units"></tbody>
+        </table>
+        <div class="btn-row">
+          <button id="sim-add" class="btn">Add unit</button>
+          <button id="sim-from-draft" class="btn">Load names from draft</button>
+          <label class="inline">Turns <input id="sim-turns" type="number" min="1" max="40" value="10" /></label>
+        </div>
+        <ol id="sim-out" class="sim-out"></ol>
+      </div>
+    </section>
+
+    <!-- ============================== HEROES ============================= -->
+    <section id="tab-heroes" class="panel">
+      <div class="filters">
+        <input id="db-search" type="search" placeholder="Search hero…" autocomplete="off" />
+        <label class="inline"><input id="db-owned-only" type="checkbox" /> My roster only</label>
+        <button id="db-add" class="btn">Add hero</button>
+      </div>
+      <table class="db-table">
+        <thead><tr><th>Owned</th><th>Name</th><th>Element</th><th>Class</th><th>Tier</th><th>Counters</th><th>Synergies</th><th></th></tr></thead>
+        <tbody id="db-rows"></tbody>
+      </table>
+
+      <div class="card wide">
+        <h3>Backup</h3>
+        <p class="hint">Everything is saved in this browser only. Export to keep a backup or move to another device.</p>
+        <div class="btn-row">
+          <button id="export" class="btn">Export JSON</button>
+          <label class="btn file-btn">Import JSON<input id="import" type="file" accept="application/json" hidden /></label>
+          <button id="reset-heroes" class="btn danger">Reset hero list to default</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== HISTORY ============================ -->
+    <section id="tab-history" class="panel">
+      <div id="hist-summary" class="cards"></div>
+      <div class="cards">
+        <div class="card"><h3>My heroes</h3><table class="mini"><thead><tr><th>Hero</th><th>Games</th><th>Win %</th></tr></thead><tbody id="hist-mine"></tbody></table></div>
+        <div class="card"><h3>Against enemy heroes</h3><table class="mini"><thead><tr><th>Hero</th><th>Games</th><th>Win %</th></tr></thead><tbody id="hist-vs"></tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h3>Matches</h3>
+        <ul id="hist-list" class="hist-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Hero editor -->
+  <dialog id="hero-dialog">
+    <form id="hero-form" method="dialog">
+      <h3 id="hero-dialog-title">Edit hero</h3>
+      <label>Name <input name="heroName" required /></label>
+      <div class="two">
+        <label>Element
+          <select name="element">
+            <option value="fire">Fire</option><option value="ice">Ice</option><option value="earth">Earth</option>
+            <option value="light">Light</option><option value="dark">Dark</option>
+          </select>
+        </label>
+        <label>Class
+          <select name="role">
+            <option value="warrior">Warrior</option><option value="knight">Knight</option><option value="thief">Thief</option>
+            <option value="ranger">Ranger</option><option value="mage">Mage</option><option value="soul-weaver">Soul Weaver</option>
+          </select>
+        </label>
+        <label>Tier
+          <select name="tier"><option value="">—</option><option>S</option><option>A</option><option>B</option><option>C</option></select>
+        </label>
+        <label class="inline"><input type="checkbox" name="owned" /> In my roster</label>
+      </div>
+      <label>Good against (counters)</label>
+      <div class="chips" data-field="counters"></div>
+      <input class="chip-input" data-field="counters" list="hero-names" placeholder="Type a hero name and press Enter" />
+      <label>Works well with (synergies)</label>
+      <div class="chips" data-field="synergies"></div>
+      <input class="chip-input" data-field="synergies" list="hero-names" placeholder="Type a hero name and press Enter" />
+      <label>Notes <textarea name="notes" rows="3"></textarea></label>
+      <div class="btn-row">
+        <button type="button" id="hero-delete" class="btn danger">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="hero-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+  <datalist id="hero-names"></datalist>
+
+  <footer class="foot">Fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/logic.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
