@@ -6,10 +6,11 @@
  * js/sync.js). Every record has { id, type, updatedAt, updatedBy } plus:
  *
  *   member   { name, roster?: [codes], defense?: [{ heroes: [codes] }, { heroes }] }
- *   war      { enemyGuild, startedAt, status: 'active'|'done', notes }
+ *   war      { enemyGuild, season?, startedAt, status: 'active'|'done', notes }
  *   target   { warId, player, tower, teams: [{ heroes: [3 codes], speeds: {code: n}, sets: {code: 'Speed+Crit'},
  *              artifacts: {code: name}, notes }, {...}], assignedTo?: memberName, notes }
- *   attack   { warId, targetId, by: memberName, team: 1|2, heroes: [my 3 codes], result: 'win'|'loss', notes, at }
+ *   attack   { warId, targetId, by: memberName, team: 1|2, heroes: [my 3 codes], speeds?: {code: n} (attacker's
+ *              own speeds from their gear.txt, if they chose to share), result: 'win'|'loss', notes, at }
  *   defense  { warId?, member: memberName, team: 1|2, attacker?: enemyName, attackerHeroes?: [codes], result: 'held'|'lost', at }
  *
  * The guild is its own data source ('guild'). Nothing here is mixed into the
@@ -107,9 +108,13 @@
       const dk = teamKey(def);
       if (!book.has(dk)) book.set(dk, new Map());
       const ak = teamKey(a.heroes);
-      const row = book.get(dk).get(ak) || { attack: ak.split('+'), defense: dk.split('+'), wins: 0, games: 0, by: new Set() };
+      const row = book.get(dk).get(ak) || { attack: ak.split('+'), defense: dk.split('+'), wins: 0, games: 0, by: new Set(), winSpeeds: {} };
       row.games++;
-      if (a.result === 'win') row.wins++;
+      if (a.result === 'win') {
+        row.wins++;
+        // slowest speed each hero has won with: "you need at least this"
+        for (const [c, v] of Object.entries(a.speeds || {})) if (Number(v) > 0) row.winSpeeds[c] = Math.min(row.winSpeeds[c] || Infinity, Number(v));
+      }
       row.by.add(a.by);
       book.get(dk).set(ak, row);
     }
@@ -131,7 +136,7 @@
       const overlap = k.split('+').filter((c) => want.has(c)).length;
       const exact = k === dk;
       if (!exact && overlap < 2) continue;
-      for (const r of list) if (r.wins > 0) rows.push({ attack: r.attack, wins: r.wins, games: r.games, exact, by: [...r.by] });
+      for (const r of list) if (r.wins > 0) rows.push({ attack: r.attack, wins: r.wins, games: r.games, exact, by: [...r.by], winSpeeds: { ...r.winSpeeds } });
     }
     const merged = new Map();
     for (const r of rows) {
@@ -141,7 +146,8 @@
         m.wins += r.wins;
         m.games += r.games;
         for (const b of r.by) if (!m.by.includes(b)) m.by.push(b);
-      } else merged.set(k, { ...r, by: [...r.by] });
+        for (const [c, v] of Object.entries(r.winSpeeds || {})) m.winSpeeds[c] = Math.min(m.winSpeeds[c] || Infinity, v);
+      } else merged.set(k, { ...r, by: [...r.by], winSpeeds: { ...(r.winSpeeds || {}) } });
     }
     const list = [...merged.values()].sort((a, b) => Number(b.exact) - Number(a.exact) || b.wins / b.games - a.wins / a.games || b.wins - a.wins);
     for (const r of list) {
@@ -226,6 +232,182 @@
     return [...m.values()].filter((r) => r.games >= 2).sort((a, b) => b.losses / b.games - a.losses / a.games || b.games - a.games).slice(0, limit);
   }
 
+
+  // ------------------------------------------------------------ verdicts
+  /*
+   * A dot for each enemy team, from ONE member's point of view (their heroes and gear):
+   *   grey    no information: nobody fought this team or a similar one
+   *   red     no chance right now: lost to it repeatedly, never won
+   *   yellow  not enough information, or a catch (only similar teams, one win, mixed record,
+   *           you don't own the counter, or your heroes are slower than the ones that won)
+   *   proven  proven counter you own, gear not checked (you haven't imported gear.txt)   [green ring]
+   *   green   proven counter you own AND your gear checks out                             [green dot]
+   * "Proven" = beaten this exact team 2+ times with no losses (or 3+ wins at 80%+).
+   * Nothing is guaranteed in a game with crits and random turn meter; green means "reliable".
+   */
+  const LEVELS = ['red', 'grey', 'yellow', 'proven', 'green']; // worst -> best
+  const PROVEN = { minWins: 2, altWins: 3, altRate: 0.8 };
+  const SPEED_MARGIN = 0.03; // within 3% of the enemy counts as "too close to call"
+
+  const isProven = (c) => c.exact && ((c.wins >= PROVEN.minWins && c.wins === c.games) || (c.wins >= PROVEN.altWins && c.wins / c.games >= PROVEN.altRate));
+
+  /** Results of ALL our attacks against this exact defense (any attack team). */
+  function recordVs(book, heroes) {
+    const list = book.get(teamKey(heroes)) || [];
+    const wins = list.reduce((n, r) => n + r.wins, 0);
+    const games = list.reduce((n, r) => n + r.games, 0);
+    let simLosses = 0;
+    let simWins = 0;
+    const want = new Set(heroes);
+    for (const [k, l] of book) {
+      if (k === teamKey(heroes)) continue;
+      if (k.split('+').filter((c) => want.has(c)).length < 2) continue;
+      for (const r of l) {
+        simWins += r.wins;
+        simLosses += r.games - r.wins;
+      }
+    }
+    return { wins, losses: games - wins, games, simWins, simLosses };
+  }
+
+  /**
+   * Latest known speed of each enemy hero for this player: from this target and
+   * from every earlier time anyone in the guild recorded them.
+   */
+  function enemySpeeds(state, player, heroes, current) {
+    const out = {};
+    const k = playerKey(player);
+    const wars = new Map(state.wars.map((w) => [w.id, w]));
+    const seen = state.targets
+      .filter((t) => playerKey(t.player) === k)
+      .sort((a, b) => String(((wars.get(a.warId) || {}).startedAt) || a.updatedAt || '').localeCompare(String(((wars.get(b.warId) || {}).startedAt) || b.updatedAt || '')));
+    for (const t of seen) for (const tm of t.teams || []) for (const [c, v] of Object.entries(tm.speeds || {})) if (heroes.includes(c) && Number(v) > 0) out[c] = Number(v);
+    for (const [c, v] of Object.entries((current && current.speeds) || {})) if (Number(v) > 0) out[c] = Number(v); // this war's entry wins
+    return out;
+  }
+
+  /**
+   * me = { name, roster: Set|null (heroes I own; null = unknown), speeds: Map|null (from my gear.txt) }
+   * Returns { level, label, lines: [why], counter?, others: [names who own a proven counter] }
+   */
+  function teamVerdict(state, target, teamIndex, me, book = counterBook(state), nm = (c) => c) {
+    const team = (target.teams || [])[teamIndex] || {};
+    const heroes = team.heroes || [];
+    if (!heroes.length) return { level: 'grey', label: 'No information', lines: ['This team has not been recorded yet.'], others: [] };
+    const rec = recordVs(book, heroes);
+    const counters = suggestCounters(heroes, book, { members: state.members, limit: 10 });
+    const proven = counters.filter(isProven);
+    const others = [...new Set(proven.flatMap((c) => c.owners || []))].filter((n) => playerKey(n) !== playerKey(me && me.name));
+    const lines = [];
+    if (rec.games) lines.push(`Guild record vs this exact team: ${rec.wins}-${rec.losses}`);
+    if (rec.simWins + rec.simLosses) lines.push(`Vs similar teams (2 of 3 heroes): ${rec.simWins}-${rec.simLosses}`);
+
+    if (!rec.games && !(rec.simWins + rec.simLosses)) return { level: 'grey', label: 'No information', lines: ['Nobody in the guild has fought this team or a similar one yet.'], others };
+    if (rec.wins === 0 && (rec.losses >= 2 || (rec.games === 0 && rec.simLosses >= 3 && rec.simWins === 0))) {
+      return { level: 'red', label: 'No chance right now', lines: [...lines, 'Lost to it repeatedly and never won. Needs a new plan.'], others };
+    }
+
+    const owned = (c) => me && me.roster && c.attack.every((h) => me.roster.has(h));
+    const mine = proven.filter(owned);
+    if (mine.length) {
+      // best proven counter I own: check my gear if I have it
+      let best = null;
+      for (const c of mine) {
+        const check = gearCheck(c, me, enemySpeeds(state, target.player, heroes, team), nm);
+        if (!best || LEVELS.indexOf(check.level) > LEVELS.indexOf(best.check.level)) best = { c, check };
+      }
+      const name = best.c.attack.map(nm).join(' + ');
+      const head = `Proven counter you own: ${name} (${best.c.wins}-${best.c.games - best.c.wins}${best.c.by.length ? `, by ${best.c.by.join(', ')}` : ''})`;
+      return { level: best.check.level, label: best.check.label, lines: [...lines, head, ...best.check.lines], counter: best.c, others };
+    }
+    if (proven.length) {
+      const c = proven[0];
+      const why = !me || !me.roster ? 'Share your roster (Members tab) so the app knows if you own it.' : "You don't own all of these heroes.";
+      return { level: 'yellow', label: 'Proven counter, not yours', lines: [...lines, `Proven counter: ${c.attack.map(nm).join(' + ')} (${c.wins}-${c.games - c.wins})`, why], counter: c, others };
+    }
+    const c = counters[0];
+    return {
+      level: 'yellow',
+      label: 'Not enough information',
+      lines: [...lines, c ? `Best lead: ${c.attack.map(nm).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', vs a similar team'})` : 'No win against it yet.'],
+      counter: c || null,
+      others,
+    };
+  }
+
+  /** Is MY gear good enough for this counter? Compares my speeds with the slowest winning speeds and the enemy's speeds. */
+  function gearCheck(counter, me, enemy, nm = (c) => c) {
+    if (!me || !me.speeds || !counter.attack.some((h) => me.speeds.get(h))) {
+      return { level: 'proven', label: 'Proven counter (gear not checked)', lines: ['Import your gear.txt (RTA → Data or Gear) to check your speeds too.'] };
+    }
+    const lines = [];
+    let ok = true;
+    for (const h of counter.attack) {
+      const mine = me.speeds.get(h);
+      const need = counter.winSpeeds && Number.isFinite(counter.winSpeeds[h]) ? counter.winSpeeds[h] : null;
+      if (mine && need && mine < need - 2) {
+        ok = false;
+        lines.push(`Your ${nm(h)} is ${mine} speed; the slowest one that won had ${need}.`);
+      }
+    }
+    const myFast = Math.max(0, ...counter.attack.map((h) => me.speeds.get(h) || 0));
+    const theirFast = Math.max(0, ...Object.values(enemy || {}));
+    if (myFast && theirFast) {
+      if (myFast >= theirFast * (1 + SPEED_MARGIN)) lines.push(`You outspeed them: ${myFast} vs their fastest ~${theirFast}.`);
+      else if (myFast > theirFast * (1 - SPEED_MARGIN)) {
+        ok = false;
+        lines.push(`Speed is too close to call: ${myFast} vs their fastest ~${theirFast}.`);
+      } else {
+        ok = false;
+        lines.push(`They are faster: ${myFast} vs their fastest ~${theirFast}.`);
+      }
+    }
+    if (ok) return { level: 'green', label: 'Proven counter + your gear checks out', lines: lines.length ? lines : ['Your speeds match the teams that won.'] };
+    return { level: 'yellow', label: 'Proven counter, but your gear may fall short', lines };
+  }
+
+  /** A player's dot = their weakest team (you need to beat all of them). */
+  function targetVerdict(state, target, me, rules = DEFAULT_RULES, book = counterBook(state), nm = (c) => c) {
+    const n = Math.max(1, Math.min(rules.teamsPerDefense, (target.teams || []).length || rules.teamsPerDefense));
+    const teams = [];
+    for (let i = 0; i < n; i++) teams.push(teamVerdict(state, target, i, me, book, nm));
+    const worst = teams.reduce((w, t) => (LEVELS.indexOf(t.level) < LEVELS.indexOf(w.level) ? t : w), teams[0]);
+    return { level: worst.level, label: worst.label, teams };
+  }
+
+  /**
+   * Everything known about an enemy player, across every war and season:
+   * appearances (newest first), latest/max speed per hero, builds noted,
+   * and our record against them.
+   */
+  function playerProfile(state, name) {
+    const hist = enemyHistory(state, name);
+    const heroes = new Map();
+    const builds = [];
+    let wins = 0;
+    let losses = 0;
+    for (const h of hist.slice().reverse()) {
+      const when = (h.war && h.war.startedAt) || h.target.updatedAt || '';
+      (h.target.teams || []).forEach((tm) => {
+        for (const c of tm.heroes || []) {
+          const r = heroes.get(c) || { code: c, seen: 0, latest: null, max: null, lastSeen: null };
+          r.seen++;
+          r.lastSeen = when;
+          const v = Number((tm.speeds || {})[c]);
+          if (v > 0) {
+            r.latest = v;
+            r.max = Math.max(r.max || 0, v);
+          }
+          heroes.set(c, r);
+        }
+        if (tm.build) builds.push({ text: tm.build, when, war: h.war ? h.war.enemyGuild : '' });
+      });
+      for (const a of h.attacks) a.result === 'win' ? wins++ : losses++;
+    }
+    const seasons = [...new Set(hist.map((h) => h.war && h.war.season).filter(Boolean))];
+    return { name, appearances: hist, heroes: [...heroes.values()].sort((a, b) => b.seen - a.seen), builds: builds.reverse(), wins, losses, seasons };
+  }
+
   /** A fresh random id / guild code. */
   function newId(len = 12) {
     const abc = 'abcdefghijkmnpqrstuvwxyz23456789';
@@ -235,7 +417,7 @@
     return s;
   }
 
-  const api = { DEFAULT_RULES, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
+  const api = { LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAGuildWar = api;
 })(typeof window !== 'undefined' ? window : globalThis);
