@@ -1,11 +1,18 @@
 {
-  "name": "RTA Live Helper",
-  "short_name": "RTA Helper",
-  "description": "Fan-made draft, speed, scouting and match tracker for Epic Seven RTA.",
+  "name": "Epic 7 Engine",
+  "short_name": "E7 Engine",
+  "description": "Fan-made Epic Seven toolkit: RTA draft helper, gear sorter and Guild War tracker.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#12131a",
   "theme_color": "#12131a",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
