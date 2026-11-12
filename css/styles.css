@@ -453,3 +453,8 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .pics-parts { display: flex; flex-direction: column; gap: 8px; }
 .pics-parts .btn { text-align: left; }
 @media (max-width: 700px) { .pics-what { grid-template-columns: 1fr; } }
+.layout-status td { vertical-align: middle; }
+.layout-status .btn-row { margin: 0; }
+.lay-mine, .lay-built-in { color: var(--win); font-weight: 700; }
+.lay-mixed { color: #58b8ff; font-weight: 700; }
+.lay-missing { color: var(--muted, #a6a9b8); }

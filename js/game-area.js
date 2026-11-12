@@ -134,26 +134,56 @@
     }
   };
 
-  async function wrap(video) {
-    if (windowMode()) return video; // the capture is just the game window
-    let a = read();
-    if (!a || !matches(a, video)) a = await choose(video);
-    if (!a) return null; // cancelled: the reader stops instead of reading the whole screen
-    if (a.full) return video;
-    const s = size(video);
+  /**
+   * A captured game WINDOW includes the Windows title bar (and a thin border), e.g. 1348×794 for a 1342×755 game.
+   * The game itself is 16:9 and sits at the bottom, full width. Returns that part as fractions of the window,
+   * or null when the window is already 16:9 or wider (borderless / full screen, emulators with side toolbars).
+   * Same rule in overlay.html. Built-in screen layouts (js/layouts.js) are fractions of this 16:9 game picture.
+   */
+  function window16x9(W, H) {
+    if (!W || !H) return null;
+    const b = Math.round(W / 450); // border ≈ 3 px at 1348 wide
+    const cw = W - 2 * b;
+    const ch = Math.round((cw * 9) / 16);
+    if (H - ch < 8) return null; // no title bar to remove
+    return { x: b / W, y: Math.max(0, H - ch - b) / H, w: cw / W, h: ch / H };
+  }
+  /** A canvas that keeps showing part of `video` (fractions from area()), refreshed 10×/s. */
+  function cropCanvas(video, area, key) {
     const cv = document.createElement('canvas');
-    cv.width = Math.round(a.w * s.w);
-    cv.height = Math.round(a.h * s.h);
     const ctx = cv.getContext('2d', { willReadFrequently: true });
     const copy = () => {
-      if (video.readyState === undefined || video.readyState >= 2) ctx.drawImage(video, a.x * s.w, a.y * s.h, cv.width, cv.height, 0, 0, cv.width, cv.height);
+      const s = size(video);
+      const a = area(s);
+      if (!a || !s.w) return;
+      const w = Math.round(a.w * s.w);
+      const h = Math.round(a.h * s.h);
+      if (cv.width !== w || cv.height !== h) {
+        cv.width = w;
+        cv.height = h;
+      }
+      if (video.readyState === undefined || video.readyState >= 2) ctx.drawImage(video, a.x * s.w, a.y * s.h, w, h, 0, 0, w, h);
     };
     copy();
     const t = setInterval(copy, 100);
     cv.isGameArea = true;
+    cv.areaKey = key;
     cv.stopGameArea = () => clearInterval(t);
     cv.sourceVideo = video;
     return cv;
+  }
+
+  async function wrap(video) {
+    if (windowMode()) {
+      // the capture is just the game window: only cut off its title bar (recomputed if the window is resized)
+      const s = size(video);
+      return window16x9(s.w, s.h) ? cropCanvas(video, (z) => window16x9(z.w, z.h) || { x: 0, y: 0, w: 1, h: 1 }, 'window-16x9') : video;
+    }
+    let a = read();
+    if (!a || !matches(a, video)) a = await choose(video);
+    if (!a) return null; // cancelled: the reader stops instead of reading the whole screen
+    if (a.full) return video;
+    return cropCanvas(video, () => a, 'area');
   }
 
   // Calibration boxes are fractions of what the reader sees. Remember which picture each module's boxes were drawn on
@@ -167,7 +197,7 @@
     }
   };
   function frameKey(src) {
-    if (windowMode()) return 'window';
+    if (windowMode()) return src && src.areaKey === 'window-16x9' ? 'window-16x9' : 'window';
     const a = read();
     if (src && src.isGameArea && a && !a.full) return 'area:' + [a.x, a.y, a.w, a.h].map((v) => v.toFixed(3)).join(',');
     return 'full';
@@ -211,5 +241,5 @@
     alert('Game area cleared. Stop and start reading again, then drag a box around the game.');
   });
 
-  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode, frameKey, markCalibrated, warnIfStale, isStale };
+  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode, frameKey, markCalibrated, warnIfStale, isStale, window16x9 };
 })();

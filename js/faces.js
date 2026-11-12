@@ -25,6 +25,9 @@
   // game side: variants around the box drawn/known for an icon (box = the gold ring)
   const GAME_VARIANTS = [];
   for (const k of [0.92, 1.0, 1.08, 1.16]) for (const dx of [-0.07, 0, 0.07]) for (const dy of [-0.07, 0, 0.07]) GAME_VARIANTS.push({ k, dx, dy });
+  // wider search for boxes that may be a few pixels off (built-in positions measured by eye): ±21% of the icon size
+  const WIDE_VARIANTS = [];
+  for (const k of [0.92, 1.04, 1.16]) for (const dx of [-0.21, -0.14, -0.07, 0, 0.07, 0.14, 0.21]) for (const dy of [-0.21, -0.14, -0.07, 0, 0.07, 0.14, 0.21]) WIDE_VARIANTS.push({ k, dx, dy });
 
   /** 1 = face pixel used for matching. */
   const MASK = (() => {
@@ -162,7 +165,7 @@
     });
   }
 
-  const api = { N, MASK, COUNT, MIN_SCORE, MIN_LEAD, PORTRAIT_WINDOW, GAME_VARIANTS, vector, classify, isConfident, quantize, dequantize, fromPortrait, fromRect };
+  const api = { N, MASK, COUNT, MIN_SCORE, MIN_LEAD, PORTRAIT_WINDOW, GAME_VARIANTS, WIDE_VARIANTS, vector, classify, isConfident, quantize, dequantize, fromPortrait, fromRect };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAFaces = api;
 })(typeof self !== 'undefined' ? self : this);

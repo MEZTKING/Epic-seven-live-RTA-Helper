@@ -43,6 +43,9 @@ const scene = { mePreban: ['Belian', 'Luna'], oppPreban: ['Krau', 'Aria'], mePic
   fs.writeFileSync(SP + '/v5-help.jpg', Buffer.from(png.split(',')[1], 'base64'));
   await p.click('.tab[data-tab=auto]');
   await p.setInputFiles('#auto-shot', SP + '/v5-help.jpg');
+  // 16:9 pictures use the built-in Steam layout now (nothing pops open); this made-up screen needs its own boxes
+  await p.waitForTimeout(300);
+  if (await p.$eval('#calib', (e) => e.classList.contains('hidden'))) await p.click('#auto-calibrate');
   await p.waitForSelector('#calib:not(.hidden)');
   const sh = (S * W) / H;
   const box = async (fx, fy, fw, fh) => { const r = await p.locator('#calib-canvas').boundingBox(); await p.mouse.move(r.x + fx * r.width, r.y + fy * r.height); await p.mouse.down(); await p.mouse.move(r.x + (fx + fw) * r.width, r.y + (fy + fh) * r.height, { steps: 4 }); await p.mouse.up(); };

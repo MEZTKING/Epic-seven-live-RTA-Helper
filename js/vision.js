@@ -196,7 +196,28 @@
     return s.length >= 2 && s.length <= 24 ? s : '';
   }
 
-  const api = { GAME_HELP_STEPS, helpSlots, SIZE, DIM, featureFromRGBA, similarity, classify, isConfident, quantize, dequantize, REGION_STEPS, interpolate, slotLayout, isCalibrated, cleanName };
+  /** Edit distance (small strings). */
+  function editDistance(a, b) {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  /**
+   * The result banner's text → 'win' | 'loss' | null. Tolerant: on the real Steam screen the sword cuts through the
+   * T of VICTORY (OCR: "VICEFORY") and DEFEAT is drawn with spaced letters. Any 5–9 letter run within 2 edits counts.
+   */
+  function resultWord(text) {
+    const t = String(text || '').toUpperCase().replace(/VICTORY\s*POINTS?/g, ' ').replace(/[^A-Z]/g, ' '); // "Victory Points" is under both results
+    const joined = t.replace(/\s+/g, '');
+    const words = [...t.split(/\s+/), joined].filter((w) => w.length >= 4 && w.length <= 10);
+    const near = (target) => words.some((w) => editDistance(w, target) <= 2) || joined.includes(target);
+    const win = near('VICTORY');
+    const loss = near('DEFEAT');
+    return win === loss ? null : win ? 'win' : 'loss';
+  }
+
+  const api = { resultWord, editDistance, GAME_HELP_STEPS, helpSlots, SIZE, DIM, featureFromRGBA, similarity, classify, isConfident, quantize, dequantize, REGION_STEPS, interpolate, slotLayout, isCalibrated, cleanName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAVision = api;
 })(typeof window !== 'undefined' ? window : globalThis);

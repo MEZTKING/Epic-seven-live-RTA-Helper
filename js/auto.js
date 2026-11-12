@@ -40,6 +40,15 @@
   const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
 
   const cfg = () => App.store.auto;
+  const LAY = window.E7Layouts; // built-in screen layouts (js/layouts.js)
+  /** The built-in layout for the current game picture (or a picture of this size). */
+  const layoutFor = (w, h) => (LAY ? LAY.layoutFor(w, h) : null);
+  const layout = () => {
+    const f = frameSize();
+    return f ? layoutFor(f.w, f.h) : null;
+  };
+  /** Boxes the readers use: built-in ones with your own on top. */
+  const regions = () => (LAY ? LAY.effective(cfg().regions, layout()) : cfg().regions || {});
 
   let source = null; // HTMLVideoElement | game-area canvas (live) | HTMLImageElement (screenshot)
   let live = false; // true while capturing the screen (vs a screenshot file)
@@ -50,7 +59,7 @@
   let templates = { official: [], learned: [], faces: [], faceLearned: [] }; // faces: js/faces.js (round icons)
   const F = window.RTAFaces;
   const ROUND = (s) => s.kind === 'preban'; // round hero icons: matched with the face matcher (picks are banners: old matcher)
-  const FACE_BASE = F ? F.GAME_VARIANTS.findIndex((v) => v.k === 1 && v.dx === 0 && v.dy === 0) : -1;
+  const faceBase = (faces) => (faces.length === F.GAME_VARIANTS.length ? F.GAME_VARIANTS : F.WIDE_VARIANTS).findIndex((v) => Math.abs(v.k - 1) < 0.05 && v.dx === 0 && v.dy === 0);
   let officialLoad = { started: false, done: 0, total: 0, failed: 0 };
   let fps = { t: 0, n: 0, value: 0 };
   let lastFirstPick = null;
@@ -127,10 +136,11 @@
     if (timer) clearInterval(timer);
     timer = null;
     if (live) timer = setInterval(tick, cfg().intervalMs);
-    if (!V.isCalibrated(cfg().regions)) {
+    if (!V.isCalibrated(regions())) {
       if (live) {
         // never interrupt a match: keep pictures, calibrate afterwards
-        setStatus('Not calibrated yet. Just play: a picture of the game is saved every 15 s (or press Ctrl+Shift+S in the desktop app on the draft screen). After the match press "Calibrate on a saved picture".');
+        const f = frameSize();
+        setStatus(`The draft screen isn't set up for this game picture (${f ? f.w + '×' + f.h : '?'}: built-in positions only cover 16:9 Steam). Just play: a picture is saved every 15 s (or Ctrl+Shift+S in the desktop app). After the match, "Calibrate on a saved picture" → Draft screen.`);
         startAutoSave();
       } else startCalibration();
     } else tick();
@@ -142,7 +152,7 @@
   function startAutoSave() {
     clearInterval(autoSave);
     autoSave = setInterval(() => {
-      if (!live || !source || V.isCalibrated(cfg().regions)) return clearInterval(autoSave);
+      if (!live || !source || V.isCalibrated(regions())) return clearInterval(autoSave);
       if (window.E7Pictures) window.E7Pictures.capture(source, 'auto (RTA not calibrated)').catch(() => {});
     }, 15000);
   }
@@ -163,7 +173,7 @@
   // 1) pick a picture, 2) say what's on it, 3) draw only those boxes
   let chosenPic = null;
   const PARTS = () => {
-    const r = cfg().regions || {};
+    const r = LAY ? LAY.effective(cfg().regions, chosenPic ? layoutFor(chosenPic.w, chosenPic.h) : null) : cfg().regions || {};
     const has = (keys) => keys.every((k) => r[k]);
     return [
       { id: 'draft', label: 'Draft screen: all slots (prebans, picks, opponent name)', steps: V.REGION_STEPS, done: V.isCalibrated(r) },
@@ -304,7 +314,8 @@
 
   // =================================================================== loop
   function rebuildSlots() {
-    slots = [...V.slotLayout(cfg().regions), ...V.helpSlots(cfg().regions, cfg().helpCount)];
+    const R = regions();
+    slots = [...V.slotLayout(R), ...V.helpSlots(R, cfg().helpCount)];
     for (const s of slots) if (!track.has(s.id)) track.set(s.id, { candidate: null, count: 0, empties: 0, confirmed: null, result: null, lastVec: null, feature: null });
   }
 
@@ -338,7 +349,9 @@
       const unchanged = t.lastVec && t.result && V.similarity(feature.vec, t.lastVec) > 0.995;
       t.lastVec = feature.vec;
       if (!unchanged && F && ROUND(s) && templates.faces.length > 50) {
-        t.faces = F.fromRect(source, rect);
+        // built-in boxes (measured by eye) get a wider search; boxes you drew are close enough for the normal one
+        const own = (cfg().regions || {})[s.id] || (cfg().regions || {})[s.kind === 'preban' ? `${s.side}Preban${s.index + 1}` : ''];
+        t.faces = F.fromRect(source, rect, own ? F.GAME_VARIANTS : F.WIDE_VARIANTS);
         t.result = faceResult(F.classify(t.faces, activeFaceTemplates(), { preferSource: 'my corrections' }));
       } else if (!unchanged) {
         const opts = { preferSource: 'my corrections', allow: s.side === 'me' && s.kind === 'pick' ? owned : null };
@@ -524,14 +537,14 @@
   const res = { draftId: null, last: null, done: false, at: 0 };
   async function maybeReadResult() {
     const c = cfg();
-    const reg = c.regions.result;
+    const reg = regions().result;
     const d = App.store.draft;
     if (!c.detectResult || !reg || !L.isComplete(d) || ocr.failed || ocr.busy) return;
     if (res.draftId !== d.id) Object.assign(res, { draftId: d.id, last: null, done: false });
     if (res.done || performance.now() - res.at < 2000) return;
     res.at = performance.now();
     const text = (await ocrRegion(reg)).toUpperCase();
-    const r = /VICTORY|\bWIN\b/.test(text) ? 'win' : /DEFEAT|\bLOSE\b|\bLOSS\b/.test(text) ? 'loss' : null;
+    const r = V.resultWord(text); // tolerant: the sword crosses the T of VICTORY on the Steam screen
     if (r && r === res.last && !res.done && App.store.draft.id === res.draftId) {
       res.done = true;
       if (App.store.settings.autoRecord) App.recordResult(r, 'auto');
@@ -557,8 +570,9 @@
     // the EXPANDED CR bar (bigger portraits) is used when it's on screen, else the normal bar
     const SW = window.E7Screens;
     const expandedNow = SW && SW.current() === 'rta-cr-expanded';
-    const reg = (expandedNow && c.regions.crBarExpanded) || c.regions.crBar || c.regions.crBarExpanded;
-    const which = reg === c.regions.crBarExpanded ? 'expanded CR bar' : 'CR bar';
+    const R = regions();
+    const reg = (expandedNow && R.crBarExpanded) || R.crBar || R.crBarExpanded;
+    const which = reg === R.crBarExpanded ? 'expanded CR bar' : 'CR bar';
     const out = $('#auto-cr-out');
     const say = (t) => {
       if (out) out.innerHTML = t;
@@ -618,7 +632,7 @@
   function maybeAutoReadCR() {
     const c = cfg();
     const d = App.store.draft;
-    if (!c.autoReadCR || !(c.regions.crBar || c.regions.crBarExpanded) || !L.isComplete(d)) return;
+    if (!c.autoReadCR || !(regions().crBar || regions().crBarExpanded) || !L.isComplete(d)) return;
     if (crState.draftId !== d.id) Object.assign(crState, { draftId: d.id, done: false, at: 0 });
     if (crState.done || performance.now() - crState.at < 2000) return;
     crState.at = performance.now();
@@ -665,7 +679,7 @@
   }
   async function maybeReadName() {
     const c = cfg();
-    const reg = c.regions.oppName;
+    const reg = regions().oppName;
     if (!c.ocr || !reg || ocr.failed || ocr.busy || App.store.draft.opponent) return;
     if (performance.now() - ocr.lastAt < 2500) return;
     ocr.lastAt = performance.now();
@@ -701,7 +715,7 @@
     frame.width = f.w;
     frame.height = f.h;
     frame.getContext('2d').drawImage(pic ? pic.img : source, 0, 0);
-    calib = { steps: Array.isArray(steps) ? steps : V.REGION_STEPS, step: 0, regions: { ...cfg().regions }, frame, drag: null, preview: false, frameKey: pic ? pic.frameKey : null };
+    calib = { steps: Array.isArray(steps) ? steps : V.REGION_STEPS, step: 0, regions: LAY ? LAY.effective(cfg().regions, layoutFor(f.w, f.h)) : { ...cfg().regions }, frame, drag: null, preview: false, frameKey: pic ? pic.frameKey : null, layout: layoutFor(f.w, f.h) };
     $('#calib').classList.remove('hidden');
     drawCalib();
     // bring the whole picture into view: a drag that ends off-screen would draw the wrong box
@@ -805,7 +819,7 @@
   $('#calib-done').addEventListener('click', () => {
     if (!calib) return;
     if (calib.steps !== V.REGION_STEPS) {
-      cfg().regions = calib.regions; // CR bar / result / drafting help: just save
+      cfg().regions = LAY ? LAY.ownOnly(calib.regions, calib.layout) : calib.regions; // CR bar / result / drafting help: just save (only boxes that differ from built-in)
       if (window.GameArea && (calib.frameKey || live)) window.GameArea.markCalibrated('rta', calib.frameKey || source);
       track.clear();
       rebuildSlots();
@@ -813,7 +827,7 @@
     } else if (!V.isCalibrated(calib.regions)) {
       if (!confirm('Some required boxes are missing. Close anyway?')) return;
     } else {
-      cfg().regions = calib.regions;
+      cfg().regions = LAY ? LAY.ownOnly(calib.regions, calib.layout) : calib.regions;
       if (window.GameArea && (calib.frameKey || live)) window.GameArea.markCalibrated('rta', calib.frameKey || source);
       track.clear();
       rebuildSlots();
@@ -843,11 +857,11 @@
     const t = track.get(fixing);
     if (!t || !t.feature) return;
     addLearned(h.code, t.feature, 'my corrections');
-    if (F && t.faces && FACE_BASE >= 0) {
+    if (F && t.faces && faceBase(t.faces) >= 0) {
       // round icon: also remember the face itself, so the face matcher knows this hero's in-game picture
       const c = cfg();
       c.faceCorrections = c.faceCorrections || [];
-      c.faceCorrections.push({ code: h.code, q: F.quantize(t.faces[FACE_BASE].vec), at: new Date().toISOString() });
+      c.faceCorrections.push({ code: h.code, q: F.quantize(t.faces[faceBase(t.faces)].vec), at: new Date().toISOString() });
       const mine = c.faceCorrections.filter((x) => x.code === h.code);
       if (mine.length > MAX_CORRECTIONS_PER_HERO) c.faceCorrections.splice(c.faceCorrections.indexOf(mine[0]), 1);
       rebuildLearned();
@@ -990,7 +1004,76 @@
     });
   }
 
+  // ============================================================ what the reader knows (status table)
+  const STATE_LABEL = { mine: 'Yours', 'built-in': 'Built-in', mixed: 'Built-in + yours', missing: 'Not set' };
+  const PART_STEPS = () => ({ draft: V.REGION_STEPS.filter((x) => x.key !== 'oppName'), oppName: V.REGION_STEPS.filter((x) => x.key === 'oppName'), cr: CR_STEPS, crx: CR_EXP_STEPS, result: RESULT_STEPS });
+  function renderLayout() {
+    if (!LAY || !$('#auto-layout')) return;
+    const f = frameSize();
+    const lay = f ? layout() : LAY.LAYOUTS[0];
+    $('#auto-layout-head').innerHTML = !f
+      ? 'Steam client in a 16:9 window: the draft screen and Victory/Defeat work <b>without drawing anything</b> (built-in positions). Other shapes (e.g. an emulator with a side toolbar): draw the boxes once on a saved picture.'
+      : lay
+        ? `Game picture ${f.w}×${f.h} (16:9): <b>built-in positions in use</b>. Nothing to set up unless a box is off (press <b>Check</b>).`
+        : `Game picture ${f.w}×${f.h} is not 16:9, so the built-in positions don't fit. Draw the draft boxes once ("Redo" below or "Calibrate on a saved picture"); they're kept for every later game.`;
+    const own = cfg().regions || {};
+    $('#auto-layout').innerHTML = LAY.status(own, lay)
+      .map((p) => {
+        const builtAll = lay && p.keys.every((k) => lay.regions[k]);
+        const state = p.state === 'missing' && p.optional ? 'Not set (optional)' : STATE_LABEL[p.state];
+        return `<tr><td>${esc(p.label)}</td><td><span class="lay-${p.state}">${esc(state)}</span></td><td class="btn-row">
+          <button class="btn" data-lay-check="${p.id}">Check</button>
+          <button class="btn" data-lay-redo="${p.id}">${p.state === 'missing' ? 'Set' : 'Redo'}</button>
+          ${builtAll && (p.state === 'mine' || p.state === 'mixed') ? `<button class="btn" data-lay-reset="${p.id}">Use built-in</button>` : ''}</td></tr>`;
+      })
+      .join('');
+  }
+  async function newestPicture() {
+    const list = window.E7Pictures ? await window.E7Pictures.list() : [];
+    if (!list.length) return null;
+    const p = list[0];
+    const img = new Image();
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+      img.src = p.url;
+    });
+    return { img, w: p.w, h: p.h, frameKey: p.frameKey };
+  }
+  async function checkAlignment() {
+    const pic = source && frameSize() ? null : await newestPicture();
+    if (!pic && !(source && frameSize())) return alert('Nothing to show the boxes on yet: start watching, load a screenshot, or save a game picture first.');
+    startCalibration(V.REGION_STEPS, pic);
+    if (!calib) return;
+    calib.step = calib.steps.length;
+    calib.preview = true;
+    drawCalib();
+  }
+  $('#auto-layout').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.layCheck) return checkAlignment();
+    if (b.dataset.layRedo) {
+      const id = b.dataset.layRedo;
+      if (!(source && frameSize())) return pickPicture(); // no live picture: choose a saved one, then the part
+      if (id === 'help') return calibrateHelp();
+      return startCalibration(PART_STEPS()[id]);
+    }
+    if (b.dataset.layReset) {
+      const part = LAY.PARTS.find((x) => x.id === b.dataset.layReset);
+      if (!confirm(`Forget your boxes for "${part.label}" and use the built-in positions?`)) return;
+      const own = { ...cfg().regions };
+      for (const k of part.keys) delete own[k];
+      cfg().regions = own;
+      track.clear();
+      rebuildSlots();
+      App.save();
+      render();
+    }
+  });
+
   function render() {
+    renderLayout();
     const c = cfg();
     $('#auto-start').classList.toggle('hidden', !!stream);
     $('#auto-stop').classList.toggle('hidden', !stream);

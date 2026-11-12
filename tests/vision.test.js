@@ -97,3 +97,13 @@ test('game drafting-help strip: N evenly spaced icons between first and last', (
   assert.equal(s[0].side, 'help');
   assert.deepEqual(V.helpSlots({}, 5), []);
 });
+
+test('result banner text: tolerant to the sword through VICTORY and spaced DEFEAT letters', () => {
+  assert.equal(V.resultWord('VICEFORY'), 'win'); // real Steam screenshot, built-in box
+  assert.equal(V.resultWord('VICTORY'), 'win');
+  assert.equal(V.resultWord(' V I C T O R Y '), 'win');
+  assert.equal(V.resultWord('D E F E A T'), 'loss');
+  assert.equal(V.resultWord('DEFEAT\nVictory Points'), 'loss'); // "Victory Points" alone must not count as a win
+  assert.equal(V.resultWord('Battle Results Confirm'), null);
+  assert.equal(V.resultWord(''), null);
+});
