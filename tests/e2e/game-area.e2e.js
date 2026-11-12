@@ -42,6 +42,15 @@ const { chromium } = require('playwright');
     return { size: [src.width, src.height], isArea: !!src.isGameArea, scanned: window.GearApp.gs.scanned.map((i) => [i.gear, i.set, i.main.type, i.main.value, i.subs.length]) };
   });
   console.log('wrapped source:', JSON.stringify(res));
+  // boxes drawn before (on the whole screen) -> warned once; after drawing them again on this picture -> no warning
+  const stale = await g.evaluate(async () => {
+    const src = await window.GameArea.wrap(window.__screen);
+    const first = window.GameArea.warnIfStale('gear', src, true, 'redo');
+    const again = window.GameArea.warnIfStale('gear', src, true, 'redo');
+    window.GameArea.markCalibrated('gear', src);
+    return { first, again, key: window.GameArea.frameKey(src), saved: JSON.parse(localStorage.getItem('e7-frame-of')).gear };
+  });
+  console.log('stale boxes check:', JSON.stringify(stale), '(expected first true, again false, key = saved)');
   // overlay in desktop mode maps the card back to the screen position of the game area
   const ov = await ctx.newPage();
   ov.on('pageerror', (e) => errs.push(e.message));

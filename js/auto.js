@@ -78,10 +78,18 @@
     const video = $('#auto-video');
     video.srcObject = stream;
     await video.play();
+    const s0 = stream;
+    s0.getVideoTracks()[0].addEventListener('ended', stopCapture);
     // only the game window, if the capture is the whole screen (the box is drawn once)
-    source = window.GameArea ? await window.GameArea.wrap(video) : video;
+    const src = window.GameArea ? await window.GameArea.wrap(video) : video;
+    if (stream !== s0 || !src) {
+      if (stream === s0) stopCapture();
+      if (!src) setStatus('Not watching: no game area chosen.');
+      return;
+    }
+    source = src;
     live = true;
-    stream.getVideoTracks()[0].addEventListener('ended', stopCapture);
+    if (window.GameArea && cfg().regions) window.GameArea.warnIfStale('rta', source, Object.keys(cfg().regions).length > 0, 'press Calibrate and draw them again');
     begin();
   }
 
@@ -682,6 +690,7 @@
     if (!calib) return;
     if (calib.steps !== V.REGION_STEPS) {
       cfg().regions = calib.regions; // CR bar / result / drafting help: just save
+      if (window.GameArea && live) window.GameArea.markCalibrated('rta', source);
       track.clear();
       rebuildSlots();
       App.save();
@@ -689,6 +698,7 @@
       if (!confirm('Some required boxes are missing. Close anyway?')) return;
     } else {
       cfg().regions = calib.regions;
+      if (window.GameArea && live) window.GameArea.markCalibrated('rta', source);
       track.clear();
       rebuildSlots();
       App.save();

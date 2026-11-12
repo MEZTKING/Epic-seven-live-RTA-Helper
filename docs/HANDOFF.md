@@ -72,6 +72,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
+| `localStorage['e7-frame-of']` | `js/game-area.js` | Which picture each module's calibration boxes were drawn on (`{rta, gear, guild}` → `window` / `area:x,y,w,h` / `full`); readers warn once when it changed |
 | `localStorage['e7-game-area']` | `js/game-area.js` | Where the game is inside a whole-screen capture: `{x,y,w,h}` fractions + capture size `fw,fh`, or `{full:true,fw,fh}`. Asked again when the capture size changes; "Reset game area" buttons clear it. `overlay.html` reads it too |
 | `localStorage['e7-cecilia-heroes']`, `['e7-cecilia-hero-<slug>']`, `['e7-use-cecilia']` | `js/ceciliabot.js` | CeciliaBot effect list (weekly), per-hero skills (weekly), on/off |
 | BroadcastChannel `e7-overlay` | `js/overlay-bus.js` → `overlay.html`, `js/live.js` | Overlay layers `{layer, items}`; items use fractions of the game frame |
@@ -120,7 +121,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
   - **Capture** (`config.capture` in the app's `config.json`): `{mode:'window', id, name}` = only the game window
     (picked in `desktop/picker.html`, matched again by id then title), or `{mode:'screen', …}`. `null` → the picker
     opens on the first `getDisplayMedia`. Pages see it through `desktop/preload.js` → `window.E7Desktop`
-    (`capture()`, `pickWindow()`, `onCapture()`); `js/game-area.js` skips the box in window mode, `overlay.html` uses no
+    (`capture()`, `pickWindow()`, `onCapture()`, `zoom()`/`onZoom()`); `js/game-area.js` skips the box in window mode, `overlay.html` uses no
     mapping. Menu **Game window**.
   - **Overlay follows the game window** (Windows): `desktop/wintrack.js` runs one PowerShell loop reading
     `DwmGetWindowAttribute` / `IsIconic` / `GetForegroundWindow` (read-only); the overlay is moved to the window
@@ -129,6 +130,9 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     install); portable = GitHub API `releases/latest` → download `*-portable.exe` as `<exe>.update` → `.cmd` swaps it
     after exit. Checks 10 s after start and from the menu.
   - Pop-outs (`js/pip.js`, `js/guild-pip.js`) use `window.open` in Electron: Document PiP's `requestWindow` hangs there.
+  - **Zoom is per origin** in Chromium, so all `e7://app` windows share `config.zoom`. The overlay therefore never calls
+    `setZoomFactor`; `overlay.html` scales items by `overlayZoom / zoom`.
+  - Window mode on Windows: the overlay is hidden until the game window is found (retried every 4 s).
   - Text size: pages open at 125% zoom (`config.zoom`, saved in the app's config file). View menu: Ctrl+= bigger,
     Ctrl+- smaller, Ctrl+0 back to 125%. Overlay menu: bigger/smaller overlay text (`config.overlayZoom`).
 
@@ -144,7 +148,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     caps it at 62vh.
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #17)
+## 7. Status (end of DEVLOG #18)
 
 **Game client:** works with any PC window (Steam version, official PC client, Google Play Games, emulators), because
 it only reads the screen; calibrate per client. **Fribbels' gear importer does NOT work with the Steam version**
@@ -183,7 +187,7 @@ python3 -m http.server 8766            # serve locally (needed for service worke
 cd desktop && npm install && npm start # desktop overlay app
 cd desktop && npm run dist             # Windows installer + portable .exe in desktop/dist/ (needs Windows or wine)
 cd desktop && npx electron-builder --linux dir --publish never   # packaged Linux build, for tests here
-xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
+xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js, zoom.js, cancel.js; $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
 ```
 
 **CI:**

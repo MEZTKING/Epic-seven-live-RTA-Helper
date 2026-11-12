@@ -94,20 +94,26 @@ async function latestRelease() {
 }
 
 async function download(url, dest) {
+  const { Readable, Transform } = require('stream');
+  const { pipeline } = require('stream/promises');
   const res = await net.fetch(url, { headers: { 'User-Agent': 'Epic-7-Engine-updater' } });
   if (!res.ok || !res.body) throw new Error(`Download failed (${res.status})`);
   const total = Number(res.headers.get('content-length')) || 0;
-  const out = fs.createWriteStream(dest);
-  const reader = res.body.getReader();
   let got = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    got += value.length;
-    if (!out.write(Buffer.from(value))) await new Promise((r) => out.once('drain', r));
-    if (total) progress(got / total);
+  const count = new Transform({
+    transform(chunk, _enc, cb) {
+      got += chunk.length;
+      if (total) progress(got / total);
+      cb(null, chunk);
+    },
+  });
+  try {
+    // pipeline rejects on any read/write error (read-only folder, full disk) instead of crashing the app
+    await pipeline(Readable.fromWeb(res.body), count, fs.createWriteStream(dest));
+  } catch (e) {
+    fs.rm(dest, { force: true }, () => {});
+    throw new Error(`Could not save the update next to the app (${e.code || e.message}). Is the folder read-only?`);
   }
-  await new Promise((r, j) => out.end((e) => (e ? j(e) : r())));
   if (total && got !== total) throw new Error('Download was cut off');
 }
 
@@ -149,24 +155,27 @@ function swapOnExit(exe, tmp, restartNow, version) {
   app.once('will-quit', () => {
     if (app.relaunchAfterSwap) restart.value = true;
     const cmd = path.join(os.tmpdir(), `e7-engine-update-${Date.now()}.cmd`);
-    // retry the move until the old .exe is no longer locked (up to ~60 s), then start the new one
+    // %1 = downloaded file, %2 = the app's .exe (passed as arguments, so any folder name works).
+    // Retry the move until the old .exe is free (the portable launcher cleans up first), up to ~60 s.
+    // (ping is the wait: "timeout" exits at once when there's no keyboard input, as here.)
     const script = [
       '@echo off',
       'set n=0',
       ':retry',
-      `move /y "${tmp}" "${exe}" >nul 2>&1 && goto start`,
+      'move /y "%~1" "%~2" >nul 2>&1 && goto start',
       'set /a n+=1',
       'if %n% geq 60 goto end',
-      'timeout /t 1 /nobreak >nul',
+      'ping -n 2 127.0.0.1 >nul',
       'goto retry',
       ':start',
-      restart.value ? `start "" "${exe}"` : 'rem',
+      restart.value ? 'start "" "%~2"' : 'rem',
       ':end',
       '(goto) 2>nul & del "%~f0"',
     ].join('\r\n');
     try {
       fs.writeFileSync(cmd, script);
-      spawn('cmd.exe', ['/c', cmd], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      // /s + one outer pair of quotes: cmd keeps every inner quoted path intact, even with spaces
+      spawn('cmd.exe', ['/d', '/s', '/c', `""${cmd}" "${tmp}" "${exe}""`], { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true }).unref();
     } catch (_) { /* the .update file stays; next check downloads again */ }
   });
 }

@@ -37,6 +37,11 @@
       // desktop app in window mode: this layer sits exactly on the game window, so no mapping
       const windowMode = () => { try { return !!(window.E7Desktop && E7Desktop.capture().mode === 'window'); } catch (_) { return false; } };
       if (window.E7Desktop) E7Desktop.onCapture(() => draw());
+      // overlay text size (desktop: Overlay → Bigger/Smaller overlay text). Page zoom is shared with the main window,
+      // so items are scaled by overlayZoom / zoom; positions are untouched (transform from the side facing the box).
+      let scale = 1;
+      const readZoom = (z) => { scale = z && z.zoom ? z.overlayZoom / z.zoom : 1; };
+      if (window.E7Desktop && E7Desktop.zoom) { try { readZoom(E7Desktop.zoom()); } catch (_) {} E7Desktop.onZoom((z) => { readZoom(z); draw(); }); }
       const area = () => {
         if (windowMode()) return { x: 0, y: 0, w: 1, h: 1 };
         try {
@@ -55,11 +60,13 @@
           const w = (it.w || 0) * A.w * W, h = (it.h || 0) * A.h * H;
           const side = it.side || 'right';
           let style = '';
-          if (it.kind === 'dot') style = `left:${x + w + 4}px;top:${y + h / 2 - 7}px`;
+          let origin = 'left top';
+          if (it.kind === 'dot') { style = `left:${x + w + 4}px;top:${y + h / 2 - 7}px`; origin = 'left center'; }
           else if (side === 'right') style = `left:${x + w + 6}px;top:${y}px`;
-          else if (side === 'left') style = `right:${W - x + 6}px;top:${y}px`;
+          else if (side === 'left') { style = `right:${W - x + 6}px;top:${y}px`; origin = 'right top'; }
           else if (side === 'below') style = `left:${x}px;top:${y + h + 4}px`;
-          else style = `left:${x}px;bottom:${H - y + 4}px`;
+          else { style = `left:${x}px;bottom:${H - y + 4}px`; origin = 'left bottom'; }
+          if (scale !== 1) style += `;transform:scale(${scale});transform-origin:${origin}`;
           const dot = it.level ? `<span class="gwdot ${esc(it.level)}"></span> ` : '';
           const box = `data-bx="${x}" data-by="${y}" data-bw="${w}" data-bh="${h}"`;
           if (it.kind === 'dot') return `<div class="ov" ${box} style="${style}">${dot}</div>`;

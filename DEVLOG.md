@@ -7,6 +7,61 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #18 · Fixes from an independent review (Fable) · this commit (previous: `2d69443`)
+
+**Asked for:** "use fable to check if anything else is wrong and then push". A separate Fable review read
+`e062f43..2d69443` without being told my conclusions. Every finding below was checked against the code before fixing.
+
+**Bugs found and fixed**
+1. **Portable update never swapped** (high). The .cmd waited with `timeout /t 1`, which exits at once when stdin
+   isn't a keyboard (we spawn with `stdio: 'ignore'`). The 60 retries took about 1 s, before the portable launcher
+   freed the .exe, and the next start deleted the download. Now it waits with `ping -n 2 127.0.0.1`.
+2. **Non-ASCII or space-containing paths in the swap script** (medium). The paths were written into the .cmd file
+   (UTF-8, but cmd reads the OEM code page). They're now passed as arguments (`%~1` / `%~2`), on a verbatim
+   `cmd /d /s /c ""script" "a" "b""` command line.
+3. **Main and overlay zoom weren't independent** (medium). Chromium zoom is per origin; both windows are `e7://app`.
+   Confirmed in the packaged app: with zoom 1.5 the overlay window also reported 1.5. The overlay no longer uses
+   `setZoomFactor`; `overlay.html` scales each card or label by `overlayZoom / zoom` (CSS transform, origin on the side
+   facing its box, so positions stay exact). Values come over IPC (`E7Desktop.zoom()` / `onZoom`).
+4. **Update download had no write-error handling** (medium-low). A read-only folder or full disk could crash the main
+   process or hang with `busy` stuck on. It now uses `stream.pipeline`, removes the partial file, and gives a clear
+   message.
+5. **Overlay in the wrong place in window mode with no tracker** (medium): game not open yet, game closed,
+   PowerShell blocked. On Windows the overlay now hides until the game window is found again, and the app looks for it
+   every 4 s, not only when a reader starts.
+6. **Every child window forced to 380×620 and always on top** (low). Only the mini windows (`rta-mini`,
+   `e7-guild-mini`) get that now; e.g. Live → Open overlay preview opens normally at 1100×640.
+7. **Readers and the game-area dialog** (low). The capture-ended listener is now attached before the dialog. Cancelling
+   "Where is the game?" stops the reader (`GameArea.wrap` returns null) instead of silently reading the whole screen.
+   Applies to `js/auto.js`, `js/guild-watch.js` and `js/gear-scan.js`.
+
+**Also fixed (the review's "speculative" list)**
+- **Old calibration boxes**: boxes drawn on the whole screen are in the wrong place once only the game is read.
+  `GameArea.markCalibrated(module, src)` records which picture each module's boxes were drawn on, in
+  `localStorage['e7-frame-of']` (`window` / `area:x,y,w,h` / `full`). `warnIfStale` alerts once when a reader starts
+  with boxes from another picture.
+- Display-media handler: when cancelled, `callback()` is called with no arguments, guarded.
+- Window title match is exact (a browser tab named "Epic Seven …" can no longer be picked by accident; you're asked
+  instead).
+- The PowerShell tracker stops when the app's process is gone (no orphan after a crash).
+- Pop-out windows get the zoom at creation (`about:blank` may never fire `did-finish-load`).
+- Only the picker window may send `e7:choose`.
+- **Kept on purpose:** every build of the dev branch becomes the "latest" release. That's how the owner gets updates,
+  since this branch is where all work happens.
+
+**Tested**
+- `npm test` 78 passing; browser suite 12/12 clean. `game-area.e2e.js` now also checks the old-boxes warning (warns
+  once; no warning after redrawing).
+- Packaged Linux app (Xvfb + Openbox), scripts in `tests/desktop/`:
+  - `zoom.js`: overlay card scale 1/1.5 with zoom 1.5 / overlayZoom 1.0.
+  - `popout.js`: both pop-outs open, with content, on top.
+  - `winpick.js`: window capture as before.
+  - `cancel.js`: cancelling the picker leaves Gear "not reading", no errors; the overlay preview is 1100×640 and not on
+    top.
+- **Not tested (needs Windows):** the swap script, PowerShell tracker, NSIS install and update.
+
+---
+
 ## 2026-11-12 · #17 · Pop out fixed, in-app updater, read just the game window · this commit (previous: `d112aa5`)
 
 **Asked for:** (screenshot of Guild War in the desktop app) "POP OUT DOESNT DO ANYTHING"; then "make an inapp updater";
