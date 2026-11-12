@@ -6,7 +6,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable --publish never"
+    "dist": "electron-builder --win nsis portable --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -17,6 +20,10 @@
     "productName": "Epic 7 Engine",
     "files": [
       "main.js",
+      "updater.js",
+      "wintrack.js",
+      "preload.js",
+      "picker.html",
       "package.json"
     ],
     "extraResources": [
@@ -40,11 +47,29 @@
       }
     ],
     "win": {
-      "target": "portable"
+      "target": [
+        "nsis",
+        "portable"
+      ]
     },
     "portable": {
       "artifactName": "Epic-7-Engine-${version}-portable.exe"
-    }
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Epic-7-Engine-Setup-${version}.exe",
+      "createDesktopShortcut": true,
+      "runAfterFinish": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "MEZTKING",
+        "repo": "Epic-seven-live-RTA-Helper",
+        "releaseType": "release"
+      }
+    ]
   },
   "author": "Epic 7 Engine (fan-made)"
 }

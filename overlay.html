@@ -34,7 +34,11 @@
       const layers = {};
       const root = document.getElementById('layers');
       // readers measure inside the game area (js/game-area.js); map back to the whole screen
+      // desktop app in window mode: this layer sits exactly on the game window, so no mapping
+      const windowMode = () => { try { return !!(window.E7Desktop && E7Desktop.capture().mode === 'window'); } catch (_) { return false; } };
+      if (window.E7Desktop) E7Desktop.onCapture(() => draw());
       const area = () => {
+        if (windowMode()) return { x: 0, y: 0, w: 1, h: 1 };
         try {
           const a = JSON.parse(localStorage.getItem('e7-game-area') || 'null');
           return a && !a.full ? a : { x: 0, y: 0, w: 1, h: 1 };

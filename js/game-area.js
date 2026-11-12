@@ -8,6 +8,8 @@
  * Saved on this device: localStorage 'e7-game-area' =
  *   { x, y, w, h (fractions of the full capture), fw, fh (capture size when set) }  or  { full: true, fw, fh }
  * If the capture size changes (other monitor / resolution), you're asked again.
+ * Desktop app in WINDOW mode (only the game window is captured): no box needed, the
+ * capture already is the game; "Reset game area" opens the window picker instead.
  *
  *   const src = await GameArea.wrap(video)  // canvas (cropped, refreshed 10x/s) or the video itself
  *   GameArea.choose(video)                  // (re)draw the box
@@ -122,7 +124,16 @@
    * time (or when the capture size changed). Returns a canvas kept up to date, or
    * the video itself when "whole picture" was chosen.
    */
+  const windowMode = () => {
+    try {
+      return !!(window.E7Desktop && window.E7Desktop.capture().mode === 'window');
+    } catch (_) {
+      return false;
+    }
+  };
+
   async function wrap(video) {
+    if (windowMode()) return video; // the capture is just the game window
     let a = read();
     if (!a || !matches(a, video)) a = await choose(video);
     if (!a || a.full) return video;
@@ -146,8 +157,13 @@
   document.addEventListener('click', (e) => {
     if (!e.target.closest('[data-reset-game-area]')) return;
     localStorage.removeItem(KEY);
+    if (window.E7Desktop) {
+      // desktop app: pick the game window (or a whole screen) again
+      window.E7Desktop.pickWindow().then((c) => c && alert(`Now reading ${c.mode === 'window' ? 'the window' : 'the screen'} "${c.name}". Stop and start reading again to use it.`));
+      return;
+    }
     alert('Game area cleared. Stop and start reading again, then drag a box around the game.');
   });
 
-  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY) };
+  window.GameArea = { wrap, choose, get: read, clear: () => localStorage.removeItem(KEY), windowMode };
 })();
