@@ -149,7 +149,11 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
     caps it at 62vh.
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #18)
+## 7. Status (end of DEVLOG #20)
+
+**Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
+screenshots, IndexedDB, glyph reader).
+
 
 **Game client:** works with any PC window (Steam version, official PC client, Google Play Games, emulators), because
 it only reads the screen; calibrate per client. **Fribbels' gear importer does NOT work with the Steam version**

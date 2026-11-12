@@ -7,6 +7,40 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #20 · Design review: Fable and DeepSeek on "build it from scratch" · this commit (previous: `d2160db`)
+
+**Asked for:** "ask fable and deepseek what is the best way to design this app from scratch again".
+
+**Done**
+- Wrote one neutral brief: goals, how the owner plays, the read-only rule, source separation, the solo maintainer
+  setup. It contains no personal details, no description of the current code and none of our opinions, so the answers
+  aren't anchored on ours.
+- Fable answered as an independent sub-agent, told not to read the repo.
+- DeepSeek answered via its chat API. The owner entered their API key in the secure credential form; it is stored as a
+  network secret on their cloud environment, and the session never saw it. We requested `deepseek-reasoner`; the API
+  reported `deepseek-flash`.
+- `docs/DESIGN_REVIEW.md` (new): the brief, both answers, and a comparison with the current app. `docs/SOURCES.md`:
+  new section 2b "Outside advice".
+
+**Findings**
+- Both reviewers agree on the core:
+  - capture the game window, normalised to one 16:9 frame
+  - ship screen layouts as versioned data instead of user-drawn boxes
+  - a central vision pipeline that emits events to the modules
+  - a real-screenshot test corpus
+  - local, source-separated storage
+  - explainable scoring with Bayesian smoothing
+  - read-only
+- They disagree on the platform:
+  - Fable: web tech + Electron, which is what we have.
+  - DeepSeek: C# .NET + WPF + SQLite + Velopack, with Supabase and a separate PWA.
+- Recommendation: evolve the current app, don't rewrite. Order: vision service → layout packs from real screenshots →
+  IndexedDB → glyph reader for stats.
+
+**Tested:** n/a (docs only). **Open:** waiting for the owner's go-ahead and real screenshots for the layout packs.
+
+---
+
 ## 2026-11-12 · #19 · Gear card view (like the game's inventory) · this commit (previous: `a43ba45`)
 
 **Asked for:** (two Steam screenshots: an item's details panel, and the inventory grid) "also display the gears like this
