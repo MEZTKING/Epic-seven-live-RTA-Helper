@@ -59,6 +59,27 @@ following the suggestions actually wins you more games.
 **Shortcuts** (when not typing): `1` `2` `3` pick a suggestion · `U` undo · `N` new draft · `W`/`L` record win/loss ·
 `P` pop-out · `R` read CR bar · `?` help. The app also beeps when your turn starts (can be switched off).
 
+**The game's own drafting help → your own database.** Turn on drafting help in RTA, then press
+**Auto → Calibrate game's drafting help**. Box the first and last recommended hero and enter how many it shows.
+At every draft step, for picks and for pre- and postbans, the app records what the game recommends together with the board at that moment,
+under its own source `game help`:
+- **Live:** the current recommendations are added to the suggestions ("Game's drafting help suggests it now (#1)").
+- **Database:** over time the app learns which heroes the game recommends **against** each enemy hero, **with** each
+  ally, and which heroes it recommends banning. Browse it in **Teams → Game's drafting-help database**, export it as CSV,
+  and use it as a signal in suggestions ("Game recommended it vs Landy 7×").
+- **Did it help?** History compares your win rate when you followed the game's help with when you didn't.
+
+**Gear Sorter** (`gear.html`, the **Gear ↗** link). A separate page that shares your `gear.txt`:
+- Gear score for every item, using the same **WSS** formula as the Fribbels/RexQian optimizer (substats only),
+  plus the **score after reforging** (level 85 → 90, using the fork's per-roll reforge table) and the **expected score at +15**
+  for unfinished items.
+- **Who it's best for:** each item is compared with what each of your heroes wears in that slot. Hero priorities are
+  learned from the substats their current gear rolled into, mixed with a class default, and you can override them per hero.
+- **Verdict:** Keep / Enhance / Reforge / Extract / Sell, each with a reason (for example "Upgrade for a hero (+9 fit)",
+  "Speed piece (15 speed)", "65 → 77 after reforge"). The thresholds are adjustable rules of thumb.
+- **Shop check:** enter an item from a shop to see if it's worth buying and for whom.
+- Filter by verdict, slot, set, spare or equipped, or **best for a hero**.
+
 **Draft**
 - Tracks the RTA draft: 2 prebans each, picks in 1-2-2-2-2-1 order, then 1 postban each.
 - Shows hero portraits. Click a hero, or type part of a name and press **Enter**.
@@ -87,14 +108,15 @@ in the **Data** tab without touching the rest.
 | Source | What it holds | Where it comes from |
 |---|---|---|
 | `official` | Hero names, elements, classes, codes | Smilegate's public hero list. A copy is built in; **Update from official site** refreshes it |
-| `Fribbels` | Heroes you own and their stars | Your `gear.txt` from the Fribbels optimizer |
+| `Fribbels` | Heroes you own and their stars | Your `gear.txt` from the Fribbels optimizer ([RexQian fork](https://github.com/RexQian/Fribbels-Epic-7-Optimizer)) |
 | `my notes` | Tiers, counters, synergies, notes, owned ticks | You |
 | `custom` | Heroes you added that are missing from the official list | You |
 | `manual` matches | Matches you logged from the Draft tab | You |
 | `import:<name>` matches | Each imported CSV dataset, under its own name | Files you import |
 | `learned` | Win rates, matchups, pairs, player profiles | Calculated only from the match sources you have switched on |
 | `my corrections` | Screen images of slots you labeled | You, in the Auto tab |
-| `fribbels-data` | Hero base stats and artifact names | Public data used by the Fribbels optimizer (built-in copy + **Update**) |
+| `fribbels-data` | Hero base stats and artifact names | Data used by the [RexQian fork](https://github.com/RexQian/Fribbels-Epic-7-Optimizer) of the Fribbels optimizer (built-in copy + **Update**; the fork's GitHub copy is the fallback) |
+| `game help` | What the game's RTA drafting help recommended, for picks and bans, with the board at that moment | Auto-detection |
 | `scouting` | Opponents' speeds, sets and artifacts, per player and per hero | You, or the CR-bar reader |
 | `meta: <name>` | Season pick, ban and win rates | Meta CSVs you import |
 | `auto` matches | Results read from the Victory/Defeat screen | Auto-detection |
@@ -115,6 +137,8 @@ Each signal adds or subtracts points. You can switch each one off.
 | Meta win rate / pick rate (for their picks) / ban rate (for prebans) | meta | (win − 50%) × 10, pick × 3, ban × 4 |
 | Faster or slower than each enemy (your gear vs scouted speed) | speed | ±0.6 per enemy |
 | Would also be strong for the opponent | deny | their score × 0.3 |
+| The game's drafting help recommends it right now | game help | +3 for #1, then 15% less per rank |
+| Recommended by the game against an enemy on the board, or with an ally, in past drafts | game help | +0.4 / +0.25 per time (max 5) |
 | The opponent's pick habits (predicting their picks, and prebans) | player | pick rate × 5 |
 
 Learned win rates are smoothed toward 50% (4 imaginary games at 50%), so 1–2 lucky games don't dominate.
@@ -139,6 +163,8 @@ js/learn.js     learning engine: stats, matchups, pairs, players  (pure, tested)
 js/logic.js     draft rules, suggestion scoring, speed math       (pure, tested)
 js/vision.js    image matching, calibration layout, confidence  (pure, tested)
 js/gear.js      gear.txt builds, set bonuses, speed calculation   (pure, tested)
+js/gearsort.js  gear score, reforge, hero fit, keep/sell verdicts (pure, tested)
+gear.html, js/gear-app.js  the Gear Sorter page
 js/tune.js      learns suggestion weights from your matches       (pure, tested)
 js/sources/fribbels-data.js  built-in copy of hero base stats + artifacts (generated)
 js/app.js       UI and storage

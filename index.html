@@ -22,6 +22,7 @@
       <button class="tab" data-tab="players" role="tab">Players</button>
       <button class="tab" data-tab="history" role="tab">History</button>
       <button class="tab" data-tab="data" role="tab">Data</button>
+      <a class="tab" href="gear.html" title="Gear sorter: keep / enhance / reforge / extract / sell">Gear ↗</a>
     </nav>
   </header>
 
@@ -107,6 +108,7 @@
       <div class="btn-row">
         <button id="auto-calib-cr" class="btn">Calibrate CR bar</button>
         <button id="auto-calib-result" class="btn">Calibrate result banner</button>
+        <button id="auto-calib-help" class="btn" title="Turn on drafting help in RTA first">Calibrate game's drafting help</button>
         <button id="auto-read-cr" class="btn" title="Shortcut: R">Read CR bar now</button>
         <label class="inline">100% end
           <select id="auto-cr-end"><option value="auto">auto</option><option value="top">top</option><option value="bottom">bottom</option><option value="right">right</option><option value="left">left</option></select>
@@ -253,6 +255,12 @@
         <div class="card"><h3>Best pairs <span class="src learned">learned</span></h3><ul id="combo-pairs" class="plain-list"></ul></div>
         <div class="card"><h3>Best trios <span class="src learned">learned</span></h3><ul id="combo-trios" class="plain-list"></ul></div>
       </div>
+      <div class="card wide">
+        <h3>Game's drafting-help database <span class="src game">game help</span></h3>
+        <p class="hint">Built from every recommendation the game's RTA drafting help showed during your drafts (picks and bans). Type a hero to see what the game recommends against it and alongside it.</p>
+        <input id="gh-hero" list="hero-names" placeholder="Hero (leave empty for overall)" class="full" autocomplete="off" />
+        <div id="gh-out"></div>
+      </div>
     </section>
 
     <!-- ============================== PLAYERS ============================ -->
@@ -296,7 +304,7 @@
         </div>
         <div class="card">
           <h3>My roster <span class="src fribbels">Fribbels</span></h3>
-          <p class="hint">Import <b>gear.txt</b> exported from the Fribbels optimizer (heroes you own and their stars).</p>
+          <p class="hint">Import <b>gear.txt</b> exported from the Fribbels optimizer (use the maintained <a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a>): your heroes, stars and equipped gear.</p>
           <div id="src-fribbels" class="hint"></div>
           <div id="src-builds" class="hint"></div>
           <div class="btn-row">
@@ -315,6 +323,7 @@
           <label class="inline block"><input id="use-meta" type="checkbox" /> <span class="src meta">meta</span> imported meta datasets</label>
           <label class="inline block"><input id="use-speed" type="checkbox" /> <span class="src speed">speed</span> your gear vs scouted speeds</label>
           <label class="inline block"><input id="use-deny" type="checkbox" /> <span class="src deny">deny</span> heroes also strong for them</label>
+          <label class="inline block"><input id="use-game-help" type="checkbox" /> <span class="src game">game help</span> the game's own drafting help</label>
           <label class="inline block"><input id="use-manual-owned" type="checkbox" /> Owned ticks I set by hand</label>
           <div id="src-notes" class="hint"></div>
         </div>
@@ -323,7 +332,7 @@
       <div class="cards">
         <div class="card">
           <h3>Hero stats &amp; artifacts <span class="src fribbels">fribbels-data</span></h3>
-          <p class="hint">Base stats (for your speeds) and artifact names, from the public data the Fribbels optimizer uses.</p>
+          <p class="hint">Base stats (for your speeds) and artifact names, from the data used by the <a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a> of the Fribbels optimizer.</p>
           <div id="src-fdata" class="hint"></div>
           <div class="btn-row"><button id="fdata-refresh" class="btn">Update</button></div>
         </div>
@@ -332,6 +341,12 @@
           <p class="hint">Opponents' speeds, sets and artifacts you noted or the CR bar reader filled in.</p>
           <div id="src-scouting" class="hint"></div>
           <div class="btn-row"><button id="scouting-clear" class="btn danger">Delete all</button></div>
+        </div>
+        <div class="card">
+          <h3>Game's drafting help <span class="src game">game help</span></h3>
+          <p class="hint">Recommendations read from the game's RTA drafting help, for picks and bans. Calibrate it in the Auto tab.</p>
+          <div id="src-game-help" class="hint"></div>
+          <div class="btn-row"><button id="game-help-export" class="btn">Export CSV</button><button id="game-help-clear" class="btn danger">Delete all</button></div>
         </div>
         <div class="card">
           <h3>Other settings</h3>
@@ -427,6 +442,7 @@
   <script src="js/sources/fribbels-data.js"></script>
   <script src="js/roster.js"></script>
   <script src="js/gear.js"></script>
+  <script src="js/gearsort.js"></script>
   <script src="js/learn.js"></script>
   <script src="js/logic.js"></script>
   <script src="js/tune.js"></script>

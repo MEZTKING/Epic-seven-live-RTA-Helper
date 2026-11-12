@@ -95,3 +95,35 @@ test('tuneWeights: trusts notes that predicted wins, distrusts element when it d
   assert.ok(r.accuracyAfter >= r.accuracyBefore);
   assert.equal(Tune.tuneWeights(ms.slice(0, 5), byCode, {}, Learn, Logic).ok, false);
 });
+
+test("game drafting help: database of recommendations against / with heroes, bans, follow-through", () => {
+  const entries = [
+    { draftId: 'd1', phase: 'pick', player: 'me', recs: ['a', 'b'], board: { myPicks: ['m'], oppPicks: ['x'] } },
+    { draftId: 'd1', phase: 'pick', player: 'me', recs: ['a'], board: { myPicks: ['m', 'b'], oppPicks: ['x', 'y'] } },
+    { draftId: 'd2', phase: 'preban', player: 'me', recs: ['z'] },
+    { draftId: 'd2', phase: 'postban', player: 'me', recs: ['z', 'x'] },
+    { draftId: 'd3', phase: 'pick', player: 'opp', recs: ['q'], board: { myPicks: ['m'], oppPicks: ['x'] } },
+  ];
+  const ms = [{ draftId: 'd1', result: 'win', myPicks: ['m', 'a', 'b'] }];
+  const g = Learn.gameHelpStats(entries, ms);
+  assert.equal(g.against.get('x').get('a'), 2);
+  assert.equal(g.against.get('y').get('a'), 1);
+  assert.equal(g.with.get('m').get('a'), 2);
+  assert.equal(g.against.get('m').get('q'), 1); // opp's turn: enemies are MY picks
+  assert.equal(g.bans.get('z'), 2);
+  assert.deepEqual(g.followed, { games: 1, wins: 1 });
+});
+
+test('game help signals in suggestions (labelled "game help")', () => {
+  const H = (c) => ({ code: c, name: c.toUpperCase(), element: 'fire', role: 'warrior' });
+  const heroes = 'abcdefghijklmnop'.split('').map(H);
+  let d = Logic.newDraft('opp');
+  for (const c of ['h', 'i', 'j', 'k', 'e']) d = Logic.select(d, c);
+  const stats = Learn.gameHelpStats([1, 2, 3].map(() => ({ phase: 'pick', player: 'me', recs: ['c'], board: { myPicks: [], oppPicks: ['e'] } })));
+  const live = { phase: 'pick', player: 'me', recs: ['d', 'c'] };
+  const s = Logic.suggestPicks(d, heroes, { gameHelp: { live, stats }, deny: false, useElement: false });
+  assert.deepEqual(s.map((r) => r.hero.code), ['c', 'd']); // c: live #2 (2.6) + vs E 3x (1.2) ; d: live #1 (3)
+  assert.ok(s.every((r) => r.reasons.every((x) => x.source === 'game help')));
+  const pre = Logic.suggestPrebans(Logic.newDraft('me'), heroes, { gameHelp: { live: { phase: 'preban', player: 'me', recs: ['p'] }, stats: null } });
+  assert.equal(pre[0].hero.code, 'p');
+});

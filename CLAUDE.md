@@ -7,7 +7,9 @@
 
 ## Project
 - Epic Seven RTA helper: static browser app, no build step. Open `index.html`.
-- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`).
+- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`).
 - **Keep data separated by source.** Official roster, Fribbels import, the owner's notes, learned
   stats and each imported dataset are stored apart and can be toggled off individually. Never merge
   one source into another; label every suggestion reason with its source.
+- Fribbels data and formats: use the maintained RexQian fork (github.com/RexQian/Fribbels-Epic-7-Optimizer),
+  not the original fribbels repo.
