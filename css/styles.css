@@ -374,3 +374,56 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .slot.filled[data-hero] { cursor: pointer; }
 
 .cb-buff { color: #3ecf8e; } .cb-debuff { color: #ff8f6b; }
+
+/* ---------- Gear cards (game-like inventory view; our own drawing, no game art) ---------- */
+.gear-browse { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (min-width: 1100px) { .gear-browse.has-detail { grid-template-columns: minmax(0, 1fr) 360px; } .gear-detail { position: sticky; top: 12px; } }
+.gear-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 10px; }
+.gtile { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 82px 1fr; gap: 8px; padding: 7px; border-radius: 9px;
+  background: #1a1c26; border: 1px solid #2c2f3d; border-bottom: 3px solid var(--vd, #2c2f3d); }
+.gtile:hover, .gtile:focus-visible { border-color: #c9a24a; }
+.gtile.sel { outline: 2px solid #f0d48a; outline-offset: 1px; }
+.gt-left { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.gt-icon { position: relative; width: 78px; height: 78px; border-radius: 7px; display: grid; place-items: center; font-size: 30px; color: rgba(255,255,255,.88);
+  background: radial-gradient(circle at 50% 40%, var(--rk2), var(--rk1)); border: 2px solid var(--rk3); }
+.gt-lv { position: absolute; top: 2px; left: 4px; font-size: 13px; font-weight: 800; color: #f3e7c4; text-shadow: 0 1px 2px #000; }
+.gt-enh { position: absolute; bottom: 2px; left: 4px; font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px #000; }
+.gt-lock { position: absolute; top: -7px; left: -6px; font-size: 13px; }
+.gt-hero { position: absolute; top: 2px; right: 2px; }
+.gt-hero .pt.sm { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #000; }
+.setb { position: absolute; bottom: -6px; right: -6px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800;
+  color: #fff; background: var(--set, #555); border: 2px solid #f0d48a; box-shadow: 0 1px 3px #000; }
+.gt-score { font-size: 20px; font-weight: 800; color: #f3e7c4; line-height: 1; }
+.gt-stats { display: flex; flex-direction: column; justify-content: center; gap: 1px; font-size: 15px; font-variant-numeric: tabular-nums; min-width: 0; }
+.gt-stats .main { font-size: 17px; font-weight: 800; color: #fff; }
+.gt-stats .sub { color: #d6d8e2; }
+.si { display: inline-block; width: 1.25em; text-align: center; color: #b8bccb; }
+.gt-stats sup { font-size: 10px; color: #c9a24a; }
+.rk-Epic { --rk1: #4d1016; --rk2: #9b2a30; --rk3: #c2434b; }
+.rk-Heroic { --rk1: #2f1446; --rk2: #6c3399; --rk3: #9a5bd0; }
+.rk-Rare { --rk1: #0f2643; --rk2: #2a5b94; --rk3: #4a86c8; }
+.rk-Good { --rk1: #133a22; --rk2: #2c7a49; --rk3: #46a86b; }
+.rk-Normal { --rk1: #2a2c33; --rk2: #555a66; --rk3: #777c88; }
+.vdc-keep { --vd: var(--win); } .vdc-enhance { --vd: #58b8ff; } .vdc-reforge { --vd: #c792ff; } .vdc-extract { --vd: var(--accent); } .vdc-sell { --vd: var(--loss); }
+.gear-detail { background: linear-gradient(180deg, #3a1418 0, #1d1218 160px, #17181f 100%); border: 1px solid #5a2a2e; border-radius: 12px; padding: 14px; }
+.gear-detail.rk-Heroic { background: linear-gradient(180deg, #2a1640 0, #1a1424 160px, #17181f 100%); border-color: #4b2d66; }
+.gear-detail.rk-Rare { background: linear-gradient(180deg, #132a48 0, #141a26 160px, #17181f 100%); border-color: #2d4b6e; }
+.gd-head { display: grid; grid-template-columns: 78px 1fr; gap: 12px; align-items: center; }
+.gd-rank { font-size: 18px; font-weight: 700; color: var(--rk3); }
+.gd-name { font-size: 20px; font-weight: 800; line-height: 1.2; }
+.gd-main { display: flex; justify-content: space-between; margin: 14px 0 6px; padding: 8px 10px; background: rgba(255,255,255,.07); border-radius: 6px; font-size: 21px; font-weight: 800; }
+.gd-sub { display: flex; justify-content: space-between; padding: 2px 10px; font-size: 17px; color: #d6d8e2; font-variant-numeric: tabular-nums; }
+.gd-score { display: flex; justify-content: space-between; padding: 8px 10px 2px; margin-top: 6px; font-size: 19px; font-weight: 800; color: #f0d48a; border-top: 1px solid rgba(240,212,138,.25); }
+.gd-set { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 10px; background: rgba(255,255,255,.05); border-radius: 6px; font-size: 17px; font-weight: 700; }
+.gd-set .setb { position: static; }
+.gd-block { margin-top: 12px; font-size: 14px; }
+.gd-block .clickable { margin: 3px 0; }
+@media (max-width: 520px) {
+  .gear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .gtile { grid-template-columns: 58px 1fr; gap: 6px; padding: 6px; }
+  .gt-icon { width: 56px; height: 56px; font-size: 22px; }
+  .setb { width: 22px; height: 22px; font-size: 9px; }
+  .gt-score { font-size: 16px; }
+  .gt-stats { font-size: 13px; }
+  .gt-stats .main { font-size: 14px; }
+}

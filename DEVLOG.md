@@ -7,6 +7,43 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #19 · Gear card view (like the game's inventory) · this commit (previous: `a43ba45`)
+
+**Asked for:** (two Steam screenshots: an item's details panel, and the inventory grid) "also display the gears like this
+or the second one". Also asked why the app is "portable" and to "make a full version".
+
+**Findings**
+- The screenshots show the Steam client's inventory: tiles with level, set icon, main stat + 4 subs with stat icons,
+  and the score under the icon; a details panel on the right.
+- The game's own "Equipment Score" (33 for Defense 60 / HP 7% / Def 7% / Spd 4 / Res 6%) is **not** the
+  Fribbels WSS (28 for the same item), and its formula isn't public. We show our WSS, labelled "Gear score", and don't
+  imitate the game's number.
+- The **full (installed) version already exists** since v0.1.3: `Epic-7-Engine-Setup-<v>.exe` on Releases. The
+  portable .exe is the extra.
+
+**Changed**
+- `gear.html` / `js/gear-app.js`:
+  - New **View: cards / table** switch, default cards, remembered in `localStorage['e7-gear-view']`.
+  - Cards: a tile per item with a rank-coloured icon (Epic red, Heroic purple, Rare blue…), level, +enhance, lock,
+    equipped hero's face and set badge. The gear score sits under the icon; main stat and substats have stat symbols
+    (roll counts as small numbers). The bottom edge is coloured by verdict.
+  - Clicking a tile opens a details card styled like the game's (rank + slot, main stat bar, substats with full names,
+    gear score, after reforge, expected at +15, set, verdict + reason, equipped on, best heroes). It's a sticky side
+    panel on wide screens and sits below on narrow ones.
+  - All symbols, colours and shapes are our own (no game art); slot symbols are standard emoji.
+- `css/styles.css`: gear card styles; two tiles per row on phones.
+- `sw.js` cache v14. README: says plainly that the Setup .exe is the full version.
+
+**Tested:** new `tests/e2e/gear-cards.e2e.js` (248-item fixture):
+- 150 tiles render; clicking opens the details card.
+- No sideways scrolling at 1400 px or 390 px.
+- The table view still works and the choice is remembered.
+- Full browser suite 13/13 clean; `npm test` 78 passing.
+
+**Open:** real game icons for sets and slots can't be used (game art). If wanted, we can draw our own SVG set icons.
+
+---
+
 ## 2026-11-12 · #18 · Fixes from an independent review (Fable) · this commit (previous: `2d69443`)
 
 **Asked for:** "use fable to check if anything else is wrong and then push". A separate Fable review read

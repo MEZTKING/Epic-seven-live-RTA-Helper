@@ -64,9 +64,14 @@
       <select id="f-eq"><option value="">Equipped + spare</option><option value="spare">Spare only</option><option value="eq">Equipped only</option></select>
       <input id="f-hero" list="gs-heroes" placeholder="Best for hero…" autocomplete="off" />
       <select id="f-sort"><option value="wss">Sort: gear score</option><option value="delta">Sort: biggest upgrade</option><option value="speed">Sort: speed</option></select>
+      <select id="f-view" title="How items are shown"><option value="cards">View: cards</option><option value="table">View: table</option></select>
     </div>
     <p id="gs-count" class="hint"></p>
-    <div class="table-wrap">
+    <div id="gs-browse" class="gear-browse">
+      <div id="gs-cards" class="gear-grid"></div>
+      <aside id="gs-detail" class="gear-detail hidden" aria-live="polite"></aside>
+    </div>
+    <div id="gs-table" class="table-wrap">
       <table class="db-table gs-table">
         <thead><tr><th>Item</th><th>Substats</th><th>Score</th><th>Best for</th><th>Verdict</th></tr></thead>
         <tbody id="gs-rows"></tbody>

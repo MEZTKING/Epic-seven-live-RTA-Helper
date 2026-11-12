@@ -50,7 +50,7 @@ Tap **ⓘ**, a hero in a draft slot, or a hero chip in Guild War to open the her
 
 No Node.js, command line or GitHub account needed:
 1. Open the repository's **Releases** page (right side of the repo on GitHub) and take the newest release.
-2. Download **`Epic-7-Engine-Setup-<version>.exe`** (installer, recommended) and run it. It installs for your user only
+2. Download **`Epic-7-Engine-Setup-<version>.exe`**: this is the **full version** (installer, recommended) and run it. It installs for your user only
    (no admin) and adds a desktop shortcut. Or take **`Epic-7-Engine-<version>-portable.exe`** if you don't want to install.
    Windows may say "Windows protected your PC" because the app isn't signed: **More info → Run anyway**.
 3. The first time a module starts reading, pick the **game window** (emulator or Steam) from the list. The app then

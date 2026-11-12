@@ -92,6 +92,51 @@
   const fmtSub = (s) => `${S.STATS[s.type] || s.type} ${s.value}${/Percent/.test(s.type) ? '%' : ''}${s.rolls > 1 ? `<sup>${s.rolls}</sup>` : ''}`;
   const VERDICT_LABEL = { keep: 'Keep', enhance: 'Enhance', reforge: 'Reforge', extract: 'Extract', sell: 'Sell' };
 
+  // ---- card view (looks like the game's inventory; our own symbols, no game art)
+  const STAT_ICON = { Attack: '⚔', AttackPercent: '⚔', Health: '♥', HealthPercent: '♥', Defense: '⛨', DefensePercent: '⛨', Speed: '»', CriticalHitChancePercent: '✦', CriticalHitDamagePercent: '✸', EffectivenessPercent: '◎', EffectResistancePercent: '✚', DualAttackChancePercent: '⇄' };
+  const STAT_NAME = { Attack: 'Attack', AttackPercent: 'Attack', Health: 'Health', HealthPercent: 'Health', Defense: 'Defense', DefensePercent: 'Defense', Speed: 'Speed', CriticalHitChancePercent: 'Critical Hit Chance', CriticalHitDamagePercent: 'Critical Hit Damage', EffectivenessPercent: 'Effectiveness', EffectResistancePercent: 'Effect Resistance', DualAttackChancePercent: 'Dual Attack Chance' };
+  const SLOT_ICON = { Weapon: '🗡', Helmet: '⛑', Armor: '🛡', Necklace: '📿', Ring: '💍', Boots: '👢' };
+  const SET_COLOR = { SpeedSet: '#2f8f5b', AttackSet: '#b33a3a', DestructionSet: '#a3452a', LifestealSet: '#8a2d5c', CounterSet: '#2f5fa8', RageSet: '#a32a2a', RevengeSet: '#7a3aa8', InjurySet: '#8a5a2a', HealthSet: '#3a8a3a', DefenseSet: '#3a6a8a', CriticalSet: '#a8842a', HitSet: '#2a8a8a', ResistSet: '#5a5aa8', UnitySet: '#5a8a2a', ImmunitySet: '#2a7a6a', PenetrationSet: '#6a6a6a', ProtectionSet: '#4a7aa8', TorrentSet: '#a85a2a', ReversalSet: '#6a3a8a', RiposteSet: '#3a4a8a', PursuitSet: '#8a3a3a', WarfareSet: '#8a6a2a', WeakeningSet: '#5a3a5a', FervorSet: '#a8432a' };
+  const pct = (t) => /Percent/.test(t);
+  const val = (s) => `${s.value}${pct(s.type) ? '%' : ''}`;
+  const setBadge = (set) => `<span class="setb" style="--set:${SET_COLOR[set] || '#555'}" title="${esc(setLabel(set))} set">${esc(setLabel(set).slice(0, 2))}</span>`;
+  const rankCls = (rank) => `rk-${['Epic', 'Heroic', 'Rare', 'Good', 'Normal'].includes(rank) ? rank : 'Epic'}`;
+  function iconBox(it) {
+    return `<div class="gt-icon ${rankCls(it.rank)}">${it.locked ? '<span class="gt-lock" title="Locked">🔒</span>' : ''}<span class="gt-lv">${it.level || ''}</span>${esc(SLOT_ICON[it.gear] || '?')}${it.enhance ? `<span class="gt-enh">+${it.enhance}</span>` : ''}${it.equipped ? `<span class="gt-hero" title="On ${esc(nameOf(it.equipped))}">${portrait(it.equipped)}</span>` : ''}${it.set ? setBadge(it.set) : ''}</div>`;
+  }
+  function tile(r) {
+    const it = r.item;
+    const line = (st, cls) => `<div class="${cls}"><span class="si">${STAT_ICON[st.type] || '·'}</span>${esc(val(st))}${cls === 'sub' && st.rolls > 1 ? `<sup>${st.rolls}</sup>` : ''}</div>`;
+    return `<button class="gtile vdc-${r.verdict}${selected === it.id ? ' sel' : ''}" data-item="${esc(it.id)}" title="${esc(`${it.rank} ${it.gear} · ${setLabel(it.set)} · ${VERDICT_LABEL[r.verdict]}`)}">
+      <div class="gt-left">${iconBox(it)}<div class="gt-score" title="Gear score (WSS)">${r.wss}</div></div>
+      <div class="gt-stats">${line(it.main, 'main')}${it.subs.map((x) => line(x, 'sub')).join('')}</div></button>`;
+  }
+  function detail(r) {
+    const it = r.item;
+    const best = (r.heroFit ? [r.heroFit] : r.best)
+      .filter((b) => b.delta > 0 || b.code === it.equipped)
+      .slice(0, 4)
+      .map((b) => `<div class="clickable" data-hero="${esc(b.code)}">${portrait(b.code)} ${esc(nameOf(b.code))} <small class="${b.delta > gs.rules.upgradeMargin ? 'up' : 'hint'}">${b.delta > 0 ? '+' + b.delta : 'current'}</small></div>`)
+      .join('') || '<span class="hint">Not an upgrade for anyone</span>';
+    const SET_SIZE = G.SETS[it.set] ? G.SETS[it.set][1] : '';
+    return `<div class="gd-head">${iconBox(it)}<div><div class="gd-rank">${esc(it.rank)} ${esc(it.gear)}</div><div class="gd-name">${esc(it.name && it.name.length > 2 ? it.name : `${setLabel(it.set)} ${it.gear}`)}</div>
+        <div class="hint">Level ${it.level} · +${it.enhance}${it.source === 'screen' ? ' · <span class="src other">screen</span>' : ' · <span class="src fribbels">Fribbels</span>'}</div></div></div>
+      <div class="gd-main"><span><span class="si">${STAT_ICON[it.main.type] || ''}</span> ${esc(STAT_NAME[it.main.type] || it.main.type)}</span><span>${esc(val(it.main))}</span></div>
+      ${it.subs.map((x) => `<div class="gd-sub"><span>${esc(STAT_NAME[x.type] || x.type)}${x.rolls > 1 ? ` <small class="hint">×${x.rolls}</small>` : ''}</span><span>${esc(val(x))}</span></div>`).join('')}
+      <div class="gd-score"><span title="Fribbels/RexQian WSS: substats only">Gear score</span><span>${r.wss}</span></div>
+      ${r.reforgedWss !== r.wss ? `<div class="gd-sub"><span>After reforge</span><span>${r.reforgedWss}</span></div>` : ''}${r.potential.rollsLeft ? `<div class="gd-sub"><span>Expected at +15</span><span>≈${r.potential.expected}</span></div>` : ''}
+      ${it.set ? `<div class="gd-set">${setBadge(it.set)} ${esc(setLabel(it.set))} Set ${SET_SIZE ? `<span class="hint">(${SET_SIZE} pieces)</span>` : ''}</div>` : ''}
+      <div class="gd-block"><span class="vd ${r.verdict}">${VERDICT_LABEL[r.verdict]}</span> <span class="hint">${esc(r.reason)}</span></div>
+      ${it.equipped ? `<div class="gd-block">Equipped on <span class="clickable" data-hero="${esc(it.equipped)}">${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</span></div>` : ''}
+      <div class="gd-block"><b>Best for</b>${best}</div>`;
+  }
+  const VIEW_KEY = 'e7-gear-view';
+  let selected = null;
+  const view = () => $('#f-view').value;
+  try {
+    $('#f-view').value = localStorage.getItem(VIEW_KEY) || 'cards';
+  } catch (_) { /* default */ }
+
   function filtered() {
     const v = $('#f-verdict').value;
     const g = $('#f-gear').value;
@@ -152,6 +197,18 @@
             <td><span class="vd ${r.verdict}">${VERDICT_LABEL[r.verdict]}</span><div class="hint">${esc(r.reason)}</div></td></tr>`;
         })
         .join('') || `<tr><td colspan="5" class="hint">${gs.items.length ? 'No items match.' : 'Import gear.txt to start.'}</td></tr>`;
+    const cards = view() === 'cards';
+    $('#gs-table').classList.toggle('hidden', cards);
+    $('#gs-browse').classList.toggle('hidden', !cards);
+    if (cards) {
+      $('#gs-cards').innerHTML = list.slice(0, shown).map(tile).join('') || `<p class="hint">${gs.items.length ? 'No items match.' : 'Import gear.txt to start.'}</p>`;
+      const sel = selected && evald.results.find((r) => r.item.id === selected);
+      const selR = sel && (list.find((r) => r.item.id === selected) || sel);
+      $('#gs-detail').classList.toggle('hidden', !selR);
+      $('#gs-browse').classList.toggle('has-detail', !!selR);
+      $('#gs-detail').className = `gear-detail${selR ? '' : ' hidden'} ${selR ? rankCls(selR.item.rank) : ''}`;
+      $('#gs-detail').innerHTML = selR ? detail(selR) : '';
+    }
     $('#gs-more').classList.toggle('hidden', list.length <= shown);
     const sets = [...new Set(gs.items.map((i) => i.set).filter(Boolean))].sort();
     const fs = $('#f-set');
@@ -166,7 +223,19 @@
     $('#f-verdict').value = $('#f-verdict').value === b.dataset.v ? '' : b.dataset.v;
     render();
   });
-  ['#f-verdict', '#f-gear', '#f-set', '#f-eq', '#f-sort', '#f-hero'].forEach((s) =>
+  $('#gs-cards').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-item]');
+    if (!t) return;
+    selected = selected === t.dataset.item ? null : t.dataset.item;
+    render();
+    if (selected && innerWidth < 1100) $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  $('#f-view').addEventListener('change', () => {
+    try {
+      localStorage.setItem(VIEW_KEY, view());
+    } catch (_) { /* fine */ }
+  });
+  ['#f-verdict', '#f-gear', '#f-set', '#f-eq', '#f-sort', '#f-hero', '#f-view'].forEach((s) =>
     $(s).addEventListener('input', () => {
       shown = 150;
       render();
