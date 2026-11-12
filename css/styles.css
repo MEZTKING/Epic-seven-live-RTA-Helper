@@ -332,3 +332,18 @@ code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 .modcard .stat-line { font-size: 12.5px; color: var(--accent); margin-top: auto; }
 .modcard.soon { opacity: .6; cursor: default; }
 .modcard.soon:hover { transform: none; border-color: var(--line); }
+
+/* -------- guild war verdict dots -------- */
+.gwdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex: none; vertical-align: middle; box-sizing: border-box; cursor: help; }
+.gwdot.grey { background: #6b6f80; }
+.gwdot.yellow { background: #f3c94b; }
+.gwdot.red { background: #ff5d6c; }
+.gwdot.green { background: #3ecf8e; box-shadow: 0 0 6px rgba(62, 207, 142, .6); }
+.gwdot.proven { background: transparent; border: 3px solid #3ecf8e; }
+.gwdot.done { background: transparent; border: 2px solid var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 12.5px; margin: 10px 0; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.gw-head .link { font-size: 15px; }
+.verdict-line { font-size: 12px; }
+dialog.wide-dialog { width: min(760px, calc(100vw - 24px)); max-height: 88vh; overflow: auto; }
+dialog.wide-dialog h4 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); }

@@ -7,6 +7,77 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-12 · #9 · Guild War verdict dots, gear check, player history across seasons · this commit (previous: `d40be0d`)
+
+**Asked for**
+- A marker next to each Guild War player: grey (no info), yellow (not enough info), green (win if you use the right
+  heroes and gear), plus the suggested red. It should consider **your own gear**, with a different look for people who
+  haven't imported gear.
+- Use enemies' stats from previous fights, and record players across seasons (their heroes and gear before).
+- Hover or press to load a player's previous information from any time anyone met them.
+- (Also asked: what the app is right now; a mobile version in the future; training RTA from the official match history.
+  Answers are under Open.)
+
+**Design**
+- Each enemy team gets a verdict for the viewing member (their heroes + their gear). The player's dot is their weakest
+  team **still standing** (cleared teams are ignored).
+  - grey: no information.
+  - red: lost to it 2+ times and never won (or 3+ losses to similar teams with no wins).
+  - yellow: some information or a catch.
+  - green ring: proven counter you own, gear not checked.
+  - green: proven counter you own and gear checks out.
+- "Proven" = beaten this exact team 2+ times with 0 losses, or 3+ wins at 80%+. Wording says "reliable", not
+  "guaranteed" (crits and turn meter can always flip a fight).
+- Gear check:
+  - Your speeds come from your gear.txt on this device (computed with `RTAGear`; nothing is uploaded).
+  - Each counter hero must be no more than 2 slower than the slowest speed that hero has won with.
+  - Your fastest hero must beat the enemy's fastest recorded speed by at least 3%. That speed is the latest per hero
+    from any earlier time anyone recorded this player, and this war's entry overrides it.
+  - Too close to call or slower → yellow, with the numbers in the reason.
+- Red and green are deliberately separate colours, plus a ring for "proven, gear not checked", so a colour-blind
+  reader can still tell filled from hollow.
+
+**Changed**
+- `js/guildwar.js`:
+  - `counterBook` keeps the slowest winning speed per hero (`winSpeeds`).
+  - New: `recordVs`, `enemySpeeds`, `teamVerdict`, `gearCheck`, `targetVerdict`, `playerProfile` (appearances
+    newest first, latest and highest speed per hero, builds noted, seasons, record), `LEVELS`, `PROVEN`.
+  - Verdict text uses hero names (a name function is passed in).
+- Records: `war.season` (asked when starting a war, pre-filled with the last one); `attack.speeds` (attacker's own
+  speeds, attached only when you log your own attack and "Attach my hero speeds" is on in Setup, which is the default).
+- `js/guild-app.js` / `guild.html`:
+  - Dots on every player and team, a one-line reason under each team, a legend and a filter by dot.
+  - Tap a dot or name to open the player history window: verdict per team with reasons, heroes over time, builds,
+    every meeting in every war and season with attacks and speeds, and your own RTA record vs that name (this device
+    only, labelled `my RTA`, not shared).
+  - The Enemies list shows dots too.
+  - Setup shows whether your gear was found and has the share-speeds toggle.
+  - The page now also loads `js/gear.js` + `js/sources/fribbels-data.js` to compute your speeds.
+- CSS: `.gwdot` styles (filled / ring / glow), legend, wide dialog.
+
+**Tested**
+- `npm test`: 61 passing (new: grey, red, yellow ×3 cases, proven without gear, green with gear, yellow when slower,
+  weakest-team player dot, profile across 2 seasons).
+- Browser, with a guild history seeded from "other members" over Season 11 and 12 and gear for this device:
+  - The expected dots everywhere: green "280 vs their fastest ~250", using Seaside Bellona's speed from last season;
+    red for a team lost to twice (also caught on another player with the same team); yellow for similar-only; grey for unknown.
+  - Filtering red works; tapping a dot opens history spanning both seasons; without gear the green becomes a ring.
+  - No errors; no sideways scrolling on phones. The earlier Guild War test still passes.
+
+**Open / unverified**
+- The thresholds (2 wins, 3%, 2 speed) are first guesses; easy to tune once the guild has real data.
+- Gear check uses **speed only**. Other stats (effectiveness, crit, HP) aren't compared yet.
+- Other members' gear isn't checked for "Also owned by" (only their roster). Their speeds appear once they log attacks.
+- **Official RTA match history (owner's idea):** good source for training RTA. It can't be reached from the dev
+  environment and needs the owner's login, which we must not handle. Plan: an "export my matches" bookmarklet the
+  owner runs on the official site while logged in, which saves a file the RTA module imports as its own source
+  (`official records`). Needs a screenshot or saved copy of the match-history page to build.
+- **Mobile:** today every page works in a phone browser and can be installed, but automatic screen reading needs
+  an Android app (screen capture permission + floating bubble). iPhone is very limited. Planned for after the PC
+  version has been tested on the real game.
+
+---
+
 ## 2026-11-12 · #8 · Epic 7 Engine home page and module switcher · this commit (previous: `2c0234e`)
 
 **Asked for:** "Epic 7 Engine" is the overall application; under it you select Guild War, Gear, RTA "and the rest".

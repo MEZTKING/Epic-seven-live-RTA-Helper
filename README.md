@@ -25,6 +25,25 @@ RTA and Gear data stay in your browser. Guild War data is shared with your guild
 - **Members:** attacks left today, win rate, defense held/lost, and each member's current defense.
 - **Enemies:** everything seen of an enemy player across all wars (defenses, speeds, builds, who beat them with what).
 - **Counters tab:** enemy heroes your guild loses to most, and your best attack teams overall.
+- **Dots: can *you* beat them?** Every enemy team, and every player (their weakest team still standing), gets a marker
+  worked out from **your** heroes and **your** gear:
+
+  | Dot | Meaning |
+  |---|---|
+  | 🟢 green dot | Proven counter you own **and your gear checks out**: your speeds match the teams that won and beat this enemy's recorded speeds |
+  | 🟢 green ring | Proven counter you own, **gear not checked** (no `gear.txt` imported on this device) |
+  | 🟡 yellow | Not enough information, or a catch: only similar teams beaten, one win, a mixed record, you don't own the counter, or you're slower |
+  | 🔴 red | No chance right now: lost to it repeatedly, never won |
+  | ⚪ grey | No information |
+
+  "Proven" means this exact team was beaten 2+ times with no losses (or 3+ wins at 80%). Crits and turn meter can always
+  flip a fight, so green means reliable, not guaranteed. Hover a dot for the reasons; tap a dot or a name for the full history.
+- **Player history across seasons:** wars can carry a season label, and nothing is ever thrown away. The history window
+  shows every time anyone in the guild met that player: their teams, speeds (latest and highest per hero), builds
+  noted, every attack with who, which team, the result and the attacker's speeds, and the guild's record against them.
+  If you met them in RTA, your own RTA record against them is shown too (from this device only, not shared).
+- **Speeds on attacks:** when you log an attack, your heroes' speeds from your `gear.txt` are attached (you can turn this
+  off in Setup). That's how the guild learns what speed it takes to win.
 - **Sharing:** live through Firebase, with anonymous sign-in (no emails). One person sets it up in about 10 minutes and
   everyone else opens an invite link. You can also export or import files (for example, to share in Discord).
 - Rules such as attacks per day and teams per defense are shared guild settings, in case the game changes them.

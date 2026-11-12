@@ -38,9 +38,18 @@
       </div>
       <div id="war-summary" class="cards" style="margin-top:12px"></div>
       <div id="war-ideas" class="card wide hidden"></div>
+      <div class="legend" aria-label="What the dots mean">
+        <span><span class="gwdot green"></span> Proven counter + your gear checks out</span>
+        <span><span class="gwdot proven"></span> Proven counter you own (gear not checked)</span>
+        <span><span class="gwdot yellow"></span> Not enough info / a catch</span>
+        <span><span class="gwdot red"></span> No chance right now</span>
+        <span><span class="gwdot grey"></span> No information</span>
+        <span class="hint">Hover a dot for why · click a name for their full history</span>
+      </div>
       <div class="filters">
         <input id="target-search" type="search" placeholder="Search enemy player / tower / hero…" autocomplete="off" />
         <select id="target-filter"><option value="">All targets</option><option value="open">Not cleared</option><option value="cleared">Cleared</option><option value="mine">Assigned to me</option></select>
+        <select id="target-dot"><option value="">All dots</option><option value="green">Green: gear checks out</option><option value="proven">Green ring: proven</option><option value="yellow">Yellow</option><option value="red">Red</option><option value="grey">Grey</option></select>
       </div>
       <div id="targets" class="targets"></div>
     </section>
@@ -104,6 +113,8 @@
           <h3>You</h3>
           <label>Your in-game name <input id="my-name" placeholder="as your guild knows you" /></label>
           <p class="hint">Shown to guildmates on your attacks. No email or account needed.</p>
+          <p id="my-gear-info" class="hint"></p>
+          <label class="inline block"><input id="share-speeds" type="checkbox" /> Attach my hero speeds to attacks I log (helps the guild know what speed wins)</label>
         </div>
         <div class="card">
           <h3>Guild</h3>
@@ -169,13 +180,22 @@
     </form>
   </dialog>
 
+  <!-- player history -->
+  <dialog id="hist-dialog" class="wide-dialog">
+    <h3 id="hist-title"></h3>
+    <div id="hist-body"></div>
+    <div class="btn-row"><span class="spacer"></span><button id="hist-close" class="btn">Close</button></div>
+  </dialog>
+
   <datalist id="gw-heroes"></datalist>
   <datalist id="gw-enemies"></datalist>
   <datalist id="gw-members"></datalist>
   <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
 
   <script src="js/sources/official-heroes.js"></script>
+  <script src="js/sources/fribbels-data.js"></script>
   <script src="js/roster.js"></script>
+  <script src="js/gear.js"></script>
   <script src="js/guildwar.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/guild-app.js"></script>

@@ -148,3 +148,69 @@ test('config parsing and invite links', () => {
   assert.deepEqual(back.config, cfg);
   assert.equal(Sync.parseInvite('#nothing=1'), null);
 });
+
+// ------------------------------------------------------------ verdict dots
+function war(extra = []) {
+  const base = [
+    rec('member', 'm1', { name: 'Ann', roster: ['a', 'b', 'c'] }),
+    rec('member', 'm2', { name: 'Bob', roster: ['a', 'b', 'c'] }),
+    rec('war', 'w0', { enemyGuild: 'Foes', season: 'S1', startedAt: '2025-12-01' }),
+    rec('war', 'w1', { enemyGuild: 'Foes', season: 'S2', startedAt: '2026-01-01' }),
+    rec('target', 't0', { warId: 'w0', player: 'Rival', teams: [{ heroes: ['x', 'y', 'z'], speeds: { x: 250 }, build: 'X: Speed+Crit' }] }),
+    rec('target', 't1', { warId: 'w1', player: 'Rival', teams: [{ heroes: ['x', 'y', 'z'], speeds: { y: 230 } }, { heroes: ['p', 'q', 'r'] }] }),
+  ];
+  return GW.buildState([...base, ...extra]);
+}
+const atk = (id, targetId, team, by, heroes, result, speeds) => rec('attack', id, { warId: targetId === 't0' ? 'w0' : 'w1', targetId, team, by, heroes, result, speeds, at: '2026-01-01T10:00:00Z' });
+const meWith = (roster, speeds) => ({ name: 'Cy', roster: roster ? new Set(roster) : null, speeds: speeds ? new Map(Object.entries(speeds)) : null });
+
+test('verdict grey: nothing known', () => {
+  const s = war();
+  const v = GW.teamVerdict(s, s.targets.find((t) => t.id === 't1'), 0, meWith(['a', 'b', 'c']));
+  assert.equal(v.level, 'grey');
+});
+
+test('verdict red: lost repeatedly, never won', () => {
+  const s = war([atk('a1', 't1', 1, 'Ann', ['a', 'b', 'c'], 'loss'), atk('a2', 't1', 1, 'Bob', ['d', 'e', 'f'], 'loss')]);
+  assert.equal(GW.teamVerdict(s, s.targets.find((t) => t.id === 't1'), 0, meWith(['a', 'b', 'c'])).level, 'red');
+});
+
+test('verdict yellow: one win only / not owned / no roster', () => {
+  const one = war([atk('a1', 't0', 1, 'Ann', ['a', 'b', 'c'], 'win')]);
+  const t1 = (s) => s.targets.find((t) => t.id === 't1');
+  assert.equal(GW.teamVerdict(one, t1(one), 0, meWith(['a', 'b', 'c'])).label, 'Not enough information');
+  const two = war([atk('a1', 't0', 1, 'Ann', ['a', 'b', 'c'], 'win'), atk('a2', 't1', 1, 'Bob', ['a', 'b', 'c'], 'win')]);
+  const notMine = GW.teamVerdict(two, t1(two), 0, meWith(['a', 'b']));
+  assert.equal(notMine.level, 'yellow');
+  assert.deepEqual(notMine.others.sort(), ['Ann', 'Bob']);
+  assert.match(GW.teamVerdict(two, t1(two), 0, meWith(null)).lines.join(' '), /Share your roster/);
+});
+
+test('verdict proven (green ring) without gear, green with gear that checks out, yellow when slower', () => {
+  const s = war([atk('a1', 't0', 1, 'Ann', ['a', 'b', 'c'], 'win', { a: 260 }), atk('a2', 't1', 1, 'Bob', ['a', 'b', 'c'], 'win', { a: 270 })]);
+  const t = s.targets.find((x) => x.id === 't1');
+  assert.equal(GW.teamVerdict(s, t, 0, meWith(['a', 'b', 'c'])).level, 'proven');
+  // enemy speeds: x 250 (season 1), y 230 (now) -> fastest 250; my a 280 >= 260 needed and > 250*1.03
+  const g = GW.teamVerdict(s, t, 0, meWith(['a', 'b', 'c'], { a: 280, b: 150 }));
+  assert.equal(g.level, 'green');
+  assert.match(g.lines.join(' '), /outspeed them: 280 vs their fastest ~250/);
+  const slow = GW.teamVerdict(s, t, 0, meWith(['a', 'b', 'c'], { a: 240 }));
+  assert.equal(slow.level, 'yellow');
+  assert.match(slow.lines.join(' '), /slowest one that won had 260/);
+});
+
+test('player dot = weakest team; profile spans wars and seasons', () => {
+  const s = war([atk('a1', 't0', 1, 'Ann', ['a', 'b', 'c'], 'win'), atk('a2', 't1', 1, 'Bob', ['a', 'b', 'c'], 'win')]);
+  const v = GW.targetVerdict(s, s.targets.find((x) => x.id === 't1'), meWith(['a', 'b', 'c']));
+  assert.equal(v.teams[0].level, 'proven');
+  assert.equal(v.teams[1].level, 'grey');
+  assert.equal(v.level, 'grey');
+  const p = GW.playerProfile(s, 'rival');
+  assert.equal(p.appearances.length, 2);
+  assert.deepEqual(p.seasons.sort(), ['S1', 'S2']);
+  const x = p.heroes.find((h) => h.code === 'x');
+  assert.equal(x.seen, 2);
+  assert.equal(x.max, 250);
+  assert.equal(p.builds[0].text, 'X: Speed+Crit');
+  assert.deepEqual([p.wins, p.losses], [2, 0]);
+});

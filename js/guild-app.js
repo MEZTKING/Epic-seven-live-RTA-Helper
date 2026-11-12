@@ -1,4 +1,4 @@
-/* Guild War page. Uses RTARoster, RTAGuildWar, RTASync. */
+/* Guild War page. Uses RTARoster, RTAGear (your speeds), RTAGuildWar, RTASync. */
 (function () {
   'use strict';
   const R = window.RTARoster;
@@ -20,6 +20,18 @@
   const chip = (c) => `<span class="hchip">${pt(c)}${esc(nameOf(c))}</span>`;
   const team = (codes) => (codes || []).map(chip).join('') || '<span class="hint">—</span>';
   const today = () => new Date().toISOString().slice(0, 10);
+  const DOT_TEXT = {
+    grey: 'No information',
+    red: 'No chance right now',
+    yellow: 'Not enough information / a catch',
+    proven: 'Proven counter you own (gear not checked)',
+    green: 'Proven counter + your gear checks out',
+  };
+  /** The coloured marker. `v` = a verdict from RTAGuildWar.teamVerdict / targetVerdict. */
+  const dot = (v, attrs = '') => {
+    const tip = [v.label, ...(v.lines || []), ...((v.others || []).length ? [`Also owned by: ${v.others.join(', ')}`] : [])].join('\n');
+    return `<span class="gwdot ${v.level}" title="${esc(tip)}" aria-label="${esc(v.label)}" role="img" ${attrs}></span>`;
+  };
   const pct = (w, g) => (g ? Math.round((w / g) * 100) + '%' : '—');
 
   let conn = loadConn();
@@ -40,6 +52,34 @@
     localStorage.setItem(CONN_KEY, JSON.stringify(conn));
   }
   const rules = () => ({ ...GW.DEFAULT_RULES, ...((state.settings && state.settings.rules) || {}) });
+
+  /**
+   * My own heroes and speeds, from the RTA helper's data on THIS device
+   * (Fribbels gear.txt import). Used for the dots; speeds are only shared when
+   * you log an attack and have "attach my speeds" on.
+   */
+  let mySpeedsCache = null;
+  function mySpeeds() {
+    if (mySpeedsCache) return mySpeedsCache;
+    const out = new Map();
+    try {
+      const s = JSON.parse(localStorage.getItem('rta-helper-v2') || 'null');
+      const builds = s && s.fribbels && s.fribbels.builds;
+      const stats = ((s && s.fribbelsData) || window.RTASources.fribbelsSnapshot || {}).stats || {};
+      if (builds && window.RTAGear) for (const [code, b] of Object.entries(builds)) {
+        const r = window.RTAGear.computeBuild(code, b, stats);
+        if (r.speed && r.itemCount) out.set(code, r.speed);
+      }
+    } catch (_) { /* no RTA data on this device */ }
+    return (mySpeedsCache = out);
+  }
+  function meProfile() {
+    const mm = state.members.find((m) => GW.playerKey(m.name) === GW.playerKey(me()));
+    const local = localRoster();
+    const roster = (mm && (mm.roster || []).length ? mm.roster : local) || [];
+    const speeds = mySpeeds();
+    return { name: me(), roster: roster.length ? new Set(roster) : null, speeds: speeds.size ? speeds : null };
+  }
   const me = () => (conn.myName || '').trim();
 
   // ------------------------------------------------------------- connecting
@@ -103,7 +143,7 @@
   // -------------------------------------------------------------------- war
   function renderWar() {
     $('#war-select').innerHTML = state.wars.length
-      ? state.wars.map((w) => `<option value="${esc(w.id)}" ${w.id === warId ? 'selected' : ''}>vs ${esc(w.enemyGuild)} · ${esc(String(w.startedAt || '').slice(0, 10))}${w.status === 'done' ? ' (finished)' : ''}</option>`).join('')
+      ? state.wars.map((w) => `<option value="${esc(w.id)}" ${w.id === warId ? 'selected' : ''}>vs ${esc(w.enemyGuild)}${w.season ? ' · ' + esc(w.season) : ''} · ${esc(String(w.startedAt || '').slice(0, 10))}${w.status === 'done' ? ' (finished)' : ''}</option>`).join('')
       : '<option value="">No wars yet</option>';
     const box = $('#targets');
     if (!warId) {
@@ -131,7 +171,19 @@
     const q = R.normName($('#target-search').value);
     const f = $('#target-filter').value;
     const book = GW.counterBook(state);
+    const meP = meProfile();
+    const verdicts = new Map(
+      sum.targets.map((s) => {
+        const v = GW.targetVerdict(state, s.target, meP, R0, book, nameOf);
+        // the player's dot only looks at teams that are still standing
+        const open = v.teams.filter((_, i) => !(s.teams[i] && s.teams[i].cleared));
+        const worst = open.length ? open.reduce((w, t) => (GW.LEVELS.indexOf(t.level) < GW.LEVELS.indexOf(w.level) ? t : w), open[0]) : v;
+        return [s.target.id, { ...v, level: worst.level, label: worst.label, lines: worst.lines, others: worst.others }];
+      }),
+    );
+    const vf = $('#target-dot').value;
     const list = sum.targets.filter((s) => {
+      if (vf && verdicts.get(s.target.id).level !== vf) return false;
       const t = s.target;
       if (f === 'open' && s.cleared) return false;
       if (f === 'cleared' && !s.cleared) return false;
@@ -147,19 +199,21 @@
           const t = s.target;
           const teams = (t.teams || []).slice(0, R0.teamsPerDefense).map((tm, i) => {
             const st = s.teams[i] || {};
+            const tv = verdicts.get(t.id).teams[i] || { level: 'grey', label: DOT_TEXT.grey, lines: [] };
             const counters = GW.suggestCounters(tm.heroes || [], book, { members: state.members, limit: 2 });
             const speeds = Object.entries(tm.speeds || {}).filter(([, v]) => v);
             return `<div class="gw-team ${st.cleared ? 'cleared' : ''}">
-              <div class="gw-team-head">Team ${i + 1} ${st.cleared ? `<span class="vd keep">cleared by ${esc(st.by)}</span>` : st.attempts ? `<span class="vd sell">${st.losses} failed</span>` : ''}</div>
+              <div class="gw-team-head">${st.cleared ? '' : dot(tv)} Team ${i + 1} ${st.cleared ? `<span class="vd keep">cleared by ${esc(st.by)}</span>` : st.attempts ? `<span class="vd sell">${st.losses} failed</span>` : ''}</div>
               <div>${team(tm.heroes)}</div>
               ${speeds.length ? `<div class="hint">Speed: ${speeds.map(([c, v]) => `${esc(nameOf(c))} ${esc(v)}`).join(' · ')}</div>` : ''}
               ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
               ${!st.cleared && counters.length ? `<div class="hint">Beaten before by: ${counters.map((c) => `${c.attack.map(nameOf).map(esc).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', similar'})`).join(' · ')}</div>` : ''}
+              ${!st.cleared && tv.level !== 'grey' ? `<div class="hint verdict-line">${esc(tv.label)}${tv.lines.length ? ' · ' + esc(tv.lines[tv.lines.length - 1]) : ''}</div>` : ''}
               ${!st.cleared ? `<button class="btn" data-attack="${esc(t.id)}" data-team="${i + 1}">Log attack</button>` : ''}
             </div>`;
           });
           return `<div class="card gw-card ${s.cleared ? 'done' : ''}">
-            <div class="gw-head"><b>${esc(t.player)}</b>${t.tower ? ` <span class="hint">· ${esc(t.tower)}</span>` : ''}
+            <div class="gw-head">${s.cleared ? '<span class="gwdot done" title="Cleared"></span>' : dot(verdicts.get(t.id))}<button class="link" data-history="${esc(t.player)}" title="Show everything known about ${esc(t.player)}">${esc(t.player)}</button>${t.tower ? ` <span class="hint">· ${esc(t.tower)}</span>` : ''}
               <span class="spacer"></span>
               <select data-assign="${esc(t.id)}" title="Assigned to"><option value="">Unassigned</option>${state.members.map((m) => `<option ${GW.playerKey(m.name) === GW.playerKey(t.assignedTo) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
               <button class="btn" data-edit="${esc(t.id)}">Edit</button></div>
@@ -174,11 +228,13 @@
     warId = e.target.value;
     renderWar();
   });
-  ['#target-search', '#target-filter'].forEach((s) => $(s).addEventListener('input', renderWar));
+  ['#target-search', '#target-filter', '#target-dot'].forEach((s) => $(s).addEventListener('input', renderWar));
   $('#war-new').addEventListener('click', async () => {
     const g = prompt('Enemy guild name?');
     if (!g) return;
-    const w = await put('war', { enemyGuild: g.trim(), startedAt: new Date().toISOString(), status: 'active' });
+    const lastSeason = (state.wars[0] && state.wars[0].season) || '';
+    const season = prompt('Season (optional, e.g. "Season 12"). Kept so you can look back at players across seasons.', lastSeason);
+    const w = await put('war', { enemyGuild: g.trim(), season: (season || '').trim(), startedAt: new Date().toISOString(), status: 'active' });
     warId = w.id;
   });
   $('#war-done').addEventListener('click', async () => {
@@ -192,6 +248,14 @@
     await put('target', { ...t, assignedTo: e.target.value });
   });
   $('#targets').addEventListener('click', (e) => {
+    const hi = e.target.closest('[data-history]');
+    if (hi) return openHistory(hi.dataset.history);
+    // tapping a dot (phones have no hover) opens the same history + explanation
+    if (e.target.closest('.gwdot')) {
+      const card = e.target.closest('.gw-card');
+      const nameBtn = card && card.querySelector('[data-history]');
+      if (nameBtn) return openHistory(nameBtn.dataset.history);
+    }
     const ed = e.target.closest('[data-edit]');
     if (ed) return openTarget(ed.dataset.edit);
     const at = e.target.closest('[data-attack]');
@@ -282,7 +346,10 @@
     const heroes = $$('#atk-heroes .h3').map((i) => codeOf(i.value)).filter(Boolean);
     const by = f.by.value.trim() || me();
     if (!by) return alert('Who attacked? Set your name in Setup.');
-    await put('attack', { warId: attackTarget.warId, targetId: attackTarget.id, team: Number(f.team.value), by, heroes, result: b.dataset.res, notes: f.notes.value.trim(), at: new Date().toISOString() });
+    // my own speeds (from my gear.txt) for the heroes I used, if I attack as myself and allow it
+    const speeds = {};
+    if (conn.shareSpeeds !== false && GW.playerKey(by) === GW.playerKey(me())) for (const h of heroes) if (mySpeeds().get(h)) speeds[h] = mySpeeds().get(h);
+    await put('attack', { warId: attackTarget.warId, targetId: attackTarget.id, team: Number(f.team.value), by, heroes, speeds, result: b.dataset.res, notes: f.notes.value.trim(), at: new Date().toISOString() });
     $('#attack-dialog').close();
   });
 
@@ -412,7 +479,11 @@
       out.innerHTML =
         [...players.values()]
           .sort((a, b) => b.wars.size - a.wars.size)
-          .map((p) => `<button class="btn" data-enemy="${esc(p.name)}">${esc(p.name)} <small class="hint">${p.wars.size} war${p.wars.size > 1 ? 's' : ''}</small></button>`)
+          .map((p) => {
+            const latest = state.targets.filter((t) => GW.playerKey(t.player) === GW.playerKey(p.name)).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+            const v = GW.targetVerdict(state, latest, meProfile(), rules(), undefined, nameOf);
+            return `<button class="btn" data-enemy="${esc(p.name)}">${dot(v)} ${esc(p.name)} <small class="hint">${p.wars.size} war${p.wars.size > 1 ? 's' : ''}</small></button>`;
+          })
           .join(' ') || '<p class="hint">Enemy players appear here once you add their defenses.</p>';
       return;
     }
@@ -428,13 +499,59 @@
   $('#enemy-out').addEventListener('click', (e) => {
     const b = e.target.closest('[data-enemy]');
     if (!b) return;
-    $('#enemy-search').value = b.dataset.enemy;
-    renderEnemies();
+    openHistory(b.dataset.enemy);
   });
+
+  // --------------------------------------------------------- player history
+  /** Everything anyone in the guild ever recorded about an enemy player, every war and season. */
+  function openHistory(name) {
+    const p = GW.playerProfile(state, name);
+    const meP = meProfile();
+    const latest = p.appearances[0] && p.appearances[0].target;
+    const v = latest ? GW.targetVerdict(state, latest, meP, rules(), undefined, nameOf) : { level: 'grey', label: DOT_TEXT.grey, lines: [], teams: [] };
+    const rta = rtaProfile(name);
+    $('#hist-title').innerHTML = `${dot(v)} ${esc(p.name)}`;
+    $('#hist-body').innerHTML = `
+      <p class="hint">Seen in ${p.appearances.length} war${p.appearances.length === 1 ? '' : 's'}${p.seasons.length ? ` · seasons: ${esc(p.seasons.join(', '))}` : ''} · guild record vs them: <b>${p.wins}-${p.losses}</b></p>
+      <div class="ins ${v.level === 'green' || v.level === 'proven' ? 'good' : 'warn'}"><b>${esc(v.label)}</b> (for you, latest defense)
+        ${(v.teams || []).map((t, i) => `<div>${dot(t)} Team ${i + 1}: ${esc(t.label)}${t.lines.length ? `<div class="hint">${t.lines.map(esc).join('<br>')}</div>` : ''}${(t.others || []).length ? `<div class="hint">Also owned by: ${esc(t.others.join(', '))}</div>` : ''}</div>`).join('')}</div>
+      <h4>Their heroes over time</h4>
+      <table class="mini"><thead><tr><th>Hero</th><th>Seen</th><th>Latest speed</th><th>Highest</th><th>Last seen</th></tr></thead><tbody>${p.heroes
+        .map((h) => `<tr><td>${chip(h.code)}</td><td>${h.seen}×</td><td>${h.latest || '—'}</td><td>${h.max || '—'}</td><td class="small">${esc(String(h.lastSeen || '').slice(0, 10))}</td></tr>`)
+        .join('')}</tbody></table>
+      ${p.builds.length ? `<h4>Builds noted</h4><ul class="plain-list">${p.builds.map((b) => `<li class="small">${esc(b.text)} <span class="hint">· ${esc(String(b.when).slice(0, 10))}${b.war ? ' · ' + esc(b.war) : ''}</span></li>`).join('')}</ul>` : ''}
+      <h4>Every time the guild met them</h4>
+      ${p.appearances
+        .map((x) => `<div class="gw-team"><div class="gw-team-head">vs ${esc(x.war ? x.war.enemyGuild : '?')}${x.war && x.war.season ? ' · ' + esc(x.war.season) : ''} · ${esc(x.war ? String(x.war.startedAt).slice(0, 10) : '')}${x.target.tower ? ' · ' + esc(x.target.tower) : ''} · recorded by ${esc(x.target.updatedBy || '?')}</div>
+          ${(x.target.teams || []).map((tm, i) => `<div>Team ${i + 1}: ${team(tm.heroes)} ${x.status.teams[i] && x.status.teams[i].cleared ? '<span class="vd keep">cleared</span>' : ''}${Object.keys(tm.speeds || {}).length ? `<div class="hint">Speed: ${Object.entries(tm.speeds).map(([c, s2]) => `${esc(nameOf(c))} ${s2}`).join(' · ')}</div>` : ''}${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}</div>`).join('')}
+          ${x.attacks.length ? `<div class="hint">${x.attacks.map((a) => `${esc(a.by)}: ${esc((a.heroes || []).map(nameOf).join(' + ') || '?')} vs team ${a.team} → <b>${a.result}</b>${Object.keys(a.speeds || {}).length ? ` (speeds ${Object.entries(a.speeds).map(([c, s2]) => `${esc(nameOf(c))} ${s2}`).join(', ')})` : ''}${a.notes ? ` — ${esc(a.notes)}` : ''}`).join('<br>')}</div>` : ''}</div>`)
+        .join('')}
+      ${rta ? `<h4>Your own RTA games vs ${esc(name)} <span class="src player">my RTA</span></h4><p class="hint">From this device only (not shared): ${rta}</p>` : ''}`;
+    $('#hist-dialog').showModal();
+  }
+  $('#hist-close').addEventListener('click', () => $('#hist-dialog').close());
+  /** If you've met this player in RTA, a one-line summary from your own RTA data (kept separate, not shared). */
+  function rtaProfile(name) {
+    try {
+      const s = JSON.parse(localStorage.getItem('rta-helper-v2') || 'null');
+      const ms = ((s && s.matches) || []).filter((m) => GW.playerKey(m.opponent) === GW.playerKey(name));
+      if (!ms.length) return '';
+      const wins = ms.filter((m) => m.result === 'win').length;
+      const picks = new Map();
+      for (const m of ms) for (const c of m.oppPicks || []) picks.set(c, (picks.get(c) || 0) + 1);
+      const top = [...picks.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, n]) => `${esc(nameOf(c))} ${n}×`);
+      return `${ms.length} RTA games, you won ${wins}. Their picks: ${top.join(', ')}`;
+    } catch (_) {
+      return '';
+    }
+  }
 
   // ------------------------------------------------------------------ setup
   function renderSetup() {
     $('#my-name').value = conn.myName || '';
+    $('#share-speeds').checked = conn.shareSpeeds !== false;
+    const sp = mySpeeds();
+    $('#my-gear-info').textContent = sp.size ? `Your gear: speeds for ${sp.size} heroes found on this device (from gear.txt).` : 'No gear.txt on this device yet: dots can show "proven counter" but not check your gear. Import it in RTA → Data or Gear.';
     $('#guild-name').value = conn.guildName || '';
     $('#guild-info').innerHTML = conn.guildCode ? `Guild code: <code>${esc(conn.guildCode)}</code> (keep it within your guild: anyone with it can read and edit).` : 'Not in a guild yet.';
     if (conn.config && document.activeElement !== $('#fb-config')) $('#fb-config').value = JSON.stringify(conn.config, null, 1);
@@ -442,6 +559,10 @@
     $('#rule-attacks').value = R0.attacksPerMember;
     $('#rule-teams').value = R0.teamsPerDefense;
   }
+  $('#share-speeds').addEventListener('change', (e) => {
+    conn.shareSpeeds = e.target.checked;
+    saveConn();
+  });
   $('#my-name').addEventListener('change', async (e) => {
     conn.myName = e.target.value.trim();
     saveConn();
