@@ -13,6 +13,8 @@ Guildmates then just open an invite link.
 4. **Build → Firestore Database → Create database.** Pick a location near your guild and start in **production mode**.
 5. In Firestore, open the **Rules** tab, replace everything with the contents of
    [`firestore.rules`](../firestore.rules) from this repository, and press **Publish**.
+   (The same project also serves **Sync my devices** on the Home page: your own notes, matches and gear between PC and
+   phone, in a private `personal/<long key>` area. If you published the rules before 2026-11-13, publish them again.)
 6. **Project settings (gear icon) → General → Your apps → Web (`</>`)**. Register an app (any nickname,
    no hosting needed). Firebase shows a `const firebaseConfig = { ... }` snippet. **Copy it.**
 7. Open the Epic 7 Engine **Guild War** page → **Setup**:

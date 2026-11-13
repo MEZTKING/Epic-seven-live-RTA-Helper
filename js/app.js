@@ -1677,6 +1677,15 @@
     } catch (_) { /* ignore */ }
   });
 
+  // My devices sync wrote new data into this tab's storage (js/mysync-app.js): reload it
+  window.addEventListener('e7-synced', () => {
+    try {
+      store = sanitize(JSON.parse(localStorage.getItem(KEY)));
+      derive();
+      render();
+    } catch (_) { /* ignore */ }
+  });
+
   // ======================================================================== go
   render();
 })();

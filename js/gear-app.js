@@ -380,6 +380,8 @@
   addEventListener('storage', (e) => {
     if (e.key === GS.KEY) window.GearApp.reload();
   });
+  addEventListener('e7-synced', () => window.GearApp.reload()); // My devices sync brought new gear
+
 
   recompute();
   render();
