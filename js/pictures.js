@@ -10,7 +10,7 @@
   'use strict';
   const DB = 'e7-pictures';
   const STORE = 'pictures';
-  const MAX = 24;
+  const MAX = 60; // ~8 per match (match start, draft screen, board): the last several matches
   let dbp = null;
   function db() {
     if (dbp) return dbp;
@@ -51,14 +51,14 @@
   const clear = () => tx('readwrite', (s) => s.clear());
 
   /** A picture of anything drawable (video, canvas, image), as JPEG. */
-  function capture(src, note) {
+  function capture(src, note, extra) {
     const w = src.videoWidth || src.naturalWidth || src.width;
     const h = src.videoHeight || src.naturalHeight || src.height;
     const cv = document.createElement('canvas');
     cv.width = w;
     cv.height = h;
     cv.getContext('2d').drawImage(src, 0, 0);
-    return add({ url: cv.toDataURL('image/jpeg', 0.9), w, h, frameKey: window.GameArea ? window.GameArea.frameKey(src) : 'full', note: note || '' });
+    return add({ url: cv.toDataURL('image/jpeg', 0.9), w, h, frameKey: window.GameArea ? window.GameArea.frameKey(src) : 'full', note: note || '', ...(extra || {}) });
   }
 
   window.E7Pictures = { add, list, get, remove, clear, capture, MAX };

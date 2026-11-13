@@ -7,6 +7,54 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #33 · Match review: what the app saw, per match · this commit (previous: `8017eef`)
+
+**Asked for:** "its seems even when starting the match the prebans arent even detected and nothing goes forward, is there a
+way to check per match all the correct things the app sees".
+
+**Findings**
+- The pre-ban row on the draft screen is the one built-in position never checked against a real **file** (the BAN
+  screen file doesn't show it; the picking-phase screens only came as chat images). So the pre-ban boxes may be off.
+- "Nothing goes forward" for picks is also expected until their banners are named once (DEVLOG #31/#32).
+- What's needed: per match, see **where** the app looked and **what** it saw, and get the pictures out as files.
+
+**Changed**
+- `js/matchtrace.js` (new, `E7Trace`, tested): per-match record in `localStorage['e7-match-trace']` (newest 15 matches,
+  200 events each): timeline events (repeats collapsed) and the latest snapshot of every slot.
+- `js/auto.js`:
+  - `note()` writes to both the diagnostic log and the match timeline: match found / start, first pick, draft screen
+    found, status changes (e.g. "0 of 4 recognised"), slot confirmations with scores, picker pre-bans, board picture,
+    result, CR teams, names given.
+  - Every 5 s while live: a snapshot of each slot (guess, score, sure, confirmed, source, badges).
+  - While the draft is open: a picture every 20 s (up to 6) tied to the match. Match-start and board pictures are tied
+    too (`draftId`).
+- RTA → Auto, new card **Match review: what the app saw**:
+  - choose a match (time · result vs opponent)
+  - its pictures with **Show with boxes** (the alignment view on that picture), **Name heroes**, **Download** (a .jpg
+    file to send to Claude)
+  - a slot table and the timeline
+  - **Copy this match for Claude** (the diagnostic report with this match's slots + timeline)
+- `js/pictures.js`: pictures can carry `draftId`; keeps the newest 60.
+- Diagnostic report: a "This match" section and the **desktop app version** (`E7Desktop.version()`).
+- `sw.js` v24.
+
+**Bugs found and fixed while building:** a blind replace turned the log call inside `note()` into a call to `note()`
+itself (endless loop). Caught by reading the result before running; fixed.
+
+**Tested**
+- `npm test` 104 (matchtrace: 2 new).
+- Browser suite **22/22** clean. New `match-review.e2e.js`:
+  - timeline with the repeat count, slot table, the real BAN picture
+  - Show with boxes → alignment view at 1340 px
+  - Download → `epic7-draft-screen-1-….jpg`
+  - Copy → text with slots + timeline
+- Desktop `rta-follow.js` still passes ("waiting for the RTA draft screen (… 0 of 4 recognised)").
+- **Not tested:** a real match (the owner's next match fills it).
+
+**Open:** with one downloaded picking-phase picture, the pre-ban positions can be made exact.
+
+---
+
 ## 2026-11-13 · #32 · Name the heroes after the match, teams from the CR bar, "is the overlay working?" · this commit (previous: `684dd4d`)
 
 **Asked for:** "yes do both" ("label this draft after the match" + reading the CR bar to confirm teams), "and how to get the

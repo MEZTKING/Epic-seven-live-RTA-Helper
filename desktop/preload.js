@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('E7Desktop', {
   pickWindow: () => ipcRenderer.invoke('e7:pick'),
   onCapture: (cb) => ipcRenderer.on('e7:capture-changed', (_e, c) => cb(c)),
   zoom: () => ipcRenderer.sendSync('e7:zoom'),
+  version: () => ipcRenderer.sendSync('e7:version'),
   showSelf: (show) => ipcRenderer.send('e7:show-self', !!show),
   onHotkey: (cb) => ipcRenderer.on('e7:hotkey', (_e, name) => cb(name)),
   // developer tool: automatic screenshots (game watcher only)

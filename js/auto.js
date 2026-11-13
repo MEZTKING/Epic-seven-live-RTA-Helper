@@ -40,6 +40,11 @@
   const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
 
   const cfg = () => App.store.auto;
+  /** Something worth knowing about this match: diagnostic log + the match's own timeline (Match review, DEVLOG #33). */
+  function note(text, data) {
+    if (window.E7Diag) window.E7Diag.log('rta', text, data);
+    if (window.E7Trace) window.E7Trace.event(App.store.draft.id, data ? `${text} ${typeof data === 'string' ? data : JSON.stringify(data)}` : text);
+  }
   const LAY = window.E7Layouts; // built-in screen layouts (js/layouts.js)
   /** The built-in layout for the current game picture (or a picture of this size). */
   const layoutFor = (w, h) => (LAY ? LAY.layoutFor(w, h) : null);
@@ -307,7 +312,7 @@
       for (const n of [...named].sort((a, b) => a.slot.index - b.slot.index)) (n.slot.kind === 'preban' ? board.prebans : board.picks)[n.slot.side].push(n.code);
       App.replaceDraft(L.boardToDraft(board, App.store.draft.firstPick || 'me'));
     }
-    if (window.E7Diag) window.E7Diag.log('rta', `named ${named.length} heroes on a saved picture`, named.map((n) => `${n.slot.id}=${App.nameOf(n.code)}`));
+    note(`named ${named.length} heroes on a saved picture`, named.map((n) => `${n.slot.id}=${App.nameOf(n.code)}`));
     $('#label-dlg').close();
     labelling = null;
     setStatus(`Saved ${named.length} names. Those heroes' pictures are recognised from now on.`);
@@ -453,8 +458,8 @@
     // once per match, keep a picture of the draft board (all 10 picks show at the BAN step) to name heroes after the match
     if (live && SW && SW.current() === 'rta-draft' && boardPicFor !== App.store.draft.id && window.E7Pictures) {
       boardPicFor = App.store.draft.id;
-      window.E7Pictures.capture(source, 'draft board · name the heroes after the match').catch(() => {});
-      if (window.E7Diag) window.E7Diag.log('rta', 'saved a picture of the draft board');
+      window.E7Pictures.capture(source, 'draft board · name the heroes after the match', { draftId: App.store.draft.id }).catch(() => {});
+      note('saved a picture of the draft board');
     }
     const isDraft = () => (gate ? performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS : on('rta-draft'));
     // the match-start screen (versus / profile art, once taught) = a new match begins (owner's idea, DEVLOG #30)
@@ -465,7 +470,7 @@
       // the RTA menu (World Arena) means the draft is over: stop reading picks right away (owner's screenshot, DEVLOG #30)
       if (cur === 'rta-lobby' && (performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS)) {
         draftSeenAt = introSeenAt = -Infinity;
-        if (window.E7Diag) window.E7Diag.log('rta', 'RTA menu seen: draft over, reading paused');
+        note('RTA menu seen: draft over, reading paused');
       }
       lastScreen = cur;
     }
@@ -522,7 +527,7 @@
       }
       t.empties = 0;
       if (gate && s.kind === 'preban' && r.sure && ++prebansSure >= 2) {
-        if (window.E7Diag && performance.now() - draftSeenAt > DRAFT_HOLD_MS) window.E7Diag.log('rta', 'draft screen found (pre-bans recognised)');
+        if (performance.now() - draftSeenAt > DRAFT_HOLD_MS) note('draft screen found (pre-bans recognised)');
         draftSeenAt = performance.now();
       }
       // picks (old matcher): a real score is needed, not just a lead over other bad guesses (lobby text scored 34–60%)
@@ -535,11 +540,12 @@
       }
       if (t.count >= CONFIRM_FRAMES && (!t.confirmed || t.confirmed.code !== r.best.code)) {
         t.confirmed = { ...r.best };
-        if (window.E7Diag) window.E7Diag.log('rta', `slot ${s.id} = ${App.nameOf(r.best.code)}`, { sim: +r.best.sim.toFixed(3), source: r.best.source, second: r.second ? `${App.nameOf(r.second.code)} ${(+r.second.sim).toFixed(3)}` : null });
+        note(`slot ${s.id} = ${App.nameOf(r.best.code)}`, { sim: +r.best.sim.toFixed(3), source: r.best.source, second: r.second ? `${App.nameOf(r.second.code)} ${(+r.second.sim).toFixed(3)}` : null });
         t.ref = { code: r.best.code, vec: feature.vec }; // what the slot looked like when confirmed (postban detection)
         if (c.autoLearn && r.best.source === 'official' && r.best.sim >= Math.max(0.8, c.threshold)) addLearned(r.best.code, feature, 'auto-learned');
       }
     }
+    if (live && window.E7Trace) traceTick(isDraft());
     if (isDraft()) {
       if (c.apply) applyBoard();
       if (c.apply && c.detectPostban) detectPostbans();
@@ -612,6 +618,111 @@
     if (changed && nextNonPost >= nonPost) App.replaceDraft(next);
   }
 
+  // ================================================================ match review (what the app saw, per match)
+  const traceState = { snapAt: 0, picAt: 0, pics: 0, draftId: null };
+  function traceTick(draftOpen) {
+    const id = App.store.draft.id;
+    if (traceState.draftId !== id) Object.assign(traceState, { draftId: id, pics: 0, picAt: 0 });
+    const now = performance.now();
+    if (now - traceState.snapAt > 5000) {
+      traceState.snapAt = now;
+      const snap = {};
+      for (const sl of slots) {
+        const t = track.get(sl.id) || {};
+        const r = t.result;
+        snap[sl.id] = {
+          guess: r && r.best ? App.nameOf(r.best.code) : r && r.empty ? '(empty)' : '',
+          score: r && r.best ? +(+r.best.sim).toFixed(3) : null,
+          source: r && r.best ? r.best.source : '',
+          sure: !!(r && ('sure' in r ? r.sure : false)),
+          confirmed: t.confirmed ? App.nameOf(t.confirmed.code) : '',
+          badges: t.badges ? `${t.badges.element || '-'}/${t.badges.role || '-'}` : '',
+        };
+      }
+      window.E7Trace.slots(id, snap);
+    }
+    // while the draft is open: a picture every 20 s (up to 6) so you can check what the app looked at
+    if (draftOpen && window.E7Pictures && traceState.pics < 6 && now - traceState.picAt > 20000) {
+      traceState.picAt = now;
+      traceState.pics++;
+      window.E7Pictures.capture(source, `draft screen ${traceState.pics}`, { draftId: id }).catch(() => {});
+    }
+  }
+
+  // ---- the Match review card
+  function matchLabel(t) {
+    const m = (App.store.matches || []).find((x) => x.draftId === t.id);
+    const when = new Date(t.startedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `${when}${m ? ` · ${m.result === 'win' ? 'Win' : m.result === 'loss' ? 'Loss' : '?'} vs ${m.opponent || '?'}` : t.id === App.store.draft.id ? ' · current' : ''}`;
+  }
+  async function renderReview() {
+    if (!window.E7Trace || !$('#mr-match')) return;
+    const list = window.E7Trace.list();
+    const sel = $('#mr-match');
+    const keep = sel.value;
+    sel.innerHTML = list.length ? list.map((t) => `<option value="${esc(t.id)}">${esc(matchLabel(t))}</option>`).join('') : '<option value="">No matches recorded yet (watch a match)</option>';
+    if (keep && list.some((t) => t.id === keep)) sel.value = keep;
+    const t = list.find((x) => x.id === sel.value);
+    if (!t) return ($('#mr-body').innerHTML = '');
+    const pics = window.E7Pictures ? (await window.E7Pictures.list()).filter((p) => p.draftId === t.id).reverse() : [];
+    const slotRows = Object.entries(t.slots || {})
+      .map(([id, x]) => `<tr><td>${esc(id)}</td><td>${x.confirmed ? `<b>${esc(x.confirmed)}</b> ✓` : esc(x.guess || '—')}</td><td>${x.score === null || x.score === undefined ? '' : x.score}</td><td>${x.sure ? 'sure' : x.guess ? 'unsure' : ''}</td><td class="hint">${esc(x.source || '')} ${esc(x.badges || '')}</td></tr>`)
+      .join('');
+    $('#mr-body').innerHTML = `
+      <h4 style="margin:10px 0 6px">Pictures (${pics.length})</h4>
+      <div class="pics">${pics.map((p) => `<div class="pic"><img alt="" src="${p.url}" /><span>${esc(new Date(p.at).toLocaleTimeString())} ${esc(p.note || '')}</span>
+        <div class="btn-row"><button class="btn" data-mr-boxes="${p.id}">Show with boxes</button><button class="btn" data-mr-name="${p.id}">Name heroes</button><button class="btn" data-mr-dl="${p.id}">Download</button></div></div>`).join('') || '<p class="hint">No pictures for this match.</p>'}</div>
+      <h4 style="margin:10px 0 6px">What each slot saw (last look)</h4>
+      ${slotRows ? `<table class="mini"><thead><tr><th>Slot</th><th>Hero</th><th>Score</th><th></th><th>Source · badges</th></tr></thead><tbody>${slotRows}</tbody></table>` : '<p class="hint">Nothing read yet.</p>'}
+      <h4 style="margin:10px 0 6px">Timeline</h4>
+      <ul class="plain-list small">${(t.events || []).map((e) => `<li><span class="hint">${esc(new Date(e.t).toLocaleTimeString())}</span> ${esc(e.text)}${e.n ? ` <span class="hint">×${e.n}</span>` : ''}</li>`).join('') || '<li class="hint">Nothing yet.</li>'}</ul>`;
+  }
+  async function reviewPic(id) {
+    const p = await window.E7Pictures.get(id);
+    if (!p) return null;
+    const img = new Image();
+    await new Promise((res) => {
+      img.onload = res;
+      img.src = p.url;
+    });
+    return { p, pic: { img, w: p.w, h: p.h, frameKey: p.frameKey } };
+  }
+  function reviewText() {
+    const t = window.E7Trace && window.E7Trace.get($('#mr-match').value);
+    if (!t) return '';
+    const slotsTxt = Object.entries(t.slots || {}).map(([id, x]) => `${id}: ${x.confirmed ? 'CONFIRMED ' + x.confirmed : 'not confirmed'} · guess ${x.guess || '-'} ${x.score ?? ''} ${x.sure ? '(sure)' : '(unsure)'} [${x.source || ''}] ${x.badges || ''}`);
+    return [`Match ${$('#mr-match').selectedOptions[0].textContent} (draft ${$('#mr-match').value})`, ...slotsTxt, 'Timeline:', ...(t.events || []).map((e) => `${e.t.slice(11, 19)} ${e.text}${e.n ? ' ×' + e.n : ''}`)].join('\n');
+  }
+  $('#mr-match').addEventListener('change', renderReview);
+  $('#mr-refresh').addEventListener('click', renderReview);
+  $('#mr-copy').addEventListener('click', () => window.E7Diag && window.E7Diag.copy(reviewText()).then((r) => r.copied && ($('#mr-copy').textContent = 'Copied ✓ paste it to Claude')));
+  $('#mr-body').addEventListener('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.mrBoxes) {
+      const r = await reviewPic(b.dataset.mrBoxes);
+      if (!r) return;
+      startCalibration(V.REGION_STEPS, r.pic);
+      if (!calib) return;
+      calib.step = calib.steps.length;
+      calib.preview = true;
+      drawCalib();
+    } else if (b.dataset.mrName) {
+      const p = await window.E7Pictures.get(b.dataset.mrName);
+      if (p) openLabel(p);
+    } else if (b.dataset.mrDl) {
+      const p = await window.E7Pictures.get(b.dataset.mrDl);
+      if (!p) return;
+      const a = document.createElement('a');
+      a.href = p.url;
+      a.download = `epic7-${(p.note || 'picture').replace(/[^a-z0-9]+/gi, '-')}-${p.at.slice(0, 19).replace(/[:T]/g, '-')}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  });
+  if (window.E7Diag) window.E7Diag.provider('This match (Match review)', () => (window.E7Trace ? reviewText().split('\n').slice(0, 60) : []));
+
   // ================================================================ match start (versus / profile art)
   /** "Match found" or the match-start screen: a new match. Only the match-start screen has the profile art + First Pick. */
   function onMatchStart({ picture = true, firstPick = true, fresh = true } = {}) {
@@ -623,11 +734,11 @@
       lastFirstPick = null;
       track.clear();
       rebuildSlots();
-      if (window.E7Diag) window.E7Diag.log('rta', picture ? 'match start screen (profile art): new match' : 'match found ("Here comes a new challenger!"): new match');
+      note(picture ? 'match start screen (profile art): new match' : 'match found ("Here comes a new challenger!"): new match');
       setStatus('New match starting · reading the draft…');
     }
     // keep the profile art (both players) with this match, for later
-    if (picture && window.E7Pictures && source) window.E7Pictures.capture(source, `match start (profile art) · draft ${App.store.draft.id}`).catch(() => {});
+    if (picture && window.E7Pictures && source) window.E7Pictures.capture(source, 'match start (profile art)', { draftId: App.store.draft.id }).catch(() => {});
     if (firstPick) readFirstPick();
   }
   /** Match-start screen: "First Pick" is written under the profile art of whoever picks first (owner's screenshot). */
@@ -642,7 +753,7 @@
       lastFirstPick = side;
       const d = App.store.draft;
       if (!d.actions.length && d.firstPick !== side) App.replaceDraft(L.newDraft(side));
-      if (window.E7Diag) window.E7Diag.log('rta', `first pick read on the match-start screen: ${side}`, { word: hit.text, x: +hit.cx.toFixed(2) });
+      note(`first pick read on the match-start screen: ${side}`, { word: hit.text, x: +hit.cx.toFixed(2) });
     } catch (_) { /* OCR not available: first pick is still worked out from the picks */ }
   }
 
@@ -662,7 +773,7 @@
     const key = codes.join(',');
     if (codes.length && key !== pickerPrebans.codes.join(',')) {
       pickerPrebans = { codes, at: Date.now() };
-      if (window.E7Diag) window.E7Diag.log('rta', `pre-ban picker: you selected ${codes.map(App.nameOf).join(' + ')}`);
+      note(`pre-ban picker: you selected ${codes.map(App.nameOf).join(' + ')}`);
       setStatus(`Your pre-bans (picker): ${codes.map(App.nameOf).join(' + ')}`);
     }
   }
@@ -753,7 +864,7 @@
     const r = V.resultWord(text); // tolerant: the sword crosses the T of VICTORY on the Steam screen
     if (r && r === res.last && !res.done && App.store.draft.id === res.draftId) {
       res.done = true;
-      if (window.E7Diag) window.E7Diag.log('rta', `result read from screen: ${r}`, { text: text.slice(0, 40) });
+      note(`result read from screen: ${r}`, { text: text.slice(0, 40) });
       if (App.store.settings.autoRecord) App.recordResult(r, 'auto');
       setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded)' : ' — press Win/Loss to record'}`);
     }
@@ -869,7 +980,7 @@
     for (const f of found.values()) teams[f.side].push(f.code);
     App.store.draft.crTeams = teams;
     App.save();
-    if (window.E7Diag) window.E7Diag.log('rta', 'teams read from the CR bar', { me: teams.me.map(App.nameOf), opp: teams.opp.map(App.nameOf) });
+    note('teams read from the CR bar', { me: teams.me.map(App.nameOf), opp: teams.opp.map(App.nameOf) });
     say(`Teams on the CR bar: <b>you</b> ${teams.me.map((c) => App.esc(App.nameOf(c))).join(', ') || '—'} · <b>opponent</b> ${teams.opp.map((c) => App.esc(App.nameOf(c))).join(', ') || '—'}`);
     return teams;
   }
@@ -1255,9 +1366,9 @@
   function setStatus(text) {
     // the diagnostic log keeps status changes (not the many "Watching · n checks/s" updates)
     const key = String(text).replace(/\d+(\.\d+)? checks\/s/, '').replace(/\d+\/\d+…/, '');
-    if (window.E7Diag && key !== lastLogged) {
+    if (key !== lastLogged) {
       lastLogged = key;
-      if (!/^Loading hero portraits/.test(text)) window.E7Diag.log('rta', 'status: ' + text);
+      if (!/^Loading hero portraits/.test(text)) note('status: ' + text);
     }
     const el = $('#auto-status');
     el.textContent = text;
@@ -1369,8 +1480,13 @@
     }
   });
 
+  let reviewAt = 0;
   function render() {
     renderLayout();
+    if (performance.now() - reviewAt > 5000 && App.activeTab() === 'auto') {
+      reviewAt = performance.now();
+      renderReview();
+    }
     const c = cfg();
     $('#auto-start').classList.toggle('hidden', !!stream);
     $('#auto-stop').classList.toggle('hidden', !stream);
@@ -1491,6 +1607,6 @@
     });
   }
 
-  window.RTAAuto = { _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { _renderReview: renderReview, _traceTick: traceTick, _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();

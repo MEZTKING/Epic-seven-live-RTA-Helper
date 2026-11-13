@@ -63,7 +63,7 @@
     const ua = navigator.userAgent;
     const desktop = !!window.E7Desktop;
     out.push(section('App', [
-      `time: ${new Date().toISOString()} · page: ${page}`,
+      `time: ${new Date().toISOString()} · page: ${page}${desktop && window.E7Desktop.version ? ` · desktop app version ${window.E7Desktop.version()}` : ''}`,
       `where: ${desktop ? 'desktop app' : 'browser'} · ${/Electron\/[\d.]+/.exec(ua) || ''} ${/(Chrome|Firefox|Safari)\/[\d.]+/.exec(ua) || ''} · ${/Windows|Android|iPhone|Mac OS X|Linux/.exec(ua) || ''}`,
       `title: ${document.title} · screen ${screen.width}×${screen.height} @${devicePixelRatio} · window ${innerWidth}×${innerHeight}`,
     ]));

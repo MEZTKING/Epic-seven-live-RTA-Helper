@@ -462,3 +462,5 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .label-cell { background: #1a1c26; border: 1px solid #2c2f3d; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 .label-cell canvas { width: 100%; height: auto; border-radius: 4px; background: #000; }
 .label-cell input { width: 100%; }
+.pic .btn-row { margin-top: 6px; }
+.pic .btn-row .btn { padding: 4px 8px; font-size: 13px; }
