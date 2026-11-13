@@ -54,6 +54,19 @@ const { chromium } = require('playwright');
   console.log('result after drawing my own:', JSON.stringify((await table()).find((r) => r[0].startsWith('Victory'))));
   await p.click('[data-lay-reset=result]');
   console.log('after Use built-in:', JSON.stringify((await table()).find((r) => r[0].startsWith('Victory'))), 'own boxes left:', await p.evaluate(() => Object.keys(window.RTAApp.store.auto.regions).length));
+  // built-in screen signature: the real pre-ban picker is recognised WITHOUT teaching; draft slots are not read there
+  // the reader waits until all hero portraits are loaded before it looks at anything
+  await p.waitForFunction(() => window.RTAAuto._officialLoad.total > 0 && window.RTAAuto._officialLoad.done >= window.RTAAuto._officialLoad.total, null, { timeout: 120000 });
+  await p.setInputFiles('#auto-shot', __path.join(FX, 'steam-rta-preban-select.png'));
+  await p.waitForTimeout(400);
+  for (let i = 0; i < 4; i++) await p.evaluate(() => window.RTAAuto.tick());
+  const picker = await p.evaluate(() => ({ screen: window.E7Screens.current(), taught: window.E7Screens.refs().length, builtIn: window.E7Screens.builtIn().length, confirmed: [...window.RTAAuto._track.values()].filter((t) => t.confirmed).length, read: [...window.RTAAuto._track.values()].filter((t) => t.result).length }));
+  console.log('pre-ban picker file:', JSON.stringify(picker), '(expect screen rta-preban-pick, taught 0, confirmed 0; raw guesses from the first frame before the screen is settled are fine)');
+  // and the Victory screen is not mistaken for the picker
+  await p.setInputFiles('#auto-shot', __path.join(FX, 'steam-rta-victory.png'));
+  await p.waitForTimeout(400);
+  for (let i = 0; i < 4; i++) await p.evaluate(() => window.RTAAuto.tick());
+  console.log('victory file screen:', JSON.stringify(await p.evaluate(() => window.E7Screens.current())), '(expect not rta-preban-pick)');
   console.log('errors:', errs);
   await b.close();
 })();

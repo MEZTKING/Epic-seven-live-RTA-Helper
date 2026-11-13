@@ -12,6 +12,9 @@
   const W = 32;
   const H = 18;
   const SCREENS = [
+    { id: 'rta-lobby', label: 'RTA menu (World Arena, Find Opponent)', module: 'rta' },
+    { id: 'rta-intro', label: 'RTA match start (versus / profile art)', module: 'rta' },
+    { id: 'rta-preban-pick', label: 'RTA pre-ban picker (Select Pre-Ban Hero)', module: 'rta' },
     { id: 'rta-draft', label: 'RTA draft (picks and bans)', module: 'rta' },
     { id: 'rta-battle', label: 'RTA battle start (CR bar visible)', module: 'rta' },
     { id: 'rta-cr-expanded', label: 'RTA expanded CR bar', module: 'rta' },

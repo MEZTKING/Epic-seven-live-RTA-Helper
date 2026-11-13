@@ -7,6 +7,59 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #30 · Match start (versus / profile art), First Pick, RTA menu, pre-ban picker recognised without teaching · this commit (previous: `844cfea`)
+
+**Asked for:** "maybe you should also log the profile art that plays at the very start and this can be a way to know
+when a match is starting". Screenshots of the RTA menu, the match-start screen, the pre-ban picker with 2 selected and
+the BAN screen followed, all pasted in chat (not files).
+
+**Findings (from the screenshots)**
+- **Match-start screen:** both profile arts, a big "VS.", rank tiers, and **"First Pick"** under the side that picks
+  first. That's a clean "new match" signal and tells who picks first.
+- **RTA menu (World Arena, Find Opponent):** this is where the wrong heroes of DEVLOG #29 came from. Seeing it means the
+  draft is over.
+- **Pre-ban picker with selections:** "Selected Heroes (2/2)" shows your two pre-bans with element + class badges at the
+  bottom middle. That's also the screen where pick positions would land on the face grid.
+- **BAN screen:** each pick banner has element + class badges at its top end (positions differ per slot). Kept for
+  later.
+
+**Changed**
+- `js/screens.js`: new screens `rta-lobby` (RTA menu), `rta-intro` (match start), `rta-preban-pick` (pre-ban picker).
+- **Built-in screen signatures:** `tools/make-screen-refs.js` (new) → `js/sources/screen-refs.js` (generated) from the
+  real picker file. `js/screen-watch.js` detects with built-in + taught signatures (built-in ones are not used for
+  gating). The picker is recognised **without teaching**.
+- `js/auto.js`:
+  - **Match start** (taught `rta-intro`):
+    - a new match begins (a complete previous draft is kept as pending); old slots are forgotten
+    - the draft gate opens for 5 minutes, so it no longer depends only on recognising pre-bans
+    - the profile art is saved as a picture ("match start (profile art) · draft …"), and it's logged
+    - **First Pick** is read by OCR (bottom strip, word positions: left = me, right = opponent) and sets the draft's
+      first pick
+  - **RTA menu** (taught `rta-lobby`): closes the draft gate at once.
+  - **Pre-ban picker:** draft slots are never read there; your 2 selected pre-bans are read (face matcher + badges,
+    built-in boxes `myPrebanPick1/2` measured by eye) and logged / shown.
+  - A newly loaded screenshot clears the slot results.
+  - New `ocrWords` (words with x positions).
+- **Teach a screen from a saved picture** (saved-picture chooser → "this picture shows…"), for screens too quick to
+  teach live (match start). RTA → Auto → Screens has the new screens too.
+- `js/layouts.js`: `myPrebanPick1/2`. `sw.js` v22. ROADMAP: banner badges.
+
+**Tested**
+- `npm test` 102.
+- Browser suite 18/18 clean:
+  - `rta-layout.e2e.js`: the **real pre-ban picker file is recognised as `rta-preban-pick` with 0 taught screens** and 0
+    confirmed slots; the real Victory file is not taken for the picker
+  - `rta-pictures.e2e.js`: teaching `rta-intro` from a saved picture works (1 example); match start replaces a
+    14-action draft with a fresh one (new id)
+- **Not tested:** First Pick OCR (no match-start file), the selected-pre-ban positions (by eye), the menu and
+  match-start screens (must be taught once from a saved picture: Developer → Collect screenshots, or Ctrl+Shift+S, then
+  "this picture shows…").
+
+**Open:** with files of the match-start and menu screens, their signatures can be built in like the picker's (no
+teaching). Pick-banner badge positions need a draft file.
+
+---
+
 ## 2026-11-13 · #29 · Fix "everything wrong" (draft gate), element colour + class symbol, diagnostic report · this commit (previous: `b49c3bc`)
 
 **Asked for** (several messages):

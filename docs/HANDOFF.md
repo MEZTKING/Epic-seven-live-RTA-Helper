@@ -184,11 +184,13 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #29)
+## 7. Status (end of DEVLOG #30)
 
 **Debugging with the owner:** ask for **Copy report for Claude** (RTA → Auto, Live, Gear, Guild War, or desktop
 Developer menu) and have it pasted into the chat. It shows what every RTA slot sees, the gate, layout status and a log.
-**RTA draft gate:** live reading of picks only after ≥ 2 pre-bans are recognised (or the draft screen is taught).
+**RTA draft gate:** live reading of picks only after ≥ 2 pre-bans are recognised, for 5 min after the match-start screen
+(`rta-intro`, taught), or when the draft screen is taught; the RTA menu (`rta-lobby`) closes it; never on the pre-ban picker
+(`rta-preban-pick`, **built-in signature**: `js/sources/screen-refs.js` from `tools/make-screen-refs.js`).
 
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real

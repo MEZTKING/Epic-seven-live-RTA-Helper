@@ -16,6 +16,8 @@
   let lastRaw = { screen: null, sim: 0 };
   const listeners = [];
 
+  /** Built-in screen signatures (js/sources/screen-refs.js): recognised without teaching. Not used for gating. */
+  const builtIn = () => (window.RTASources && window.RTASources.screenRefs) || [];
   function refs() {
     try {
       const r = JSON.parse(localStorage.getItem(S.STORAGE_KEY) || '[]');
@@ -35,7 +37,7 @@
   /** Call once per frame/tick. Returns the stable screen id (or null). */
   function update(source) {
     if (!source) return current;
-    lastRaw = S.detect(fpOf(source), refs());
+    lastRaw = S.detect(fpOf(source), [...builtIn(), ...refs()]); // built-in signatures (from real screenshots) + taught ones
     const prev = current;
     current = stable(lastRaw.screen);
     if (prev !== current) for (const fn of listeners) fn();
@@ -55,5 +57,5 @@
   const allowed = (screen) => S.allowed(screen, current, refs());
   const label = (id) => (S.SCREENS.find((s) => s.id === id) || {}).label || 'unknown screen';
 
-  window.E7Screens = { update, teach, forget, refs, allowed, label, current: () => current, raw: () => lastRaw, onChange: (fn) => listeners.push(fn), SCREENS: S.SCREENS };
+  window.E7Screens = { builtIn, update, teach, forget, refs, allowed, label, current: () => current, raw: () => lastRaw, onChange: (fn) => listeners.push(fn), SCREENS: S.SCREENS };
 })();
