@@ -66,7 +66,7 @@
         loadTemplates();
         return ctx.note(`Loading hero portraits ${tpl.length}/${HEROES.length}…`);
       }
-      const all = [...tpl, ...corrections()];
+      const all = [...tpl, ...corrections(), ...(window.E7Teach ? window.E7Teach.templates(F) : [])]; // + faces taught on the Live page
       const ct = (window.RTASources && window.RTASources.classTemplates) || [];
       const px = (r) => ({ x: r.x * ctx.w(), y: r.y * ctx.h(), w: r.w * ctx.w(), h: r.h * ctx.h() });
       const out = [];
@@ -74,7 +74,7 @@
         const rect = px(lay.regions['gwDef' + i]);
         const role = ct.length ? F.classFromVectors(F.classVectorsAt(ctx.source, rect), ct).role : null; // class only (no element badge here)
         const faces = F.fromRect(ctx.source, rect, F.WIDE_VARIANTS);
-        const r = F.classify(faces, all, { preferSource: 'my corrections', allow: F.badgeAllow(null, role, HEROES) });
+        const r = F.classify(faces, all, { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) });
         // what this icon looked like (compact), so a name you give on the Guild War page teaches it (skins too)
         const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
         out.push(r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null });

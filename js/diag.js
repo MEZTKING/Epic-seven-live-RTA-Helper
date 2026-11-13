@@ -58,6 +58,21 @@
     return `## ${title}\n${lines.filter((x) => x !== null && x !== undefined && x !== '').join('\n')}\n`;
   }
 
+  // desktop overlay: where it is and why (E7Desktop.overlayStatus, desktop/main.js)
+  function overlayLine() {
+    const D = window.E7Desktop;
+    if (!D || !D.overlayStatus) return null;
+    try {
+      const o = D.overlayStatus();
+      const g = o.gameState;
+      return `overlay: on=${o.on} visible=${o.visible} mode=${o.mode} tracking=${o.tracking} fallback=${o.fallback}` +
+        ` bounds=${o.bounds ? `${o.bounds.x},${o.bounds.y} ${o.bounds.width}×${o.bounds.height}` : '-'}` +
+        ` game=${g ? (g.min ? 'minimized' : g.w ? `${g.x},${g.y} ${g.w}×${g.h} front=${g.front}` : short(g)) : '-'}` +
+        `${o.lastStateAgoMs != null ? ` (${Math.round(o.lastStateAgoMs / 1000)} s ago)` : ''}${o.error ? ` · tracker error: ${short(o.error, 300)}` : ''}`;
+    } catch (e) {
+      return `overlay: status unavailable (${e.message})`;
+    }
+  }
   function report(extra) {
     const out = [];
     const ua = navigator.userAgent;
@@ -73,6 +88,7 @@
     const vs = window.VisionClient && window.VisionClient.status();
     out.push(section('Capture / game watcher', [
       cap ? `desktop capture: mode=${cap.mode} name="${cap.name}" chosen=${cap.chosen} overlay-tracking=${cap.tracked}` : 'desktop capture: n/a',
+      overlayLine(),
       `game area (browser box): ${ga ? short(ga.full ? { full: true, fw: ga.fw, fh: ga.fh } : { box: round(ga), fw: ga.fw, fh: ga.fh }) : 'none'}`,
       `frame keys (which picture boxes were drawn on): ${short(readJSON('e7-frame-of') || {})}`,
       vs ? `watcher: watching=${vs.watching} name="${vs.name}" screen=${vs.screen || '-'} readers=${short((vs.readers || []).map((r) => `${r.id}:${r.ready ? 'ready' : 'no boxes'}${r.note ? ` (${r.note})` : ''}`))}` : 'watcher: no status on this page',

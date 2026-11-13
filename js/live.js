@@ -32,6 +32,32 @@
   $('#live-test').addEventListener('click', () => {
     if (typeof BroadcastChannel !== 'undefined') new BroadcastChannel('e7-overlay').postMessage({ test: true });
   });
+  // desktop: is the overlay on screen, and if not, why (refreshed every 2 s)
+  const ovStatus = () => {
+    const D = window.E7Desktop;
+    const el = $('#live-ovstatus');
+    if (!D || !D.overlayStatus) return;
+    let o;
+    try {
+      o = D.overlayStatus();
+    } catch (_) {
+      return;
+    }
+    const g = o.gameState;
+    let why;
+    if (!o.on) why = 'The overlay is turned off. Ctrl+Shift+O turns it on.';
+    else if (o.mode === 'window' && o.tracking && g && g.w) why = o.visible ? `On top of the game window (${g.w}×${g.h}).` : 'Hidden while another program is in front of the game. Click the game and it comes back.';
+    else if (o.mode === 'window' && o.tracking && g && g.min) why = 'Hidden: the game window is minimized.';
+    else if (o.mode === 'window' && o.tracking) why = 'Looking for the game window…';
+    else if (o.fallback) why = `Couldn't follow the game window, so the overlay covers the whole display (lines up exactly in borderless fullscreen). Reason: ${o.error}`;
+    else if (o.mode === 'window') why = "The game window isn't open or wasn't found: start the game (it's found again within a few seconds) or use Game window → Pick the game window.";
+    else if (o.mode === 'screen') why = o.visible ? 'Covering the whole display the game is on.' : 'Hidden.';
+    else why = 'No game window chosen yet: Game window → Pick the game window.';
+    el.innerHTML = `<b>Overlay now:</b> ${o.visible ? '<span class="ok-text">visible</span>' : '<span class="warn-text">not visible</span>'} · ${esc(why)}`;
+    el.classList.remove('hidden');
+  };
+  ovStatus();
+  setInterval(ovStatus, 2000);
   $('#live-preview').addEventListener('click', () => window.open('overlay.html', 'e7-overlay-preview', 'width=1100,height=640'));
 
   const layers = {};

@@ -428,6 +428,7 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
   .gt-stats .main { font-size: 14px; }
 }
 .warn-text { color: var(--accent); }
+.ok-text { color: var(--win); }
 /* saved game pictures */
 .pics { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; max-height: 60vh; overflow: auto; margin: 10px 0; }
 .pic { all: unset; cursor: pointer; display: block; background: #1a1c26; border: 2px solid #2c2f3d; border-radius: 8px; padding: 6px; }
@@ -466,3 +467,16 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .pic .btn-row .btn { padding: 4px 8px; font-size: 13px; }
 .gw-seen { margin-top: 8px; padding: 8px 10px; border: 1px solid #3a6ad8; border-radius: 8px; background: rgba(58,106,216,.1); }
 .gw-seen .btn { margin-left: 8px; }
+
+/* Live → Teach heroes (js/teach-ui.js) */
+.teach-row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.teach-canvas-wrap { flex: 1 1 520px; min-width: 0; }
+#teach-canvas { width: 100%; height: auto; cursor: crosshair; touch-action: none; border-radius: 6px; background: #000; display: block; }
+.teach-side { flex: 0 0 240px; }
+#teach-crop { width: 96px; height: 96px; border-radius: 50%; background: #000; display: block; margin-bottom: 6px; }
+.teach-lib { display: flex; flex-direction: column; gap: 6px; }
+.teach-hero { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.teach-hero b { min-width: 160px; }
+.teach-ex { position: relative; width: 48px; height: 48px; }
+.teach-ex img { width: 48px; height: 48px; border-radius: 50%; display: block; background: #000; }
+.teach-ex button { position: absolute; right: -6px; top: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; font-size: 12px; line-height: 18px; }

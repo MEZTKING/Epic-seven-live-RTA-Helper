@@ -8,7 +8,10 @@
  *    It is hidden from screen capture, so the readers never read our own text.
  *  - Capture just the GAME WINDOW (picked once; desktop/picker.html), or a whole
  *    display. Pages calling getDisplayMedia() get it automatically, no prompt.
- *    In window mode the overlay follows the game window (wintrack.js, Windows).
+ *    In window mode the overlay follows the game window (wintrack.js, Windows). If that tracker
+ *    fails or doesn't answer within 5 s, the overlay is shown over the game's display instead
+ *    (lines up exactly with borderless fullscreen), and the reason is in Overlay → Status and
+ *    in the "Copy report" text (E7Desktop.overlayStatus()).
  *  - Pop-out windows stay on top of the game.
  * It only READS the screen. It never sends input to the game.
  *
@@ -24,6 +27,9 @@ const { pathToFileURL } = require('url');
 const updater = require('./updater');
 const wintrack = require('./wintrack');
 const PRELOAD = path.join(__dirname, 'preload.js');
+// tests only (tests/desktop/overlay-status.js): behave as on Windows, so the window tracker really starts (and,
+// off Windows, really fails: no PowerShell), and expose trackGame
+const IS_WIN = process.platform === 'win32' || process.env.E7_TEST_WIN === '1';
 
 const ROOT = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(__dirname, '..');
 const ORIGIN = 'e7://app';
@@ -39,6 +45,10 @@ let quitting = false;
 let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25, capture: null, devCapture: false };
 let tracker = null;
 let gameState = null; // last tracker state of the game window
+// why the overlay is where it is (Overlay menu → status, E7Desktop.overlayStatus(), the diagnostic report)
+const ovStatus = { fallback: false, error: '', failedAt: 0, trackingSince: 0, lastStateAt: 0, shownOnce: false };
+const TRACK_WAIT_MS = 5000; // no answer from the tracker in this time -> show the overlay over the display
+const TRACK_RETRY_MS = 60000; // after a failure, try the tracker again only this often
 const clampZoom = (z) => Math.min(2.5, Math.max(0.6, Math.round(z * 100) / 100));
 
 function loadConfig() {
@@ -169,6 +179,26 @@ ipcMain.on('e7:capture', (e) => {
   const c = config.capture;
   e.returnValue = { mode: c ? c.mode : 'screen', name: c ? c.name : '', chosen: !!c, tracked: !!(tracker && gameState && gameState.w) };
 });
+function overlayStatus() {
+  const c = config.capture;
+  const b = overlay && !overlay.isDestroyed() ? overlay.getBounds() : null;
+  return {
+    on: !!config.overlay,
+    visible: !!(overlay && !overlay.isDestroyed() && overlay.isVisible()),
+    bounds: b,
+    mode: c ? c.mode : 'not chosen',
+    platform: process.platform,
+    tracking: !!tracker,
+    gameState,
+    lastStateAgoMs: ovStatus.lastStateAt ? Date.now() - ovStatus.lastStateAt : null,
+    fallback: ovStatus.fallback,
+    error: ovStatus.error,
+    display: gameDisplay().bounds,
+  };
+}
+ipcMain.on('e7:overlay-status', (e) => {
+  e.returnValue = overlayStatus();
+});
 
 function setCapture(choice) {
   config.capture = { mode: choice.mode === 'window' ? 'window' : 'screen', id: choice.id, name: choice.name };
@@ -227,9 +257,15 @@ function trackGame(sourceId) {
   const hwnd = wintrack.hwndOf(sourceId);
   if (tracker && tracker.hwnd === hwnd) return;
   stopTracking();
-  if (!hwnd || process.platform !== 'win32') return;
-  tracker = wintrack.track(hwnd, process.pid, onGameState);
+  if (!hwnd || !IS_WIN) return;
+  const t = wintrack.track(hwnd, process.pid, (s) => tracker === t && onGameState(s), { dir: app.getPath('userData'), force: IS_WIN });
+  tracker = t;
   tracker.hwnd = hwnd;
+  ovStatus.trackingSince = Date.now();
+  // no answer in time: don't leave the overlay hidden, show it over the display (and say why)
+  setTimeout(() => {
+    if (tracker === t && !gameState) trackerFailed(`no answer from the window tracker in ${TRACK_WAIT_MS / 1000} s`);
+  }, TRACK_WAIT_MS);
 }
 function stopTracking() {
   if (tracker) tracker.stop();
@@ -237,8 +273,22 @@ function stopTracking() {
   gameState = null;
   placeOverlay();
 }
+function trackerFailed(text) {
+  ovStatus.error = text;
+  ovStatus.failedAt = Date.now();
+  ovStatus.fallback = true;
+  console.warn('[overlay] window tracker:', text);
+  if (tracker) tracker.stop();
+  tracker = null;
+  gameState = null;
+  placeOverlay();
+}
 function onGameState(s) {
+  if (s.failed) return trackerFailed(s.failed);
   gameState = s;
+  ovStatus.lastStateAt = Date.now();
+  ovStatus.fallback = false;
+  ovStatus.error = '';
   if (!overlay) return;
   if (s.gone) {
     stopTracking();
@@ -247,8 +297,17 @@ function onGameState(s) {
   if (s.min || !s.w || !s.h) return overlay.hide();
   const r = screen.screenToDipRect ? screen.screenToDipRect(null, { x: s.x, y: s.y, width: s.w, height: s.h }) : { x: s.x, y: s.y, width: s.w, height: s.h };
   overlay.setBounds(r);
-  if (config.overlay && s.front) overlay.showInactive();
+  if (config.overlay && s.front) showOverlay();
   else overlay.hide();
+}
+/** Show without taking focus; the first time it really appears, the overlay shows its "✓ overlay" badge. */
+function showOverlay() {
+  if (!overlay || overlay.isDestroyed()) return;
+  if (!overlay.isVisible()) overlay.showInactive();
+  if (!ovStatus.shownOnce) {
+    ovStatus.shownOnce = true;
+    overlay.webContents.send('e7:hotkey', 'overlay-badge');
+  }
 }
 
 function createMain() {
@@ -310,7 +369,7 @@ function createOverlay() {
     hasShadow: false,
     fullscreenable: false,
     alwaysOnTop: true,
-    show: config.overlay,
+    show: false, // shown by showOverlay() once we know where the game is
     webPreferences: { backgroundThrottling: false, preload: PRELOAD },
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
@@ -318,15 +377,20 @@ function createOverlay() {
   overlay.setContentProtection(true); // not visible to screen capture -> readers never read the overlay itself
   overlay.setVisibleOnAllWorkspaces(true);
   overlay.loadURL(`${ORIGIN}/overlay.html?desktop=1`);
+  overlay.webContents.once('did-finish-load', () => placeOverlay());
   // (no setZoomFactor here: zoom is shared per origin with the main window; overlay.html scales its items itself)
 }
 
-const windowModeOnWindows = () => process.platform === 'win32' && config.capture && config.capture.mode === 'window';
+const windowModeOnWindows = () => IS_WIN && config.capture && config.capture.mode === 'window';
 function placeOverlay() {
-  if (!overlay || tracker) return; // window mode: the tracker places it
+  if (!overlay || overlay.isDestroyed()) return;
+  if (tracker && gameState) return onGameState(gameState); // window mode: the tracker places it
+  if (tracker) return; // waiting for the tracker's first answer (at most TRACK_WAIT_MS, then the fallback)
   overlay.setBounds(gameDisplay().bounds);
-  if (windowModeOnWindows()) return overlay.hide(); // game window not found yet: nothing would line up
-  if (config.overlay && !overlay.isVisible()) overlay.showInactive();
+  // window mode without a working tracker: still show it over the display (lines up with borderless fullscreen)
+  if (windowModeOnWindows() && !ovStatus.fallback) return overlay.hide(); // game window not found yet
+  if (config.overlay) showOverlay();
+  else overlay.hide();
 }
 
 function buildMenu() {
@@ -387,6 +451,7 @@ function buildMenu() {
           if (!config.overlay) toggleOverlay();
           if (overlay && !overlay.isDestroyed()) overlay.webContents.send('e7:hotkey', 'overlay-test');
         } },
+        { label: 'Overlay status (is it working?)…', click: showOverlayStatus },
         { label: 'Bigger overlay text', click: () => setOverlayZoom(config.overlayZoom + 0.15) },
         { label: 'Smaller overlay text', click: () => setOverlayZoom(config.overlayZoom - 0.15) },
         { type: 'separator' },
@@ -432,8 +497,29 @@ function toggleOverlay() {
   config.overlay = !config.overlay;
   saveConfig();
   if (!config.overlay) overlay.hide();
-  else if (tracker && gameState) onGameState(gameState);
-  else if (!windowModeOnWindows()) overlay.showInactive();
+  else placeOverlay();
+}
+
+/** Overlay → Overlay status: plain words for "why don't I see it?" */
+function overlayStatusText(st = overlayStatus()) {
+  const lines = [];
+  lines.push(`Overlay: ${st.on ? 'on' : 'OFF (Ctrl+Shift+O turns it on)'} · ${st.visible ? 'visible' : 'hidden right now'}`);
+  if (st.mode === 'window') {
+    if (st.tracking && st.gameState && st.gameState.w) {
+      lines.push(`Following the game window at ${st.gameState.x},${st.gameState.y} (${st.gameState.w}×${st.gameState.h}).`);
+      if (!st.gameState.front) lines.push('Hidden because another program is in front of the game. Click the game and it comes back.');
+    } else if (st.tracking && st.gameState && st.gameState.min) lines.push('Hidden because the game window is minimized.');
+    else if (st.tracking) lines.push('Looking for the game window…');
+    else if (st.fallback) lines.push(`Couldn't follow the game window, so the overlay covers the whole display instead (lines up exactly when the game runs borderless fullscreen).`, `Reason: ${st.error}`);
+    else lines.push('The game window isn\'t open (or wasn\'t found). Start the game, or Game window → Pick the game window.');
+  } else if (st.mode === 'screen') lines.push('Covering the whole display the game is on.');
+  else lines.push('No game window chosen yet: Game window → Pick the game window.');
+  lines.push('Test: Overlay → Show a test card. A green card should appear on top of the game for 5 seconds.');
+  return lines.join('\n');
+}
+function showOverlayStatus() {
+  const { dialog } = require('electron');
+  dialog.showMessageBox(main || undefined, { type: 'info', title: 'Overlay status', message: 'Overlay status', detail: overlayStatusText() });
 }
 
 app.whenReady().then(() => {
@@ -459,6 +545,7 @@ app.whenReady().then(() => {
 async function resolveSourceQuiet() {
   const c = config.capture;
   if (!c || c.mode !== 'window' || tracker) return;
+  if (ovStatus.failedAt && Date.now() - ovStatus.failedAt < TRACK_RETRY_MS) return; // failed recently: keep the fallback a while
   const list = await listSources().catch(() => []);
   const w = list.find((s) => s.id === c.id) || list.find((s) => !s.id.startsWith('screen') && s.name === c.name);
   if (w) trackGame(w.id);
@@ -467,6 +554,7 @@ async function resolveSourceQuiet() {
 setInterval(() => {
   if (app.isReady() && windowModeOnWindows() && !tracker) resolveSourceQuiet();
 }, 4000);
+if (process.env.E7_TEST_WIN === '1') global.__e7test = { trackGame, overlayStatusText };
 app.on('before-quit', () => (quitting = true));
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
