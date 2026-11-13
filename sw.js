@@ -3,7 +3,7 @@
  * App files: cache first, refreshed in the background. Everything else
  * (hero portraits, data updates, OCR library) goes to the network as normal.
  */
-const CACHE = 'epic7-engine-v25';
+const CACHE = 'epic7-engine-v26';
 const APP_FILES = [
   './', './index.html', './js/home.js', './rta.html', './css/styles.css', './manifest.webmanifest', './icon.svg',
   './js/sources/official-heroes.js', './js/sources/fribbels-data.js', './js/roster.js', './js/gear.js', './js/learn.js',
@@ -15,6 +15,8 @@ const APP_FILES = [
   './js/pictures.js',
   './js/matchtrace.js',
   './js/faces.js',
+  './js/teach.js',
+  './js/teach-ui.js',
   './js/layouts.js',
   './js/mysync.js',
   './js/diag.js',

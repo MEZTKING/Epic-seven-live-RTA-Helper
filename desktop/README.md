@@ -51,6 +51,10 @@ dependency versions (`npm ci` uses it).
 
 ## Notes
 
+- **Is the overlay working?** Overlay → *Overlay status (is it working?)…* says where it is and why it might be hidden;
+  Overlay → *Show a test card* draws a green card on top of the game for 5 s. If the window tracker can't run (for
+  example blocked by antivirus), the overlay covers the whole display instead; that lines up exactly when the game runs
+  in borderless (windowed) fullscreen.
 - Run the emulator in **windowed full-screen** or a normal window, not exclusive full-screen; overlays can't draw on top
   of exclusive full-screen games.
 - Data is stored inside the app (separate from your browser). Use **RTA → Data → Export** in the browser and

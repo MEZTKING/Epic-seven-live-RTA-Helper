@@ -86,11 +86,12 @@
     const list = [].concat(faces);
     if (list.every((f) => f.energy < 6)) return { empty: true, best: null, second: null, lead: 0 };
     const byCode = new Map();
+    const prefer = opts.preferSource ? [].concat(opts.preferSource) : null; // one source label or a list
     for (const t of templates) {
       if (opts.allow && !opts.allow.has(t.code)) continue;
       let s = -1;
       for (const f of list) if (f.energy >= 6) s = Math.max(s, dot(f.vec, t.vec));
-      if (opts.preferSource && t.source === opts.preferSource) s += 0.02;
+      if (prefer && prefer.includes(t.source)) s += 0.02;
       const cur = byCode.get(t.code);
       if (!cur || s > cur.score) byCode.set(t.code, { code: t.code, score: s, source: t.source });
     }

@@ -7,6 +7,90 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #35 · Overlay: never stuck hidden + "is it working?" status; Teach heroes (your own face examples) · this commit (previous: `64a8e03`)
+
+**Asked for:** "also the overlay still does not work"; "where are you saving the images, and make a system where the user
+can train a model too manually if it helps"; whether to play in fullscreen windowed instead (answered in chat: any 16:9
+size works because every position is a fraction of the game picture; bigger = sharper icons; use borderless/windowed
+fullscreen, not exclusive fullscreen; no second model needed).
+
+**Findings (overlay)**
+- In window mode on Windows the overlay was **hidden until the PowerShell window tracker reported the game window's
+  position**. If that tracker never answered, the overlay stayed hidden for good, and the test card was drawn into a
+  hidden window. Nothing recorded why: PowerShell's error output was thrown away.
+  - Likely causes on a real PC: antivirus / AMSI blocking an *encoded* PowerShell command that compiles Windows API
+    calls (a pattern malware uses), or PowerShell restricted by policy.
+- The "game is in front" check only accepted the exact captured window handle. If the game's active window is another
+  window of the same process, the overlay hid itself as if another program were in front.
+- The start-up "✓ overlay" badge was shown when the page loaded, often while the window was still hidden, so it was
+  never seen.
+
+**Changed**
+- `desktop/wintrack.js`:
+  - the script is written to `<userData>/e7-wintrack.ps1` and run with `-File` (the encoded command is only a
+    fallback)
+  - stderr and the exit code are kept; a failure is reported once as `{ failed: text }`
+  - any window of the game's process counts as "the game is in front"
+- `desktop/main.js`:
+  - if the tracker fails, or sends nothing within 5 s, the overlay is **shown over the game's display** (lines up exactly
+    in borderless fullscreen) and the reason is kept; the tracker is retried at most once a minute
+  - the overlay is created hidden and shown once its position is known; the "✓ Epic 7 Engine overlay" badge is sent the
+    first time it really appears
+  - new menu item **Overlay → Overlay status (is it working?)…** explains in plain words why it is or isn't visible
+  - new IPC `e7:overlay-status` (`E7Desktop.overlayStatus()`)
+  - test switch `E7_TEST_WIN=1` (behave as on Windows; tests only)
+- The **Live page** shows "Overlay now: visible / not visible · why", refreshed every 2 s. The **Copy report** text has
+  an `overlay:` line (on, visible, mode, tracking, fallback, bounds, game window, tracker error).
+- **Teach heroes** (Live page; `js/teach.js` store + `js/teach-ui.js`):
+  - open a picture file, a saved game picture, or paste one with Ctrl+V
+  - drag a square around a round hero icon; the tool shows what the app currently thinks it is (official portraits plus
+    every example you have, with source)
+  - type the name → **Add**: the face is aligned to that hero's portrait (best of the small shifts, so a sloppy box
+    still works) and stored with a 48 px thumbnail
+  - library per hero with × to forget; a switch "Use the faces I taught"; Export / Import (.json) for backup or for
+    sending them to Claude to build in
+  - the other example stores are listed separately: RTA corrections (managed on RTA → Auto) and Guild War icon names
+    (with Forget)
+  - storage: `localStorage['e7-face-examples']` = `{ on, examples: [{id, code, q, thumb, from, at}] }`, at most 12 per hero
+    and 500 in total, source label **'taught by you'**, kept apart from the other stores
+  - it's **example-based learning, not neural-network training**: each example is one more face for the matcher to
+    compare against, so it works from the first example
+- Readers use taught faces: RTA (`activeFaceTemplates` in `js/auto.js`: pre-bans, CR bar, face-matched slots) and
+  Guild War defense (`js/vision/readers/guild-defense.js`).
+  - `RTAFaces.classify`'s `preferSource` now also takes a list: your corrections and taught faces both get the small
+    tie-break bonus.
+  - Pick banners still use their own matcher and are taught via RTA → "Name the heroes on this picture".
+- `js/mysync.js`: new section `face-examples` (merged by id). `rta.html`, `live.html` and `vision.html` load
+  `js/teach.js`; `sw.js` v26. `.ok-text` style.
+
+**Tested**
+- `npm test` **111**. New:
+  - `tests/teach.test.js` (store, per-hero cap, switch, export/import with bad thumbnails refused, listeners)
+  - tracker tests with a fake PowerShell: `-File` used, positions parsed, failure text including stderr reported once,
+    nothing after `stop()`, spawn failure
+- New `tests/desktop/overlay-status.js`, run on the Electron app from source:
+  - screen mode: overlay visible, badge shown, Live page "visible · covering the whole display"
+  - window mode as on Windows (`E7_TEST_WIN=1`), where PowerShell can't run here (like a blocked PowerShell): before,
+    the overlay stayed hidden; now visible over the display
+    - Overlay status, Live page and report all say "PowerShell could not start: spawn powershell.exe ENOENT"
+    - Live → "Show a test card" draws on it
+- The 8 older desktop tests pass on a rebuilt Linux package (overlay test card, watcher, RTA follow, pop-outs, zoom, dev
+  screenshots, cancel, window picker).
+- Browser suite **24/24** clean. New `teach.e2e.js` on the real Guild War enemy screen:
+  - the defense reader is unsure of icon #1 (guess "Closer Charles" 0.63)
+  - a real mouse drag of a deliberately sloppy square (4 px off, 6% too big) → guess shown → typed a name → Add
+  - the tool now says "recognises this as … taught by you"; the reader goes from 3/6 to **4/6** with that icon sure
+  - switch off → back to the old guess; × → forgotten
+- **Not tested:** the real Windows tracker (no Windows here). The owner's report (Overlay → Overlay status, or the
+  `overlay:` line in Copy report) will say whether it was failing and why.
+
+**Open / assumptions**
+- The fallback covers the whole display. If the game runs in a normal window (not borderless fullscreen), overlay items
+  won't line up with the game while the tracker is failing.
+- An antivirus that blocks the `-File` script too would need an allow-rule. The status text shows the error to look for.
+
+---
+
 ## 2026-11-13 · #34 · Guild War from real screens (name, defense teams, learning) + portrait cache bug fixed · this commit (previous: `f681cdb`)
 
 **Asked for:** the owner moved to testing Guild War and attached five real Guild War screens as files (overview, two

@@ -63,6 +63,7 @@
   const track = new Map(); // slot id -> tracker
   let templates = { official: [], learned: [], faces: [], faceLearned: [] }; // faces: js/faces.js (round icons)
   const F = window.RTAFaces;
+  const MINE = ['my corrections', 'taught by you']; // your own examples win a near-tie against the official portraits
   const ROUND = (s) => s.kind === 'preban'; // round hero icons: matched with the face matcher (picks are banners: old matcher)
   const faceBase = (faces) => (faces.length === F.GAME_VARIANTS.length ? F.GAME_VARIANTS : F.WIDE_VARIANTS).findIndex((v) => Math.abs(v.k - 1) < 0.05 && v.dx === 0 && v.dy === 0);
   let officialLoad = { started: false, done: 0, total: 0, failed: 0 };
@@ -266,10 +267,10 @@
       let guess = null;
       if (F && ROUND(sl) && templates.faces.length > 50) {
         const b = F.badgesAt(img, rect, ct);
-        const r = F.classify(F.fromRect(img, rect, F.WIDE_VARIANTS), activeFaceTemplates(), { preferSource: 'my corrections', allow: F.badgeAllow(b.element, b.role, App.cache.heroes) });
+        const r = F.classify(F.fromRect(img, rect, F.WIDE_VARIANTS), activeFaceTemplates(), { preferSource: MINE, allow: F.badgeAllow(b.element, b.role, App.cache.heroes) });
         if (r.best) guess = { code: r.best.code, sure: F.isConfident(r) };
       } else if (templates.official.length) {
-        const r = V.classify(featureFromSource(img, rect, SLOT_INSET), activeTemplates(), { preferSource: 'my corrections' });
+        const r = V.classify(featureFromSource(img, rect, SLOT_INSET), activeTemplates(), { preferSource: MINE });
         if (!r.empty && r.best) guess = { code: r.best.code, sure: r.best.sim >= cfg().threshold && (r.second ? r.best.sim - r.second.sim : 1) >= 0.04 };
       }
       return { slot: sl, rect, guess };
@@ -379,13 +380,17 @@
     for (let k = 0; k < 12; k++) next();
   }
 
+  // faces you taught on the Live page (js/teach.js, source 'taught by you'); their own on/off switch is there
+  let taughtCache = null;
+  const taught = () => taughtCache || (taughtCache = window.E7Teach && F ? window.E7Teach.templates(F) : []);
+  if (window.E7Teach) window.E7Teach.onChange(() => (taughtCache = null));
   function rebuildLearned() {
     templates.learned = cfg().corrections.map((c) => ({ code: c.code, vec: V.dequantize(c.q), source: c.source }));
     templates.faceLearned = F ? (cfg().faceCorrections || []).map((c) => ({ code: c.code, vec: F.dequantize(c.q), source: 'my corrections' })) : [];
   }
   function activeFaceTemplates() {
     const c = cfg();
-    return [...(c.useOfficial ? templates.faces : []), ...(c.useCorrections ? templates.faceLearned : [])];
+    return [...(c.useOfficial ? templates.faces : []), ...(c.useCorrections ? templates.faceLearned : []), ...taught()];
   }
   /** Face-matcher result in the shape the slot code uses ({empty, best:{code, sim, source}, second, sure}). */
   function faceResult(fr) {
@@ -500,9 +505,9 @@
         const ct = (window.RTASources && window.RTASources.classTemplates) || [];
         t.badges = F.badgesAt(source, rect, ct);
         const allow = F.badgeAllow(t.badges.element, t.badges.role, App.cache.heroes);
-        t.result = faceResult(F.classify(t.faces, activeFaceTemplates(), { preferSource: 'my corrections', allow }));
+        t.result = faceResult(F.classify(t.faces, activeFaceTemplates(), { preferSource: MINE, allow }));
       } else if (!unchanged) {
-        const opts = { preferSource: 'my corrections', allow: s.side === 'me' && s.kind === 'pick' ? owned : null };
+        const opts = { preferSource: MINE, allow: s.side === 'me' && s.kind === 'pick' ? owned : null };
         let best = null;
         for (const v of SLOT_VARIANTS) {
           const f = v === SLOT_VARIANTS[0] ? feature : featureFromSource(source, rect, v.inset, v.dx || 0, v.dy || 0);
@@ -767,7 +772,7 @@
     for (const k of ['myPrebanPick1', 'myPrebanPick2']) {
       const rect = pxRect(R[k]);
       const b = F.badgesAt(source, rect, ct);
-      const r = F.classify(F.fromRect(source, rect, F.WIDE_VARIANTS), activeFaceTemplates(), { preferSource: 'my corrections', allow: F.badgeAllow(b.element, b.role, App.cache.heroes) });
+      const r = F.classify(F.fromRect(source, rect, F.WIDE_VARIANTS), activeFaceTemplates(), { preferSource: MINE, allow: F.badgeAllow(b.element, b.role, App.cache.heroes) });
       if (F.isConfident(r)) codes.push(r.best.code);
     }
     const key = codes.join(',');
@@ -971,7 +976,7 @@
       const box = vertical ? { x: r.x, y: r.y + off, w: size, h: size } : { x: r.x + off, y: r.y, w: size, h: size };
       const quick = F.classify(F.fromRect(source, box, one), tpls);
       if (!quick.best || quick.best.score < 0.55) continue;
-      const res = F.classify(F.fromRect(source, box, F.WIDE_VARIANTS), tpls, { preferSource: 'my corrections' });
+      const res = F.classify(F.fromRect(source, box, F.WIDE_VARIANTS), tpls, { preferSource: MINE });
       if (!F.isConfident(res)) continue;
       const prev = found.get(res.best.code);
       if (!prev || prev.score < res.best.score) found.set(res.best.code, { code: res.best.code, score: res.best.score, side: ringSide(box) });

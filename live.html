@@ -33,6 +33,44 @@
       <ul id="vw-log" class="plain-list small"></ul>
     </div>
 
+    <div class="card wide" id="teach">
+      <h3>Teach heroes <span class="hint">(your own examples)</span></h3>
+      <p class="hint">Open any picture of the game (a saved game picture, a screenshot file, or paste one with Ctrl+V), drag a square around
+        one round hero icon, type who it is and press <b>Add</b>. The app keeps that face as an example and recognises the hero from it next time:
+        RTA pre-bans and CR bar, Guild War defense icons. Most useful for <b>skins</b> and heroes it keeps getting wrong.
+        This is learning from examples (each one is compared like the official portraits), not training a neural network,
+        so it works from the first example. Pick banners on the draft are taught on RTA → Auto → "Name the heroes on this picture".</p>
+      <div class="btn-row">
+        <label class="btn" for="teach-file">Open a picture file…</label><input id="teach-file" type="file" accept="image/*" class="hidden" />
+        <select id="teach-pics"><option value="">Saved game pictures…</option></select>
+        <label class="inline"><input id="teach-on" type="checkbox" checked /> Use the faces I taught</label>
+        <span class="spacer"></span>
+        <button id="teach-export" class="btn" title="Back up or share your examples as a file">Export…</button>
+        <label class="btn" for="teach-import" title="Add examples from an exported file">Import…</label><input id="teach-import" type="file" accept=".json,application/json" class="hidden" />
+      </div>
+      <div id="teach-work" class="hidden">
+        <p id="teach-help" class="hint">Drag a square around one hero icon (the whole round icon, ring included).</p>
+        <div class="teach-row">
+          <div class="teach-canvas-wrap"><canvas id="teach-canvas"></canvas></div>
+          <div class="teach-side">
+            <canvas id="teach-crop" width="96" height="96"></canvas>
+            <p id="teach-guess" class="hint">No box yet.</p>
+            <label>Who is it?<input id="teach-name" list="teach-heroes" placeholder="Hero name" autocomplete="off" /></label>
+            <datalist id="teach-heroes"></datalist>
+            <div class="btn-row"><button id="teach-add" class="btn primary" disabled>Add example</button><button id="teach-close" class="btn">Close picture</button></div>
+            <p id="teach-msg" class="hint"></p>
+          </div>
+        </div>
+      </div>
+      <h4 style="margin:12px 0 6px">What you taught <span id="teach-count" class="hint"></span></h4>
+      <div id="teach-lib" class="teach-lib"><p class="hint">Nothing yet.</p></div>
+      <h4 style="margin:12px 0 6px">Other examples (kept separately)</h4>
+      <ul id="teach-other" class="plain-list small"></ul>
+      <p class="hint small">Where things are kept: everything stays on this device in the app's own storage (saved game pictures in its picture
+        store; examples as small 32×32 faces). Developer → "Collect screenshots automatically" in the desktop app saves PNG files to
+        Pictures\Epic 7 Engine\&lt;date&gt;. "My devices" sync copies your taught faces to your phone/other PC if you turned it on.</p>
+    </div>
+
     <div class="card wide">
       <h3>How it works: four layers</h3>
       <ol class="layers">
@@ -55,6 +93,7 @@
         <p class="hint">In the <b>desktop app</b> the overlay is transparent, click-through and sits on top of the game. In a browser you can open a <b>preview</b> to see what it would draw.</p>
         <div class="btn-row"><button id="live-preview" class="btn primary">Open overlay preview</button><button id="live-test" class="btn" title="Shows a card on the overlay for 5 seconds">Show a test card on the overlay</button><button class="btn" data-reset-game-area>Reset game area</button></div>
         <p id="live-area" class="hint"></p>
+        <p id="live-ovstatus" class="hint hidden"></p>
         <h4 style="margin:12px 0 6px">What the modules are sending now</h4>
         <ul id="live-layers" class="plain-list"><li class="hint">Nothing yet. Start reading in a module.</li></ul>
       </div>
@@ -88,6 +127,7 @@
   <script src="js/pictures.js"></script>
   <script src="js/roster.js"></script>
   <script src="js/faces.js"></script>
+  <script src="js/teach.js"></script>
   <script src="js/layouts.js"></script>
   <script src="js/sources/class-templates.js"></script>
   <script src="js/vision/hub.js"></script>
@@ -96,6 +136,7 @@
   <script src="js/vision/readers/guild-defense.js"></script>
   <script src="js/vision/consumers/gear.js"></script>
   <script src="js/vision/client.js"></script>
+  <script src="js/teach-ui.js"></script>
   <script src="js/vision/panel.js"></script>
   <script src="js/live.js"></script>
 </body>

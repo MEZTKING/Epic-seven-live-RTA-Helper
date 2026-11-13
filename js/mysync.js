@@ -4,6 +4,7 @@
  * What syncs, in SECTIONS that stay separate (sources are never merged into each other):
  *   RTA store 'rta-helper-v2': notes, custom heroes, Fribbels import, presets, matches (+ match sources), my speeds,
  *   meta imports, scouting, game help, settings.   Gear store 'rta-gear-v1': gear.txt items, screen-read items, rules.
+ *   'e7-face-examples': hero faces you taught (js/teach.js).
  * What does NOT sync (belongs to one device/screen): the current draft, calibration boxes, corrections, game area,
  * saved pictures, taught screens. Guild War has its own shared sync (js/sync.js).
  *
@@ -36,6 +37,7 @@
     { id: 'gear-items', key: GEAR, fields: ['items', 'fileName', 'importedAt'], label: 'Gear: gear.txt items' },
     { id: 'gear-scanned', key: GEAR, fields: ['scanned', 'useScanned'], label: 'Gear: items read from the screen' },
     { id: 'gear-prefs', key: GEAR, fields: ['rules', 'overrides'], label: 'Gear: rules and hero weights' },
+    { id: 'face-examples', key: 'e7-face-examples', fields: ['examples'], byId: 'examples', label: 'Hero faces you taught (Live → Teach heroes)' },
   ];
 
   /** FNV-1a 32-bit over a string → 8 hex chars. */

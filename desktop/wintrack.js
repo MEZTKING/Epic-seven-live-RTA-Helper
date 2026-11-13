@@ -7,11 +7,16 @@
  * functions (DwmGetWindowAttribute, IsIconic, GetForegroundWindow). It never sends
  * anything to the game window.
  *
- *   const t = track(hwnd, ourPid, (state) => …)   // state: { gone } | { min } | { x, y, w, h, front }
+ *   const t = track(hwnd, ourPid, (state) => …, { dir })   // state: { gone } | { min } | { x, y, w, h, front } | { failed }
  *   t.stop()
- * x/y/w/h are physical screen pixels; front = the game or this app is the active window.
+ * x/y/w/h are physical screen pixels; front = a window of the game (or of this app) is the active window.
+ * { failed: text } = PowerShell couldn't start or stopped by itself (text = its error output), e.g. blocked by
+ * antivirus. The script is written to <dir>/e7-wintrack.ps1 and run with -File (encoded commands that call
+ * Windows functions are often blocked); without a dir it falls back to -EncodedCommand.
  */
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const SCRIPT = `
 $ErrorActionPreference = 'Stop'
@@ -29,6 +34,7 @@ public class E7W {
 '@
 $h = [IntPtr][Int64]$args[0]
 $me = [uint32]$args[1]
+$game = [uint32]0; [void][E7W]::GetWindowThreadProcessId($h, [ref]$game)
 $last = ''
 while ($true) {
   try { [void][System.Diagnostics.Process]::GetProcessById([int]$me) } catch { break } # the app is gone: stop
@@ -38,7 +44,7 @@ while ($true) {
     $r = New-Object E7W+R
     if ([E7W]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) -ne 0) { [void][E7W]::GetWindowRect($h, [ref]$r) }
     $fg = [E7W]::GetForegroundWindow(); $pid2 = [uint32]0; [void][E7W]::GetWindowThreadProcessId($fg, [ref]$pid2)
-    $front = if ($fg -eq $h -or $pid2 -eq $me) { 1 } else { 0 }
+    $front = if ($fg -eq $h -or $pid2 -eq $me -or ($game -ne 0 -and $pid2 -eq $game)) { 1 } else { 0 }
     $line = "$($r.L) $($r.T) $($r.Rt - $r.L) $($r.B - $r.T) $front"
   }
   if ($line -ne $last) { [Console]::Out.WriteLine($line); [Console]::Out.Flush(); $last = $line }
@@ -56,12 +62,41 @@ function parseLine(line) {
   return { x: n[0], y: n[1], w: n[2], h: n[3], front: n[4] === 1 };
 }
 
-function track(hwnd, ourPid, onState) {
-  if (process.platform !== 'win32' || !hwnd) return { stop() {} };
+/** PowerShell arguments: run the script from a file when possible (exported for tests). */
+function psArgs(hwnd, ourPid, dir) {
+  const base = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'];
+  if (dir) {
+    try {
+      const file = path.join(dir, 'e7-wintrack.ps1');
+      fs.mkdirSync(dir, { recursive: true });
+      if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== SCRIPT) fs.writeFileSync(file, SCRIPT, 'utf8');
+      return [...base, '-File', file, String(hwnd), String(ourPid)];
+    } catch (_) { /* fall back below */ }
+  }
   const encoded = Buffer.from(`& { ${SCRIPT} } ${hwnd} ${ourPid}`, 'utf16le').toString('base64');
-  const ps = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+  return [...base, '-EncodedCommand', encoded];
+}
+
+function track(hwnd, ourPid, onState, opts = {}) {
+  if ((process.platform !== 'win32' && !opts.spawn && !opts.force) || !hwnd) return { stop() {} };
+  const run = opts.spawn || spawn;
   let buf = '';
+  let err = '';
   let stopped = false;
+  const fail = (text) => {
+    if (stopped) return;
+    stopped = true;
+    onState({ failed: String(text || 'the window tracker stopped').replace(/\s+/g, ' ').trim().slice(0, 400) });
+  };
+  let ps;
+  try {
+    ps = run('powershell.exe', psArgs(hwnd, ourPid, opts.dir), { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    setImmediate(() => fail(`PowerShell could not start: ${e.message}`)); // after the caller has kept the handle
+    return { stop: () => (stopped = true) };
+  }
+  if (ps.stderr) ps.stderr.on('data', (d) => (err = (err + d.toString()).slice(-2000)));
+  ps.on('exit', (code) => fail(`PowerShell stopped (exit ${code})${err ? `: ${err}` : ''}`));
   ps.stdout.on('data', (d) => {
     buf += d.toString();
     let i;
@@ -71,7 +106,7 @@ function track(hwnd, ourPid, onState) {
       if (s && !stopped) onState(s);
     }
   });
-  ps.on('error', () => {});
+  ps.on('error', (e) => fail(`PowerShell could not start: ${e.message}`));
   return {
     stop() {
       stopped = true;
@@ -88,4 +123,4 @@ const hwndOf = (sourceId) => {
   return m ? m[1] : null;
 };
 
-module.exports = { track, parseLine, hwndOf };
+module.exports = { track, parseLine, hwndOf, psArgs, SCRIPT };

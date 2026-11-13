@@ -41,6 +41,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 
 | File | Global | Does |
 |---|---|---|
+| `js/teach.js` | `E7Teach` | Hero faces you taught (Live → Teach heroes; UI in `js/teach-ui.js`): add/remove/switch/export/import, `templates(F)` for the face matcher (source 'taught by you') |
 | `js/roster.js` | `RTARoster` | Official list parsing, name matching, Fribbels `gear.txt` roster, CSV match import, `epic7xUrl`, `tagSources` |
 | `js/learn.js` | `RTALearn` | Learning from matches: hero/matchup/pair stats, player profiles, combos, scouting summary, sessions, suggestion follow-through, `gameHelpStats` |
 | `js/logic.js` | `RTALogic` | Draft rules/state, `boardToDraft`, suggestion scoring (`scoreCandidate` with per-source `bySource`), pairs, postban risk, prebans, `TAG_GROUPS`/`TAGS`, `compositionWarnings`, speed maths, `speedsFromCR` |
@@ -95,6 +96,7 @@ only receive events.
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
+| `localStorage['e7-face-examples']` | `js/teach.js` (Live → Teach heroes, `js/teach-ui.js`); read by `js/auto.js` and `js/vision/readers/guild-defense.js` | Hero faces you taught: `{on, examples: [{id, code, q, thumb, from, at}]}`, source label 'taught by you', ≤ 12 per hero / 500 total. Synced by My devices (section `face-examples`) |
 | `localStorage['e7-gw-face-corrections']` | `js/guild-app.js`, `js/vision/readers/guild-defense.js` | Guild War icons you named: `[{code, q}]` (face examples, newest 300) |
 | `localStorage['e7-match-trace']` | `js/matchtrace.js` | Per match (draft id): timeline events + last slot snapshot (newest 15) |
 | `localStorage['e7-mysync']` | `js/mysync-app.js` | My devices sync: `{key, config, enabled, device, sections:{id:{hash,at,ids}}, changedAt, lastAt, last, error}`. Cloud: Firestore `personal/{key}/sections` + `chunks` |
@@ -159,14 +161,18 @@ only receive events.
     mapping. Menu **Game window**.
   - **Overlay follows the game window** (Windows): `desktop/wintrack.js` runs one PowerShell loop reading
     `DwmGetWindowAttribute` / `IsIconic` / `GetForegroundWindow` (read-only); the overlay is moved to the window
-    (`screen.screenToDipRect`) and hidden when it's minimized or another program is in front.
+    (`screen.screenToDipRect`) and hidden when it's minimized or another program (not the game's process, not this app) is in front.
+    The script runs from `<userData>/e7-wintrack.ps1` with `-File`; a failure (stderr + exit code) comes back as `{failed}`.
   - **Updater** `desktop/updater.js`: installed app = electron-updater (GitHub provider, asks before download, restart to
     install); portable = GitHub API `releases/latest` → download `*-portable.exe` as `<exe>.update` → `.cmd` swaps it
     after exit. Checks 10 s after start and from the menu.
   - Pop-outs (`js/pip.js`, `js/guild-pip.js`) use `window.open` in Electron: Document PiP's `requestWindow` hangs there.
   - **Zoom is per origin** in Chromium, so all `e7://app` windows share `config.zoom`. The overlay therefore never calls
     `setZoomFactor`; `overlay.html` scales items by `overlayZoom / zoom`.
-  - Window mode on Windows: the overlay is hidden until the game window is found (retried every 4 s).
+  - Window mode on Windows: the overlay is hidden until the game window is found (retried every 4 s). If the tracker fails
+    or doesn't answer within 5 s, the overlay covers the game's display instead (`ovStatus.fallback`), the tracker is retried
+    at most once a minute, and the reason is shown by Overlay → Overlay status / `e7:overlay-status`.
+    `E7_TEST_WIN=1` makes the app behave as on Windows (tests: `tests/desktop/overlay-status.js`).
   - Text size: pages open at 125% zoom (`config.zoom`, saved in the app's config file). View menu: Ctrl+= bigger,
     Ctrl+- smaller, Ctrl+0 back to 125%. Overlay menu: bigger/smaller overlay text (`config.overlayZoom`).
 
@@ -186,7 +192,11 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #34)
+## 7. Status (end of DEVLOG #35)
+
+**Overlay (desktop):** never stuck hidden any more: if the window tracker (PowerShell) fails or is silent for 5 s, the overlay
+covers the game's display. Why it is/isn't visible: Overlay → Overlay status, Live page "Overlay now", the `overlay:` line
+in Copy report (`E7Desktop.overlayStatus()`). **Teach heroes** (Live page): your own face examples, `e7-face-examples`.
 
 **Guild War from the screen:** name (built-in box) + defense teams (`guild-defense` reader → `guild:defense` → "Save as …'s
 defense"; learning in `e7-gw-face-corrections`). **Portraits for pixel reading must use `RTARoster.PORTRAIT_URL_CORS`.**

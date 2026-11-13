@@ -109,7 +109,7 @@
         clearTimeout(badgeTimer);
         badgeTimer = setTimeout(() => badge.classList.remove('on'), ms);
       };
-      if (desktop) showBadge();
+      // desktop: the app sends 'overlay-badge' the first time the overlay really appears on screen
       function testCard() {
         showBadge('✓ Epic 7 Engine overlay is working', 5000);
         layers.test = [{ x: 0.36, y: 0.42, w: 0.0, h: 0.0, kind: 'card', side: 'right', level: 'green', title: '✓ The overlay is working', lines: ['Suggestions, enemy speeds, gear verdicts and', 'Guild War dots appear on the game like this.', 'This card goes away in 5 seconds.'] }];
@@ -117,7 +117,7 @@
         setTimeout(() => { delete layers.test; draw(); }, 5000);
       }
       chan.addEventListener('message', (e) => e.data && e.data.test && testCard());
-      if (window.E7Desktop && E7Desktop.onHotkey) E7Desktop.onHotkey((n) => n === 'overlay-test' && testCard());
+      if (window.E7Desktop && E7Desktop.onHotkey) E7Desktop.onHotkey((n) => (n === 'overlay-test' ? testCard() : n === 'overlay-badge' && showBadge()));
       window.E7OverlayView = { layers, draw, testCard };
     })();
   </script>
