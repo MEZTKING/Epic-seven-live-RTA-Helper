@@ -114,8 +114,6 @@
     }
     const gear = readJSON('rta-gear-v1');
     if (gear) out.push(section('Gear', [`gear.txt items: ${(gear.items || []).length} (${gear.fileName || '-'}) · screen-read: ${(gear.scanned || []).length} · boxes: ${short(Object.keys(readJSON('e7-gearscan-boxes') || {}))}`]));
-    const ms = readJSON('e7-mysync');
-    out.push(section('Sync my devices', [ms && ms.enabled ? `on · device ${ms.device} · last ${ms.lastAt || 'never'} · ${short(ms.last || {})}${ms.error ? ` · error: ${ms.error}` : ''}` : 'off']));
     const gw = readJSON('e7-guild-conn');
     out.push(section('Guild War', [gw && gw.guildCode ? `guild set up (${gw.config ? 'Firebase' : 'this device only'}) · name box ${gw.watchBox ? 'set' : 'not set'}` : 'not set up']));
     // page sections (e.g. RTA slots)

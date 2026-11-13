@@ -1,5 +1,7 @@
-# Publishes the app to GitHub Pages on every push to main or the work branch (the repository's default branch),
-# so it can be opened on a phone: https://meztking.github.io/Epic-seven-live-RTA-Helper/
+# Publishes ONLY the Guild War page to GitHub Pages (DEVLOG #37), so guildmates without the desktop app can see and
+# edit the shared war plan in a browser: https://meztking.github.io/Epic-seven-live-RTA-Helper/ (opens guild.html).
+# Everything else (RTA, Gear, Live, overlay, reading the game) is the desktop app.
+# sw.js is the retired service worker: it clears the old offline web app from phones that installed it.
 # One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 on:
@@ -32,8 +34,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Collect site files
         run: |
-          mkdir _site
-          cp -r index.html rta.html gear.html guild.html live.html overlay.html manifest.webmanifest icon.svg sw.js firestore.rules css js docs _site/
+          mkdir -p _site/docs
+          cp -r guild.html icon.svg sw.js firestore.rules css js _site/
+          cp docs/GUILD_SETUP.md _site/docs/
+          # the old addresses (home, RTA, Gear, Live): "moved to the desktop app" (save old RTA data, then Guild War)
+          for p in index rta gear live; do cp tools/web/moved.html _site/$p.html; done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

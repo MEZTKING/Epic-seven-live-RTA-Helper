@@ -49,13 +49,16 @@
     }
   };
   let lastKey = '';
+  // published only when two reads in a row agree: a Steam / Discord notification sliding over an icon for a moment
+  // (they draw inside the game window, so the capture sees them) can't produce a wrong team
+  let pendingKey = '';
 
   V.register({
     id: 'guild-defense',
     label: 'Guild War enemy defense teams',
     module: 'guild',
     screen: 'gw-enemy',
-    every: 2500,
+    every: 1500,
     ready: () => true,
     async read(ctx) {
       const cur = window.E7Screens && window.E7Screens.current();
@@ -83,13 +86,18 @@
       if (sure < 2) return ctx.note(`No defense recognised (${sure} heroes sure)`);
       const teams = [out.slice(0, 3), out.slice(3, 6)];
       const key = out.map((x) => (x && x.sure ? x.code : '-')).join(',');
+      if (key === lastKey) return ctx.note(`Defense: ${sure}/6 heroes recognised`);
+      if (key !== pendingKey) {
+        pendingKey = key;
+        return ctx.note(`Defense: ${sure}/6 heroes recognised (checking again…)`);
+      }
       ctx.note(`Defense: ${sure}/6 heroes recognised`);
-      if (key === lastKey) return;
       lastKey = key;
       ctx.publish('guild:defense', { teams, sure });
     },
     idle() {
       lastKey = '';
+      pendingKey = '';
     },
   });
 })();

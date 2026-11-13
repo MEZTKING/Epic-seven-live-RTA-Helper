@@ -12,7 +12,6 @@ on:
       - 'js/**'
       - 'css/**'
       - '*.html'
-      - 'manifest.webmanifest'
       - 'icon.svg'
       - 'docs/**'
       - '.github/workflows/desktop-build.yml'

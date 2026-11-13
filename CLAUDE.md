@@ -9,7 +9,9 @@
 - Commits must use the session's default no-reply identity; do not change `git config user.email`.
 
 ## Project
-- **Epic 7 Engine** (owner's chosen name; not "RTA Engine"): fan-made Epic Seven toolkit, static browser app, no build step.
+- **Epic 7 Engine** (owner's chosen name; not "RTA Engine"): fan-made Epic Seven toolkit. **Desktop app** (Electron, `desktop/`)
+  showing the pages in this repo, no build step for the pages. Since DEVLOG #37 the browser/phone version is dropped: the
+  web (GitHub Pages) only hosts `guild.html` for guildmates (desktop-only controls hidden there via `.desktop-only`).
   `index.html` is the **home page** (module picker). Modules: `rta.html` (RTA helper), `gear.html` (Gear Sorter),
   `guild.html` (Guild War, shared via Firebase; see `docs/GUILD_SETUP.md`). Every page has the same app bar
   (brand → home, module switcher); a module's own tabs sit underneath. New modules get a page, a home card and an app-bar link.
@@ -17,7 +19,7 @@
   Electron app that puts the overlay on top of the game. Readers only READ the screen; never send input to the game,
   never sniff or decode game network traffic.
 - Later plans live in `docs/ROADMAP.md` (e.g. the PvE & events module). Add owner's "later" ideas there.
-- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`, `js/screens.js`, `js/statparse.js`, `js/ceciliabot.js`, `js/vision/core.js`, `js/faces.js`, `js/layouts.js`, `js/mysync.js`, `js/matchtrace.js`).
+- `npm test` runs the unit tests for the pure modules (`js/logic.js`, `js/roster.js`, `js/learn.js`, `js/vision.js`, `js/gear.js`, `js/tune.js`, `js/gearsort.js`, `js/guildwar.js`, `js/sync.js`, `js/screens.js`, `js/statparse.js`, `js/ceciliabot.js`, `js/vision/core.js`, `js/faces.js`, `js/layouts.js`, `js/teach.js`, `js/matchtrace.js`).
 - **Game watcher** (`js/vision/`, DEVLOG #21): one watcher captures the game and runs readers; modules only listen to events.
   New readers go in `js/vision/readers/`, never as a per-page capture.
 - **Keep data separated by source.** Official roster, Fribbels import, the owner's notes, learned

@@ -7,6 +7,64 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #37 · Desktop-only: web keeps only Guild War for guildmates; Steam / Discord overlay safety · this commit (previous: `9588219`)
+
+**Asked for:** "lets move away from a browser version and use a proper desktop one with a proper overlay, also beware of
+steam own overlay and maybe even discords". Owner's choices: keep a web Guild War page for guildmates; drop the phone
+version (website + My devices sync) for now.
+
+**Findings**
+- Steam's and Discord's overlays are **injected into the game** and draw inside its window. That's why they work in
+  exclusive fullscreen, and also why our window capture **sees them**.
+  - The Steam overlay (Shift+Tab) covers the whole game.
+  - Notifications and Discord's voice widget sit in a corner and can cover a hero icon for a few seconds.
+- Our overlay is a separate topmost, click-through window. That is the safe way: injecting like Steam/Discord would mean
+  touching the game process (against the project rule, and an anti-cheat risk). It also means exclusive fullscreen can't
+  be used: play borderless.
+- Shortcuts: ours (Ctrl+Shift+O/E/S) don't clash with Steam's defaults (Shift+Tab, F12).
+- Our overlay has content protection, so it doesn't appear in Discord screen sharing / OBS.
+- Old browser data: RTA notes etc. saved in a browser on the web address would become unreachable once that page is gone,
+  so the old addresses now offer **Save my RTA data** (the same file as RTA → Data → Export).
+
+**Changed**
+- Web (GitHub Pages, `.github/workflows/pages.yml`) publishes **only** `guild.html`, plus:
+  - `css/`, `js/`, `icon.svg`, `firestore.rules`, `docs/GUILD_SETUP.md`
+  - the retired `sw.js`
+  - `tools/web/moved.html` as `index/rta/gear/live.html`: "Epic 7 Engine is a desktop app now", Save my RTA data when
+    old data is there, otherwise on to Guild War
+- `guild.html` in a normal browser (no `E7Desktop`):
+  - `html.web-guild` hides `.desktop-only`: the RTA/Gear/Live links, Watch game, Set name box, Reset game area and
+    "This is the enemy screen"
+  - shows **Get the desktop app** (latest release)
+- Offline web app removed:
+  - `manifest.webmanifest` and the manifest links / service-worker registration on every page
+  - `sw.js` is now a kill-switch: it deletes its caches, unregisters, and reloads open pages
+- **My devices sync removed:** `js/mysync.js`, `js/mysync-app.js`, its tests, the home card, the RTA reload hook, the
+  report section, the `personal/` Firestore rule and the SOURCES row (6b). Data already synced stays in your Firebase
+  project until you delete the `personal` collection there; redeploy `firestore.rules` to close access.
+- Guild War defense reader: publishes only when **two reads in a row agree** (Steam/Discord notifications sliding over
+  an icon), and reads every 1.5 s instead of 2.5 s to keep it quick.
+- Home page text for the desktop app. Docs: README (desktop app, guildmates' web page), `desktop/README.md` (Steam/Discord
+  section), CLAUDE.md, HANDOFF, ROADMAP (covered-screen detection needs screenshots; one-window app; phone companion later).
+
+**Tested**
+- `npm test` **104** (mysync's 7 tests removed with the module).
+- New `web-guild.e2e.js`:
+  - builds the site with the workflow's own commands → files: css docs firestore.rules gear guild icon index js live rta sw
+  - an old offline-app install is cleared (0 registrations, 0 caches)
+  - the web Guild War bar shows "Epic 7 Engine · Guild War · Get the desktop app", with no game-reading buttons
+  - `rta.html` without old data → Guild War; with old data → Save → the file imports into the app's RTA page (note
+    "old browser note" back)
+- Browser suite **24/24** clean, including `gw-defense` and `teach` with the two-reads rule.
+- Two tests were updated for the new behaviour: `home-modules` now checks the guildmate view of `guild.html` in a plain browser
+  (no home/RTA links, "Get the desktop app" shown); `teach`'s helper clears the reader's note so it reads twice.
+- **Not tested:** real Steam/Discord overlays (no Windows/Steam here); the live Pages deploy (runs on push).
+
+**Open:** screenshots from the owner of the Steam overlay open and of a Discord widget/notification over the game →
+"covered" screen detection, and hide our overlay while the Steam overlay is open.
+
+---
+
 ## 2026-11-13 · #36 · Remove test screenshots committed by mistake · this commit (previous: `6999f86`)
 
 **What:** #35 accidentally committed `undefined/` (three screenshots of the app's own test windows, written by

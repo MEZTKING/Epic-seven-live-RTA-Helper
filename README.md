@@ -1,6 +1,8 @@
 # Epic 7 Engine
 
-A fan-made toolkit for Epic Seven. It runs in any browser, including on a phone, with no install.
+A fan-made toolkit for Epic Seven, as a **Windows desktop app** that reads the game window and draws an overlay on top of it
+([download](https://github.com/MEZTKING/Epic-seven-live-RTA-Helper/releases/latest), details in `desktop/README.md`).
+Only the shared **Guild War** page is also on the web, for guildmates without the app.
 The home page (`index.html`) lets you pick a module, and every page has the same top bar for switching between them:
 
 | Page | What it does |
@@ -306,7 +308,8 @@ desktop/        Electron desktop app (overlay on top of the game)
 js/app.js       UI and storage
 js/auto.js      screen capture, calibration, detection loop, OCR, postbans, result, CR bar
 js/pip.js       always-on-top mini window
-sw.js, manifest.webmanifest  install as an app / offline (when served over https)
+sw.js           retired service worker: removes the old offline web app from browsers that installed it
+tools/web/moved.html  what the old web addresses show now (save old RTA data, then Guild War)
 tools/update-official-heroes.js  regenerates the built-in hero list
 ```
 
@@ -316,18 +319,13 @@ npm run update-heroes  # refresh js/sources/official-heroes.js
 npm run update-fribbels-data  # refresh js/sources/fribbels-data.js
 ```
 
-### Install it / open it on any device, including your phone (GitHub Pages)
+### The web page for guildmates (GitHub Pages)
 1. One time: in the repository go to **Settings → Pages → Source** and choose **GitHub Actions**.
-2. Every push to the work branch (or `main`) runs the tests and publishes the app at
-   **https://meztking.github.io/Epic-seven-live-RTA-Helper/** (Actions tab → "Deploy to GitHub Pages" shows when it's done;
-   after step 1 you can also start it there with **Run workflow**).
-3. On the phone open that address, then add it to the home screen so it opens like an app and works offline:
-   **Android (Chrome):** ⋮ menu → **Add to Home screen / Install app**. **iPhone (Safari):** Share → **Add to Home Screen**.
-
-**What works on a phone:** Gear Sorter (import `gear.txt` from your files), Guild War (shared with the guild once Firebase is
-connected in Guild War → Setup), the RTA draft helper by tapping heroes, hero info and skills.
-**What doesn't:** reading the game screen and the overlay. A phone browser can't see another app's screen, so those stay on
-the PC (desktop app). Data is saved per device; only Guild War syncs between devices (via Firebase).
+2. Every push to the work branch (or `main`) runs the tests and publishes **only the Guild War page** at
+   **https://meztking.github.io/Epic-seven-live-RTA-Helper/** (it opens Guild War). Guildmates can see and edit the shared
+   war plan there; reading the game, RTA, Gear and the overlay are in the desktop app.
+3. If you used RTA in a browser before: open the old address once and press **Save my RTA data**, then
+   **RTA → Data → Import** in the app.
 
 ## Roadmap
 - [x] Auto-detect the draft from the emulator window

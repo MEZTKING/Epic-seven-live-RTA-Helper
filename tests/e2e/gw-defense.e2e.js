@@ -37,7 +37,7 @@ const { chromium } = require('playwright');
     window.E7Vision._useSource(im);
     const r = window.E7Vision._readers.find((x) => x.id === 'guild-defense');
     // portraits load in the background on the first pass
-    for (let i = 0; i < 120 && !/Defense:|No defense/.test(r.note || ''); i++) { await window.E7Vision.tick(true); await new Promise((res) => setTimeout(res, 500)); }
+    for (let i = 0; i < 120 && !/Defense: \d\/6 heroes recognised$|No defense/.test(r.note || ''); i++) { await window.E7Vision.tick(true); await new Promise((res) => setTimeout(res, 500)); }
     return r.note;
   }, url);
   console.log('defense reader:', read);
@@ -64,6 +64,7 @@ const { chromium } = require('playwright');
     let got = null;
     const off = window.E7Bus.on('guild:defense', (d) => (got = d));
     await window.E7Vision.tick(true);
+    await window.E7Vision.tick(true); // published when two reads agree
     off();
     return { note: r.note, first: got && got.teams[0][0] && { code: got.teams[0][0].code, sure: got.teams[0][0].sure } };
   });

@@ -55,6 +55,18 @@ dependency versions (`npm ci` uses it).
   Overlay → *Show a test card* draws a green card on top of the game for 5 s. If the window tracker can't run (for
   example blocked by antivirus), the overlay covers the whole display instead; that lines up exactly when the game runs
   in borderless (windowed) fullscreen.
+- **Steam and Discord overlays.** Both draw *inside* the game window (that's how they work in fullscreen), so the app's
+  capture sees them too. The Epic 7 Engine overlay is a separate click-through window on top and doesn't interfere with them.
+  - Opening the Steam overlay (Shift+Tab) covers the game: the readers find no game screen there and wait. Close it and
+    they continue.
+  - Notifications (Steam's "friend is online", Discord messages, Discord's voice widget) can slide over a hero icon. Guild
+    War defenses are only taken when two reads in a row agree. If one sits permanently over a part of the game the app
+    reads, move it to another corner (Steam → Settings → In Game → notification position; Discord → Settings → Game Overlay).
+  - Shortcuts don't clash with Steam's (Shift+Tab overlay, F12 screenshot). If you set your own Discord keybinds, keep
+    Ctrl+Shift+O / E / S free.
+  - Our overlay is hidden from screen capture, so it doesn't show up in Discord screen sharing, Steam broadcasts or OBS.
+  - The app never injects into the game the way Steam and Discord do. It only reads the window and draws its own window
+    on top, which is why **exclusive fullscreen can't be used**: choose borderless / windowed fullscreen in the game.
 - Run the emulator in **windowed full-screen** or a normal window, not exclusive full-screen; overlays can't draw on top
   of exclusive full-screen games.
 - Data is stored inside the app (separate from your browser). Use **RTA → Data → Export** in the browser and

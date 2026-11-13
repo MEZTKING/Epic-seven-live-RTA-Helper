@@ -20,7 +20,10 @@ app with **no build step**: open `index.html`, or serve the folder. There's also
 
 Every page shares the same **app bar**: the brand links to home, then the module switcher (RTA · Gear · Guild War · Live).
 A module's own tabs sit underneath. **A new module needs** a page, a card on `index.html` (+ status in `js/home.js`),
-a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages workflow copy list, and a manifest shortcut.
+a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) and an entry in `desktop/package.json`
+`extraResources` if it adds top-level files. **Web (GitHub Pages) = Guild War only** (DEVLOG #37): `pages.yml` publishes
+`guild.html` + `css/` `js/` `icon.svg` `firestore.rules` `docs/GUILD_SETUP.md`, the retired `sw.js` (clears old installs) and
+`tools/web/moved.html` as `index/rta/gear/live.html` (offers "Save my RTA data" for old browser data, else goes to Guild War).
 
 ## 2. Owner's standing rules (also in CLAUDE.md)
 
@@ -54,7 +57,6 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `js/screens.js` | `RTAScreens` | Screen detector (32×18 fingerprints, detect, stabilizer, gating) |
 | `js/statparse.js` | `RTAStatParse` | OCR text → gear item (stat lines, set, slot, enhance, level, rank) |
 | `js/ceciliabot.js` | `CeciliaBot` | CeciliaBot API: effect list → automatic tags, skill text rendering (pure parts tested) |
-| `js/mysync.js` | `MySync` | My devices sync (PC ↔ phone): sections, three-way list merge, `syncOnce`, chunked Firestore remote, links (DEVLOG #27) |
 | `js/diag.js` | `E7Diag` | Diagnostic report ("Copy report for Claude"): `log(area,msg,data)` → `localStorage['e7-diag-log']` (300 lines), `report()`, `provider(name, fn)`; never includes sync key / Firebase settings / guild codes (DEVLOG #29) |
 | `js/layouts.js` | `E7Layouts` | Built-in screen positions (Steam 16:9: draft by eye, result exact), `effective` (built-in + yours), per-part `status`, `ownOnly` (DEVLOG #25) |
 | `js/faces.js` | `RTAFaces` | Round hero-icon matcher: masked 32×32 NCC vs official portraits (+ face corrections), confidence = score ≥0.80 and lead ≥0.10 (DEVLOG #23) |
@@ -96,10 +98,9 @@ only receive events.
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
-| `localStorage['e7-face-examples']` | `js/teach.js` (Live → Teach heroes, `js/teach-ui.js`); read by `js/auto.js` and `js/vision/readers/guild-defense.js` | Hero faces you taught: `{on, examples: [{id, code, q, thumb, from, at}]}`, source label 'taught by you', ≤ 12 per hero / 500 total. Synced by My devices (section `face-examples`) |
+| `localStorage['e7-face-examples']` | `js/teach.js` (Live → Teach heroes, `js/teach-ui.js`); read by `js/auto.js` and `js/vision/readers/guild-defense.js` | Hero faces you taught: `{on, examples: [{id, code, q, thumb, from, at}]}`, source label 'taught by you', ≤ 12 per hero / 500 total. |
 | `localStorage['e7-gw-face-corrections']` | `js/guild-app.js`, `js/vision/readers/guild-defense.js` | Guild War icons you named: `[{code, q}]` (face examples, newest 300) |
 | `localStorage['e7-match-trace']` | `js/matchtrace.js` | Per match (draft id): timeline events + last slot snapshot (newest 15) |
-| `localStorage['e7-mysync']` | `js/mysync-app.js` | My devices sync: `{key, config, enabled, device, sections:{id:{hash,at,ids}}, changedAt, lastAt, last, error}`. Cloud: Firestore `personal/{key}/sections` + `chunks` |
 | `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card), `table` or `heroes` (gear per hero) |
 | IndexedDB `e7-pictures` | `js/pictures.js` | Saved game pictures (newest 24) to calibrate on after a match (choose the part first: draft, one box, CR, expanded CR, result, drafting help): Ctrl+Shift+S (desktop), "Save a game picture", or auto every 15 s while RTA isn't calibrated |
 | `rta-helper-v2`.`auto.faceCorrections` | `js/auto.js` | Face-matcher copies of your corrections on round slots (`{code, q}`) |
@@ -192,7 +193,12 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #35)
+## 7. Status (end of DEVLOG #37)
+
+**Desktop-only** (owner, DEVLOG #37): the browser/phone version, the offline web app (manifest, service worker) and My
+devices sync are gone; the web keeps `guild.html` for guildmates. **Steam / Discord in-game overlays** draw inside the game
+window, so the capture sees them: Guild War defense publishes only when two reads agree; covered-screen detection waits for
+real screenshots (ROADMAP).
 
 **Overlay (desktop):** never stuck hidden any more: if the window tracker (PowerShell) fails or is silent for 5 s, the overlay
 covers the game's display. Why it is/isn't visible: Overlay → Overlay status, Live page "Overlay now", the `overlay:` line
@@ -266,7 +272,7 @@ xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js,
 ```
 
 **CI:**
-- `.github/workflows/pages.yml` runs the tests and publishes the site (GitHub Pages) from `main` **and the work branch** (the
+- `.github/workflows/pages.yml` runs the tests and publishes **only the Guild War page** (GitHub Pages) from `main` **and the work branch** (the
   repo's default branch; there is no `main`). Needs Settings → Pages → Source = GitHub Actions (owner, one time).
 - `.github/workflows/desktop-build.yml` runs the tests, then builds on `windows-latest` for every push that touches the
   app (on `main` and the dev branch). Version = `0.1.<run number>`. It publishes **Release `v0.1.<n>`** (latest) with

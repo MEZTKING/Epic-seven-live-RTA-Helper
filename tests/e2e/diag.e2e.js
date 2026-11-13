@@ -16,7 +16,6 @@ const { chromium } = require('playwright');
   await p.evaluate(() => {
     localStorage.clear();
     // secrets that must never appear in a report
-    localStorage.setItem('e7-mysync', JSON.stringify({ enabled: true, key: 'SECRETSYNCKEY0000000000000000000000', config: { apiKey: 'SECRETAPIKEY', projectId: 'secretproject', appId: 'x' }, device: 'pc' }));
     localStorage.setItem('e7-guild-conn', JSON.stringify({ guildCode: 'SECRETGUILDCODE1234', config: { apiKey: 'SECRETAPIKEY2', projectId: 'p2', appId: 'y' } }));
   });
   await p.reload();

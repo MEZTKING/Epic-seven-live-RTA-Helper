@@ -43,6 +43,15 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 6. Opponent names in Korean / Japanese / Chinese: load those tesseract languages for the name reader; result +/− from the
    arrow colour, not the OCR'd sign.
 
+## Desktop-only + in-game overlays (owner, DEVLOG #37)
+- [x] Desktop app is the product; web keeps only Guild War for guildmates; offline web app and My devices sync removed.
+- [ ] **Steam / Discord overlay awareness:** teach a "covered" screen from real screenshots (Steam overlay open with
+  Shift+Tab; Discord voice widget / a notification over the game) so readers pause and our overlay hides while the Steam
+  overlay is open. Needs those screenshots from the owner.
+- [ ] Make the desktop app feel like one app: a single window with a sidebar instead of web pages, tray icon, start with
+  Windows, settings page for overlay and shortcuts.
+- [ ] Phone companion later (read-only view of notes/matches), if wanted again.
+
 ## Other planned items
 
 - **Top priority: read each hero's equipped gear from the hero gear screen.** Fribbels' importer doesn't work with
