@@ -6,7 +6,6 @@
   <title>Epic 7 Engine</title>
   <meta name="description" content="Epic 7 Engine: a fan-made Epic Seven toolkit. RTA draft helper, gear sorter and Guild War tracker shared with your guild." />
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#12131a" />
 </head>
@@ -21,7 +20,7 @@
   <main>
     <section class="home-hero">
       <h2>Epic 7 Engine</h2>
-      <p>One toolkit for Epic Seven. Pick a module to start. Your RTA and gear data stay on this device unless you turn on <b>Sync my devices</b> (PC ↔ phone, below); Guild War data is shared with your guild.</p>
+      <p>One toolkit for Epic Seven. Pick a module to start. Your RTA and gear data stay on this PC; Guild War data is shared with your guild.</p>
     </section>
 
     <div class="modcards">
@@ -74,15 +73,11 @@
 
     <div class="cards" style="margin-top:20px">
       <div class="card">
-        <h3>Sync my devices (PC ↔ phone)</h3>
-        <div id="mysync"></div>
-      </div>
-      <div class="card">
         <h3>Getting started</h3>
         <ol class="hint" style="padding-left:18px;margin:0">
           <li>Export <b>gear.txt</b> from the Fribbels optimizer (<a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a>) and import it in <b>RTA → Data</b> or <b>Gear</b>. It's shared by both.</li>
-          <li>For automatic drafts, open <b>RTA → Auto</b> next to your emulator and calibrate once.</li>
-          <li>For Guild War, one person sets up sharing (<a href="docs/GUILD_SETUP.md" target="_blank" rel="noopener">10-minute guide</a>) and sends the invite link.</li>
+          <li>Pick the game window once (<b>Game window → Pick the game window</b>). The app then reads the game by itself and draws the overlay on top of it.</li>
+          <li>For Guild War, one person sets up sharing; guildmates without the app use the web page (<a href="docs/GUILD_SETUP.md" target="_blank" rel="noopener">10-minute guide</a>) and sends the invite link.</li>
         </ol>
       </div>
     </div>
@@ -92,10 +87,5 @@
   <script src="js/diag.js"></script>
   <script src="js/home.js"></script>
   <script src="js/sync.js"></script>
-  <script src="js/mysync.js"></script>
-  <script src="js/mysync-app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
-  </script>
 </body>
 </html>

@@ -26,6 +26,12 @@ const SP = OUT;
     const tabs = await p.$$eval('.topbar .tabs .tab', (e) => e.map((x) => x.textContent.trim()).join(','));
     console.log(file, '| url ok:', p.url().endsWith(file), '| active:', active, '| subtabs:', tabs || '(none)');
     if (file === 'rta.html') { await p.click('.tab[data-tab=speed]'); console.log('  rta tab switch works:', await p.isVisible('#tab-speed')); await p.screenshot({ path: SP + '/v7-rta.png' }); }
+    if (file === 'guild.html') {
+      // a normal browser = the guildmates' web page (DEVLOG #37): no way to the desktop-only modules, a link to the app
+      console.log('  web guild page: home link visible:', await p.isVisible('a.brand'), '| other modules visible:', await p.isVisible('.modules a:has-text("RTA")'), '| desktop app link:', await p.isVisible('.modules a:has-text("Get the desktop app")'));
+      await p.goto(BASE + 'index.html');
+      continue;
+    }
     await p.click('.brand'); await p.waitForLoadState();
     console.log('  brand -> home:', p.url().endsWith('index.html'));
   }

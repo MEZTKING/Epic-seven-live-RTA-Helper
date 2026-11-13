@@ -21,9 +21,10 @@ const { chromium } = require('playwright');
   const readDefense = () => p.evaluate(async () => {
     const r = window.E7Vision._readers.find((x) => x.id === 'guild-defense');
     r.idle();
+    r.note = ''; // read afresh (the defense is published once two reads agree)
     let got = null;
     const off = window.E7Bus.on('guild:defense', (d) => (got = d));
-    for (let i = 0; i < 120 && !/Defense:|No defense/.test(r.note || ''); i++) { await window.E7Vision.tick(true); await new Promise((res) => setTimeout(res, 500)); }
+    for (let i = 0; i < 120 && !/Defense: \d\/6 heroes recognised$|No defense/.test(r.note || ''); i++) { await window.E7Vision.tick(true); await new Promise((res) => setTimeout(res, 500)); }
     if (!got) { r.idle(); await window.E7Vision.tick(true); }
     off();
     return { note: r.note, icons: got ? got.teams.flat().map((x) => x && { code: x.code, sure: x.sure, name: (window.RTASources.officialSnapshot.heroes.find((h) => h.code === x.code) || {}).name }) : null };

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · moved to the desktop app</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<!-- Published by .github/workflows/pages.yml as index/rta/gear/live.html (DEVLOG #37): the web site now only hosts the
+     Guild War page. Anyone who used RTA in this browser can save it first (same file as RTA → Data → Export). -->
+<body>
+  <main>
+    <div class="card wide" style="max-width:720px;margin:40px auto">
+      <h3>Epic 7 Engine is a desktop app now</h3>
+      <p>RTA, Gear and the overlay that reads the game are in the <b>Windows app</b>:
+        <a href="https://github.com/MEZTKING/Epic-seven-live-RTA-Helper/releases/latest" target="_blank" rel="noopener">download the latest version</a>.
+        The shared <b>Guild War</b> plan stays here for guildmates: <a href="guild.html">open Guild War</a>.</p>
+      <div id="saved" class="hidden">
+        <p>This browser still has RTA data from the old web version. Save it, then in the app use <b>RTA → Data → Import</b>.</p>
+        <div class="btn-row"><button id="save" class="btn primary">Save my RTA data (.json)</button></div>
+      </div>
+      <p id="go" class="hint hidden">Going to Guild War…</p>
+    </div>
+  </main>
+  <script>
+    (function () {
+      let raw = null;
+      try { raw = localStorage.getItem('rta-helper-v2'); } catch (_) { /* blocked */ }
+      if (!raw) {
+        document.getElementById('go').classList.remove('hidden');
+        setTimeout(() => location.replace('guild.html'), 2500);
+        return;
+      }
+      document.getElementById('saved').classList.remove('hidden');
+      document.getElementById('save').addEventListener('click', () => {
+        let store = {};
+        try { store = JSON.parse(raw) || {}; } catch (_) { /* unreadable */ }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'rta-helper', ...store }, null, 2)], { type: 'application/json' }));
+        a.download = `rta-helper-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+      });
+    })();
+  </script>
+</body>
+</html>

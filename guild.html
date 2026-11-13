@@ -6,15 +6,17 @@
   <title>Epic 7 Engine · Guild War</title>
   <meta name="description" content="Epic 7 Engine Guild War tracker: enemy defenses, attacks, counters and member records, shared live with your guild." />
   <link rel="stylesheet" href="css/styles.css" />
-  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#12131a" />
+  <!-- In a normal browser (the web page for guildmates) only the shared war plan is offered; reading the game and the
+       other modules are in the desktop app. E7Desktop is set by the desktop app's preload before this runs. -->
+  <script>if (!window.E7Desktop) document.documentElement.classList.add('web-guild');</script>
 </head>
 <body>
   <header class="topbar">
     <div class="appbar">
-      <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
-      <nav class="modules" aria-label="Modules"><a class="mod" href="rta.html">RTA</a><a class="mod" href="gear.html">Gear</a><a class="mod active" href="guild.html" aria-current="page">Guild War</a><a class="mod" href="live.html">Live</a></nav>
+      <a class="brand desktop-only" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a><span class="brand web-only">Epic 7 Engine</span>
+      <nav class="modules" aria-label="Modules"><a class="mod desktop-only" href="rta.html">RTA</a><a class="mod desktop-only" href="gear.html">Gear</a><a class="mod active" href="guild.html" aria-current="page">Guild War</a><a class="mod desktop-only" href="live.html">Live</a><a class="mod web-only" href="https://github.com/MEZTKING/Epic-seven-live-RTA-Helper/releases/latest" target="_blank" rel="noopener" title="Windows app: reads the game, overlay, RTA and Gear">Get the desktop app</a></nav>
     </div>
     <nav class="tabs" role="tablist" aria-label="Guild War">
       <button class="tab active" data-tab="war">War</button>
@@ -38,10 +40,10 @@
       </div>
       <div class="btn-row">
         <button id="gw-pip" class="btn" title="Small always-on-top window beside the game">Pop out ⧉</button>
-        <button id="gw-watch" class="btn" title="Read the enemy's name from the game window">Watch game</button>
-        <button id="gw-watch-box" class="btn">Set name box</button>
-        <button class="btn" data-reset-game-area title="Draw the box around the game window again">Reset game area</button>
-        <button id="gw-teach" class="btn" title="Press while an enemy's defense/profile is showing">This is the enemy screen</button>
+        <button id="gw-watch" class="btn desktop-only" title="Read the enemy's name from the game window">Watch game</button>
+        <button id="gw-watch-box" class="btn desktop-only">Set name box</button>
+        <button class="btn desktop-only" data-reset-game-area title="Draw the box around the game window again">Reset game area</button>
+        <button id="gw-teach" class="btn desktop-only" title="Press while an enemy's defense/profile is showing">This is the enemy screen</button>
         <span id="gw-watch-read" class="hint"></span>
         <div id="gw-seen" class="gw-seen hidden"></div>
       </div>

@@ -10,7 +10,6 @@
  *   q     = quantized face (RTAFaces.quantize), thumb = 48 px JPEG to show in the library, from = where it came from.
  * Source label in every reason: 'taught by you'. Kept apart from the RTA reader's corrections (RTA → Auto) and the
  * Guild War page's corrections ('e7-gw-face-corrections'); each can be switched off / forgotten on its own.
- * Synced by "My devices" (js/mysync.js section 'face-examples', merged by id).
  *
  *   E7Teach.list() / add({code, q, thumb, from}) / remove(id) / clear() / enabled() / setEnabled(on)
  *   E7Teach.templates(F)       -> [{ code, vec, source: 'taught by you' }] (empty when switched off)
