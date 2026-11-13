@@ -4,11 +4,37 @@ const assert = require('node:assert/strict');
 const L = require('../js/layouts.js');
 const V = require('../js/vision.js');
 
-test('the Steam 16:9 layout is picked for 16:9 game pictures only', () => {
-  assert.equal(L.layoutFor(1342, 755).id, 'steam-16x9');
-  assert.equal(L.layoutFor(1920, 1080).id, 'steam-16x9');
-  assert.equal(L.layoutFor(1348, 794), null); // a window with its title bar: cut it off first
-  assert.equal(L.layoutFor(1600, 1200), null);
+test('built-in layout at any window shape: scales with the height, anchored left / middle / right (DEVLOG #38)', () => {
+  const base = L.LAYOUTS[0].regions;
+  // 16:9: exactly the measured fractions
+  const a = L.layoutFor(1920, 1080);
+  assert.equal(a.id, 'steam-16x9');
+  assert.ok(a.exact);
+  assert.deepEqual(a.regions.gwDef1, { x: base.gwDef1.x, y: base.gwDef1.y, w: base.gwDef1.w, h: base.gwDef1.h });
+  // the owner's maximized window, game picture 2000×1070 (1.87): the 16:9 design is 1902 px wide at that height
+  const W = 2000, H = 1070, refW = (16 / 9) * H;
+  const b = L.layoutFor(W, H);
+  assert.ok(b && !b.exact);
+  const px = (r) => ({ x: r.x * W, y: r.y * H, w: r.w * W, h: r.h * H });
+  // left-anchored (pick slots of my side): same distance from the left edge, scaled by height
+  assert.ok(Math.abs(px(b.regions.mePickFirst).x - base.mePickFirst.x * refW) < 0.5);
+  // right-anchored (the fortress pager): same distance from the RIGHT edge
+  const pg = px(b.regions.gwFortPager);
+  assert.ok(Math.abs(W - (pg.x + pg.w) - (1 - base.gwFortPager.x - base.gwFortPager.w) * refW) < 0.5);
+  // middle-anchored (pre-bans): same distance from the middle
+  const pb = px(b.regions.mePreban1);
+  assert.ok(Math.abs(pb.x - W / 2 - (base.mePreban1.x - 0.5) * refW) < 0.5);
+  // sizes follow the height, not the width: a round icon stays round
+  const ic = px(b.regions.gwDef1);
+  assert.ok(Math.abs(ic.w - ic.h) < 0.5);
+  // the Guild War defense panel's anchor isn't verified yet: both placements are offered
+  const alts = L.alternatives(W, H, 'gwDef1');
+  assert.deepEqual(alts.map((x) => x.anchor), ['l', 'c']);
+  assert.equal(L.alternatives(1920, 1080, 'gwDef1').length, 1, 'at 16:9 all anchors are the same place');
+  // narrower than 16:9: scales with the width, centred vertically; round stays round
+  const n = L.layoutFor(1600, 1200).regions.gwDef1;
+  assert.ok(Math.abs(n.w * 1600 - n.h * 1200) < 0.5);
+  assert.equal(L.layoutFor(3000, 500), null, 'odd shapes: no layout');
 });
 
 test('built-in boxes make the draft reader ready with no drawing at all; your boxes win', () => {

@@ -484,3 +484,7 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 /* web Guild War page for guildmates (guild.html in a normal browser): desktop-only controls hidden */
 .web-guild .desktop-only { display: none !important; }
 html:not(.web-guild) .web-only { display: none !important; }
+
+/* Guild War: a fortress read from the game (js/guild-watch.js) */
+.gw-fort-names { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.gw-fort-name input { width: 150px; }

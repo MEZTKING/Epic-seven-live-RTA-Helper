@@ -8,7 +8,8 @@
  * else this file does nothing, so pages can't start a second watcher by accident.
  *
  *   E7Vision.register({ id, label, screen, every, module, ready(), hasBoxes(), read(ctx), idle(ctx) })
- *   ctx: { source, w, h, crop(rect, {minH, filter}), ocr(canvas), publish(type, data), note(text) }
+ *   ctx: { source, w, h, crop(rect, {minH, filter}), ocr(canvas, {line}), publish(type, data), note(text) }
+ *   ocr(canvas, { line: true }) reads ONE line of text (Tesseract page mode 7: names under icons)
  *
  * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach, save-picture.
  * Events it publishes: vision:status (every 3 s + on change), vision:started / vision:stopped,
@@ -70,9 +71,10 @@
     return worker;
   }
   /** One text reader for every reader, one job at a time. */
-  function ocr(canvas) {
+  function ocr(canvas, opts = {}) {
     const job = ocrChain.then(async () => {
       const wk = await loadOcr();
+      await wk.setParameters({ tessedit_pageseg_mode: opts.line ? '7' : '3' });
       const { data } = await wk.recognize(canvas);
       return ((data && data.text) || '').replace(/\n+/g, ' ').trim();
     });
@@ -191,7 +193,7 @@
     fpCanvas.width = S.W;
     fpCanvas.height = S.H;
     const c = fpCanvas.getContext('2d', { willReadFrequently: true });
-    c.drawImage(source, 0, 0, S.W, S.H);
+    c.drawImage(source, ...S.refCrop(w(), h()), 0, 0, S.W, S.H); // middle 16:9 part (any window shape)
     return S.fingerprint(c.getImageData(0, 0, S.W, S.H).data);
   }
   function devShot(reason) {

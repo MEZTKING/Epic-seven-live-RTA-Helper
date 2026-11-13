@@ -91,7 +91,17 @@
     return !taught || current === screen;
   }
 
-  const api = { W, H, SCREENS, STORAGE_KEY, fingerprint, similarity, detect, stabilizer, allowed };
+  /**
+   * The part of a w×h game picture to fingerprint (DEVLOG #38): its middle 16:9 part, so a wider (or narrower) window
+   * gives the same signature as the 16:9 screenshots the built-in ones come from. [sx, sy, sw, sh] in pixels.
+   */
+  function refCrop(w, h) {
+    const R = 16 / 9;
+    if (!w || !h) return [0, 0, w || 0, h || 0];
+    if (w / h > R) return [(w - h * R) / 2, 0, h * R, h];
+    return [0, (h - w / R) / 2, w, w / R];
+  }
+  const api = { W, H, SCREENS, STORAGE_KEY, fingerprint, similarity, detect, stabilizer, allowed, refCrop };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAScreens = api;
 })(typeof window !== 'undefined' ? window : globalThis);

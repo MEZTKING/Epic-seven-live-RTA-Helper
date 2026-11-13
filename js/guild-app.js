@@ -40,6 +40,8 @@
   let records = [];
   let state = GW.buildState([]);
   let activeTab = 'war';
+  // the three fortresses on each side of a war (owner, DEVLOG #38); E7GWMap has the same list
+  const FORTS = (window.E7GWMap && window.E7GWMap.FORTS) || ['Stinger Fortress', 'Darkwood Fortress', 'Vortex Fortress'];
   let warId = null;
 
   function loadConn() {
@@ -100,6 +102,10 @@
     backend.subscribe((list) => {
       records = list;
       state = GW.buildState(records);
+      // names the fortress-map reader may match what it reads to (js/vision/readers/guild-fortress.js)
+      try {
+        localStorage.setItem('e7-gw-known-names', JSON.stringify([...new Set(state.targets.map((t) => t.player).filter(Boolean))].slice(-1000)));
+      } catch (_) { /* only a help */ }
       render();
     });
     status();
@@ -194,6 +200,7 @@
 
     const q = R.normName($('#target-search').value);
     const f = $('#target-filter').value;
+    const fort = $('#target-fort') ? $('#target-fort').value : '';
     const book = GW.counterBook(state);
     const meP = meProfile();
     const verdicts = new Map(
@@ -209,6 +216,7 @@
     const list = sum.targets.filter((s) => {
       if (vf && verdicts.get(s.target.id).level !== vf) return false;
       const t = s.target;
+      if (fort && t.tower !== fort) return false;
       if (f === 'open' && s.cleared) return false;
       if (f === 'cleared' && !s.cleared) return false;
       if (f === 'mine' && GW.playerKey(t.assignedTo) !== GW.playerKey(me())) return false;
@@ -216,7 +224,12 @@
       const hay = [t.player, t.tower, ...(t.teams || []).flatMap((x) => (x.heroes || []).map(nameOf))].map(R.normName).join(' ');
       return hay.includes(q);
     });
-    list.sort((a, b) => Number(a.cleared) - Number(b.cleared) || String(a.target.tower || '').localeCompare(String(b.target.tower || ''), undefined, { numeric: true }));
+    // fortresses in the game's order (Stinger, Darkwood, Vortex), then any other tower text; the keep last in each
+    const fortRank = (t) => {
+      const i = FORTS.indexOf(t.tower);
+      return i < 0 ? FORTS.length : i;
+    };
+    list.sort((a, b) => Number(a.cleared) - Number(b.cleared) || fortRank(a.target) - fortRank(b.target) || String(a.target.tower || '').localeCompare(String(b.target.tower || ''), undefined, { numeric: true }) || Number(!!a.target.keep) - Number(!!b.target.keep));
     box.innerHTML =
       list
         .map((s) => {
@@ -237,12 +250,12 @@
             </div>`;
           });
           return `<div class="card gw-card ${s.cleared ? 'done' : ''}">
-            <div class="gw-head">${s.cleared ? '<span class="gwdot done" title="Cleared"></span>' : dot(verdicts.get(t.id))}<button class="link" data-history="${esc(t.player)}" title="Show everything known about ${esc(t.player)}">${esc(t.player)}</button>${t.tower ? ` <span class="hint">· ${esc(t.tower)}</span>` : ''}
+            <div class="gw-head">${s.cleared ? '<span class="gwdot done" title="Cleared"></span>' : dot(verdicts.get(t.id))}<button class="link" data-history="${esc(t.player)}" title="Show everything known about ${esc(t.player)}">${esc(t.player)}</button>${t.tower ? ` <span class="hint">· ${esc(t.tower)}${t.keep ? ' · keep' : ''}</span>` : ''}
               <span class="spacer"></span>
               <select data-assign="${esc(t.id)}" title="Assigned to"><option value="">Unassigned</option>${state.members.map((m) => `<option ${GW.playerKey(m.name) === GW.playerKey(t.assignedTo) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
               <button class="btn" data-pin="${esc(t.player)}" title="Show in the pop-out window">⧉</button>
               <button class="btn" data-edit="${esc(t.id)}">Edit</button></div>
-            ${teams.join('')}
+            ${teams.join('') || '<div class="hint">Defense not scouted yet: open this player in the game while watching, then "Save as … defense".</div>'}
             ${t.notes ? `<div class="hint">${esc(t.notes)}</div>` : ''}
             <div class="hint">Last edit: ${esc(t.updatedBy || '?')}</div>
           </div>`;
@@ -253,7 +266,7 @@
     warId = e.target.value;
     renderWar();
   });
-  ['#target-search', '#target-filter', '#target-dot'].forEach((s) => $(s).addEventListener('input', renderWar));
+  ['#target-search', '#target-filter', '#target-dot', '#target-fort'].forEach((s) => $(s) && $(s).addEventListener('input', renderWar));
   $('#war-new').addEventListener('click', async () => {
     const g = prompt('Enemy guild name?');
     if (!g) return;
@@ -730,8 +743,44 @@
     const all = state.targets.filter((t) => GW.playerKey(t.player) === k);
     return all.find((t) => t.warId === warId) || all.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] || null;
   }
+  /**
+   * A fortress read from the game (js/vision/readers/guild-fortress.js): every name becomes a target of this war in that
+   * fortress (existing ones only get their fortress set). Names you corrected are remembered for next time.
+   * players: [{ name, raw, keep }]. Returns { added, moved, same }.
+   */
+  async function saveFortress(fort, players) {
+    if (!warId) throw new Error('Start a war first (New war).');
+    const out = { added: 0, moved: 0, same: 0 };
+    const fixes = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('e7-gw-name-fixes') || '{}') || {};
+      } catch (_) {
+        return {};
+      }
+    })();
+    for (const p of players) {
+      const name = String(p.name || '').trim();
+      if (!name) continue;
+      if (p.raw && p.raw.toLowerCase() !== name.toLowerCase()) fixes[p.raw.toLowerCase()] = name;
+      const t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(name));
+      if (!t) {
+        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '' });
+        out.added++;
+      } else if (t.tower !== fort || !!t.keep !== !!p.keep) {
+        await put('target', { ...t, tower: fort, keep: !!p.keep });
+        out.moved++;
+      } else out.same++;
+    }
+    try {
+      localStorage.setItem('e7-gw-name-fixes', JSON.stringify(fixes));
+    } catch (_) { /* only a help */ }
+    if (window.E7Diag) window.E7Diag.log('guild', `saved ${fort} from the game`, out);
+    return out;
+  }
   window.GuildApp = {
     openTargetWith: (seen) => openTarget(null, seen),
+    saveFortress,
+    FORTS: () => FORTS,
     get state() {
       return state;
     },

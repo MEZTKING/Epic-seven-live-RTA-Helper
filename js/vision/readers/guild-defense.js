@@ -64,7 +64,7 @@
       const cur = window.E7Screens && window.E7Screens.current();
       if (cur && OTHER.test(cur)) return ctx.note(`Not the enemy screen (${cur})`);
       const lay = L.layoutFor(ctx.w(), ctx.h());
-      if (!lay || !lay.regions.gwDef1) return ctx.note('Built-in positions need a 16:9 game picture');
+      if (!lay || !lay.regions.gwDef1) return ctx.note('This window shape is too unusual for the built-in positions');
       if (tpl.length < 300) {
         loadTemplates();
         return ctx.note(`Loading hero portraits ${tpl.length}/${HEROES.length}…`);
@@ -72,15 +72,28 @@
       const all = [...tpl, ...corrections(), ...(window.E7Teach ? window.E7Teach.templates(F) : [])]; // + faces taught on the Live page
       const ct = (window.RTASources && window.RTASources.classTemplates) || [];
       const px = (r) => ({ x: r.x * ctx.w(), y: r.y * ctx.h(), w: r.w * ctx.w(), h: r.h * ctx.h() });
-      const out = [];
-      for (let i = 1; i <= 6; i++) {
-        const rect = px(lay.regions['gwDef' + i]);
-        const role = ct.length ? F.classFromVectors(F.classVectorsAt(ctx.source, rect), ct).role : null; // class only (no element badge here)
-        const faces = F.fromRect(ctx.source, rect, F.WIDE_VARIANTS);
-        const r = F.classify(faces, all, { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) });
-        // what this icon looked like (compact), so a name you give on the Guild War page teaches it (skins too)
-        const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
-        out.push(r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null });
+      // any window shape (DEVLOG #38): where the panel sits on a wider window isn't verified yet, so every placement
+      // js/layouts.js offers is read and the one that recognises the most heroes wins
+      const readAt = (anchorIdx) => {
+        const icons = [];
+        for (let i = 1; i <= 6; i++) {
+          const alts = L.alternatives(ctx.w(), ctx.h(), 'gwDef' + i);
+          const rect = px((alts[anchorIdx] || alts[0]).rect);
+          const role = ct.length ? F.classFromVectors(F.classVectorsAt(ctx.source, rect), ct).role : null; // class only (no element badge here)
+          const faces = F.fromRect(ctx.source, rect, F.WIDE_VARIANTS);
+          const r = F.classify(faces, all, { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) });
+          // what this icon looked like (compact), so a name you give on the Guild War page teaches it (skins too)
+          const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
+          icons.push(r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null });
+        }
+        return icons;
+      };
+      const rank = (icons) => icons.filter((x) => x && x.sure).length * 10 + icons.reduce((a, x) => a + (x ? x.score : 0), 0);
+      const tries = L.alternatives(ctx.w(), ctx.h(), 'gwDef1').length;
+      let out = readAt(0);
+      for (let k = 1; k < tries; k++) {
+        const o = readAt(k);
+        if (rank(o) > rank(out)) out = o;
       }
       const sure = out.filter((x) => x && x.sure).length;
       if (sure < 2) return ctx.note(`No defense recognised (${sure} heroes sure)`);

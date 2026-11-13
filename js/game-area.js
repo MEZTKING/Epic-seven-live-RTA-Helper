@@ -138,7 +138,7 @@
    * A captured game WINDOW includes the Windows title bar (and a thin border), e.g. 1348×794 for a 1342×755 game.
    * The game itself is 16:9 and sits at the bottom, full width. Returns that part as fractions of the window,
    * or null when the window is already 16:9 or wider (borderless / full screen, emulators with side toolbars).
-   * Same rule in overlay.html. Built-in screen layouts (js/layouts.js) are fractions of this 16:9 game picture.
+   * Same rule in overlay.html. Since DEVLOG #38 only a fallback: windowFrame() finds the title bar from the pixels.
    */
   function window16x9(W, H) {
     if (!W || !H) return null;
@@ -173,11 +173,50 @@
     return cv;
   }
 
+  /**
+   * The game inside a captured window, at ANY window size (DEVLOG #38): the title bar and border are found from the pixels
+   * (js/frame.js) on a reduced copy, again when the size changes and every 3 s. Falls back to the old 16:9 rule for
+   * windows whose top isn't a plain title bar (some emulators). Fractions of the window.
+   */
+  function windowFrame(video) {
+    let last = null;
+    let at = 0;
+    let key = '';
+    const probe = document.createElement('canvas');
+    const pctx = probe.getContext('2d', { willReadFrequently: true });
+    return (s) => {
+      const k = `${s.w}x${s.h}`;
+      if (last && k === key && performance.now() - at < 3000) return last;
+      key = k;
+      at = performance.now();
+      const F = window.E7Frame;
+      let f = null;
+      if (F && s.w && (video.readyState === undefined || video.readyState >= 2)) {
+        const sc = Math.min(1, 1000 / s.w);
+        probe.width = Math.round(s.w * sc);
+        probe.height = Math.round(s.h * sc);
+        try {
+          pctx.drawImage(video, 0, 0, probe.width, probe.height);
+          f = F.detectFractions(pctx.getImageData(0, 0, probe.width, probe.height).data, probe.width, probe.height);
+        } catch (_) { /* not ready */ }
+      }
+      if (!f || (f.y === 0 && f.x === 0 && f.w === 1 && f.h === 1)) f = window16x9(s.w, s.h) || { x: 0, y: 0, w: 1, h: 1 };
+      // the overlay (overlay.html) sits on the whole window: tell it where the game is
+      const j = JSON.stringify([f.x, f.y, f.w, f.h].map((v) => +v.toFixed(4)));
+      if (!last || j !== JSON.stringify([last.x, last.y, last.w, last.h].map((v) => +v.toFixed(4)))) {
+        try {
+          localStorage.setItem('e7-window-frame', JSON.stringify({ x: f.x, y: f.y, w: f.w, h: f.h, size: k }));
+        } catch (_) { /* storage full: the overlay keeps its own rule */ }
+      }
+      last = f;
+      return f;
+    };
+  }
+
   async function wrap(video) {
     if (windowMode()) {
-      // the capture is just the game window: only cut off its title bar (recomputed if the window is resized)
-      const s = size(video);
-      return window16x9(s.w, s.h) ? cropCanvas(video, (z) => window16x9(z.w, z.h) || { x: 0, y: 0, w: 1, h: 1 }, 'window-16x9') : video;
+      // the capture is just the game window: cut off its title bar and border (any window size)
+      return cropCanvas(video, windowFrame(video), 'window-16x9');
     }
     let a = read();
     if (!a || !matches(a, video)) a = await choose(video);

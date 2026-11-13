@@ -2,8 +2,15 @@
  * Built-in screen layouts: where things are on the game screen, so nobody has to draw boxes.
  * Pure (Node + browser). Browser: window.E7Layouts. DEVLOG #25.
  *
- * Positions are fractions of the 16:9 GAME PICTURE (the desktop app cuts the window's title bar off, see
- * GameArea.window16x9). Your own boxes always win; the built-in ones fill in whatever you haven't drawn.
+ * Positions are written as fractions of a 16:9 GAME PICTURE (the desktop app cuts the window's title bar off, see
+ * js/frame.js). Your own boxes always win; the built-in ones fill in whatever you haven't drawn.
+ *
+ * ANY WINDOW SIZE (DEVLOG #38). The game scales with the window HEIGHT and pins each thing to the left edge, the middle
+ * or the right edge. Pixel-checked on the owner's Guild War screens, 16:9 (1228×691) vs wider (2000×1070):
+ * the left UI (title, Havoc bar, guild emblems) matched exactly as 'l', the right UI (menu, shield/swords) as 'r', the
+ * fortress map and the three fortresses as 'c' (offset 0 px each). So each region has an anchor `a` ('l' | 'c' | 'r');
+ * layoutFor(w, h) places them for that picture. Regions whose anchor isn't verified yet list `alt` anchors; readers can
+ * try those (alternatives()). Narrower than 16:9 (rare on PC): assumed to scale with the WIDTH, centred vertically.
  *
  * Sources of the numbers (label 'built-in'):
  *   - draft screen (pre-bans, pick slots): measured BY EYE from the owner's Steam draft screenshots pasted in chat
@@ -20,6 +27,9 @@
   const v = px(1343, 758); // victory fixture
   const g = px(1228, 691); // Guild War enemy-defense file (pixel-measured)
   const ring = (cx, cy) => g(cx - 31, cy - 31, 62, 62); // a round hero icon (gold ring box)
+  const REF = 16 / 9;
+  // anchors: a = 'l' | 'c' | 'r'; alt = other anchors worth trying (not verified on a non-16:9 picture yet)
+  const A = (r, a, alt) => ({ ...r, a, ...(alt ? { alt } : {}) });
 
   const LAYOUTS = [
     {
@@ -28,26 +38,33 @@
       aspect: 16 / 9,
       measured: { draft: 'by eye from chat screenshots', result: 'pixel exact from a real screenshot file' },
       regions: {
-        mePreban1: d(403, 653, 52, 52),
-        mePreban2: d(459, 653, 52, 52),
-        oppPreban1: d(537, 653, 52, 52),
-        oppPreban2: d(593, 653, 52, 52),
-        mePickFirst: d(42, 129, 130, 70),
-        mePickLast: d(42, 550, 130, 70),
-        oppPickFirst: d(867, 129, 140, 70),
-        oppPickLast: d(867, 550, 140, 70),
-        result: v(470, 215, 410, 85),
+        // RTA (anchors guessed from where they sit; no wider RTA screenshot yet)
+        mePreban1: A(d(403, 653, 52, 52), 'c', ['l']),
+        mePreban2: A(d(459, 653, 52, 52), 'c', ['l']),
+        oppPreban1: A(d(537, 653, 52, 52), 'c', ['l']),
+        oppPreban2: A(d(593, 653, 52, 52), 'c', ['l']),
+        mePickFirst: A(d(42, 129, 130, 70), 'l'),
+        mePickLast: A(d(42, 550, 130, 70), 'l'),
+        oppPickFirst: A(d(867, 129, 140, 70), 'r', ['c']),
+        oppPickLast: A(d(867, 550, 140, 70), 'r', ['c']),
+        result: A(v(470, 215, 410, 85), 'c'),
         // pre-ban picker ("Select Pre-Ban Hero"): the two heroes you selected, bottom middle (by eye, owner's screenshot)
-        myPrebanPick1: v(669, 595, 84, 84),
-        myPrebanPick2: v(764, 595, 84, 84),
-        // Guild War enemy defense screen: the player's name and the two defense teams (round 1, round 2)
-        gwName: g(138, 147, 110, 27),
-        gwDef1: ring(112, 381),
-        gwDef2: ring(182, 409),
-        gwDef3: ring(64, 439),
-        gwDef4: ring(314, 381),
-        gwDef5: ring(378, 409),
-        gwDef6: ring(259, 439),
+        myPrebanPick1: A(v(669, 595, 84, 84), 'c'),
+        myPrebanPick2: A(v(764, 595, 84, 84), 'c'),
+        // Guild War enemy defense screen: the player's name and the two defense teams (round 1, round 2).
+        // The panel is at the left; whether it sticks to the edge or the middle isn't verified yet -> both are tried.
+        gwName: A(g(138, 147, 110, 27), 'l', ['c']),
+        gwDef1: A(ring(112, 381), 'l', ['c']),
+        gwDef2: A(ring(182, 409), 'l', ['c']),
+        gwDef3: A(ring(64, 439), 'l', ['c']),
+        gwDef4: A(ring(314, 381), 'l', ['c']),
+        gwDef5: A(ring(378, 409), 'l', ['c']),
+        gwDef6: A(ring(259, 439), 'l', ['c']),
+        // Guild War fortress map: the page indicator at the bottom right (white pill = which fortress), pixel-measured
+        // (bar 0.42 h … 0.041 h from the right edge at 93.5% height, the same on 2000×1070 and 1228×691)
+        gwFortPager: A(g(938, 630, 262, 32), 'r'),
+        // the keep's defender (locked badge in the middle of the castle): the same spot in all three fortresses
+        gwKeepName: A(g(545, 371, 180, 32), 'c'),
       },
     },
   ];
@@ -62,10 +79,40 @@
     { id: 'help', label: "Game's drafting help", keys: ['helpFirst', 'helpLast'], optional: true },
   ];
 
-  /** The built-in layout for a game picture of this size (null if its shape isn't one we know). */
+  /** Put one 16:9 region into a w×h picture with anchor `a` (fractions of w×h). */
+  function place(r, w, h, a) {
+    const ar = w / h;
+    if (Math.abs(ar - REF) < 0.005) return { x: r.x, y: r.y, w: r.w, h: r.h };
+    if (ar > REF) {
+      const refW = REF * h; // the game's 16:9 "design width" at this height, in pixels
+      const off = a === 'l' ? 0 : a === 'r' ? w - refW : (w - refW) / 2;
+      return { x: (off + r.x * refW) / w, y: r.y, w: (r.w * refW) / w, h: r.h };
+    }
+    const refH = w / REF; // narrower: scales with the width, centred vertically (assumed)
+    const off = (h - refH) / 2;
+    return { x: r.x, y: (off + r.y * refH) / h, w: r.w, h: (r.h * refH) / h };
+  }
+  /** The built-in layout placed for a game picture of this size (null for odd shapes). Regions: fractions of w×h. */
   function layoutFor(w, h) {
     if (!w || !h) return null;
-    return LAYOUTS.find((l) => Math.abs(w / h - l.aspect) < 0.03) || null;
+    const ar = w / h;
+    if (ar < 1.2 || ar > 2.6) return null;
+    const base = LAYOUTS[0];
+    const regions = {};
+    for (const [k, r] of Object.entries(base.regions)) regions[k] = place(r, w, h, r.a || 'c');
+    return { id: base.id, label: base.label, aspect: ar, measured: base.measured, regions, exact: Math.abs(ar - REF) < 0.03 };
+  }
+  /** Every placement worth trying for one region in a w×h picture: [{ anchor, rect }] (main anchor first). */
+  function alternatives(w, h, key) {
+    const r = LAYOUTS[0].regions[key];
+    if (!r || !w || !h) return [];
+    const anchors = [r.a || 'c', ...(r.alt || [])];
+    const out = [];
+    for (const a of anchors) {
+      const rect = place(r, w, h, a);
+      if (!out.some((o) => Math.abs(o.rect.x - rect.x) < 1e-4)) out.push({ anchor: a, rect });
+    }
+    return out;
   }
   /** Boxes to use: built-in ones, with your own on top. */
   function effective(own, layout) {
@@ -91,7 +138,7 @@
     return out;
   }
 
-  const api = { LAYOUTS, PARTS, layoutFor, effective, status, ownOnly };
+  const api = { LAYOUTS, PARTS, REF, place, layoutFor, alternatives, effective, status, ownOnly };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7Layouts = api;
 })(typeof self !== 'undefined' ? self : this);
