@@ -64,9 +64,13 @@
     }
     if (!k || k >= limit) return 0; // nothing, or too much to be a title bar / border
     if (abrupt) {
-      // the next few lines must be clearly game (not just a slightly less even part of a big uniform area)
+      // the next few lines must be clearly game (not just a slightly less even part of a big uniform area). The game's
+      // own PURE BLACK band (RTA screens) is game too, even though it is perfectly even (review, DEVLOG #40)
       let u = 0;
-      for (let j = 0; j < 3; j++) u += lineInfo(rgba, W, H, from + dir * (k + j), vertical).u;
+      for (let j = 0; j < 3; j++) {
+        const L = lineInfo(rgba, W, H, from + dir * (k + j), vertical);
+        u += L.bright < BLACK ? 0 : L.u;
+      }
       if (u / 3 > 0.75) return 0;
     }
     return k;

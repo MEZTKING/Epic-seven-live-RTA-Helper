@@ -756,9 +756,9 @@
   }
   $('#record-win').addEventListener('click', () => recordResult('win'));
   $('#record-loss').addEventListener('click', () => recordResult('loss'));
-  $('#save-team-preset').addEventListener('click', () => {
+  $('#save-team-preset').addEventListener('click', async () => {
     const picks = L.draftView(store.draft).picks.me;
-    const name = prompt('Preset name?', picks.slice(0, 2).map(nameOf).join(' + '));
+    const name = await window.E7Ask('Preset name?', picks.slice(0, 2).map(nameOf).join(' + '));
     if (!name) return;
     store.presets.push({ id: newId(), name: name.trim(), heroes: picks, notes: '' });
     save();
@@ -1398,7 +1398,7 @@
     if (!file) return;
     try {
       const rows = parseMetaCsv(await file.text());
-      const name = prompt('Name this meta dataset (e.g. "Spring 2026 Champion+"):', file.name.replace(/\.[^.]+$/, ''));
+      const name = await window.E7Ask('Name this meta dataset (e.g. "Spring 2026 Champion+"):', file.name.replace(/\.[^.]+$/, ''));
       if (!name) return;
       store.meta[name.trim()] = { enabled: true, addedAt: new Date().toISOString(), rows: rows.rows };
       save();
@@ -1499,7 +1499,7 @@
     if (!file) return;
     try {
       const r = R.parseMatchCsv(await file.text(), cache.heroes);
-      const name = prompt('Name this data source (so you can switch it off later):', file.name.replace(/\.[^.]+$/, ''));
+      const name = await window.E7Ask('Name this data source (so you can switch it off later):', file.name.replace(/\.[^.]+$/, ''));
       if (!name) return;
       const key = 'import:' + name.trim();
       if (store.matchSources[key] && !confirm(`Source "${key}" exists. Add these matches to it?`)) return;

@@ -13,6 +13,7 @@ const __fs = require('fs');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const FX = __path.join(__dirname, '..', 'fixtures', 'screens');
 const { chromium } = require('playwright');
+const { autoAsk, ask } = require('./_ask.js');
 const STINGER = ['Alpha01', 'BravoKnight', 'CharlieRose', 'Delta7', 'EchoMoon', 'Foxtrot', 'GolfStar', 'HotelBlue', 'IndiaRain', 'Tango'];
 const DOMINO = ['Victor9', 'Whiskey', 'XrayBeam', 'Yankee12', 'ZuluWave', 'AmberFox', 'BirchOwl', 'CedarElk', 'KeepOne'];
 const CROWN = ['DuneHawk', 'EmberCat', 'FrostBee', 'GaleWolf', 'HazelRay', 'IvoryJay', 'JadeLynx', 'KestrelO', 'LarchBat', 'KeepTwo'];
@@ -22,6 +23,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1300, height: 1000 } });
+  await autoAsk(ctx); // answers the app's in-page questions (js/ask.js)
   const errs = [];
   // Guild War page with a war
   const gp = await ctx.newPage();
@@ -42,6 +44,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   await gp.click('#guild-create');
   await gp.waitForTimeout(300);
   await gp.click('.tab[data-tab=war]');
+  await ask(gp, ['Test Foes', '']);
   await gp.click('#war-new');
   await gp.waitForTimeout(300);
   // the game watcher (Live page)

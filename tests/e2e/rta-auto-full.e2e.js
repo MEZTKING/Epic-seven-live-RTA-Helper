@@ -7,6 +7,7 @@ __fs.mkdirSync(OUT, { recursive: true });
 const FX = __path.join(__dirname, 'fixtures');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const { chromium } = require('playwright');
+const { autoAsk, ask } = require('./_ask.js');
 const fs = require('fs');
 const SP = OUT;
 const URL = BASE + 'rta.html';
@@ -21,6 +22,7 @@ const log = (...a) => console.log(...a);
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1400, height: 1500 } });
+  await autoAsk(ctx); // answers the app's in-page questions (js/ask.js)
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', (e) => errs.push('pageerror ' + e.message));
@@ -37,9 +39,9 @@ const log = (...a) => console.log(...a);
   await p.click('.tab[data-tab=data]');
   await p.setInputFiles('#fribbels-file', FX + '/gear2.txt'); await p.waitForTimeout(200);
   log('builds:', await txt('#src-builds'));
-  answers.push('Spring test'); await p.setInputFiles('#meta-file', FX + '/meta.csv'); await p.waitForTimeout(200);
+  await ask(p, 'Spring test'); await p.setInputFiles('#meta-file', FX + '/meta.csv'); await p.waitForTimeout(200);
   log('meta:', await txt('#meta-sources'));
-  answers.push('ladder'); await p.setInputFiles('#csv-file', FX + '/matches2.csv'); await p.waitForTimeout(200);
+  await ask(p, 'ladder'); await p.setInputFiles('#csv-file', FX + '/matches2.csv'); await p.waitForTimeout(200);
   await p.click('#weights-tune'); await p.waitForTimeout(3000);
   log('tune:', await txt('#tune-out'));
   log('weights:', JSON.stringify(await p.evaluate(() => window.RTAApp.store.settings.sourceWeights)));

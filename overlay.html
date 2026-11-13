@@ -39,7 +39,12 @@
       const root = document.getElementById('layers');
       // readers measure inside the game area (js/game-area.js); map back to the whole screen
       // desktop app in window mode: this layer sits exactly on the game window, so no mapping
-      const windowMode = () => { try { return !!(window.E7Desktop && E7Desktop.capture().mode === 'window'); } catch (_) { return false; } };
+      // window mode AND the overlay is really on the game window (tracked). When the tracker failed the overlay covers the
+      // whole display (desktop/main.js fallback), so window fractions would be off: then no mapping (review, DEVLOG #40)
+      const capture = () => { try { return (window.E7Desktop && E7Desktop.capture()) || {}; } catch (_) { return {}; } };
+      const windowMode = () => { const c = capture(); return c.mode === 'window' && !!c.tracked; };
+      let lastTracked = null;
+      setInterval(() => { const t = windowMode(); if (t !== lastTracked) { lastTracked = t; draw(); } }, 2000);
       if (window.E7Desktop) E7Desktop.onCapture(() => draw());
       // overlay text size (desktop: Overlay → Bigger/Smaller overlay text). Page zoom is shared with the main window,
       // so items are scaled by overlayZoom / zoom; positions are untouched (transform from the side facing the box).
@@ -57,6 +62,7 @@
           const W = innerWidth, H = innerHeight, b = Math.round(W / 450), cw = W - 2 * b, ch = Math.round((cw * 9) / 16);
           return H - ch < 8 ? { x: 0, y: 0, w: 1, h: 1 } : { x: b / W, y: Math.max(0, H - ch - b) / H, w: cw / W, h: ch / H };
         }
+        if (capture().mode === 'window') return { x: 0, y: 0, w: 1, h: 1 }; // window capture, tracker failed: whole display
         try {
           const a = JSON.parse(localStorage.getItem('e7-game-area') || 'null');
           return a && !a.full ? a : { x: 0, y: 0, w: 1, h: 1 };

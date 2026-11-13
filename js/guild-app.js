@@ -102,6 +102,7 @@
       backend = await Sync.local(conn.guildCode);
     }
     backend.subscribe((list) => {
+      loaded = true;
       records = list;
       state = GW.buildState(records);
       // names the fortress-map reader may match what it reads to (js/vision/readers/guild-fortress.js)
@@ -287,13 +288,105 @@
     renderWar();
   });
   ['#target-search', '#target-filter', '#target-dot', '#target-fort'].forEach((s) => $(s) && $(s).addEventListener('input', renderWar));
-  $('#war-new').addEventListener('click', async () => {
-    const g = prompt('Enemy guild name?');
-    if (!g) return;
-    const lastSeason = (state.wars[0] && state.wars[0].season) || '';
-    const season = prompt('Season (optional, e.g. "Season 12"). Kept so you can look back at players across seasons.', lastSeason);
-    const w = await put('war', { enemyGuild: g.trim(), season: (season || '').trim(), startedAt: new Date().toISOString(), status: 'active' });
+  /** Start a war (button or automatically from the game). Other wars still marked active are finished: one at a time. */
+  async function startWar(enemyGuild, season = '') {
+    for (const w of state.wars.filter((x) => x.status !== 'done')) await put('war', { ...w, status: 'done' });
+    return put('war', { enemyGuild, season, startedAt: new Date().toISOString(), status: 'active' });
+  }
+  const sameGuild = (a, b) => {
+    const A = String(a || '').trim().toLowerCase();
+    const B = String(b || '').trim().toLowerCase();
+    if (!A || !B) return false;
+    if (A === B) return true;
+    const G = window.E7GWMap;
+    return !!(G && G.matchName(A, [B])); // OCR can be a letter off
+  };
+  let autoUndo = null;
+  let warBusy = null; // one warFromGame at a time (two at once could start the same war twice)
+  const DISMISS = 'e7-gw-dismissed'; // { guild: at } wars you undid: not started again by themselves for 5 days
+  const dismissed = () => {
+    try {
+      return JSON.parse(localStorage.getItem(DISMISS) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  };
+  const RECENT = 5 * 24 * 3600 * 1000;
+  let loaded = false; // the guild's records have arrived at least once (before that, "no war yet" isn't known)
+  /**
+   * The enemy guild read from the game's Guild War overview (DEVLOG #40): pick that war, or start it.
+   * Returns 'selected' | 'started' | 'same' | 'no-guild'.
+   */
+  function warFromGame(enemyGuild) {
+    if (warBusy) return warBusy.then(() => warFromGame(enemyGuild));
+    warBusy = warFromGameNow(enemyGuild).finally(() => (warBusy = null));
+    return warBusy;
+  }
+  async function warFromGameNow(enemyGuild) {
+    if (!enemyGuild || String(enemyGuild).trim().length < 3) return 'same';
+    if (!backend || !loaded) {
+      if (conn.guildCode) {
+        // still connecting: wait for the guild's records (up to 30 s)
+        for (let i = 0; i < 60 && !(backend && loaded); i++) await new Promise((r) => setTimeout(r, 500));
+        if (!(backend && loaded)) return 'waiting';
+        return warFromGameNow(enemyGuild);
+      }
+      status(`The game shows a war vs ${enemyGuild}. Set up your guild first (Setup), then it's tracked by itself.`);
+      return 'no-guild';
+    }
+    const active = state.wars.find((w) => w.status !== 'done' && sameGuild(w.enemyGuild, enemyGuild));
+    if (active) {
+      if (warId === active.id) return 'same';
+      warId = active.id;
+      renderWar();
+      return 'selected';
+    }
+    // a recent war vs this guild that was finished (by you) or undone is NOT started again by itself
+    const recent = state.wars.find((w) => sameGuild(w.enemyGuild, enemyGuild) && Date.now() - Date.parse(w.startedAt || 0) < RECENT);
+    if (recent) return 'same';
+    const d = dismissed();
+    if (Object.entries(d).some(([g, at]) => sameGuild(g, enemyGuild) && Date.now() - at < RECENT)) return 'same';
+    const before = state.wars.filter((w) => w.status !== 'done');
+    const season = (state.wars[0] && state.wars[0].season) || '';
+    const w = await startWar(enemyGuild, season);
     warId = w.id;
+    autoUndo = { war: w, finished: before };
+    renderWar();
+    showAutoWar(w);
+    if (window.E7Diag) window.E7Diag.log('guild', `war vs ${enemyGuild} started from the game`);
+    return 'started';
+  }
+  function showAutoWar(w) {
+    const el = $('#war-auto');
+    if (!el) return;
+    el.innerHTML = `New war vs <b>${esc(w.enemyGuild)}</b> started by itself (read from the game's Guild War screen). <button class="btn" id="war-auto-undo">Undo</button> <button class="btn" id="war-auto-ok">OK</button>`;
+    el.classList.remove('hidden');
+    $('#war-auto-ok').onclick = () => el.classList.add('hidden');
+    $('#war-auto-undo').onclick = async () => {
+      if (!autoUndo) return;
+      try {
+        localStorage.setItem(DISMISS, JSON.stringify({ ...dismissed(), [autoUndo.war.enemyGuild]: Date.now() }));
+      } catch (_) { /* only a help */ }
+      await put('war', { ...autoUndo.war, deleted: true });
+      for (const old of autoUndo.finished) await put('war', { ...old, status: old.status || 'active' });
+      warId = (autoUndo.finished[0] || {}).id || null;
+      autoUndo = null;
+      el.classList.add('hidden');
+      renderWar();
+    };
+  }
+
+  $('#war-new').addEventListener('click', async () => {
+    if (!backend) return alert('Create or join a guild first (Setup).');
+    const lastSeason = (state.wars[0] && state.wars[0].season) || '';
+    const r = await window.E7Ask.form('New war', [
+      { name: 'guild', label: 'Enemy guild name', placeholder: 'as shown in the game', required: true },
+      { name: 'season', label: 'Season (optional)', value: lastSeason, placeholder: 'e.g. Season 12' },
+    ], { hint: 'Watching the game does this by itself: open the Guild War overview and the enemy guild is read from the screen.', ok: 'Start war' });
+    if (!r) return;
+    const w = await startWar(r.guild.trim(), (r.season || '').trim());
+    warId = w.id;
+    renderWar();
   });
   $('#war-done').addEventListener('click', async () => {
     const w = state.wars.find((x) => x.id === warId);
@@ -704,7 +797,7 @@
       await navigator.clipboard.writeText(link);
       alert('Invite link copied. Share it in your guild chat.' + (conn.config ? '' : '\n\nNote: Firebase is not connected yet, so guildmates would only get an empty local copy.'));
     } catch (_) {
-      prompt('Copy this invite link:', link);
+      window.E7Ask.show('Copy this invite link:', link);
     }
   });
   $('#fb-connect').addEventListener('click', async () => {
@@ -815,10 +908,12 @@
   window.GuildApp = {
     openTargetWith: (seen) => openTarget(null, seen),
     saveFortress,
+    warFromGame,
     /** Fortress names read on the overview: kept on the current war (shared), only when they changed. */
-    async saveFortNames(side, names) {
+    async saveFortNames(side, names, enemyGuild) {
       const war = state.wars.find((w) => w.id === warId);
       if (!war || !Array.isArray(names)) return false;
+      if (!enemyGuild || !sameGuild(war.enemyGuild, enemyGuild)) return false; // only onto the war these names belong to
       const cur = (war.forts && war.forts[side]) || [];
       const next = DEFAULT_FORTS.map((_, i) => names[i] || cur[i] || null);
       if (JSON.stringify(next) === JSON.stringify(cur)) return false;

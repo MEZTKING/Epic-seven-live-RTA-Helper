@@ -489,3 +489,8 @@ html:not(.web-guild) .web-only { display: none !important; }
 .gw-fort-names { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .gw-fort-name input { width: 150px; }
 .gw-fort-name.beaten input { opacity: .6; }
+
+/* in-page questions (js/ask.js; window.prompt does nothing in the desktop app) */
+dialog.ask-dialog { width: min(460px, calc(100vw - 24px)); }
+dialog.ask-dialog label { display: block; margin: 8px 0; }
+dialog.ask-dialog input { width: 100%; }

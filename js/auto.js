@@ -1099,8 +1099,8 @@
   const CR_STEPS = [{ key: 'crBar', label: 'the CR (turn order) bar, from its 0% end to its 100% end, as tall/wide as the portraits on it' }];
   const CR_EXP_STEPS = [{ key: 'crBarExpanded', label: 'the EXPANDED CR bar (open it in battle first), from its 0% end to its 100% end, as tall/wide as the portraits' }];
   const RESULT_STEPS = [{ key: 'result', label: 'where VICTORY / DEFEAT is written on the result screen' }];
-  function calibrateHelp(pic = null) {
-    const n = prompt("How many heroes does the game's drafting help show at once?", String(cfg().helpCount || 5));
+  async function calibrateHelp(pic = null) {
+    const n = await window.E7Ask("How many heroes does the game's drafting help show at once?", String(cfg().helpCount || 5));
     if (!n || !(Number(n) >= 1)) return;
     cfg().helpCount = Math.min(10, Math.round(Number(n)));
     App.save();

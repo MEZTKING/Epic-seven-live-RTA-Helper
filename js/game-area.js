@@ -180,6 +180,7 @@
    */
   function windowFrame(video) {
     let last = null;
+    let lastSize = '';
     let at = 0;
     let key = '';
     const probe = document.createElement('canvas');
@@ -200,7 +201,12 @@
           f = F.detectFractions(pctx.getImageData(0, 0, probe.width, probe.height).data, probe.width, probe.height);
         } catch (_) { /* not ready */ }
       }
-      if (!f || (f.y === 0 && f.x === 0 && f.w === 1 && f.h === 1)) f = window16x9(s.w, s.h) || { x: 0, y: 0, w: 1, h: 1 };
+      // a screen where the title bar can't be told apart: keep the cut found before for this same window size
+      // (the title bar doesn't go away while the window keeps its size), so the overlay doesn't jump
+      const none = (q) => !q || (q.y === 0 && q.x === 0 && q.w === 1 && q.h === 1);
+      if (none(f) && last && !none(last) && lastSize === k) f = last;
+      if (none(f)) f = window16x9(s.w, s.h) || { x: 0, y: 0, w: 1, h: 1 };
+      lastSize = k;
       // the overlay (overlay.html) sits on the whole window: tell it where the game is
       const j = JSON.stringify([f.x, f.y, f.w, f.h].map((v) => +v.toFixed(4)));
       if (!last || j !== JSON.stringify([last.x, last.y, last.w, last.h].map((v) => +v.toFixed(4)))) {

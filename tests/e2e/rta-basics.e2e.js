@@ -7,10 +7,12 @@ __fs.mkdirSync(OUT, { recursive: true });
 const FX = __path.join(__dirname, 'fixtures');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const { chromium } = require('playwright');
+const { autoAsk, ask } = require('./_ask.js');
 const SP = OUT;
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
+  await autoAsk(ctx); // answers the app's in-page questions (js/ask.js)
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', e => errs.push('pageerror ' + e.message));
@@ -37,7 +39,7 @@ const SP = OUT;
   await p.setInputFiles('#fribbels-file', FX + '/gear.txt');
   await p.waitForTimeout(300);
   console.log('fribbels:', (await p.textContent('#src-fribbels')).replace(/\s+/g, ' '));
-  answers.push('ladder-notes');
+  await ask(p, 'ladder-notes');
   await p.setInputFiles('#csv-file', FX + '/matches.csv');
   await p.waitForTimeout(300);
   console.log('sources:', (await p.textContent('#match-sources')).replace(/\s+/g, ' '));
@@ -57,7 +59,7 @@ const SP = OUT;
   for (const n of ['Landy', 'Ravi', 'Aria', 'Sez', 'Ruele of Light', 'Lilias', 'Kise', 'Tamarinne', 'Cidd']) await pick(n);
   console.log('status:', await p.textContent('#draft-status'));
   await p.click('#hero-grid .hero-btn'); await p.click('#hero-grid .hero-btn');
-  answers.push('Landy core');
+  await ask(p, 'Landy core');
   await p.click('#save-team-preset');
   await p.click('#record-loss');
   for (const t of ['teams', 'players', 'history', 'speed', 'heroes', 'data']) {
