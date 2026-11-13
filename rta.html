@@ -109,6 +109,7 @@
         <label class="btn file-btn">Use a screenshot<input id="auto-shot" type="file" accept="image/*" hidden /></label>
         <button id="auto-overlay" class="btn">Check alignment</button>
         <button class="btn" data-reset-game-area title="Draw the box around the game window again (after moving or resizing it)">Reset game area</button>
+        <button class="btn" data-diag-copy title="Copies what the reader sees and did, to paste to Claude">Copy report for Claude</button>
       </div>
       <div class="btn-row">
         <button id="auto-calib-cr" class="btn">Calibrate CR bar</button>
@@ -478,8 +479,10 @@
 
   <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven. Hero list and portraits load from the official Epic Seven site.</footer>
 
+  <script src="js/diag.js"></script>
   <script src="js/sources/official-heroes.js"></script>
   <script src="js/sources/fribbels-data.js"></script>
+  <script src="js/sources/class-templates.js"></script>
   <script src="js/roster.js"></script>
   <script src="js/gear.js"></script>
   <script src="js/gearsort.js"></script>

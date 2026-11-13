@@ -26,7 +26,7 @@
         (Gear item details, Guild War enemy name; RTA moves here next). Modules just receive what it finds, so there's no "start" button per module.
         <b>Desktop app:</b> it runs by itself in the background after you pick the game window once.
         <b>Browser:</b> it runs on this page; keep this tab open.</p>
-      <div class="btn-row"><button id="vw-start" class="btn primary">Start watching</button><button id="vw-stop" class="btn hidden">Stop</button></div>
+      <div class="btn-row"><button id="vw-start" class="btn primary">Start watching</button><button id="vw-stop" class="btn hidden">Stop</button><button class="btn" data-diag-copy title="Copies what the app sees and did, to paste to Claude">Copy report for Claude</button></div>
       <p id="vw-status" class="hint"></p>
       <ul id="vw-readers" class="plain-list"></ul>
       <h4 style="margin:12px 0 6px">Recent events</h4>
@@ -71,6 +71,7 @@
     </div>
   </main>
   <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+  <script src="js/diag.js"></script>
   <script src="js/sources/official-heroes.js"></script>
   <script src="js/sources/fribbels-data.js"></script>
   <script src="js/gear.js"></script>

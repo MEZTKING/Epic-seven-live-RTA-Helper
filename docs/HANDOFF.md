@@ -54,6 +54,7 @@ a link in every page's `.modules` nav, an entry in `sw.js` and in the Pages work
 | `js/statparse.js` | `RTAStatParse` | OCR text → gear item (stat lines, set, slot, enhance, level, rank) |
 | `js/ceciliabot.js` | `CeciliaBot` | CeciliaBot API: effect list → automatic tags, skill text rendering (pure parts tested) |
 | `js/mysync.js` | `MySync` | My devices sync (PC ↔ phone): sections, three-way list merge, `syncOnce`, chunked Firestore remote, links (DEVLOG #27) |
+| `js/diag.js` | `E7Diag` | Diagnostic report ("Copy report for Claude"): `log(area,msg,data)` → `localStorage['e7-diag-log']` (300 lines), `report()`, `provider(name, fn)`; never includes sync key / Firebase settings / guild codes (DEVLOG #29) |
 | `js/layouts.js` | `E7Layouts` | Built-in screen positions (Steam 16:9: draft by eye, result exact), `effective` (built-in + yours), per-part `status`, `ownOnly` (DEVLOG #25) |
 | `js/faces.js` | `RTAFaces` | Round hero-icon matcher: masked 32×32 NCC vs official portraits (+ face corrections), confidence = score ≥0.80 and lead ≥0.10 (DEVLOG #23) |
 | `js/vision/core.js` | `E7VisionCore` | Game-watcher event bus (`createBus`: publish/on/request/handle, fact log) and `repeatGate` |
@@ -183,7 +184,12 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #28)
+## 7. Status (end of DEVLOG #29)
+
+**Debugging with the owner:** ask for **Copy report for Claude** (RTA → Auto, Live, Gear, Guild War, or desktop
+Developer menu) and have it pasted into the chat. It shows what every RTA slot sees, the gate, layout status and a log.
+**RTA draft gate:** live reading of picks only after ≥ 2 pre-bans are recognised (or the draft screen is taught).
+
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).

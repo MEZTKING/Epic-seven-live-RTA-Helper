@@ -7,6 +7,71 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #29 · Fix "everything wrong" (draft gate), element colour + class symbol, diagnostic report · this commit (previous: `b49c3bc`)
+
+**Asked for** (several messages):
+- "for the heros your can learn it by coloour since the icons are always their for them"
+- "currently its taking everything wrong" (screenshot of the RTA "What I see" slots)
+- "for the icons you can use the colour and the symbol on the other side for rangers and thiefs and more etc"
+- "make a system so that i can paste a log file to u so you have all the neccesary infiormations"
+
+**Findings**
+- **Why everything was wrong:** the owner's slot pictures showed lobby text ("Rank: 35…", "Win Rate: 45…", "7h 36m"),
+  not heroes. Since DEVLOG #25 the built-in positions count as calibrated, so the reader read those positions on
+  **every screen**. Before that nothing ran until boxes were drawn. Also, the old matcher's "big lead at a low score"
+  rule let 34–60% guesses through for pick slots.
+- **Element colour** (top-right badge: flame / drop / tree / star / moon): read correctly on 15/15 known faces of the
+  real grid and plausibly on all 40.
+- **Class symbol** (top-left badge: hood / bow / sword / hat / shield / swirl): learned from the 15 known faces.
+  Leave-one-out in Python 14/15. In the app (browser code, cautious thresholds): 8 right, 0 wrong, 7 unsure (no filter).
+- With element + class narrowing, the face matcher names **15/15** known faces confidently and correctly (was 14;
+  Genesis Ras now clear), still with **0** wrong confident answers and no newly confident unknown faces.
+- The small pre-ban faces on the draft screen don't seem to show badges, and the pick banners show them elsewhere
+  (position unknown without a real draft file). So the badges help where present and are skipped where not.
+
+**Changed**
+- `js/auto.js`, **draft gate**:
+  - While watching live (and the draft screen isn't taught), the pick/help/name/postban readers only run when ≥ 2 of
+    the 4 pre-ban faces are recognised confidently, and for 90 s after; otherwise "waiting for the RTA draft screen".
+  - Pick slots now need score ≥ threshold (0.72) **and** a 0.04 lead.
+  - Screenshots loaded by hand aren't gated.
+  - Bug found while testing: `draftSeenAt` started at 0, and `performance.now()` is near 0 right after the page opens,
+    so the first 90 s counted as "draft just seen". Now `-Infinity`.
+- `js/faces.js`:
+  - `elementFromRGBA` / `elementAt` (badge hue bins), `elementAllow`
+  - `classVector` / `classVectorsAt` / `classFromVectors` (16×16 grey symbol vs learned examples, score ≥ 0.75 and
+    lead ≥ 0.10)
+  - `badgesAt`, `badgeAllow` (element ∧ class, falls back to element only)
+- The round slots in `js/auto.js` use the badge filter when badges are found.
+- `tools/make-class-templates.js` (new) → `js/sources/class-templates.js` (generated): 15 class-symbol examples cut
+  from the real screenshot with the app's own browser code.
+- **Diagnostic report:** `js/diag.js` (new, `E7Diag`).
+  - "Copy report for Claude" on RTA → Auto, Live, Gear, Guild War, and desktop menu Developer → Copy report for Claude.
+  - Contents: app/device, capture, game area, frame keys, watcher status, taught screens, RTA settings and part status,
+    matches (count + last 3), current draft, gear counts, sync/guild state, **every RTA slot** (badges, confirmed,
+    best/2nd guess with score and source, box in px), the last 25 watcher events and a 300-line log.
+  - The log records RTA status changes, the draft screen being found, slot confirmations with scores, results read,
+    the watcher starting, and page errors.
+  - **Never included:** sync key, Firebase settings, guild code.
+  - Falls back to a text box when the clipboard isn't allowed.
+- `sw.js` v21; all pages load `js/diag.js`.
+
+**Tested**
+- `npm test` 102 passing (element colours, class symbol rule, `badgeAllow`).
+- Browser suite 18/18 clean:
+  - `faces-real.e2e.js`: 40/40 element badges, class leave-one-out 8/0/7, **15/15** with element + class, 0 wrong
+  - new `diag.e2e.js`: report of about 2.2 k characters with all sections and slot lines, the button says "Copied ✓",
+    and **no planted secret** (sync key, API key, project id, guild code) appears
+- Packaged desktop app, `rta-follow.js`, on a non-draft fake game screen: "Watching · waiting for the RTA draft screen
+  (… 0 of 4 recognised)", nothing read.
+- **Not tested on a real draft:** whether the built-in pre-ban positions + face matcher open the gate on the owner's
+  screen. If it never opens, the diagnostic report will show why (pre-ban guesses and scores), or teach the draft screen
+  (RTA → Auto → Screens) and the gate uses that instead.
+
+**Open:** badge positions on pick banners (need a draft file). More class examples will make the class reader surer.
+
+---
+
 ## 2026-11-13 · #28 · Step 1b part 1: the RTA reader follows the game watcher · this commit (previous: `231b7ba`)
 
 **Asked for:** "do 2 then 1b". 2 = DEVLOG #27. 1b = move the RTA reader into the game watcher.
