@@ -184,7 +184,11 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #31)
+## 7. Status (end of DEVLOG #32)
+
+**Pick banners** are learned by naming them on a saved picture (`openLabel`); **teams** can come from the CR bar (`scanCRTeams`,
+`draft.crTeams`). Overlay check: Overlay → Show a test card / Live → Show a test card on the overlay.
+
 
 **Real screens (files) and what they showed:** see DEVLOG #31. Built-in screen signatures for menu, match found, match start,
 pre-ban picker, draft (BAN). Pick banners don't match official portraits: they are learned from corrections.

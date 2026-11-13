@@ -7,6 +7,46 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #32 · Name the heroes after the match, teams from the CR bar, "is the overlay working?" · this commit (previous: `684dd4d`)
+
+**Asked for:** "yes do both" ("label this draft after the match" + reading the CR bar to confirm teams), "and how to get the
+overlay and is there a way to know when its working".
+
+**Changed**
+- **Name the heroes on a saved picture** (`rta.html` dialog `#label-dlg`, `js/auto.js` `openLabel` / `saveLabels`):
+  - Saved-picture chooser → "Name the heroes on this picture" shows every pre-ban and pick slot of that picture (crop +
+    name box). Guesses the app is sure of are prefilled; unsure ones show as "maybe X".
+  - Saving adds each name as a "my corrections" example (and a face example for round slots). That hero's banner is
+    recognised by itself from then on. Optionally the names become the current draft.
+- **A picture of the draft board is saved once per match** when the BAN screen shows (built-in `rta-draft` signature), so
+  there's always one to name after the match.
+- **Teams from the CR bar** (`scanCRTeams`, button "Read teams from the CR bar"):
+  - Slides along the calibrated CR bar (step 1/6 of the icon size), quick check then the face matcher with the wide
+    alignment search; keeps confident faces.
+  - Side from the ring colour (red = opponent).
+  - Saved on the draft as `crTeams` (kept when the draft updates). `matchFromDraft` uses them for picks the draft is
+    missing (`teamsFrom: 'cr bar'`).
+- **Is the overlay working?**
+  - `overlay.html` shows a "✓ Epic 7 Engine overlay" badge for 6 s when it starts (desktop).
+  - Desktop menu **Overlay → Show a test card** and Live → **Show a test card on the overlay** put a card on it for 5 s.
+
+**Bugs found and fixed:** the first CR scan moved 1/3 of an icon per step, so icons sitting between two windows (8 px
+off) were missed. Now 1/6 of an icon plus the wide alignment search.
+
+**Tested**
+- `npm test` 102. Browser suite **21/21** clean. New:
+  - `rta-label.e2e.js` on the **real BAN screen**: 14 slots offered; two named (my pick 1, opponent pick 2) → 2
+    corrections; reading the screen again → exactly those two confirmed "(my corrections)", the other 8 picks still
+    unconfirmed. On a CR bar made from real portraits (white / red rings): you Stark + Aram, opponent Frieren + Robin.
+    Correct.
+  - `overlay-test.e2e.js`: Live → test card appears on the overlay with the badge, gone after 5 s.
+- Packaged desktop app, new `tests/desktop/overlay-test.js`: badge at start, test card on the real overlay window,
+  window visible.
+- **Not tested:** the CR bar on a real battle screen (no battle file yet; the ring colour rule comes from the owner's
+  chat screenshot).
+
+---
+
 ## 2026-11-13 · #31 · Real RTA screens as files: built-in recognition of 6 screens, First Pick read, banners can't match portraits · this commit (previous: `50aa89a`)
 
 **Asked for:** "how do i send the screenshots as files", then the owner attached five real Steam screens as files

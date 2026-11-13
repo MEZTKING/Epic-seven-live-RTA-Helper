@@ -458,3 +458,7 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .lay-mine, .lay-built-in { color: var(--win); font-weight: 700; }
 .lay-mixed { color: #58b8ff; font-weight: 700; }
 .lay-missing { color: var(--muted, #a6a9b8); }
+.label-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; max-height: 60vh; overflow: auto; margin: 8px 0; }
+.label-cell { background: #1a1c26; border: 1px solid #2c2f3d; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.label-cell canvas { width: 100%; height: auto; border-radius: 4px; background: #000; }
+.label-cell input { width: 100%; }

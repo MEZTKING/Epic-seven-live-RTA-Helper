@@ -380,6 +380,10 @@ function buildMenu() {
       label: 'Overlay',
       submenu: [
         { label: 'Show / hide overlay', accelerator: 'Ctrl+Shift+O', click: toggleOverlay },
+        { label: 'Show a test card (is the overlay working?)', click: () => {
+          if (!config.overlay) toggleOverlay();
+          if (overlay && !overlay.isDestroyed()) overlay.webContents.send('e7:hotkey', 'overlay-test');
+        } },
         { label: 'Bigger overlay text', click: () => setOverlayZoom(config.overlayZoom + 0.15) },
         { label: 'Smaller overlay text', click: () => setOverlayZoom(config.overlayZoom - 0.15) },
         { type: 'separator' },

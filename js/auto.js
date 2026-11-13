@@ -245,6 +245,77 @@
     alert(`Taught: "${window.E7Screens.label(screen)}" (${n} example${n === 1 ? '' : 's'}). It's recognised from now on, on every page.`);
     if (window.E7Diag) window.E7Diag.log('screens', `taught ${screen} from a saved picture`, { examples: n });
   });
+  // ---- name the heroes on a saved picture (DEVLOG #32): every name teaches that slot's picture ('my corrections')
+  let labelling = null; // { img, pic, slots: [{ slot, rect, guess }] }
+  async function openLabel(p) {
+    const img = new Image();
+    await new Promise((res) => {
+      img.onload = res;
+      img.src = p.url;
+    });
+    const regs = LAY ? LAY.effective(cfg().regions, layoutFor(p.w, p.h)) : cfg().regions || {};
+    const px = (r) => ({ x: r.x * p.w, y: r.y * p.h, w: r.w * p.w, h: r.h * p.h });
+    const ct = (window.RTASources && window.RTASources.classTemplates) || [];
+    const list = V.slotLayout(regs).map((sl) => {
+      const rect = px(sl.rect);
+      let guess = null;
+      if (F && ROUND(sl) && templates.faces.length > 50) {
+        const b = F.badgesAt(img, rect, ct);
+        const r = F.classify(F.fromRect(img, rect, F.WIDE_VARIANTS), activeFaceTemplates(), { preferSource: 'my corrections', allow: F.badgeAllow(b.element, b.role, App.cache.heroes) });
+        if (r.best) guess = { code: r.best.code, sure: F.isConfident(r) };
+      } else if (templates.official.length) {
+        const r = V.classify(featureFromSource(img, rect, SLOT_INSET), activeTemplates(), { preferSource: 'my corrections' });
+        if (!r.empty && r.best) guess = { code: r.best.code, sure: r.best.sim >= cfg().threshold && (r.second ? r.best.sim - r.second.sim : 1) >= 0.04 };
+      }
+      return { slot: sl, rect, guess };
+    });
+    labelling = { img, pic: p, slots: list };
+    $('#label-grid').innerHTML = list
+      .map((x, i) => `<div class="label-cell"><canvas data-i="${i}" width="120" height="70"></canvas><div class="hint">${x.slot.side === 'me' ? 'My' : 'Opponent'} ${x.slot.kind} #${x.slot.index + 1}</div>
+        <input list="hero-names" data-i="${i}" value="${x.guess && x.guess.sure ? esc(App.nameOf(x.guess.code)) : ''}" placeholder="${x.guess ? 'maybe ' + esc(App.nameOf(x.guess.code)) : 'hero name'}" /></div>`)
+      .join('');
+    for (const c of $('#label-grid').querySelectorAll('canvas')) {
+      const x = list[+c.dataset.i];
+      c.getContext('2d').drawImage(img, x.rect.x, x.rect.y, x.rect.w, x.rect.h, 0, 0, c.width, c.height);
+    }
+    $('#pics').close();
+    $('#label-dlg').showModal();
+  }
+  function saveLabels() {
+    if (!labelling) return;
+    const named = [];
+    for (const inp of $('#label-grid').querySelectorAll('input')) {
+      const txt = inp.value.trim();
+      if (!txt) continue;
+      const h = App.bestMatch(txt, App.cache.heroes);
+      if (!h) return alert(`No hero called "${txt}".`);
+      named.push({ ...labelling.slots[+inp.dataset.i], code: h.code });
+    }
+    for (const n of named) {
+      addLearned(n.code, featureFromSource(labelling.img, n.rect, SLOT_INSET), 'my corrections');
+      if (F && ROUND(n.slot)) {
+        const faces = F.fromRect(labelling.img, n.rect, F.GAME_VARIANTS);
+        const c = cfg();
+        c.faceCorrections = c.faceCorrections || [];
+        c.faceCorrections.push({ code: n.code, q: F.quantize(faces[faceBase(faces)].vec), at: new Date().toISOString() });
+      }
+    }
+    rebuildLearned();
+    App.save();
+    if ($('#label-apply').checked && named.length) {
+      const board = { prebans: { me: [], opp: [] }, picks: { me: [], opp: [] }, postbans: {} };
+      for (const n of [...named].sort((a, b) => a.slot.index - b.slot.index)) (n.slot.kind === 'preban' ? board.prebans : board.picks)[n.slot.side].push(n.code);
+      App.replaceDraft(L.boardToDraft(board, App.store.draft.firstPick || 'me'));
+    }
+    if (window.E7Diag) window.E7Diag.log('rta', `named ${named.length} heroes on a saved picture`, named.map((n) => `${n.slot.id}=${App.nameOf(n.code)}`));
+    $('#label-dlg').close();
+    labelling = null;
+    setStatus(`Saved ${named.length} names. Those heroes' pictures are recognised from now on.`);
+    render();
+  }
+  $('#pics-label').addEventListener('click', () => chosenPic && openLabel(chosenPic));
+  $('#label-save').addEventListener('click', saveLabels);
+  $('#label-cancel').addEventListener('click', () => $('#label-dlg').close());
   $('#pics-back').addEventListener('click', () => {
     $('#pics-what').classList.add('hidden');
     $('#pics-list').classList.remove('hidden');
@@ -353,6 +424,7 @@
   const DRAFT_HOLD_MS = 90000;
   const INTRO_HOLD_MS = 300000; // after the match-start screen, the next few minutes are this match's draft
   let introSeenAt = -Infinity;
+  let boardPicFor = null; // draft id whose board picture was saved
   let lastScreen = null;
   let draftSeenAt = -Infinity; // performance.now() starts at 0 when the page opens: 0 would mean "draft just seen"
   const draftTaught = () => !!window.E7Screens && window.E7Screens.refs().some((r) => r.screen === 'rta-draft');
@@ -378,6 +450,12 @@
     // (postban / Ready screens don't show the pre-ban row). Screenshots you load yourself aren't gated.
     const gate = live && !draftTaught();
     if (gate && SW && SW.current() === 'rta-draft') draftSeenAt = performance.now(); // built-in draft-board signature
+    // once per match, keep a picture of the draft board (all 10 picks show at the BAN step) to name heroes after the match
+    if (live && SW && SW.current() === 'rta-draft' && boardPicFor !== App.store.draft.id && window.E7Pictures) {
+      boardPicFor = App.store.draft.id;
+      window.E7Pictures.capture(source, 'draft board · name the heroes after the match').catch(() => {});
+      if (window.E7Diag) window.E7Diag.log('rta', 'saved a picture of the draft board');
+    }
     const isDraft = () => (gate ? performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS : on('rta-draft'));
     // the match-start screen (versus / profile art, once taught) = a new match begins (owner's idea, DEVLOG #30)
     const cur = SW ? SW.current() : null;
@@ -757,6 +835,63 @@
           .join(' · '),
     );
     return speeds.filter((x) => x.side === 'opp').length >= 2;
+  }
+  /**
+   * Teams from the CR bar (DEVLOG #32): every hero on the bar is a ROUND icon, which the face matcher reads well.
+   * Slides along the bar, keeps confident faces, and tells the side by the ring colour (red = opponent).
+   * Not tested on a real battle file yet. Saved on the draft as `crTeams`; a recorded match uses them for missing picks.
+   */
+  function scanCRTeams({ quiet = false } = {}) {
+    const R = regions();
+    const SW = window.E7Screens;
+    const reg = (SW && SW.current() === 'rta-cr-expanded' && R.crBarExpanded) || R.crBar || R.crBarExpanded;
+    const say = (t) => !quiet && $('#auto-cr-out') && ($('#auto-cr-out').innerHTML = t);
+    if (!reg) return say('Set the CR bar first: RTA → Auto → "What the reader knows" → Battle: CR bar → Set (on a saved battle picture).'), null;
+    if (!source || !frameSize() || !F || templates.faces.length < 50) return say('Start watching (or load a screenshot) and wait for the hero portraits to load.'), null;
+    const r = pxRect(reg);
+    const vertical = r.h > r.w;
+    const size = vertical ? r.w : r.h;
+    const span = (vertical ? r.h : r.w) - size;
+    const step = Math.max(3, size / 6); // fine enough that every icon is within a few px of a window
+    const found = new Map();
+    const tpls = activeFaceTemplates();
+    const one = [F.GAME_VARIANTS.find((v) => v.k === 1 && v.dx === 0 && v.dy === 0)];
+    for (let off = 0; off <= span + 0.5; off += step) {
+      const box = vertical ? { x: r.x, y: r.y + off, w: size, h: size } : { x: r.x + off, y: r.y, w: size, h: size };
+      const quick = F.classify(F.fromRect(source, box, one), tpls);
+      if (!quick.best || quick.best.score < 0.55) continue;
+      const res = F.classify(F.fromRect(source, box, F.WIDE_VARIANTS), tpls, { preferSource: 'my corrections' });
+      if (!F.isConfident(res)) continue;
+      const prev = found.get(res.best.code);
+      if (!prev || prev.score < res.best.score) found.set(res.best.code, { code: res.best.code, score: res.best.score, side: ringSide(box) });
+    }
+    const teams = { me: [], opp: [] };
+    for (const f of found.values()) teams[f.side].push(f.code);
+    App.store.draft.crTeams = teams;
+    App.save();
+    if (window.E7Diag) window.E7Diag.log('rta', 'teams read from the CR bar', { me: teams.me.map(App.nameOf), opp: teams.opp.map(App.nameOf) });
+    say(`Teams on the CR bar: <b>you</b> ${teams.me.map((c) => App.esc(App.nameOf(c))).join(', ') || '—'} · <b>opponent</b> ${teams.opp.map((c) => App.esc(App.nameOf(c))).join(', ') || '—'}`);
+    return teams;
+  }
+  /** Ring colour around a round icon: mostly red = opponent, else you. */
+  function ringSide(box) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 32;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(source, box.x, box.y, box.w, box.h, 0, 0, 32, 32);
+    const d = x.getImageData(0, 0, 32, 32).data;
+    let red = 0;
+    let n = 0;
+    for (let yy = 0; yy < 32; yy++) {
+      for (let xx = 0; xx < 32; xx++) {
+        const rr = Math.hypot(xx - 15.5, yy - 15.5) / 16;
+        if (rr < 0.86 || rr > 1) continue; // the ring only
+        const i = (yy * 32 + xx) * 4;
+        n++;
+        if (d[i] > 140 && d[i] > d[i + 1] * 1.6 && d[i] > d[i + 2] * 1.6) red++;
+      }
+    }
+    return n && red / n > 0.25 ? 'opp' : 'me';
   }
   function maybeAutoReadCR() {
     const c = cfg();
@@ -1294,6 +1429,7 @@
   $('#auto-calib-cr').addEventListener('click', () => startCalibration(CR_STEPS));
   $('#auto-calib-cr-exp').addEventListener('click', () => startCalibration(CR_EXP_STEPS));
   $('#auto-calib-result').addEventListener('click', () => startCalibration(RESULT_STEPS));
+  $('#auto-read-teams').addEventListener('click', () => scanCRTeams());
   $('#auto-read-cr').addEventListener('click', () => readCR());
   $('#auto-calib-help').addEventListener('click', () => calibrateHelp());
   const clearSrc = (src, label) => () => {
@@ -1355,6 +1491,6 @@
     });
   }
 
-  window.RTAAuto = { _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();
