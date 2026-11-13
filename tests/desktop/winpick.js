@@ -1,10 +1,11 @@
 // Packaged desktop app: window picker -> getDisplayMedia captures only the chosen window; no game-area box; pop-outs work.
+require("fs").mkdirSync(require("path").join(__dirname, "out"), { recursive: true });
 const { _electron, chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 (async () => {
-  const OUT = process.argv[3];
+  const OUT = process.argv[3] || require('path').join(__dirname, 'out');
   // a fake "game" window from another program (a headed Chromium) titled like the Steam client
   const game = await chromium.launch({ headless: false, args: ['--window-size=900,560', '--window-position=200,150'] });
   const gp = await game.newPage();

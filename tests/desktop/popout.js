@@ -1,4 +1,5 @@
 // Drives the packaged desktop app: Pop out on Guild War and RTA must open an always-on-top window with content.
+require("fs").mkdirSync(require("path").join(__dirname, "out"), { recursive: true });
 const { _electron } = require('playwright');
 (async () => {
   const app = await _electron.launch({ executablePath: process.argv[2], args: ['--no-sandbox'] });
@@ -19,7 +20,7 @@ const { _electron } = require('playwright');
       await child.waitForTimeout(700);
       ok = !!(await child.$(root));
       top = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.isAlwaysOnTop()).length);
-      await child.screenshot({ path: process.argv[3] + '/' + page + '.png' });
+      await child.screenshot({ path: (process.argv[3] || require('path').join(__dirname, 'out')) + '/' + page + '.png' });
       await child.close();
     }
     console.log(page, 'button', ids[0], 'opened', !!child, 'content', ok, 'always-on-top windows', top);

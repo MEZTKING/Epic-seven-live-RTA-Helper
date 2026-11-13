@@ -7,6 +7,15 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #36 · Remove test screenshots committed by mistake · this commit (previous: `6999f86`)
+
+**What:** #35 accidentally committed `undefined/` (three screenshots of the app's own test windows, written by
+`tests/desktop/popout.js` and `winpick.js` when no output folder was passed). Removed. Those tests now default to
+`tests/desktop/out/`, which is git-ignored.
+**Tested:** `node --check` on both tests. Nothing else changed.
+
+---
+
 ## 2026-11-13 · #35 · Overlay: never stuck hidden + "is it working?" status; Teach heroes (your own face examples) · this commit (previous: `64a8e03`)
 
 **Asked for:** "also the overlay still does not work"; "where are you saving the images, and make a system where the user
