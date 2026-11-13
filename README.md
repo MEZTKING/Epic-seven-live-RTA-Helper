@@ -316,11 +316,18 @@ npm run update-heroes  # refresh js/sources/official-heroes.js
 npm run update-fribbels-data  # refresh js/sources/fribbels-data.js
 ```
 
-### Install it / open it on any device (GitHub Pages)
-1. Merge this branch into `main`.
-2. In the repository, go to **Settings → Pages → Source** and choose **GitHub Actions**. You only do this once.
-3. Every push to `main` runs the tests and publishes the app at `https://<user>.github.io/<repo>/`.
-   In Chrome or Edge, use the install icon in the address bar to get a desktop app that also works offline.
+### Install it / open it on any device, including your phone (GitHub Pages)
+1. One time: in the repository go to **Settings → Pages → Source** and choose **GitHub Actions**.
+2. Every push to the work branch (or `main`) runs the tests and publishes the app at
+   **https://meztking.github.io/Epic-seven-live-RTA-Helper/** (Actions tab → "Deploy to GitHub Pages" shows when it's done;
+   after step 1 you can also start it there with **Run workflow**).
+3. On the phone open that address, then add it to the home screen so it opens like an app and works offline:
+   **Android (Chrome):** ⋮ menu → **Add to Home screen / Install app**. **iPhone (Safari):** Share → **Add to Home Screen**.
+
+**What works on a phone:** Gear Sorter (import `gear.txt` from your files), Guild War (shared with the guild once Firebase is
+connected in Guild War → Setup), the RTA draft helper by tapping heroes, hero info and skills.
+**What doesn't:** reading the game screen and the overlay. A phone browser can't see another app's screen, so those stay on
+the PC (desktop app). Data is saved per device; only Guild War syncs between devices (via Firebase).
 
 ## Roadmap
 - [x] Auto-detect the draft from the emulator window
