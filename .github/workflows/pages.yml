@@ -1,9 +1,10 @@
-# Publishes the app to GitHub Pages on every push to main.
+# Publishes the app to GitHub Pages on every push to main or the work branch (the repository's default branch),
+# so it can be opened on a phone: https://meztking.github.io/Epic-seven-live-RTA-Helper/
 # One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
 name: Deploy to GitHub Pages
 on:
   push:
-    branches: [main]
+    branches: [main, ccr-2c9db930-kqvr1r]
   workflow_dispatch:
 permissions:
   contents: read

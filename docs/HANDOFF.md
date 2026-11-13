@@ -180,7 +180,7 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #25)
+## 7. Status (end of DEVLOG #26)
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).
@@ -227,7 +227,8 @@ xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js,
 ```
 
 **CI:**
-- `.github/workflows/pages.yml` runs the tests and publishes the site from `main`.
+- `.github/workflows/pages.yml` runs the tests and publishes the site (GitHub Pages) from `main` **and the work branch** (the
+  repo's default branch; there is no `main`). Needs Settings → Pages → Source = GitHub Actions (owner, one time).
 - `.github/workflows/desktop-build.yml` runs the tests, then builds on `windows-latest` for every push that touches the
   app (on `main` and the dev branch). Version = `0.1.<run number>`. It publishes **Release `v0.1.<n>`** (latest) with
   `Epic-7-Engine-Setup-<v>.exe` (+ `.blockmap`, `latest.yml`) and `Epic-7-Engine-<v>-portable.exe`, and also uploads

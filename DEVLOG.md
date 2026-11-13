@@ -7,6 +7,33 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #26 · Phone: publish the web app from the work branch · this commit (previous: `5b3bd4a`)
+
+**Asked for:** "How to run this on mobile".
+
+**Findings**
+- The repo only has the work branch `ccr-2c9db930-kqvr1r`, which is also its **default branch**. There is no `main`.
+- `pages.yml` only deployed on pushes to `main`, so the web version had never been published.
+- GitHub Pages also needs the one-time setting Settings → Pages → Source = GitHub Actions. That's the owner's to switch;
+  there's no tool for it here.
+
+**Changed**
+- `.github/workflows/pages.yml`: also deploys on pushes to the work branch. The default `github-pages` environment allows
+  the default branch.
+- `README.md`: phone instructions:
+  - the address (`https://meztking.github.io/Epic-seven-live-RTA-Helper/`)
+  - Add to Home Screen on Android and iPhone
+  - what works on a phone (Gear, Guild War, RTA by tapping, hero info) and what doesn't (screen reading and overlay)
+  - data is per device; only Guild War syncs, via Firebase
+
+**Tested:** workflow YAML checked; tests run in CI before deploy. **Not tested:** the deploy itself (it fails until the
+owner switches the Pages source; then re-run it from the Actions tab or push).
+
+**Open:** phone layout was checked at 390 px wide in the browser tests (no sideways scrolling on live, gear, home), not on
+a real phone.
+
+---
+
 ## 2026-11-12 · #25 · Built-in screen positions (no drawing for Steam 16:9) and a clear "what's set" table · this commit (previous: `0041c80`)
 
 **Asked for:** "why does it say not calibrated yet, and its hard to tell what is calibrated and what is not, and this
