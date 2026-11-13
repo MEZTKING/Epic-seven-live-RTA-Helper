@@ -38,6 +38,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
    exist; skins come from corrections (or a skin portrait list if one is found).
 5b. Element colour + class symbol narrowing (DEVLOG #29): done for round icons with badges; next: badge positions on
    pick banners (from a real draft file), more class examples (`tools/make-class-templates.js`).
+   The owner's BAN-screen screenshot (chat only) shows each pick banner's element + class badges at the banner's top
+   end: right end on my side, left end on the opponent's; banners have different widths, so positions per slot.
 6. Opponent names in Korean / Japanese / Chinese: load those tesseract languages for the name reader; result +/− from the
    arrow colour, not the OCR'd sign.
 

@@ -58,6 +58,7 @@ importer doesn't work with the Steam version of the game**, owner-reported 2026-
 | World Arena pick/ban/win rates exist only as image infographics on Stove (e.g. `https://page.onstove.com/epicseven/global/view/12903188`) | Stove community | Not loaded. Meta stats come in as user CSVs (`meta: <name>`) |
 
 | Class-symbol examples (`js/sources/class-templates.js`) | Cut from the owner's real Steam screenshot `tests/fixtures/screens/steam-rta-preban-select.png` (15 heroes confirmed by eye) by `tools/make-class-templates.js` | `js/faces.js` (`classFromVectors`), `js/auto.js` |
+| Built-in screen signatures (`js/sources/screen-refs.js`) | 32×18 fingerprints from the owner's real screenshots (pre-ban picker) by `tools/make-screen-refs.js` | `js/screen-watch.js`, `js/auto.js` |
 | Element / class of each hero | Official hero list (source #1: `element`, `role`) | `js/faces.js` (`badgeAllow`) |
 
 ## 4. Checked and NOT used (and why)

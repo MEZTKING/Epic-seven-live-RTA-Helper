@@ -134,6 +134,7 @@
       if (stream) stopCapture();
       live = false;
       source = img;
+      track.clear(); // a new picture: forget what the slots saw on the previous one
       begin();
     };
     img.src = URL.createObjectURL(file);
@@ -199,6 +200,7 @@
     $('#pics-list').classList.add('hidden');
     $('#pics-what').classList.remove('hidden');
     $('#pics-preview').src = p.url;
+    if (window.E7Screens) $('#pics-teach').innerHTML = '<option value="">this picture shows…</option>' + window.E7Screens.SCREENS.map((x) => `<option value="${x.id}">${esc(x.label)}</option>`).join('');
     const parts = PARTS();
     const big = parts.filter((x) => !x.small);
     const one = parts.filter((x) => x.small);
@@ -229,6 +231,20 @@
     if (b) startPart(b.dataset.part);
   });
   $('#pics-parts').addEventListener('change', (e) => e.target.id === 'pics-one' && e.target.value && startPart(e.target.value));
+  $('#pics-teach').addEventListener('change', async (e) => {
+    const screen = e.target.value;
+    if (!screen || !chosenPic || !window.E7Screens) return;
+    const img = new Image();
+    await new Promise((res) => {
+      img.onload = res;
+      img.src = chosenPic.url;
+    });
+    window.E7Screens.teach(img, screen);
+    const n = window.E7Screens.refs().filter((r) => r.screen === screen).length;
+    e.target.value = '';
+    alert(`Taught: "${window.E7Screens.label(screen)}" (${n} example${n === 1 ? '' : 's'}). It's recognised from now on, on every page.`);
+    if (window.E7Diag) window.E7Diag.log('screens', `taught ${screen} from a saved picture`, { examples: n });
+  });
   $('#pics-back').addEventListener('click', () => {
     $('#pics-what').classList.add('hidden');
     $('#pics-list').classList.remove('hidden');
@@ -335,6 +351,9 @@
   }
 
   const DRAFT_HOLD_MS = 90000;
+  const INTRO_HOLD_MS = 300000; // after the match-start screen, the next few minutes are this match's draft
+  let introSeenAt = -Infinity;
+  let lastScreen = null;
   let draftSeenAt = -Infinity; // performance.now() starts at 0 when the page opens: 0 would mean "draft just seen"
   const draftTaught = () => !!window.E7Screens && window.E7Screens.refs().some((r) => r.screen === 'rta-draft');
   function tick() {
@@ -358,11 +377,26 @@
     // 2 of the 4 pre-ban faces at the bottom are recognised confidently (face matcher), and for 90 s after that
     // (postban / Ready screens don't show the pre-ban row). Screenshots you load yourself aren't gated.
     const gate = live && !draftTaught();
-    const isDraft = () => (gate ? performance.now() - draftSeenAt < DRAFT_HOLD_MS : on('rta-draft'));
+    const isDraft = () => (gate ? performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS : on('rta-draft'));
+    // the match-start screen (versus / profile art, once taught) = a new match begins (owner's idea, DEVLOG #30)
+    const cur = SW ? SW.current() : null;
+    if (cur !== lastScreen) {
+      if (cur === 'rta-intro' && live) onMatchStart();
+      // the RTA menu (World Arena) means the draft is over: stop reading picks right away (owner's screenshot, DEVLOG #30)
+      if (cur === 'rta-lobby' && (performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS)) {
+        draftSeenAt = introSeenAt = -Infinity;
+        if (window.E7Diag) window.E7Diag.log('rta', 'RTA menu seen: draft over, reading paused');
+      }
+      lastScreen = cur;
+    }
     let prebansSure = 0;
     const ordered = [...slots].sort((a, b) => (b.kind === 'preban') - (a.kind === 'preban')); // pre-bans first
+    // the pre-ban picker covers the draft board with a grid of faces: never read draft slots there (DEVLOG #30)
+    const onPicker = SW && SW.current() === 'rta-preban-pick';
+    if (onPicker) readPickerPrebans();
     for (const s of ordered) {
       const t = track.get(s.id);
+      if (onPicker) continue;
       const needsDraft = !(gate && s.kind === 'preban');
       if (needsDraft && !isDraft() && (gate || s.side !== 'help')) {
         if (!t.confirmed) Object.assign(t, { candidate: null, count: 0 }); // never half-confirm on another screen
@@ -496,6 +530,57 @@
     const nextNonPost = next.actions.filter((a) => a.phase !== 'postban').length;
     const changed = next.firstPick !== cur.firstPick || JSON.stringify(next.actions) !== JSON.stringify(cur.actions);
     if (changed && nextNonPost >= nonPost) App.replaceDraft(next);
+  }
+
+  // ================================================================ match start (versus / profile art)
+  function onMatchStart() {
+    introSeenAt = performance.now();
+    const d = App.store.draft;
+    if (d.actions.length) App.replaceDraft(L.newDraft(d.firstPick), { newMatch: true }); // a finished draft is kept as pending
+    lastFirstPick = null;
+    track.clear();
+    rebuildSlots();
+    if (window.E7Diag) window.E7Diag.log('rta', 'match start screen (profile art): new match');
+    // keep the profile art (both players) with this match, for later
+    if (window.E7Pictures && source) window.E7Pictures.capture(source, `match start (profile art) · draft ${App.store.draft.id}`).catch(() => {});
+    setStatus('New match starting (match-start screen seen) · reading the draft…');
+    readFirstPick();
+  }
+  /** Match-start screen: "First Pick" is written under the profile art of whoever picks first (owner's screenshot). */
+  async function readFirstPick() {
+    if (!App.store.settings || ocr.failed) return;
+    try {
+      const strip = { x: 0.03, y: 0.9, w: 0.94, h: 0.075 };
+      const words = await ocrWords(strip);
+      const hit = words.find((w) => /first/i.test(w.text)) || words.find((w) => /pick/i.test(w.text));
+      if (!hit) return;
+      const side = hit.cx < 0.5 ? 'me' : 'opp'; // your art is on the left, the opponent's on the right
+      lastFirstPick = side;
+      const d = App.store.draft;
+      if (!d.actions.length && d.firstPick !== side) App.replaceDraft(L.newDraft(side));
+      if (window.E7Diag) window.E7Diag.log('rta', `first pick read on the match-start screen: ${side}`, { word: hit.text, x: +hit.cx.toFixed(2) });
+    } catch (_) { /* OCR not available: first pick is still worked out from the picks */ }
+  }
+
+  // ================================================================ pre-ban picker: your two selected pre-bans
+  let pickerPrebans = { codes: [], at: 0 };
+  function readPickerPrebans() {
+    const R = regions();
+    if (!F || templates.faces.length < 50 || !R.myPrebanPick1) return;
+    const ct = (window.RTASources && window.RTASources.classTemplates) || [];
+    const codes = [];
+    for (const k of ['myPrebanPick1', 'myPrebanPick2']) {
+      const rect = pxRect(R[k]);
+      const b = F.badgesAt(source, rect, ct);
+      const r = F.classify(F.fromRect(source, rect, F.WIDE_VARIANTS), activeFaceTemplates(), { preferSource: 'my corrections', allow: F.badgeAllow(b.element, b.role, App.cache.heroes) });
+      if (F.isConfident(r)) codes.push(r.best.code);
+    }
+    const key = codes.join(',');
+    if (codes.length && key !== pickerPrebans.codes.join(',')) {
+      pickerPrebans = { codes, at: Date.now() };
+      if (window.E7Diag) window.E7Diag.log('rta', `pre-ban picker: you selected ${codes.map(App.nameOf).join(' + ')}`);
+      setStatus(`Your pre-bans (picker): ${codes.map(App.nameOf).join(' + ')}`);
+    }
   }
 
   // ================================================================ postbans
@@ -680,6 +765,32 @@
   // ==================================================================== OCR
   let ocr = { worker: null, loading: false, busy: false, last: '', lastAt: 0, failed: false };
   /** Read the text inside a calibrated region ('' if OCR is unavailable). */
+  /** Words in a region with their centre x as a fraction of the whole game picture: [{ text, cx }]. */
+  async function ocrWords(reg) {
+    for (let i = 0; i < 15 && ocr.busy; i++) await new Promise((r) => setTimeout(r, 300)); // wait for another read
+    if (ocr.failed || ocr.busy) return [];
+    ocr.busy = true;
+    try {
+      if (!ocr.worker) {
+        if (!window.Tesseract) await loadScript(TESSERACT_URL);
+        ocr.worker = await window.Tesseract.createWorker('eng');
+      }
+      const r = pxRect(reg);
+      const cv = document.createElement('canvas');
+      const scale = Math.max(1, 64 / r.h);
+      cv.width = Math.round(r.w * scale);
+      cv.height = Math.round(r.h * scale);
+      const cx = cv.getContext('2d');
+      cx.filter = 'grayscale(1) contrast(1.6)';
+      cx.drawImage(source, r.x, r.y, r.w, r.h, 0, 0, cv.width, cv.height);
+      const { data } = await ocr.worker.recognize(cv);
+      return ((data && data.words) || []).map((w) => ({ text: w.text, cx: reg.x + (((w.bbox.x0 + w.bbox.x1) / 2) / cv.width) * reg.w }));
+    } catch (e) {
+      return [];
+    } finally {
+      ocr.busy = false;
+    }
+  }
   async function ocrRegion(reg) {
     if (ocr.failed || ocr.busy) return '';
     ocr.busy = true;
@@ -1238,6 +1349,6 @@
     });
   }
 
-  window.RTAAuto = { render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { _onMatchStart: onMatchStart, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();

@@ -96,6 +96,30 @@ const { chromium } = require('playwright');
   await p.click('#calib-cancel');
   const saved = await p.evaluate(() => Object.keys((window.RTAApp.store.auto && window.RTAApp.store.auto.regions) || {}).length);
   console.log(JSON.stringify({ stepAfterBox: stepAfterBox.slice(0, 12), stepAfterBack: stepAfterBack.slice(0, 12), closed: await p.evaluate(() => document.querySelector('#calib').classList.contains('hidden')), regionsSaved: saved }));
+  // teach the match-start screen (too quick to teach live) from a saved picture
+  await p.click('#auto-pics');
+  await p.waitForSelector('#pics[open] .pic');
+  await (await p.$$('#pics .pic'))[idx].click();
+  const teachOpts = await p.$$eval('#pics-teach option', (o) => o.map((x) => x.value).filter(Boolean));
+  await p.selectOption('#pics-teach', 'rta-intro');
+  await p.waitForTimeout(300);
+  console.log('teach options:', JSON.stringify(teachOpts), '· taught rta-intro:', await p.evaluate(() => window.E7Screens.refs().filter((r) => r.screen === 'rta-intro').length));
+  await p.click('#pics-close');
+  // match start: a finished draft is kept as pending, a fresh draft begins, the profile art is saved
+  const ms = await p.evaluate(async () => {
+    const A = window.RTAApp;
+    const L = window.RTALogic;
+    let d = L.newDraft('me');
+    for (const c of ['c1001', 'c1002', 'c1003', 'c1004', 'c1005', 'c1006', 'c1007', 'c1008', 'c1009', 'c1010', 'c1011', 'c1012', 'c1013', 'c1014']) if (!L.isComplete(d) && !L.canSelect(d, c)) d = L.select(d, c); // canSelect returns a reason when NOT allowed
+    A.replaceDraft(d);
+    const before = { id: A.store.draft.id, actions: A.store.draft.actions.length };
+    const c = document.createElement('canvas'); c.width = 1280; c.height = 720; c.getContext('2d').fillRect(0, 0, 1280, 720);
+    window.RTAAuto._onMatchStart();
+    await new Promise((r) => setTimeout(r, 400));
+    const pics = await window.E7Pictures.list();
+    return { before, after: { id: A.store.draft.id, actions: A.store.draft.actions.length }, pendingKept: !!A.store.pending, pictureNotes: pics.map((x) => x.note).filter((n) => /match start/.test(n)).length };
+  });
+  console.log('match start:', JSON.stringify(ms));
   console.log('errors:', errs);
   await b.close();
 })();

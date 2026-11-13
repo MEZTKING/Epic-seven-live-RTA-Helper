@@ -35,6 +35,9 @@
         oppPickFirst: d(867, 129, 140, 70),
         oppPickLast: d(867, 550, 140, 70),
         result: v(470, 215, 410, 85),
+        // pre-ban picker ("Select Pre-Ban Hero"): the two heroes you selected, bottom middle (by eye, owner's screenshot)
+        myPrebanPick1: v(669, 595, 84, 84),
+        myPrebanPick2: v(764, 595, 84, 84),
       },
     },
   ];
