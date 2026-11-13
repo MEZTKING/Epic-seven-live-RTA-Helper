@@ -23,6 +23,12 @@ test('frame: a window title bar (one colour, not black) is cut off, the game is 
   assert.deepEqual(F.detect(a, W, H), { x: 0, y: 14, w: 400, h: 236 });
 });
 
+test('frame: a title bar right above the game\'s black band is still cut (RTA screens; review, DEVLOG #40)', () => {
+  const W = 400, H = 250;
+  const a = picture(W, H, (x, y, r) => (y < 14 ? [200, 200, 205] : y < 40 ? [0, 0, 0] : [r() * 255, r() * 255, r() * 255]));
+  assert.deepEqual(F.detect(a, W, H), { x: 0, y: 14, w: 400, h: 236 });
+});
+
 test("frame: the game's own black band at the top is NOT cut; a snip of just the game is left whole", () => {
   const W = 400, H = 250;
   const black = picture(W, H, (x, y, r) => (y < 30 ? [0, 0, 0] : [r() * 255, r() * 255, r() * 255]));

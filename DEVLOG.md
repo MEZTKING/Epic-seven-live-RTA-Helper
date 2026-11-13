@@ -7,6 +7,91 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #40 · New war works in the desktop app + wars start by themselves from the game; bug sweep · this commit (previous: `97ee0b5`)
+
+**Asked for:**
+- "I CANT ADD A NEW WAR, it should automatiacally be able to tell by looking at the guild name etc"
+- "check for any other bugs"
+
+**Findings**
+- **New war did nothing in the desktop app:** it asked for the guild name with `window.prompt()`, which Electron doesn't
+  support (no dialog, nothing happens).
+  - Six more questions used it: RTA preset name, meta / match-source names, the drafting-help count, the invite-link
+    fallback.
+  - The browser tests didn't catch it because Chromium does support `prompt()`.
+- **Guild names on the overview:** both sit in the left panel (ours by the green bar, the enemy's by the red one),
+  pinned left, at the same place on both sides' overviews, wide and 16:9.
+  - OCR on the owner's three overviews: "Legacies … Global" and "OldMemory … Global" every time; only the server tag
+    and a symbol need dropping.
+- **Bug sweep:** an independent review of the code changed since #35 found 6 issues; all confirmed by reading the code
+  or reproducing them, all fixed:
+  1. A stale enemy guild name (from an earlier reading) could pick or start the wrong war, or put fortress names on the
+     wrong war.
+  2. A war you finished or undid was started again whenever the Guild War page was reopened (within 12 h).
+  3. Every overview reading reached the Guild War page twice (bus + storage event). Two wars vs the same guild could be
+     started at once. This happened in the browser test: fortress names on one war, the page showing the other.
+  4. One unchecked reading (a 1–2 letter fragment, or a misread) could start a war and finish all others for the whole
+     guild.
+  5. Title bar NOT cut when the game's picture starts with its black band (RTA screens) and the window isn't 16:9 (the
+     owner's 2560×1392). Readers were ~30 px off there, and the overlay jumped every 3 s. Reproduced with a synthetic
+     picture.
+  6. With the window tracker failing (the overlay covers the display), the overlay still used window fractions, so
+     drawings were off by up to ~48 px at the owner's size.
+  - Also: the guild page gave up waiting for Firebase after ~3 s; names missing from a reading were filled from the
+    PREVIOUS war's names.
+  - The old Linux test build still had `prompt()`: rebuilt. The owner gets the fix with the next release.
+
+**Changed**
+- `js/ask.js` (new): `E7Ask` dialogs (text, multi-field form, show-to-copy). All seven `prompt()` calls replaced
+  (`js/app.js`, `js/auto.js`, `js/guild-app.js`). Loaded on every page.
+  - `tests/no-prompt.test.js` fails if any page script calls `prompt()` again.
+- **New war** is a form (enemy guild + season). It notes that watching the game does it by itself.
+- `js/layouts.js`: `gwOurGuild`, `gwEnemyGuild` (left).
+- `js/gwmap.js` `cleanGuild`.
+- `js/vision/readers/guild-overview.js`:
+  - reads both guild names two ways, keeping only a name both agree on (≥ 3 characters)
+  - stores only this reading's enemy guild
+  - takes missing fortress names from the last reading only if it's the same enemy
+  - reads a single fortress label on its own when the band passes miss it
+- `js/guild-app.js`:
+  - `startWar` (finishes other active wars)
+  - `warFromGame`, one at a time: selects the active war vs that guild, otherwise starts it with an **Undo** banner
+  - never restarts a war vs that guild started in the last 5 days (any status) or one you undid
+    (`e7-gw-dismissed`); waits up to 30 s for the guild's records
+  - `saveFortNames` only writes onto the war those names belong to
+- `js/guild-watch.js`: the stored reading is used once on load (no storage listener).
+- `js/frame.js`: the game's black band right under a title bar counts as game, so the title bar is cut. Older 16:9
+  window captures are now cut exactly too.
+- `js/game-area.js` keeps the last title-bar cut for the same window size (no jumping).
+- `overlay.html`: uses the game frame only while the tracker follows the window, otherwise the whole display; redraws
+  when that changes.
+- Tests: `tests/e2e/_ask.js` answers the in-page questions (six tests switched from `page.on('dialog')`). The overview
+  fixtures got made-up guild names ("TestHome", "TestEnemies") where the blurred ones were.
+
+**Tested**
+- `npm test` **113**:
+  - new: title bar above a black band
+  - new: no `prompt()` anywhere
+  - `cleanGuild` on the real OCR outputs (checked separately)
+- New `gw-autowar.e2e.js`:
+  - no war → the enemy overview → war "vs TestEnemies" started by itself, with its three fortress names and an Undo
+    banner
+  - read again → still 1
+  - Undo → none
+  - New war through the form → "Hand Made Guild", season kept
+  - the undone guild read again → not restarted
+  - a page opened later → keeps "Hand Made Guild", 1 war
+- `gw-fortress.e2e.js`: the whole two-sided flow. No duplicate war any more; names land on the right war.
+- Browser suite **26/26** clean.
+- Desktop tests on a rebuilt Linux package: all 9 pass (overlay test card, watcher, RTA follow, pop-outs, zoom, dev screenshots, cancel, window picker, overlay status) + new `tests/desktop/newwar.js`: in the real app `prompt()` throws "prompt() is and will not be supported.", New war through the form creates "vs Foes Guild".
+- **Not tested:** on the owner's Windows PC (needs the new release); Firebase with two guildmates reading at once (the
+  lock is per page).
+
+**Open:** two guildmates' apps could still both start the same war at the same moment (each page has its own lock); the
+second one would be visible as a duplicate and can be removed with Undo.
+
+---
+
 ## 2026-11-13 · #39 · Guild War on both sides: fortress names from the overview, our side, beaten defenders · this commit (previous: `82023db`)
 
 **Asked for:**

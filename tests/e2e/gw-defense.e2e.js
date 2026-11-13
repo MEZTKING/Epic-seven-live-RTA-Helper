@@ -7,9 +7,11 @@ const __fs = require('fs');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const FX = __path.join(__dirname, '..', 'fixtures', 'screens');
 const { chromium } = require('playwright');
+const { autoAsk, ask } = require('./_ask.js');
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1300, height: 950 } });
+  await autoAsk(ctx); // answers the app's in-page questions (js/ask.js)
   const errs = [];
   const gp = await ctx.newPage();
   gp.on('pageerror', (e) => errs.push('guild: ' + e.message));
@@ -24,6 +26,7 @@ const { chromium } = require('playwright');
   await gp.click('#guild-create');
   await gp.waitForTimeout(300);
   await gp.click('.tab[data-tab=war]');
+  await ask(gp, ['Test Foes', '']);
   await gp.click('#war-new');
   await gp.waitForTimeout(300);
   // the game watcher: Live page, fed the real enemy-defense screen

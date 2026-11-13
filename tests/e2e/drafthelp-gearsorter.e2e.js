@@ -7,6 +7,7 @@ __fs.mkdirSync(OUT, { recursive: true });
 const FX = __path.join(__dirname, 'fixtures');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const { chromium } = require('playwright');
+const { autoAsk, ask } = require('./_ask.js');
 const fs = require('fs');
 const SP = OUT;
 const W = 1600, H = 900, S = 0.07;
@@ -15,6 +16,7 @@ const scene = { mePreban: ['Belian', 'Luna'], oppPreban: ['Krau', 'Aria'], mePic
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1400, height: 1000 } });
+  await autoAsk(ctx); // answers the app's in-page questions (js/ask.js)
   const p = await ctx.newPage();
   const errs = [];
   const watch = (pg) => { pg.on('pageerror', (e) => errs.push('pageerror ' + e.message)); pg.on('console', (m) => m.type() === 'error' && !/Failed to load resource|ERR_/.test(m.text()) && errs.push(m.text())); };
@@ -54,7 +56,7 @@ const scene = { mePreban: ['Belian', 'Luna'], oppPreban: ['Krau', 'Aria'], mePic
   await box(LAY.oppPick[0], LAY.oppPick[1], S, sh); await box(LAY.oppPick[0], LAY.oppPick[1] + 4 * LAY.step, S, sh);
   await p.click('#calib-skip'); // no name box
   await p.click('#calib-done');
-  answers.push('3');
+  await ask(p, '3');
   await p.click('#auto-calib-help');
   await box(0.36, 0.78, 80 / W, 80 / H); await box(0.56, 0.78, 80 / W, 80 / H);
   await p.click('#calib-done');

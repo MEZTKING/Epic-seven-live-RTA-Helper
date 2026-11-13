@@ -29,6 +29,7 @@
  *   cleanName(ocrText)              -> best name-like word ('' if none)
  *   matchName(raw, known)           -> a known name within a small edit distance, else null
  *   pagerIndex(rgba, W, H, rect)    -> { index: 0|1|2, contrast } (rect in pixels: the indicator bar)
+ *   cleanGuild(ocrText)             -> a guild name from the overview's name line ("OldMemory “Global" -> "OldMemory")
  *   DEFAULT_FORTS                   -> names used until the overview has been seen
  */
 (function (root) {
@@ -253,6 +254,16 @@
     return best ? best.name : null;
   }
 
+  /** Guild name from OCR of the overview's name line: everything before the server tag, symbols dropped. */
+  function cleanGuild(text) {
+    const out = [];
+    for (const raw of String(text || '').split(/\s+/)) {
+      const t = raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+      if (/^(global|asia|europe|korea|japan|kr|jp|eu|na|sea)$/i.test(t)) break;
+      if (t && /[\p{L}\p{N}]/u.test(t)) out.push(t);
+    }
+    return out.join(' ').trim();
+  }
   /** Which third of the indicator bar holds the bright pill. */
   function pagerIndex(rgba, W, H, rect) {
     const y0 = Math.max(0, Math.round(rect.y + rect.h * 0.3));
@@ -272,7 +283,7 @@
     return { index: order[0], contrast: mean[order[0]] - mean[order[1]], mean };
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex };
+  const api = { NORM_H, DEFAULT_FORTS, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);

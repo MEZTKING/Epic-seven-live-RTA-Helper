@@ -126,9 +126,28 @@
     $('#gw-seen-save').onclick = () => A.openTargetWith({ player, teams: seenDefense.teams });
   }
   // fortress names read on the overview (js/vision/readers/guild-overview.js): kept on the current war, shared
-  bus.on('guild:forts', (d) => {
-    if (A.saveFortNames) A.saveFortNames(d.side, d.names).catch(() => {});
-  });
+  // ...and the enemy guild's name: pick that war or start it (DEVLOG #40), then keep the fortress names on it
+  async function applyForts(d) {
+    if (!d) return;
+    try {
+      if (d.enemyGuild && A.warFromGame) await A.warFromGame(d.enemyGuild);
+      if (d.side && Array.isArray(d.names) && A.saveFortNames) await A.saveFortNames(d.side, d.names, d.enemyGuild);
+    } catch (_) { /* shown by the page's own status line */ }
+  }
+  bus.on('guild:forts', applyForts);
+  // the overview may have been read before this page opened (or in another window): use the stored reading
+  const stored = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem('e7-gw-forts') || 'null');
+      // only a recent reading (a war lasts days; an old reading may be last war's)
+      return v && v.at && v.enemyGuild && Date.now() - Date.parse(v.at) < 12 * 3600 * 1000 ? { side: v.side, names: v[v.side], enemyGuild: v.enemyGuild } : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  // (the page waits for the guild's records itself; live readings arrive on the bus, so no storage listener: that
+  // delivered every reading twice and could start the same war twice)
+  applyForts(stored());
   // a fortress map seen in game (js/vision/readers/guild-fortress.js): its defenders, editable, saved into this war
   let seenFort = null;
   bus.on('guild:fortress', (d) => {

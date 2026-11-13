@@ -68,6 +68,10 @@
         // Guild War overview: the band with the three fortress names (and, at the bottom right, the shield/swords switch
         // in the same place as gwFortPager). Middle-anchored, measured on both sides' overviews.
         gwFortNames: A(g(307, 404, 921, 55), 'c'),
+        // Guild War overview, left panel: our guild's name (green bar) and the enemy guild's (red bar), each followed by a
+        // server tag ("Global"). Pinned left; the same place on both sides' overviews (owner's 2000×1070 and 1228×691).
+        gwOurGuild: A(g(32, 240, 181, 24), 'l'),
+        gwEnemyGuild: A(g(32, 505, 181, 24), 'l'),
       },
     },
   ];

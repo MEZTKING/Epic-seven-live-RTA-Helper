@@ -7,11 +7,13 @@ __fs.mkdirSync(OUT, { recursive: true });
 const FX = __path.join(__dirname, 'fixtures');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const { chromium } = require('playwright');
+const { autoAsk, ask } = require('./_ask.js');
 const SP = OUT;
 const U = BASE + 'guild.html';
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1300, height: 950 } });
+  await autoAsk(ctx); // answers the app's in-page questions (js/ask.js)
   const errs = [];
   const watch = (pg) => { pg.on('pageerror', (e) => errs.push('pageerror ' + e.message)); pg.on('console', (m) => m.type() === 'error' && !/Failed to load resource|ERR_/.test(m.text()) && errs.push(m.text())); };
   const A = await ctx.newPage(); watch(A);
@@ -34,7 +36,7 @@ const U = BASE + 'guild.html';
   await B.goto(U);
   // ---- war + target
   await A.click('.tab[data-tab=war]');
-  answers.push('Foes Guild'); await A.click('#war-new'); await A.waitForTimeout(200);
+  await ask(A, ['Foes Guild', '']); await A.click('#war-new'); await A.waitForTimeout(200);
   await A.click('#target-add');
   await A.fill('#target-form [name=player]', 'RivalOne'); await A.fill('#target-form [name=tower]', 'Left 1');
   const fs = A.locator('#team-editors .gw-fs');
@@ -65,7 +67,7 @@ const U = BASE + 'guild.html';
   await A.click('#roster-share'); await A.waitForTimeout(200);
   console.log('members:', await txt(A, '#member-rows'));
   await A.click('.tab[data-tab=war]');
-  answers.push('Foes Guild'); await A.click('#war-new'); await A.waitForTimeout(200);
+  await ask(A, ['Foes Guild', '']); await A.click('#war-new'); await A.waitForTimeout(200);
   await A.click('#target-add');
   await A.fill('#target-form [name=player]', 'rivalone');
   for (let k = 0; k < 3; k++) await A.locator('#team-editors .gw-fs').nth(0).locator('.h3').nth(k).fill(['Landy', 'Seaside Bellona', 'Destina'][k]);
