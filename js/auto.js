@@ -76,7 +76,17 @@
     return w && h ? { w, h } : null;
   }
 
+  let capturing = false; // a start is in progress (no second picker / capture)
   async function startCapture() {
+    if (capturing || stream) return;
+    capturing = true;
+    try {
+      await doStartCapture();
+    } finally {
+      capturing = false;
+    }
+  }
+  async function doStartCapture() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       alert('This browser cannot capture the screen. Use Chrome or Edge on PC.');
       return;
@@ -1144,6 +1154,35 @@
   };
   $('#auto-clear-learned').addEventListener('click', clearSrc('auto-learned', 'auto-learned examples'));
   $('#auto-clear-corr').addEventListener('click', clearSrc('my corrections', 'of your corrections'));
+
+  // ============================================================ follow the game watcher (DEVLOG #28, step 1b part 1)
+  // Desktop app: the game watcher (hidden window) decides what's watched. The RTA reader starts by itself whenever the
+  // watcher is watching (same game window, same title-bar cut, no picker) and stops when it stops. Pressing Stop here
+  // keeps it stopped until Start. Browser: a page can't start a capture without a click, so it stays one click.
+  const VC = window.VisionClient;
+  let followed = false;
+  let userStopped = false;
+  function followWatcher(s) {
+    if (!VC || !VC.desktop) return;
+    const watching = VC.alive() && s && s.watching;
+    const screenshotMode = source && !live;
+    if (watching && !stream && !capturing && !userStopped && !screenshotMode) {
+      followed = true;
+      setStatus(`Following the game watcher ("${s.name}")…`);
+      startCapture();
+    } else if (!watching && followed && stream) {
+      followed = false;
+      stopCapture();
+      setStatus('The game watcher stopped, so the RTA reader stopped too.');
+    }
+  }
+  if (VC) VC.onStatus(followWatcher);
+  $('#auto-start').addEventListener('click', () => (userStopped = false));
+  $('#auto-stop').addEventListener('click', () => {
+    userStopped = true;
+    followed = false;
+  });
+  if (VC && VC.desktop) $('#auto-start').title = 'Starts by itself while the game watcher is watching (Game window menu)';
 
   window.RTAAuto = { render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
