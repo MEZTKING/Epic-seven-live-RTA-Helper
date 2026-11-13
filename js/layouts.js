@@ -18,6 +18,8 @@
   const px = (W, H) => (x, y, w, h) => ({ x: x / W, y: y / H, w: w / W, h: h / H });
   const d = px(1346, 757); // draft screenshots (game picture after removing the title bar)
   const v = px(1343, 758); // victory fixture
+  const g = px(1228, 691); // Guild War enemy-defense file (pixel-measured)
+  const ring = (cx, cy) => g(cx - 31, cy - 31, 62, 62); // a round hero icon (gold ring box)
 
   const LAYOUTS = [
     {
@@ -38,6 +40,14 @@
         // pre-ban picker ("Select Pre-Ban Hero"): the two heroes you selected, bottom middle (by eye, owner's screenshot)
         myPrebanPick1: v(669, 595, 84, 84),
         myPrebanPick2: v(764, 595, 84, 84),
+        // Guild War enemy defense screen: the player's name and the two defense teams (round 1, round 2)
+        gwName: g(138, 147, 110, 27),
+        gwDef1: ring(112, 381),
+        gwDef2: ring(182, 409),
+        gwDef3: ring(64, 439),
+        gwDef4: ring(314, 381),
+        gwDef5: ring(378, 409),
+        gwDef6: ring(259, 439),
       },
     },
   ];

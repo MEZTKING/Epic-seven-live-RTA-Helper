@@ -16,6 +16,12 @@ const SHOTS = [
   { screen: 'rta-preban-pick', file: 'tests/fixtures/screens/steam-rta-preban-select.png' },
   { screen: 'rta-preban-pick', file: 'tests/fixtures/screens/steam-rta-preban-select2.png' },
   { screen: 'rta-draft', file: 'tests/fixtures/screens/steam-rta-ban.png' },
+  // Guild War (owner's files 2026-11-13; maps/overview/battle blurred so no names are readable: a 32x18 signature is unaffected)
+  { screen: 'gw-overview', file: 'tests/fixtures/screens/steam-gw-overview-blurred.png' },
+  { screen: 'gw-map', file: 'tests/fixtures/screens/steam-gw-map1-blurred.png' },
+  { screen: 'gw-map', file: 'tests/fixtures/screens/steam-gw-map2-blurred.png' },
+  { screen: 'gw-enemy', file: 'tests/fixtures/screens/steam-gw-enemy.png' },
+  { screen: 'gw-battle', file: 'tests/fixtures/screens/steam-gw-battle-blurred.png' },
 ];
 
 (async () => {

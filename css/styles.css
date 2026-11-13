@@ -464,3 +464,5 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .label-cell input { width: 100%; }
 .pic .btn-row { margin-top: 6px; }
 .pic .btn-row .btn { padding: 4px 8px; font-size: 13px; }
+.gw-seen { margin-top: 8px; padding: 8px 10px; border: 1px solid #3a6ad8; border-radius: 8px; background: rgba(58,106,216,.1); }
+.gw-seen .btn { margin-left: 8px; }

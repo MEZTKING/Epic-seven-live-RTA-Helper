@@ -86,7 +86,9 @@
   }
 
   /** The game watcher read text in the name box (js/vision/readers/guild-name.js). */
+  let lastRaw = '';
   function onNameRead(d) {
+    if (d.text) lastRaw = d.text.replace(/[^\p{L}\p{N}_#.\- ]/gu, '').trim();
     if (d.away) {
       last = { name: null, n: 0 };
       lastRect = null;
@@ -105,6 +107,24 @@
     postOverlay();
   }
   bus.on('guild:name-read', onNameRead);
+  // the enemy's defense teams seen on screen (js/vision/readers/guild-defense.js)
+  let seenDefense = null;
+  bus.on('guild:defense', (d) => {
+    seenDefense = d;
+    renderSeen();
+  });
+  function renderSeen() {
+    const el = $('#gw-seen');
+    if (!el) return;
+    if (!seenDefense) return el.classList.add('hidden');
+    const player = (A.current && A.current()) || last.name || lastRaw || '';
+    const team = (t) => t.map((x) => (x && x.sure ? A.esc(A.nameOf(x.code)) : '<span class="hint">?</span>')).join(', ');
+    el.innerHTML = `<b>Seen in game${player ? ` · ${A.esc(player)}` : ''}:</b> Round 1: ${team(seenDefense.teams[0])} · Round 2: ${team(seenDefense.teams[1])}
+      <button class="btn primary" id="gw-seen-save">Save as ${player ? A.esc(player) + "'s" : 'this enemy\'s'} defense</button>
+      <span class="hint">“?” = not sure: type those heroes in; the app remembers them for next time.</span>`;
+    el.classList.remove('hidden');
+    $('#gw-seen-save').onclick = () => A.openTargetWith({ player, teams: seenDefense.teams });
+  }
   bus.on('vision:warning', (d) => d.module === 'guild' && ($('#gw-watch-read').textContent = '⚠ ' + d.text));
 
   // ----------------------------------------------------- overlay layer 'guild'
@@ -144,7 +164,7 @@
     if (watching()) C.stop().catch(() => {});
     else
       C.ensure()
-        .then(() => !box() && calibrate())
+        .then(() => {})
         .catch((e) => ($('#gw-watch-read').textContent = e.message));
   });
   $('#gw-watch-box').addEventListener('click', calibrate);

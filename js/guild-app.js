@@ -296,13 +296,29 @@
 
   // ------------------------------------------------------------ target form
   let editingTarget = null;
-  function openTarget(id) {
+  /**
+   * seen (optional, from the game watcher): { player, teams: [[{ code, sure, q }|null ×3] ×2] }. Opens the editor for that
+   * player's defense (existing or new) with the heroes the app recognised filled into empty places (DEVLOG #34).
+   */
+  function openTarget(id, seen = null) {
     if (!warId) return alert('Start a war first (New war).');
-    const t = id ? state.targets.find((x) => x.id === id) : null;
-    editingTarget = t ? { ...t } : { warId, teams: [] };
+    let t = id ? state.targets.find((x) => x.id === id) : null;
+    if (!t && seen && seen.player) t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(seen.player)) || null;
+    editingTarget = t ? { ...t } : { warId, teams: [], player: seen ? seen.player || '' : '' };
+    if (seen) {
+      editingTarget.teams = Array.from({ length: Math.max(2, (editingTarget.teams || []).length) }, (_, i) => {
+        const tm = { ...((editingTarget.teams || [])[i] || {}) };
+        const hs = [...(tm.heroes || [])];
+        (seen.teams[i] || []).forEach((x, k) => {
+          if (!hs[k] && x && x.sure) hs[k] = x.code;
+        });
+        return { ...tm, heroes: hs };
+      });
+      editingTarget._seen = seen; // what the app saw: names you type for unsure icons teach it (on save)
+    }
     const f = $('#target-form');
     $('#target-title').textContent = t ? `Edit ${t.player}` : 'Add enemy defense';
-    f.player.value = t ? t.player : '';
+    f.player.value = t ? t.player : editingTarget.player || '';
     f.tower.value = t ? t.tower || '' : '';
     f.notes.value = t ? t.notes || '' : '';
     $('#target-delete').classList.toggle('hidden', !t);
@@ -341,7 +357,30 @@
     });
     const unknown = $$('.h3', f).filter((i) => i.value.trim() && !codeOf(i.value)).map((i) => i.value);
     if (unknown.length && !confirm(`Unknown hero name(s): ${unknown.join(', ')}. Save without them?`)) return;
+    const seen = editingTarget._seen;
+    delete editingTarget._seen;
     await put('target', { ...editingTarget, player: f.player.value.trim(), tower: f.tower.value.trim(), notes: f.notes.value.trim(), teams });
+    // learn from your names: an icon the app wasn't sure of (or got wrong) + the hero you typed = a correction (this device)
+    if (seen) {
+      let list = [];
+      try {
+        list = JSON.parse(localStorage.getItem('e7-gw-face-corrections') || '[]') || [];
+      } catch (_) { /* start fresh */ }
+      let added = 0;
+      teams.forEach((tm, i) =>
+        (tm.heroes || []).forEach((code, k) => {
+          const x = (seen.teams[i] || [])[k];
+          if (x && x.q && code && (!x.sure || x.code !== code)) {
+            list.push({ code, q: x.q, at: new Date().toISOString() });
+            added++;
+          }
+        }),
+      );
+      if (added) {
+        localStorage.setItem('e7-gw-face-corrections', JSON.stringify(list.slice(-300)));
+        if (window.E7Diag) window.E7Diag.log('guild', `learned ${added} hero icon(s) from your names`);
+      }
+    }
     $('#target-dialog').close();
   });
 
@@ -692,6 +731,7 @@
     return all.find((t) => t.warId === warId) || all.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] || null;
   }
   window.GuildApp = {
+    openTargetWith: (seen) => openTarget(null, seen),
     get state() {
       return state;
     },
