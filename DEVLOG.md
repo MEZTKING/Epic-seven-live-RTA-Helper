@@ -7,6 +7,47 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #31 · Real RTA screens as files: built-in recognition of 6 screens, First Pick read, banners can't match portraits · this commit (previous: `50aa89a`)
+
+**Asked for:** "how do i send the screenshots as files", then the owner attached five real Steam screens as files
+(menu, "Here comes a new challenger!", match start, pre-ban picker with 2 selected, BAN screen).
+
+**Changed**
+- `tests/fixtures/screens/`: `steam-rta-menu`, `steam-rta-match-found`, `steam-rta-match-start`,
+  `steam-rta-preban-select2`, `steam-rta-ban` (1340×754, the game picture; the owner's name and guild name blacked out).
+- `js/screens.js`: new screen `rta-found` (match found).
+- `tools/make-screen-refs.js` → `js/sources/screen-refs.js`: built-in signatures for **rta-lobby, rta-found,
+  rta-intro, rta-preban-pick (×2), rta-draft (BAN screen)**.
+  - Pairwise similarity: everything ≤ 0.42 except the two pickers (0.95: the same screen at another moment) and
+    menu ↔ match found (0.81: the found banner over a darkened menu, below the 0.82 threshold + margin).
+- `js/auto.js`:
+  - **Match found** starts a new match (the earliest signal). Match start within 20 s is the same match: it saves the
+    profile art and reads First Pick.
+  - The built-in draft-board signature keeps the draft gate open.
+  - Test hooks `_readFirstPick`, `_pickerPrebans`.
+- New `tests/e2e/rta-real-screens.e2e.js`.
+
+**Findings (real files, nothing taught)**
+- Screens recognised: **7/7** (menu, found, match start, both pickers, BAN screen; Victory → none, as it should be).
+- **First Pick** (OCR word position on the match-start screen): read **opponent**. Correct.
+- Pre-ban picker, selected heroes: 1/2 confident (**Lady of the Scales**); the other stays unsure.
+- The by-eye built-in pick boxes sit on the heroes on the real BAN screen, and the selected-pre-ban boxes on the real
+  picker.
+- **Pick banners cannot be matched to the official portraits.** The banner is a different crop of the art. Old matcher:
+  all 10 slots unsure at 0.45–0.69, so nothing wrong is confirmed. Face matcher with a size/position search: 0.65–0.78
+  with tiny leads and wrong-looking names (Kawerik ×3).
+  - Way forward: **learn banners from corrections**. Each hero's banner never changes, so one correction per hero
+    (click the slot → type the name) is remembered for good; the element + class badges on the banners can narrow
+    candidates once their positions are added.
+  - Alternatively: the battle CR bar and the result screen use **round** icons, which the face matcher reads well.
+
+**Tested:** `npm test` 102; RTA browser tests clean; `rta-real-screens.e2e.js` as above.
+
+**Open:** banner badge positions; a "label this draft after the match" flow on a saved BAN/Ready picture, so the
+corrections can be made without time pressure.
+
+---
+
 ## 2026-11-13 · #30 · Match start (versus / profile art), First Pick, RTA menu, pre-ban picker recognised without teaching · this commit (previous: `844cfea`)
 
 **Asked for:** "maybe you should also log the profile art that plays at the very start and this can be a way to know

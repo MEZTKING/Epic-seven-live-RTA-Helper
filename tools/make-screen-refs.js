@@ -9,7 +9,14 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
-const SHOTS = [{ screen: 'rta-preban-pick', file: 'tests/fixtures/screens/steam-rta-preban-select.png' }];
+const SHOTS = [
+  { screen: 'rta-lobby', file: 'tests/fixtures/screens/steam-rta-menu.png' },
+  { screen: 'rta-found', file: 'tests/fixtures/screens/steam-rta-match-found.png' },
+  { screen: 'rta-intro', file: 'tests/fixtures/screens/steam-rta-match-start.png' },
+  { screen: 'rta-preban-pick', file: 'tests/fixtures/screens/steam-rta-preban-select.png' },
+  { screen: 'rta-preban-pick', file: 'tests/fixtures/screens/steam-rta-preban-select2.png' },
+  { screen: 'rta-draft', file: 'tests/fixtures/screens/steam-rta-ban.png' },
+];
 
 (async () => {
   const b = await chromium.launch();

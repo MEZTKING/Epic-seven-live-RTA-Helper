@@ -377,11 +377,13 @@
     // 2 of the 4 pre-ban faces at the bottom are recognised confidently (face matcher), and for 90 s after that
     // (postban / Ready screens don't show the pre-ban row). Screenshots you load yourself aren't gated.
     const gate = live && !draftTaught();
+    if (gate && SW && SW.current() === 'rta-draft') draftSeenAt = performance.now(); // built-in draft-board signature
     const isDraft = () => (gate ? performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS : on('rta-draft'));
     // the match-start screen (versus / profile art, once taught) = a new match begins (owner's idea, DEVLOG #30)
     const cur = SW ? SW.current() : null;
     if (cur !== lastScreen) {
-      if (cur === 'rta-intro' && live) onMatchStart();
+      if (cur === 'rta-found' && live) onMatchStart({ picture: false, firstPick: false }); // "Here comes a new challenger!"
+      if (cur === 'rta-intro' && live) onMatchStart({ fresh: performance.now() - introSeenAt > 20000 });
       // the RTA menu (World Arena) means the draft is over: stop reading picks right away (owner's screenshot, DEVLOG #30)
       if (cur === 'rta-lobby' && (performance.now() - draftSeenAt < DRAFT_HOLD_MS || performance.now() - introSeenAt < INTRO_HOLD_MS)) {
         draftSeenAt = introSeenAt = -Infinity;
@@ -533,18 +535,22 @@
   }
 
   // ================================================================ match start (versus / profile art)
-  function onMatchStart() {
+  /** "Match found" or the match-start screen: a new match. Only the match-start screen has the profile art + First Pick. */
+  function onMatchStart({ picture = true, firstPick = true, fresh = true } = {}) {
+    const wasRecent = performance.now() - introSeenAt < 20000; // "match found" came just before: same match
     introSeenAt = performance.now();
-    const d = App.store.draft;
-    if (d.actions.length) App.replaceDraft(L.newDraft(d.firstPick), { newMatch: true }); // a finished draft is kept as pending
-    lastFirstPick = null;
-    track.clear();
-    rebuildSlots();
-    if (window.E7Diag) window.E7Diag.log('rta', 'match start screen (profile art): new match');
+    if (fresh && !wasRecent) {
+      const d = App.store.draft;
+      if (d.actions.length) App.replaceDraft(L.newDraft(d.firstPick), { newMatch: true }); // a finished draft is kept as pending
+      lastFirstPick = null;
+      track.clear();
+      rebuildSlots();
+      if (window.E7Diag) window.E7Diag.log('rta', picture ? 'match start screen (profile art): new match' : 'match found ("Here comes a new challenger!"): new match');
+      setStatus('New match starting · reading the draft…');
+    }
     // keep the profile art (both players) with this match, for later
-    if (window.E7Pictures && source) window.E7Pictures.capture(source, `match start (profile art) · draft ${App.store.draft.id}`).catch(() => {});
-    setStatus('New match starting (match-start screen seen) · reading the draft…');
-    readFirstPick();
+    if (picture && window.E7Pictures && source) window.E7Pictures.capture(source, `match start (profile art) · draft ${App.store.draft.id}`).catch(() => {});
+    if (firstPick) readFirstPick();
   }
   /** Match-start screen: "First Pick" is written under the profile art of whoever picks first (owner's screenshot). */
   async function readFirstPick() {
@@ -1349,6 +1355,6 @@
     });
   }
 
-  window.RTAAuto = { _onMatchStart: onMatchStart, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();

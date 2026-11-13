@@ -184,7 +184,11 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #30)
+## 7. Status (end of DEVLOG #31)
+
+**Real screens (files) and what they showed:** see DEVLOG #31. Built-in screen signatures for menu, match found, match start,
+pre-ban picker, draft (BAN). Pick banners don't match official portraits: they are learned from corrections.
+
 
 **Debugging with the owner:** ask for **Copy report for Claude** (RTA → Auto, Live, Gear, Guild War, or desktop
 Developer menu) and have it pasted into the chat. It shows what every RTA slot sees, the gate, layout status and a log.
