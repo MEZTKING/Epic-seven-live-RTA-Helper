@@ -1,10 +1,13 @@
 /*
- * Guild War fortress map reader (DEVLOG #38): which fortress is open (Stinger / Darkwood / Vortex) and the names of
- * its defenders. Publishes 'guild:fortress' { index, fort, players: [{ name, raw, known, x, y }], keep: {...} | null }.
+ * Guild War fortress map reader (DEVLOG #38, #39): which fortress is open and the names of its defenders, on either
+ * side. Publishes 'guild:fortress' { side: 'enemy' | 'ours', index, fort, players: [{ name, raw, known, state, x, y }],
+ * keep: {...} | null }. state = 'enemy' | 'ours' (ring colour = health left) | 'beaten' (grey ring).
+ * Side: the ring colours (red enemy, green ours); when every defender is beaten, the side last shown on the overview.
+ * Fortress names: read on the overview (js/vision/readers/guild-overview.js, 'e7-gw-forts'); until then "Left fortress"…
  * Picture work is in js/gwmap.js (badges, name boxes, pager); text via the watcher's OCR, one line per name.
  * Names are matched to names you already have (enemy players saved before, and fixes you typed:
  * localStorage 'e7-gw-known-names' and 'e7-gw-name-fixes', written by the Guild War page).
- * Only the enemy's maps (red rings) are read. Any window size: the picture is scaled to E7GWMap.NORM_H first.
+ * Any window size: the picture is scaled to E7GWMap.NORM_H first.
  */
 (function () {
   'use strict';
@@ -93,25 +96,27 @@
       const pager = G.pagerIndex(rgba, W, H, { x: pr.x * W, y: pr.y * H, w: pr.w * W, h: pr.h * H });
       if (pager.contrast < 100) return ctx.note('Not a fortress map (no fortress indicator)');
       const badges = G.findBadges(rgba, W, H);
-      if (badges.length < 2) return ctx.note(`${G.FORTS[pager.index]}: no enemy defenders found`);
+      const forts = readJSON('e7-gw-forts', {});
+      const side = G.sideOf(badges) || forts.side || 'enemy';
+      const fort = (forts[side] && forts[side][pager.index]) || G.DEFAULT_FORTS[pager.index];
+      if (badges.length < 2) return ctx.note(`${fort}: no defenders found`);
       // the same map twice in a row before reading names (OCR is slow; the map may still be scrolling in)
-      const key = `${pager.index}|${badges.map((b) => `${Math.round(b.x / 20)},${Math.round(b.y / 20)}`).join(';')}`;
-      if (key === published) return ctx.note(`${G.FORTS[pager.index]}: ${badges.length + 1} defenders (read)`);
+      const key = `${side}|${pager.index}|${badges.map((b) => `${Math.round(b.x / 20)},${Math.round(b.y / 20)}${b.state[0]}`).join(';')}`;
+      if (key === published) return ctx.note(`${fort} (${side === 'ours' ? 'our side' : 'enemy'}): ${badges.length + 1} defenders (read)`);
       if (key !== pendingKey) {
         pendingKey = key;
-        return ctx.note(`${G.FORTS[pager.index]}: ${badges.length} defenders found, reading names…`);
+        return ctx.note(`${fort}: ${badges.length} defenders found, reading names…`);
       }
       const players = [];
       for (const b of badges) {
         const n = nameFrom(await readName(ctx, G.nameBox(b, H)));
-        players.push({ ...(n || { name: '', raw: '', known: false }), x: b.x / W, y: b.y / H });
+        players.push({ ...(n || { name: '', raw: '', known: false }), state: b.state, x: b.x / W, y: b.y / H });
       }
       const kr = lay.regions.gwKeepName;
       const kn = nameFrom(await readName(ctx, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }));
       lastKey = published = key;
-      const fort = G.FORTS[pager.index];
-      ctx.note(`${fort}: ${players.length} defenders + keep (${players.filter((p) => p.name).length + (kn ? 1 : 0)} names read)`);
-      ctx.publish('guild:fortress', { index: pager.index, fort, players, keep: kn ? { ...kn, keep: true } : null });
+      ctx.note(`${fort} (${side === 'ours' ? 'our side' : 'enemy'}): ${players.length} defenders + keep (${players.filter((p) => p.name).length + (kn ? 1 : 0)} names read, ${players.filter((p) => p.state === 'beaten').length} beaten)`);
+      ctx.publish('guild:fortress', { side, index: pager.index, fort, players, keep: kn ? { ...kn, keep: true } : null });
     },
   });
 })();

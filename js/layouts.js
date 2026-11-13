@@ -52,19 +52,22 @@
         myPrebanPick1: A(v(669, 595, 84, 84), 'c'),
         myPrebanPick2: A(v(764, 595, 84, 84), 'c'),
         // Guild War enemy defense screen: the player's name and the two defense teams (round 1, round 2).
-        // The panel is at the left; whether it sticks to the edge or the middle isn't verified yet -> both are tried.
-        gwName: A(g(138, 147, 110, 27), 'l', ['c']),
-        gwDef1: A(ring(112, 381), 'l', ['c']),
-        gwDef2: A(ring(182, 409), 'l', ['c']),
-        gwDef3: A(ring(64, 439), 'l', ['c']),
-        gwDef4: A(ring(314, 381), 'l', ['c']),
-        gwDef5: A(ring(378, 409), 'l', ['c']),
-        gwDef6: A(ring(259, 439), 'l', ['c']),
+        // Pinned to the LEFT edge: pixel-checked on the owner's 2000×1070 enemy screen (offset 0 px as 'l', 48 px as 'c').
+        gwName: A(g(138, 147, 110, 27), 'l'),
+        gwDef1: A(ring(112, 381), 'l'),
+        gwDef2: A(ring(182, 409), 'l'),
+        gwDef3: A(ring(64, 439), 'l'),
+        gwDef4: A(ring(314, 381), 'l'),
+        gwDef5: A(ring(378, 409), 'l'),
+        gwDef6: A(ring(259, 439), 'l'),
         // Guild War fortress map: the page indicator at the bottom right (white pill = which fortress), pixel-measured
         // (bar 0.42 h … 0.041 h from the right edge at 93.5% height, the same on 2000×1070 and 1228×691)
         gwFortPager: A(g(938, 630, 262, 32), 'r'),
-        // the keep's defender (locked badge in the middle of the castle): the same spot in all three fortresses
+        // the keep's defender (locked / gold badge in the middle of the castle): the same spot in every fortress, both sides
         gwKeepName: A(g(545, 371, 180, 32), 'c'),
+        // Guild War overview: the band with the three fortress names (and, at the bottom right, the shield/swords switch
+        // in the same place as gwFortPager). Middle-anchored, measured on both sides' overviews.
+        gwFortNames: A(g(307, 404, 921, 55), 'c'),
       },
     },
   ];

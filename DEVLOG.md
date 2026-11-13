@@ -7,6 +7,86 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #39 · Guild War on both sides: fortress names from the overview, our side, beaten defenders · this commit (previous: `82023db`)
+
+**Asked for:**
+- The owner sent our side's overview and its three fortress maps: "from left to right is domino (middle tower is iggy),
+  crown (middle tower is lucky) and log fortress".
+- "these positions can change anytime depending in the guild leader".
+- "the last one is a enemy player fullscreen from guild war" (2000×1070).
+
+**Findings (the owner's screens, checked on this machine before writing code)**
+- **Fortress names are per side (and war):** ours Domino / Crown / Log, the enemy's Stinger / Darkwood / Vortex. #38's
+  built-in names were wrong for our side, so names are now read from the overview.
+  - Which side the overview shows: the shield/swords switch at the bottom right, where the map's pager is. Left half
+    lit = our side.
+  - Names: the label band read four ways (grey 2×/3×, white letters at two thresholds). Each pass missed a different
+    name; together they read all six, wide and 16:9. The name's position gives left / middle / right.
+- **Badge ring = health:**
+  - red = enemy, green = ours, all grey = beaten. Domino "2/9": exactly 2 green badges.
+  - A nearly beaten defender keeps a short arc (Ozythral: 21% red), so ≥ 4% colour = standing.
+  - The #38 rule (needs ≥ 15% red) missed every beaten and every own badge.
+  - New rule: dark disc + a bright symbol in the middle (≥ 40% light; all 27 badges 0.44–0.88, snow ≤ 0.33) + an even
+    ring (spread ≤ 35: badges ≤ 24, name labels that also looked like a disc 49–64).
+  - Result: every badge on all six maps (Domino 8, Crown 9, Log 9, Stinger 9 twice, Darkwood 9; keep apart), no false
+    hit on maps, side right on all six. Other screens give 0–2 hits but have no pager pill (maps ≥ 163, others ≤ 64).
+- Positions can change (owner): nothing relies on fixed places; badges are found wherever they are.
+- **Enemy defense panel at 2000×1070:** pinned to the LEFT edge (patch match offset 0 px; 48 px if centred). The season
+  log is pinned right. Read on the real screen: 3/6 heroes sure (Lionheart Cermia, Kawerik, Frieren), the same as at 16:9.
+
+**Changed**
+- `js/gwmap.js`:
+  - `findBadges` (symbol + even ring; `state` enemy / ours / beaten) and `sideOf`
+  - `toggleSide`, `fortNamesFromWords`
+  - `DEFAULT_FORTS` ("Left/Middle/Right fortress") until the overview is read
+- `js/vision/readers/guild-overview.js` (new):
+  - overview → `guild:forts {side, names}` and `localStorage['e7-gw-forts']`
+  - read again only when a name is missing, the side changed, or after a minute
+- `js/vision/hub.js` `ocrWords(canvas)` (words with positions).
+- `js/vision/readers/guild-fortress.js`:
+  - side from ring colours (else the last overview), the fortress name for that side, each player's `state`
+  - `guild:fortress` carries `side`
+- `js/layouts.js`: `gwName` / `gwDef1..6` anchored left only (verified); new `gwFortNames` (the label band).
+- Guild War page:
+  - fortress names read on the overview are kept on the war (`war.forts`, shared)
+  - the fortress filter and the target editor's suggestions use them
+  - a map of our side → **Save as our <fortress>**: `war.ourForts[<fortress>] = [{name, keep, state}]`, new names added
+    as members
+  - War tab "Our side" card (✗ = beaten when read)
+  - beaten defenders shown dimmed with ✗ in the panel
+  - known names for matching include members
+- Fixtures (all player names replaced by made-up ones, including the owner's own in-game name; guild names, the notice
+  and the season log blurred):
+  - `steam-gw-map-ours-domino-wide.jpg`, `steam-gw-map-ours-crown-wide.jpg`, `steam-gw-map-ours-log-wide.jpg`
+  - `steam-gw-overview-ours-wide-blurred.jpg`
+  - `steam-gw-enemy-wide.jpg` (player name, rank and season log blurred; heroes kept)
+
+**Tested**
+- `npm test` **111**:
+  - synthetic red / green / grey badges → enemy / ours / beaten, and a dark blob without a symbol is rejected
+  - `sideOf`, the switch, fortress names from the real OCR words of both overviews (wide and 16:9)
+  - left-only anchor
+- `gw-fortress.e2e.js`:
+  - enemy overview → "Stinger · Darkwood · Vortex" kept on the war
+  - Stinger map → "Stinger Fortress", 0 beaten, 6/10 names exact; saved under Stinger, and the filter offers the read
+    names
+  - our overview → "Domino · Crown · Log"
+  - Domino → side ours, 6 beaten, 8/9 names exact; saved as ours (9 members added, "Our side" card)
+  - Crown: ours, 3 beaten, 6/10 exact. Log: ours, 3 beaten, 8/10 exact
+  - Darkwood 16:9: "Darkwood Fortress", 8/10 exact
+  - the overview is not taken for a map
+  - title bar 18 rows
+  - real wide enemy screen: 3/6
+- Browser suite **25/25** clean.
+- **Not tested:** the desktop app on the owner's PC.
+
+**Open / assumptions**
+- The keep's health / beaten state isn't read (its badge is different).
+- "Beaten" is only shown; marking targets cleared from it is on the roadmap.
+- In-battle badges (crossed swords, "Battle in Progress") count as standing.
+
+---
+
 ## 2026-11-13 · #38 · Any window size; Guild War fortresses (which fortress, its defenders) · this commit (previous: `58b9ec4`)
 
 **Asked for:** the owner confirmed the overlay now works (badge visible, Overlay status "following the game window at 0,0

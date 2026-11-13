@@ -51,6 +51,7 @@
       <div id="gw-screen" class="hint"></div>
       <div id="war-summary" class="cards" style="margin-top:12px"></div>
       <div id="war-ideas" class="card wide hidden"></div>
+      <div id="war-ours" class="card wide hidden"></div>
       <div class="legend" aria-label="What the dots mean">
         <span><span class="gwdot green"></span> Proven counter + your gear checks out</span>
         <span><span class="gwdot proven"></span> Proven counter you own (gear not checked)</span>
@@ -62,7 +63,7 @@
       <div class="filters">
         <input id="target-search" type="search" placeholder="Search enemy player / tower / hero…" autocomplete="off" />
         <select id="target-filter"><option value="">All targets</option><option value="open">Not cleared</option><option value="cleared">Cleared</option><option value="mine">Assigned to me</option></select>
-        <select id="target-fort"><option value="">All fortresses</option><option>Stinger Fortress</option><option>Darkwood Fortress</option><option>Vortex Fortress</option></select>
+        <select id="target-fort"><option value="">All fortresses</option></select>
         <select id="target-dot"><option value="">All dots</option><option value="green">Green: gear checks out</option><option value="proven">Green ring: proven</option><option value="yellow">Yellow</option><option value="red">Red</option><option value="grey">Grey</option></select>
       </div>
       <div id="targets" class="targets"></div>
@@ -170,8 +171,8 @@
       <h3 id="target-title">Enemy defense</h3>
       <div class="two">
         <label>Enemy player <input name="player" list="gw-enemies" required /></label>
-        <label>Fortress <input name="tower" list="gw-forts" placeholder="Stinger / Darkwood / Vortex Fortress" /></label>
-        <datalist id="gw-forts"><option value="Stinger Fortress"></option><option value="Darkwood Fortress"></option><option value="Vortex Fortress"></option></datalist>
+        <label>Fortress <input name="tower" list="gw-forts" placeholder="e.g. Stinger Fortress (read from the game's overview)" /></label>
+        <datalist id="gw-forts"></datalist>
       </div>
       <div id="team-editors"></div>
       <label>Notes <textarea name="notes" rows="2"></textarea></label>

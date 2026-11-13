@@ -125,6 +125,10 @@
     el.classList.remove('hidden');
     $('#gw-seen-save').onclick = () => A.openTargetWith({ player, teams: seenDefense.teams });
   }
+  // fortress names read on the overview (js/vision/readers/guild-overview.js): kept on the current war, shared
+  bus.on('guild:forts', (d) => {
+    if (A.saveFortNames) A.saveFortNames(d.side, d.names).catch(() => {});
+  });
   // a fortress map seen in game (js/vision/readers/guild-fortress.js): its defenders, editable, saved into this war
   let seenFort = null;
   bus.on('guild:fortress', (d) => {
@@ -136,17 +140,19 @@
     if (!el) return;
     if (!seenFort) return el.classList.add('hidden');
     const list = [...seenFort.players, ...(seenFort.keep ? [seenFort.keep] : [])];
-    el.innerHTML = `<b>Seen in game: ${A.esc(seenFort.fort)}</b> <span class="hint">${list.length} defenders · check the names (✓ = a name you already have), then save</span>
+    const ours = seenFort.side === 'ours';
+    const beaten = list.filter((p) => p.state === 'beaten').length;
+    el.innerHTML = `<b>Seen in game: ${ours ? 'our' : 'enemy'} ${A.esc(seenFort.fort)}</b> <span class="hint">${list.length} defenders${beaten ? `, ${beaten} beaten` : ''} · check the names (✓ = a name you already have), then save</span>
       <div class="gw-fort-names">${list
-        .map((p, i) => `<label class="gw-fort-name"><input data-fort-i="${i}" value="${A.esc(p.name || '')}" placeholder="(not read)" />${p.known ? ' ✓' : ''}${p.keep ? ' <span class="hint">keep</span>' : ''}</label>`)
+        .map((p, i) => `<label class="gw-fort-name ${p.state === 'beaten' ? 'beaten' : ''}" title="${p.state === 'beaten' ? 'Beaten (grey ring)' : ''}"><input data-fort-i="${i}" value="${A.esc(p.name || '')}" placeholder="(not read)" />${p.known ? ' ✓' : ''}${p.keep ? ' <span class="hint">keep</span>' : ''}${p.state === 'beaten' ? ' <span class="hint">✗</span>' : ''}</label>`)
         .join('')}</div>
-      <button class="btn primary" id="gw-fort-save">Save as this war's ${A.esc(seenFort.fort)}</button> <span id="gw-fort-msg" class="hint"></span>`;
+      <button class="btn primary" id="gw-fort-save">${ours ? `Save as our ${A.esc(seenFort.fort)}` : `Save as this war's ${A.esc(seenFort.fort)}`}</button> <span id="gw-fort-msg" class="hint"></span>`;
     el.classList.remove('hidden');
     $('#gw-fort-save').onclick = async () => {
       const players = list.map((p, i) => ({ ...p, name: el.querySelector(`[data-fort-i="${i}"]`).value.trim() }));
       try {
-        const r = await A.saveFortress(seenFort.fort, players);
-        $('#gw-fort-msg').textContent = `Saved: ${r.added} new, ${r.moved} moved here, ${r.same} already there.`;
+        const r = await A.saveFortress(seenFort.fort, players, seenFort.side);
+        $('#gw-fort-msg').textContent = ours ? `Saved our ${seenFort.fort}: ${r.added} new members, ${r.same} known.` : `Saved: ${r.added} new, ${r.moved} moved here, ${r.same} already there.`;
       } catch (e) {
         $('#gw-fort-msg').textContent = e.message;
       }
