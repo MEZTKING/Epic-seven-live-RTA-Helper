@@ -7,6 +7,44 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #28 · Step 1b part 1: the RTA reader follows the game watcher · this commit (previous: `231b7ba`)
+
+**Asked for:** "do 2 then 1b". 2 = DEVLOG #27. 1b = move the RTA reader into the game watcher.
+
+**Findings / decision**
+- `js/auto.js` (1150 lines) is tied to the RTA page:
+  - its data: drafts (`App.replaceDraft`), results, scouting, game help, opponent
+  - its UI: slot list, corrections, calibration, status table
+  - the overlay suggestions, which need the RTA logic
+- A full move into the watcher window means rewriting that, and there is still **no real draft screenshot as a file** to
+  test it on (only made-up screens). Risky for the one reader that works.
+- What the owner notices from 1b is not having to start the RTA reader separately. So it's split:
+  - **Part 1 (this commit):** in the desktop app the RTA reader starts and stops with the game watcher: same game window,
+    same title-bar cut, no picker, no extra click.
+  - **Part 2 (later, with real draft screenshots):** move the slot / postban / help / result / CR / name readers into
+    `js/vision/readers/`, publishing events that the RTA page applies.
+
+**Changed**
+- `js/auto.js`:
+  - `followWatcher` (via `VisionClient` status): starts the capture when the watcher is watching (desktop only;
+    browsers need a click), stops it when the watcher stops.
+  - Pressing Stop keeps it stopped until Start.
+  - `startCapture` can't run twice at once.
+- `rta.html`: loads the vision bus/client; the button is now "Start reading the game".
+
+**Tested**
+- New `tests/desktop/rta-follow.js` (packaged app, fake game window):
+  - opening RTA → reading with no click, no picker
+  - watcher stopped → RTA stopped ("The game watcher stopped…")
+  - watcher started again → reading again
+  - Stop on the RTA page → stays stopped
+- `npm test` 100; browser suite 17/17; desktop watcher/popout/cancel pass.
+- **Not tested:** Windows, real drafts.
+
+**Open:** part 2 of 1b, once real draft screenshots exist (Developer → Collect screenshots).
+
+---
+
 ## 2026-11-13 · #27 · Sync my devices (PC ↔ phone) · this commit (previous: `b6b3fce`)
 
 **Asked for:** "Then why do we have it as a phone browser if it cant do the same thing" → option 2 "do 2 then 1b": make the

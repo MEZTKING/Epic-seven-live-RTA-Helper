@@ -22,7 +22,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 
 ## Architecture plan (docs/DESIGN_REVIEW.md)
 
-1. ~~Game watcher + event bus~~: done for Gear and Guild War (DEVLOG #21). **1b:** move the RTA reader (`js/auto.js`) into
+1. ~~Game watcher + event bus~~: done for Gear and Guild War (DEVLOG #21). 1b part 1 done (DEVLOG #28: the RTA reader starts
+   and stops with the watcher). **1b part 2:** move the RTA reader (`js/auto.js`) into
    `js/vision/readers/` (draft board, prebans/postbans, opponent name, CR bar, Victory/Defeat), with a consumer that updates
    the RTA store, so the RTA page only listens.
 2. **Partly done (DEVLOG #25):** built-in Steam 16:9 layout for the draft (by eye; verify with a real file) and the result

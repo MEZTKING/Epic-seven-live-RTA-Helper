@@ -69,7 +69,8 @@ only receive events.
 - Readers `js/vision/readers/gear-item.js` → `gear:item`; `guild-name.js` → `guild:name-read`.
 - Consumer `js/vision/consumers/gear.js` (runs next to the watcher) saves items via `js/gearstore.js` (`GearStore`) and
   publishes `gear:added` / `gear:dup`. The Guild War page itself consumes `guild:name-read` (it needs the guild data).
-- **Not moved yet:** the RTA reader (`js/auto.js`) still captures on its own (step 1b).
+- **RTA reader:** `js/auto.js` still captures on its own, but in the desktop app it **follows the watcher** (starts/stops with
+  it, same window; `followWatcher`, DEVLOG #28). Moving its readers into `js/vision/readers/` is step 1b part 2.
 - Developer tool (desktop menu **Developer**): the watcher saves PNG + JSON notes on scene changes (`devTick` in hub.js);
   `E7Desktop.dev()/saveDevShot()`; main writes to `Pictures/Epic 7 Engine/<date>/`.
 - Gear art: `js/gear-icons.js` (`E7GearIcons.slot/set`), original SVG (not game art).
@@ -182,7 +183,7 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #27)
+## 7. Status (end of DEVLOG #28)
 
 **Direction:** `docs/DESIGN_REVIEW.md` (two outside architecture reviews + the agreed plan: vision service, layout packs from real
 screenshots, IndexedDB, glyph reader).
