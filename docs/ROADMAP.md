@@ -36,6 +36,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 5. ~~Stronger hero-face matcher~~: done for round icons (DEVLOG #23, `js/faces.js`: 14/15 known faces, 0 wrong).
    Next: use it for the CR bar and result-screen icons; a banner matcher for draft picks once real draft screenshots
    exist; skins come from corrections (or a skin portrait list if one is found).
+5b. Element colour + class symbol narrowing (DEVLOG #29): done for round icons with badges; next: badge positions on
+   pick banners (from a real draft file), more class examples (`tools/make-class-templates.js`).
 6. Opponent names in Korean / Japanese / Chinese: load those tesseract languages for the name reader; result +/− from the
    arrow colour, not the OCR'd sign.
 

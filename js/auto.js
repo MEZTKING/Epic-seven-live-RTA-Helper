@@ -334,6 +334,9 @@
     return { x: rect.x * f.w, y: rect.y * f.h, w: rect.w * f.w, h: rect.h * f.h };
   }
 
+  const DRAFT_HOLD_MS = 90000;
+  let draftSeenAt = -Infinity; // performance.now() starts at 0 when the page opens: 0 would mean "draft just seen"
+  const draftTaught = () => !!window.E7Screens && window.E7Screens.refs().some((r) => r.screen === 'rta-draft');
   function tick() {
     if (!source || !frameSize() || !slots.length) return;
     const c = cfg();
@@ -350,9 +353,21 @@
     renderScreenInfo();
     const tpl = activeTemplates();
     const owned = App.cache.owned.size >= 20 ? App.cache.owned : null;
-    for (const s of slots) {
-      if (!on('rta-draft') && s.side !== 'help') continue;
+    // DRAFT GATE (DEVLOG #29): with built-in positions the reader would otherwise read the lobby and every other screen
+    // and turn their graphics into heroes. Unless you taught the draft screen, it's "the draft" only when at least
+    // 2 of the 4 pre-ban faces at the bottom are recognised confidently (face matcher), and for 90 s after that
+    // (postban / Ready screens don't show the pre-ban row). Screenshots you load yourself aren't gated.
+    const gate = live && !draftTaught();
+    const isDraft = () => (gate ? performance.now() - draftSeenAt < DRAFT_HOLD_MS : on('rta-draft'));
+    let prebansSure = 0;
+    const ordered = [...slots].sort((a, b) => (b.kind === 'preban') - (a.kind === 'preban')); // pre-bans first
+    for (const s of ordered) {
       const t = track.get(s.id);
+      const needsDraft = !(gate && s.kind === 'preban');
+      if (needsDraft && !isDraft() && (gate || s.side !== 'help')) {
+        if (!t.confirmed) Object.assign(t, { candidate: null, count: 0 }); // never half-confirm on another screen
+        continue;
+      }
       const rect = pxRect(s.rect);
       const feature = featureFromSource(source, rect, SLOT_INSET);
       t.feature = feature;
@@ -362,7 +377,11 @@
         // built-in boxes (measured by eye) get a wider search; boxes you drew are close enough for the normal one
         const own = (cfg().regions || {})[s.id] || (cfg().regions || {})[s.kind === 'preban' ? `${s.side}Preban${s.index + 1}` : ''];
         t.faces = F.fromRect(source, rect, own ? F.GAME_VARIANTS : F.WIDE_VARIANTS);
-        t.result = faceResult(F.classify(t.faces, activeFaceTemplates(), { preferSource: 'my corrections' }));
+        // element colour + class symbol on the icon (when it shows them): only compare heroes with both (DEVLOG #29)
+        const ct = (window.RTASources && window.RTASources.classTemplates) || [];
+        t.badges = F.badgesAt(source, rect, ct);
+        const allow = F.badgeAllow(t.badges.element, t.badges.role, App.cache.heroes);
+        t.result = faceResult(F.classify(t.faces, activeFaceTemplates(), { preferSource: 'my corrections', allow }));
       } else if (!unchanged) {
         const opts = { preferSource: 'my corrections', allow: s.side === 'me' && s.kind === 'pick' ? owned : null };
         let best = null;
@@ -388,7 +407,13 @@
         continue;
       }
       t.empties = 0;
-      if (!('sure' in r ? r.sure : V.isConfident(r, c.threshold))) continue; // unsure: keep what we had
+      if (gate && s.kind === 'preban' && r.sure && ++prebansSure >= 2) {
+        if (window.E7Diag && performance.now() - draftSeenAt > DRAFT_HOLD_MS) window.E7Diag.log('rta', 'draft screen found (pre-bans recognised)');
+        draftSeenAt = performance.now();
+      }
+      // picks (old matcher): a real score is needed, not just a lead over other bad guesses (lobby text scored 34–60%)
+      const strict = (x) => x.best.sim >= c.threshold && (x.second ? x.best.sim - x.second.sim : 1) >= 0.04;
+      if (!('sure' in r ? r.sure : strict(r))) continue; // unsure: keep what we had
       if (t.candidate === r.best.code) t.count++;
       else {
         t.candidate = r.best.code;
@@ -396,11 +421,12 @@
       }
       if (t.count >= CONFIRM_FRAMES && (!t.confirmed || t.confirmed.code !== r.best.code)) {
         t.confirmed = { ...r.best };
+        if (window.E7Diag) window.E7Diag.log('rta', `slot ${s.id} = ${App.nameOf(r.best.code)}`, { sim: +r.best.sim.toFixed(3), source: r.best.source, second: r.second ? `${App.nameOf(r.second.code)} ${(+r.second.sim).toFixed(3)}` : null });
         t.ref = { code: r.best.code, vec: feature.vec }; // what the slot looked like when confirmed (postban detection)
         if (c.autoLearn && r.best.source === 'official' && r.best.sim >= Math.max(0.8, c.threshold)) addLearned(r.best.code, feature, 'auto-learned');
       }
     }
-    if (on('rta-draft')) {
+    if (isDraft()) {
       if (c.apply) applyBoard();
       if (c.apply && c.detectPostban) detectPostbans();
       recordGameHelp();
@@ -417,7 +443,8 @@
       fps.n = 0;
     }
     if (App.activeTab() === 'auto') renderSlots();
-    setStatus(live ? `Watching · ${fps.value ? fps.value.toFixed(1) : '…'} checks/s · ${boardSummary()}` : `Screenshot · ${boardSummary()}`);
+    if (gate && !isDraft()) setStatus(`Watching · waiting for the RTA draft screen (looking for the pre-ban heroes at the bottom; ${prebansSure} of 4 recognised)…`);
+    else setStatus(live ? `Watching · ${fps.value ? fps.value.toFixed(1) : '…'} checks/s · ${boardSummary()}` : `Screenshot · ${boardSummary()}`);
   }
 
   /** Confirmed heroes per slot list, cut at the first gap (slots fill in order). */
@@ -557,6 +584,7 @@
     const r = V.resultWord(text); // tolerant: the sword crosses the T of VICTORY on the Steam screen
     if (r && r === res.last && !res.done && App.store.draft.id === res.draftId) {
       res.done = true;
+      if (window.E7Diag) window.E7Diag.log('rta', `result read from screen: ${r}`, { text: text.slice(0, 40) });
       if (App.store.settings.autoRecord) App.recordResult(r, 'auto');
       setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded)' : ' — press Win/Loss to record'}`);
     }
@@ -971,7 +999,14 @@
   });
 
   // ================================================================= render
+  let lastLogged = '';
   function setStatus(text) {
+    // the diagnostic log keeps status changes (not the many "Watching · n checks/s" updates)
+    const key = String(text).replace(/\d+(\.\d+)? checks\/s/, '').replace(/\d+\/\d+…/, '');
+    if (window.E7Diag && key !== lastLogged) {
+      lastLogged = key;
+      if (!/^Loading hero portraits/.test(text)) window.E7Diag.log('rta', 'status: ' + text);
+    }
     const el = $('#auto-status');
     el.textContent = text;
     el.className = 'status' + (timer ? ' me' : '');
@@ -1183,6 +1218,25 @@
     followed = false;
   });
   if (VC && VC.desktop) $('#auto-start').title = 'Starts by itself while the game watcher is watching (Game window menu)';
+
+  if (window.E7Diag) {
+    window.E7Diag.provider('RTA reader (this page)', () => {
+      const f = frameSize();
+      const rr = (x) => (x ? [x.x, x.y, x.w, x.h].map((v) => Math.round(v)) : null);
+      const nm = (x) => (x ? `${App.nameOf(x.code)} ${(+x.sim).toFixed(3)} [${x.source}]` : '-');
+      const lines = [
+        `source: ${source ? (live ? 'live' : 'screenshot') : 'none'} ${f ? `${f.w}×${f.h}` : ''} · built-in layout: ${layout() ? layout().id : 'none (not 16:9)'} · draft taught: ${draftTaught()} · draft last seen: ${draftSeenAt > 0 ? Math.round((performance.now() - draftSeenAt) / 1000) + ' s ago' : 'never'}`,
+        `portraits loaded: ${officialLoad.done}/${officialLoad.total} (failed ${officialLoad.failed}) · face templates: ${templates.faces.length} (+${templates.faceLearned.length} yours)`,
+        `board: ${boardSummary()}`,
+      ];
+      for (const sl of slots) {
+        const t = track.get(sl.id) || {};
+        const r = t.result;
+        lines.push(`${sl.id}: ${t.badges ? `[badges: ${t.badges.element || '-'} / ${t.badges.role || '-'}] ` : ''}${t.confirmed ? 'CONFIRMED ' + nm(t.confirmed) : 'not confirmed'} · now ${r ? (r.empty ? 'empty' : `${nm(r.best)} / 2nd ${nm(r.second)}${'sure' in r ? (r.sure ? ' (sure)' : ' (unsure)') : ''}`) : '-'} · box px ${JSON.stringify(f ? rr(pxRect(sl.rect)) : null)}`);
+      }
+      return lines;
+    });
+  }
 
   window.RTAAuto = { render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();

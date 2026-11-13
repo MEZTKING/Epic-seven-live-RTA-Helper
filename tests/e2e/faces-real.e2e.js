@@ -19,8 +19,8 @@ const KNOWN = {
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(BASE + 'live.html');
-  for (const f of ['js/sources/official-heroes.js', 'js/roster.js', 'js/faces.js']) await p.addScriptTag({ url: BASE + f });
-  const res = await p.evaluate(async () => {
+  for (const f of ['js/sources/official-heroes.js', 'js/sources/class-templates.js', 'js/roster.js', 'js/faces.js']) await p.addScriptTag({ url: BASE + f });
+  const res = await p.evaluate(async (KNOWN) => {
     const F = window.RTAFaces;
     const R = window.RTARoster;
     const heroes = window.RTASources.officialSnapshot.heroes;
@@ -36,13 +36,36 @@ const KNOWN = {
     const name = new Map(heroes.map((h) => [h.code, h.name]));
     const out = [];
     const t0 = performance.now();
+    const el = new Map(heroes.map((h) => [h.code, h.element]));
+    const sheet = document.createElement('canvas'); sheet.width = 10 * 170; sheet.height = 4 * 92;
+    const sh = sheet.getContext('2d'); sh.fillStyle = '#111'; sh.fillRect(0, 0, sheet.width, sheet.height); sh.font = '11px sans-serif';
+    const portraits = new Map();
     for (let r = 0; r < 4; r++) for (let c = 0; c < 10; c++) {
       const cx = 127 + c * 96.2, cy = 175 + r * 103;
-      const k = F.classify(F.fromRect(shot, { x: cx - 42, y: cy - 44, w: 84, h: 84 }), tpl);
-      out.push({ at: `${r},${c}`, name: k.best ? name.get(k.best.code) : '', score: k.best ? +k.best.score.toFixed(3) : 0, lead: +k.lead.toFixed(3), confident: F.isConfident(k) });
+      const rect = { x: cx - 42, y: cy - 44, w: 84, h: 84 };
+      const faces = F.fromRect(shot, rect);
+      const k = F.classify(faces, tpl);
+      // owner's ideas: read the element colour + class symbol first, then only compare heroes with both.
+      // Class examples come from this same picture, so leave this face's own example out (honest test).
+      const classTpl = window.RTASources.classTemplates.filter((t) => t.from !== KNOWN[`${r},${c}`]);
+      const bd = F.badgesAt(shot, rect, classTpl);
+      const e = { element: bd.element };
+      const ke = F.classify(faces, tpl, { allow: F.badgeAllow(bd.element, bd.role, heroes) });
+      out.push({ at: `${r},${c}`, role: bd.role, roleTruth: KNOWN[`${r},${c}`] ? (heroes.find((h) => h.name === KNOWN[`${r},${c}`]) || {}).role : null, element: e.element, name: k.best ? name.get(k.best.code) : '', score: k.best ? +k.best.score.toFixed(3) : 0, lead: +k.lead.toFixed(3), confident: F.isConfident(k),
+        nameE: ke.best ? name.get(ke.best.code) : '', codeE: ke.best && ke.best.code, scoreE: ke.best ? +ke.best.score.toFixed(3) : 0, leadE: +ke.lead.toFixed(3), confidentE: F.isConfident(ke) });
+      // contact sheet: game face | element-filtered best match
+      const X = c * 170, Y = r * 92;
+      sh.drawImage(shot, cx - 42, cy - 46, 84, 84, X + 2, Y + 2, 72, 72);
+      if (ke.best) {
+        const im = portraits.get(ke.best.code) || await load(R.PORTRAIT_URL(ke.best.code));
+        portraits.set(ke.best.code, im);
+        if (im) sh.drawImage(im, X + 78, Y + 2, 72, 72);
+      }
+      sh.fillStyle = F.isConfident(ke) ? '#7f7' : '#f99';
+      sh.fillText(`${(ke.best ? name.get(ke.best.code) : '?').slice(0, 18)} ${ke.best ? ke.best.score.toFixed(2) : ''}/${ke.lead.toFixed(2)}`, X + 2, Y + 86);
     }
-    return { templates: tpl.length, failed, ms: Math.round((performance.now() - t0) / 40), out };
-  });
+    return { templates: tpl.length, failed, ms: Math.round((performance.now() - t0) / 40), out, sheet: sheet.toDataURL('image/png'), elements: out.map((o) => o.element) };
+  }, KNOWN);
   console.log(`templates ${res.templates} (failed ${res.failed}) · ${res.ms} ms per face`);
   const right = res.out.filter((o) => KNOWN[o.at] && o.confident && o.name === KNOWN[o.at]);
   const missed = res.out.filter((o) => KNOWN[o.at] && !(o.confident && o.name === KNOWN[o.at]));
@@ -51,6 +74,15 @@ const KNOWN = {
   console.log('missed:', JSON.stringify(missed));
   console.log('confident on an unconfirmed face (must be none):', JSON.stringify(falseConfident));
   console.log('unsure:', res.out.filter((o) => !o.confident).length);
+  __fs.writeFileSync(OUT + '/faces-real-element-sheet.png', Buffer.from(res.sheet.split(',')[1], 'base64'));
+  // element badge (colour) first
+  const elRight = res.out.filter((o) => KNOWN[o.at]).filter((o) => o.element && o.nameE === KNOWN[o.at]).length;
+  console.log('element badges read:', res.out.filter((o) => o.element).length, '/ 40');
+  const kn = res.out.filter((o) => o.roleTruth);
+  console.log(`class symbols (leave-one-out) on known faces: right ${kn.filter((o) => o.role === o.roleTruth).length}, wrong ${kn.filter((o) => o.role && o.role !== o.roleTruth).length}, unsure ${kn.filter((o) => !o.role).length}; read on all faces: ${res.out.filter((o) => o.role).length}/40`);
+  console.log(`WITH element + class filter: known faces named confidently and correctly: ${res.out.filter((o) => KNOWN[o.at] && o.confidentE && o.nameE === KNOWN[o.at]).length}/${Object.keys(KNOWN).length}`);
+  console.log('WITH element + class filter, known faces named wrong:', JSON.stringify(res.out.filter((o) => KNOWN[o.at] && o.confidentE && o.nameE !== KNOWN[o.at])));
+  console.log('WITH element + class filter, newly confident on unconfirmed faces (check sheet):', JSON.stringify(res.out.filter((o) => !KNOWN[o.at] && o.confidentE).map((o) => [o.at, o.nameE, o.scoreE, o.leadE])));
   console.log('errors:', errs);
   await b.close();
 })();

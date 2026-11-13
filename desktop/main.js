@@ -369,6 +369,8 @@ function buildMenu() {
     {
       label: 'Developer',
       submenu: [
+        { label: 'Copy report for Claude (what the app sees and did)', click: () => main && main.webContents.send('e7:hotkey', 'copy-report') },
+        { type: 'separator' },
         { label: 'Collect screenshots automatically (to improve the readers)', type: 'checkbox', checked: !!config.devCapture, click: (mi) => setDevCapture(mi.checked) },
         { label: 'Open the screenshot folder', click: () => { fs.mkdirSync(devFolder(), { recursive: true }); shell.openPath(devFolder()); } },
         { label: `Saves a PNG + notes when the game screen changes (and once a minute). Stays on this PC.`, enabled: false },

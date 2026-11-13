@@ -101,6 +101,88 @@
   }
   const isConfident = (r, minScore = MIN_SCORE, minLead = MIN_LEAD) => !!r && !r.empty && !!r.best && r.best.score >= minScore && r.lead >= minLead;
 
+  // ------------------------------------------------------------- element badge (owner's idea, DEVLOG #29)
+  // Every hero icon shows its element as a coloured badge (top right on round icons): fire = orange flame, ice = blue
+  // drop, earth ('wind' in the official data) = green tree, light = gold star, dark = purple moon. Reading that colour
+  // first leaves ~1/5 of the heroes to compare. Hue ranges in degrees; checked on the real pre-ban grid: 15/15 right.
+  const ELEMENT_HUES = [['fire', 0, 38], ['light', 38, 70], ['wind', 75, 165], ['ice', 175, 235], ['dark', 245, 320], ['fire', 330, 360]];
+  // where the badge sits on a round icon, relative to the ring box (centre + fractions of its half size)
+  const BADGE = { dx: 0.79, dy: -0.62, half: 0.26 };
+  /** Element from the badge's pixels (RGBA). { element|null, share, count }; null when no clear badge colour. */
+  function elementFromRGBA(rgba) {
+    const counts = {};
+    let n = 0;
+    for (let i = 0; i < rgba.length; i += 4) {
+      const r = rgba[i] / 255;
+      const g = rgba[i + 1] / 255;
+      const b = rgba[i + 2] / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const s = max ? (max - min) / max : 0;
+      if (s < 0.5 || max < 0.4) continue;
+      let h = 0;
+      if (max === r) h = ((g - b) / (max - min)) % 6;
+      else if (max === g) h = (b - r) / (max - min) + 2;
+      else h = (r - g) / (max - min) + 4;
+      const deg = (h * 60 + 360) % 360;
+      const bin = ELEMENT_HUES.find(([, lo, hi]) => deg >= lo && deg < hi);
+      if (!bin) continue;
+      counts[bin[0]] = (counts[bin[0]] || 0) + 1;
+      n++;
+    }
+    const total = rgba.length / 4;
+    const best = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    const share = best ? counts[best] / n : 0;
+    // a real badge fills a good part of the box with one colour
+    return best && share >= 0.75 && n >= total * 0.12 ? { element: best, share, count: n } : { element: null, share, count: n };
+  }
+  /** Only the heroes of that element (for classify's `allow`), or null when no badge was read. */
+  function elementAllow(element, heroes) {
+    if (!element) return null;
+    return new Set(heroes.filter((h) => h.element === element).map((h) => h.code));
+  }
+
+  // ------------------------------------------------------------- class symbol (owner's idea, DEVLOG #29)
+  // The other badge (top left on round icons) is the class: hood = thief ('assassin'), bow = ranger, sword = warrior,
+  // hat = mage, shield = knight, swirl = soul weaver ('manauser'). White symbol, compared as a 16×16 grey picture
+  // against examples learned from real icons (js/sources/class-templates.js, made by tools/make-class-templates.js).
+  const CLASS_BADGE = { dx: -0.81, dy: -0.62, half: 0.29 };
+  const CN = 16;
+  /** Grey 16×16 (RGBA in) → zero-mean, unit-length vector. */
+  function classVector(rgba) {
+    const v = new Float32Array(CN * CN);
+    let m = 0;
+    for (let i = 0; i < CN * CN; i++) {
+      v[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+      m += v[i];
+    }
+    m /= CN * CN;
+    let ss = 0;
+    for (let i = 0; i < v.length; i++) {
+      v[i] -= m;
+      ss += v[i] * v[i];
+    }
+    const n = Math.sqrt(ss) || 1;
+    for (let i = 0; i < v.length; i++) v[i] /= n;
+    return v;
+  }
+  /** Best class for some badge vectors (several shifts) against templates [{role, vec}]. { role|null, score, lead } */
+  function classFromVectors(vecs, templates, minScore = 0.75, minLead = 0.1) {
+    const best = {};
+    for (const t of templates || []) for (const v of vecs) best[t.role] = Math.max(best[t.role] === undefined ? -1 : best[t.role], dot(v, t.vec));
+    const rk = Object.entries(best).sort((a, b) => b[1] - a[1]);
+    if (!rk.length) return { role: null, score: 0, lead: 0 };
+    const lead = rk[1] ? rk[0][1] - rk[1][1] : rk[0][1];
+    return { role: rk[0][1] >= minScore && lead >= minLead ? rk[0][0] : null, best: rk[0][0], score: rk[0][1], lead };
+  }
+  /** Heroes allowed by the badges: element and/or class (null = no filter). Falls back to element only if empty. */
+  function badgeAllow(element, role, heroes) {
+    if (!element && !role) return null;
+    const both = heroes.filter((h) => (!element || h.element === element) && (!role || h.role === role));
+    if (both.length) return new Set(both.map((h) => h.code));
+    return element ? elementAllow(element, heroes) : null;
+  }
+
   /** Store a face compactly (corrections): int8 base64. */
   function quantize(vec) {
     let max = 0;
@@ -165,7 +247,53 @@
     });
   }
 
-  const api = { N, MASK, COUNT, MIN_SCORE, MIN_LEAD, PORTRAIT_WINDOW, GAME_VARIANTS, WIDE_VARIANTS, vector, classify, isConfident, quantize, dequantize, fromPortrait, fromRect };
+  /** Read the element badge of the round icon in `rect` (browser). */
+  let bcv = null;
+  function elementAt(src, rect, badge = BADGE) {
+    const half = Math.min(rect.w, rect.h) / 2;
+    const cx = rect.x + rect.w / 2 + badge.dx * half;
+    const cy = rect.y + rect.h / 2 + badge.dy * half;
+    const h = badge.half * half;
+    if (!bcv) {
+      bcv = document.createElement('canvas');
+      bcv.width = bcv.height = 22;
+    }
+    const c = bcv.getContext('2d', { willReadFrequently: true });
+    c.clearRect(0, 0, 22, 22);
+    c.drawImage(src, cx - h, cy - h, 2 * h, 2 * h, 0, 0, 22, 22);
+    return elementFromRGBA(c.getImageData(0, 0, 22, 22).data);
+  }
+
+  /** Class badge vectors of the round icon in `rect` (9 small shifts; browser). */
+  let ccv = null;
+  function classVectorsAt(src, rect, badge = CLASS_BADGE) {
+    const half = Math.min(rect.w, rect.h) / 2;
+    const h = badge.half * half;
+    if (!ccv) {
+      ccv = document.createElement('canvas');
+      ccv.width = ccv.height = CN;
+    }
+    const c = ccv.getContext('2d', { willReadFrequently: true });
+    const out = [];
+    for (const ox of [-0.07, 0, 0.07]) {
+      for (const oy of [-0.07, 0, 0.07]) {
+        const cx = rect.x + rect.w / 2 + (badge.dx + ox) * half;
+        const cy = rect.y + rect.h / 2 + (badge.dy + oy) * half;
+        c.clearRect(0, 0, CN, CN);
+        c.drawImage(src, cx - h, cy - h, 2 * h, 2 * h, 0, 0, CN, CN);
+        out.push(classVector(c.getImageData(0, 0, CN, CN).data));
+      }
+    }
+    return out;
+  }
+  /** Element + class of a round icon (browser): { element, role } (null where unclear). */
+  function badgesAt(src, rect, classTemplates) {
+    const e = elementAt(src, rect);
+    const c = classTemplates && classTemplates.length ? classFromVectors(classVectorsAt(src, rect), classTemplates) : { role: null };
+    return { element: e.element, role: c.role, classScore: c.score, classLead: c.lead };
+  }
+
+  const api = { CLASS_BADGE, classVector, classFromVectors, badgeAllow, classVectorsAt, badgesAt, ELEMENT_HUES, BADGE, elementFromRGBA, elementAllow, elementAt, N, MASK, COUNT, MIN_SCORE, MIN_LEAD, PORTRAIT_WINDOW, GAME_VARIANTS, WIDE_VARIANTS, vector, classify, isConfident, quantize, dequantize, fromPortrait, fromRect };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAFaces = api;
 })(typeof self !== 'undefined' ? self : this);

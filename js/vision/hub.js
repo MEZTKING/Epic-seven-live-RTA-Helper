@@ -145,6 +145,7 @@
     since = new Date().toISOString();
     timer = setInterval(tick, 500);
     bus.publish('vision:started', { name: captureName });
+    if (window.E7Diag) window.E7Diag.log('watcher', `started watching "${captureName}"`, { size: [w(), h()], frameKey: window.GameArea ? window.GameArea.frameKey(source) : 'full' });
     warnStaleBoxes();
     return status();
   }

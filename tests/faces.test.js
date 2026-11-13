@@ -65,3 +65,37 @@ test('quantized corrections survive the round trip', () => {
   for (let i = 0; i < v.length; i++) d += v[i] * back[i];
   assert.ok(d > 0.999);
 });
+
+test('element badge colour: flame, drop, tree, star, moon; nothing clear = no filter', () => {
+  const box = (rgb, frac = 0.5) => {
+    const px = new Uint8ClampedArray(22 * 22 * 4);
+    for (let i = 0; i < 22 * 22; i++) {
+      const on = i % 22 < 22 * frac;
+      px.set(on ? [...rgb, 255] : [10, 12, 20, 255], i * 4); // badge colour on a dark background
+    }
+    return px;
+  };
+  assert.equal(F.elementFromRGBA(box([240, 110, 30])).element, 'fire');
+  assert.equal(F.elementFromRGBA(box([40, 150, 240])).element, 'ice');
+  assert.equal(F.elementFromRGBA(box([70, 190, 60])).element, 'wind');
+  assert.equal(F.elementFromRGBA(box([235, 200, 40])).element, 'light');
+  assert.equal(F.elementFromRGBA(box([150, 70, 220])).element, 'dark');
+  assert.equal(F.elementFromRGBA(box([240, 110, 30], 0.03)).element, null); // a few pixels isn't a badge
+  const grey = new Uint8ClampedArray(22 * 22 * 4).fill(128);
+  assert.equal(F.elementFromRGBA(grey).element, null);
+  const heroes = [{ code: 'a', element: 'fire' }, { code: 'b', element: 'ice' }, { code: 'c', element: 'fire' }];
+  assert.deepEqual([...F.elementAllow('fire', heroes)], ['a', 'c']);
+  assert.equal(F.elementAllow(null, heroes), null);
+});
+
+test('class symbol: best learned example wins only with a clear lead; element + class narrow the heroes', () => {
+  const v = (seed) => { const px = new Uint8ClampedArray(16 * 16 * 4); let s = seed; for (let i = 0; i < px.length; i += 4) { s = (s * 1103515245 + 12345) & 0x7fffffff; px[i] = px[i + 1] = px[i + 2] = (s % 255); px[i + 3] = 255; } return F.classVector(px); };
+  const tpl = [{ role: 'ranger', vec: v(1) }, { role: 'mage', vec: v(2) }, { role: 'knight', vec: v(3) }];
+  assert.equal(F.classFromVectors([v(9), v(2)], tpl).role, 'mage');
+  assert.equal(F.classFromVectors([v(9)], tpl).role, null); // nothing like any symbol
+  const heroes = [{ code: 'a', element: 'fire', role: 'mage' }, { code: 'b', element: 'fire', role: 'ranger' }, { code: 'c', element: 'ice', role: 'mage' }];
+  assert.deepEqual([...F.badgeAllow('fire', 'mage', heroes)], ['a']);
+  assert.deepEqual([...F.badgeAllow(null, 'mage', heroes)], ['a', 'c']);
+  assert.deepEqual([...F.badgeAllow('fire', 'knight', heroes)], ['a', 'b']); // no fire knight known: element only
+  assert.equal(F.badgeAllow(null, null, heroes), null);
+});
