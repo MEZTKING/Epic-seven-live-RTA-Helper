@@ -53,7 +53,7 @@ const { chromium } = require('playwright');
     const x = c.getContext('2d'); x.fillStyle = '#30343c'; x.fillRect(0, 0, 1340, 754);
     let y = 150;
     for (const [code, side] of codes) {
-      const im = await load(R.PORTRAIT_URL(code));
+      const im = await load(R.PORTRAIT_URL_CORS(code));
       x.save(); x.beginPath(); x.arc(42, y + 28, 26, 0, Math.PI * 2); x.clip(); x.drawImage(im, 16, y + 2, 52, 52); x.restore();
       x.lineWidth = 4; x.strokeStyle = side === 'opp' ? '#d8262c' : '#e8e8e8'; x.beginPath(); x.arc(42, y + 28, 27, 0, Math.PI * 2); x.stroke();
       y += 90;

@@ -7,6 +7,71 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #34 · Guild War from real screens (name, defense teams, learning) + portrait cache bug fixed · this commit (previous: `f681cdb`)
+
+**Asked for:** the owner moved to testing Guild War and attached five real Guild War screens as files (overview, two
+fortress maps, an enemy's defense with season log, a defense battle result). Questions about fullscreen / resolution are
+answered in chat.
+
+**Findings (real files, 1228×691)**
+- **Enemy name** with a built-in box (no "Set name box"): OCR read "Ozythral" (88%), exactly right.
+- **Defense teams:** six round icons. The top-right badge here is the **level ("60", coloured), not the element**, so only
+  the class symbol may narrow candidates.
+  - Kawerik (0.89), Frieren (0.88) and Lionheart Cermia right; the other three unsure (skins / other art), never wrong.
+  - With the class filter the reader reports **3/6** sure. After one name typed for an unsure icon: **4/6** and that icon
+    sure next time.
+- Screen signatures: Guild War screens are well separated from each other and from the RTA ones (highest cross-screen
+  similarity is still RTA menu ↔ match found, 0.81).
+  - Two different fortress maps only match each other at 0.76, so another fortress (and the enemy screen in front of it)
+    may not be recognised. The Guild War readers therefore **don't require** recognition: they skip only screens that
+    are certainly something else, and the defense reader needs ≥ 2 sure heroes.
+- **Bug (would have hit the real app): portraits for face matching could be refused.** The portrait server
+  (CloudFront) only adds `Access-Control-Allow-Origin` when asked with an Origin and doesn't send `Vary: Origin`. So a
+  copy cached from a normal `<img>` (the RTA / Guild War pages show portraits) can't be read for pixels later ("blocked
+  by CORS"). In the desktop app all windows share one cache, so readers could end up with **no portraits at all**. That
+  alone would make pre-bans unrecognisable (the owner's RTA report).
+  - Fix: `RTARoster.PORTRAIT_URL_CORS` (`?cors=1`, a separate cache entry that always carries the header), used by
+    every pixel-reading load (RTA reader, Guild War defense reader, tests).
+  - Found by `live-gearscan-overlay.e2e.js` failing once the Live page loaded portraits after the Gear page had shown
+    them.
+
+**Changed**
+- Fixtures:
+  - `steam-gw-enemy.png` (enemy name and season-log names blacked out; icons sharp).
+  - `steam-gw-overview / map1 / map2 / battle-blurred.png`: blurred so no name is readable; the 32×18 signatures are
+    unaffected.
+- `js/screens.js`: new screens `gw-overview`, `gw-map`, `gw-battle`. `tools/make-screen-refs.js` → built-in signatures
+  for them and `gw-enemy`.
+- `js/layouts.js`: built-in `gwName` and `gwDef1..6` (pixel-measured on the 1228×691 file).
+- `js/vision/readers/guild-name.js`: your box, else the built-in one; skips screens that are certainly not the enemy
+  screen.
+- `js/vision/readers/guild-defense.js` (new):
+  - loads the portraits in the watcher, reads the 6 icons (face matcher, wide alignment search, class-only filter, plus
+    your Guild War corrections)
+  - publishes `guild:defense` when ≥ 2 are sure and again when what's seen changes, with each icon's compact face
+- Guild War page (`js/guild-watch.js`, `js/guild-app.js`):
+  - "Seen in game: Round 1 … · Round 2 …" with **Save as …'s defense**, which opens the editor for that player (existing
+    or new) with the sure heroes filled in
+  - on save, every icon the app wasn't sure of (or got wrong) plus the hero you typed is stored in
+    `localStorage['e7-gw-face-corrections']`, so it's recognised next time
+  - Watch game no longer forces "Set name box"
+- `vision.html` / `live.html` load roster, faces, layouts, class templates and the new reader. `sw.js` v25.
+
+**Tested**
+- `npm test` 104.
+- Browser suite **23/23** clean. New `gw-defense.e2e.js` on the real enemy screen:
+  - reader "Defense: 3/6"
+  - the Guild War page shows the seen teams
+  - the editor is prefilled with Lionheart Cermia, Kawerik, Frieren
+  - typing one name → learned 1 → read again: 4/6, that icon sure
+- **Not tested:** the name reader inside the full app on a real screen (the fixture's name is blacked out; checked
+  separately on the original: "Ozythral"), other fortresses, the desktop app on Windows.
+
+**Open:** read the fortress maps (enemy names under the avatars) to list a fortress's defenders; read battle results to
+log attacks.
+
+---
+
 ## 2026-11-13 · #33 · Match review: what the app saw, per match · this commit (previous: `8017eef`)
 
 **Asked for:** "its seems even when starting the match the prebans arent even detected and nothing goes forward, is there a

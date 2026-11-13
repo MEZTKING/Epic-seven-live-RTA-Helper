@@ -28,7 +28,7 @@ const KNOWN = {
     const tpl = [];
     let failed = 0;
     await Promise.all(heroes.map(async (h) => {
-      const i = await load(R.PORTRAIT_URL(h.code));
+      const i = await load(R.PORTRAIT_URL_CORS(h.code));
       if (!i) return failed++;
       tpl.push({ code: h.code, vec: F.fromPortrait(i), source: 'official' });
     }));
@@ -57,7 +57,7 @@ const KNOWN = {
       const X = c * 170, Y = r * 92;
       sh.drawImage(shot, cx - 42, cy - 46, 84, 84, X + 2, Y + 2, 72, 72);
       if (ke.best) {
-        const im = portraits.get(ke.best.code) || await load(R.PORTRAIT_URL(ke.best.code));
+        const im = portraits.get(ke.best.code) || await load(R.PORTRAIT_URL_CORS(ke.best.code));
         portraits.set(ke.best.code, im);
         if (im) sh.drawImage(im, X + 78, Y + 2, 72, 72);
       }

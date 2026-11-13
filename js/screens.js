@@ -20,7 +20,10 @@
     { id: 'rta-battle', label: 'RTA battle start (CR bar visible)', module: 'rta' },
     { id: 'rta-cr-expanded', label: 'RTA expanded CR bar', module: 'rta' },
     { id: 'rta-result', label: 'RTA Victory / Defeat', module: 'rta' },
+    { id: 'gw-overview', label: 'Guild War overview (fortresses)', module: 'guild' },
+    { id: 'gw-map', label: 'Guild War fortress map (enemy names)', module: 'guild' },
     { id: 'gw-enemy', label: "Guild War enemy's defense / profile", module: 'guild' },
+    { id: 'gw-battle', label: 'Guild War battle result (defense log)', module: 'guild' },
     { id: 'gear-item', label: 'Item details (inventory)', module: 'gear' },
   ];
   const STORAGE_KEY = 'e7-screens';

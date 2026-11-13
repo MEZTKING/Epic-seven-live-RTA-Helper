@@ -9,6 +9,10 @@
 (function (root) {
   const OFFICIAL_HERO_URL = 'https://static.smilegatemegaport.com/gameRecord/epic7/epic7_hero.json';
   const PORTRAIT_URL = (code) => `https://static.smilegatemegaport.com/event/live/epic7/guide/images/hero/${code}_s.png`;
+  // For READING a portrait's pixels (face matching). The server only adds its CORS header when asked from a page and
+  // doesn't mark the answer as varying by origin, so a copy cached from a normal <img> can't be read later ("blocked by
+  // CORS"). A different address = a separate cache entry that always carries the header (DEVLOG #34).
+  const PORTRAIT_URL_CORS = (code) => `${PORTRAIT_URL(code)}?cors=1`;
 
   // In-game codes -> labels shown to players.
   const ELEMENT_LABEL = { fire: 'Fire', ice: 'Ice', wind: 'Earth', light: 'Light', dark: 'Dark' };
@@ -215,6 +219,7 @@
     tagSources,
     OFFICIAL_HERO_URL,
     PORTRAIT_URL,
+    PORTRAIT_URL_CORS,
     ELEMENT_LABEL,
     ROLE_LABEL,
     ELEMENTS,

@@ -374,7 +374,7 @@
         officialLoad.done++;
         next();
       };
-      img.src = R.PORTRAIT_URL(h.code);
+      img.src = R.PORTRAIT_URL_CORS(h.code); // separate cache entry that may be read (see roster.js)
     };
     for (let k = 0; k < 12; k++) next();
   }
