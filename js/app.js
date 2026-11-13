@@ -725,8 +725,10 @@
       firstPick: draft.firstPick,
       myPrebans: v.prebans.me,
       oppPrebans: v.prebans.opp,
-      myPicks: v.picks.me,
-      oppPicks: v.picks.opp,
+      // picks the draft is missing come from the teams seen on the battle CR bar (source noted in teamsFrom)
+      myPicks: v.picks.me.length < 5 && draft.crTeams && draft.crTeams.me.length > v.picks.me.length ? draft.crTeams.me : v.picks.me,
+      oppPicks: v.picks.opp.length < 5 && draft.crTeams && draft.crTeams.opp.length > v.picks.opp.length ? draft.crTeams.opp : v.picks.opp,
+      teamsFrom: (v.picks.me.length < 5 || v.picks.opp.length < 5) && draft.crTeams ? 'cr bar' : 'draft',
       iBanned: v.postbans.me[0] || null,
       theyBanned: v.postbans.opp[0] || null,
       notes,
@@ -1631,7 +1633,7 @@
     },
     replaceDraft(next, { newMatch = false } = {}) {
       if (newMatch && L.isComplete(store.draft)) store.pending = { ...store.draft };
-      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '' };
+      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '', ...(store.draft.crTeams ? { crTeams: store.draft.crTeams } : {}) };
       store.draft = { ...keep, ...next };
       save();
       if (activeTab === 'draft') renderDraft();

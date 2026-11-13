@@ -117,6 +117,7 @@
         <button id="auto-calib-result" class="btn">Calibrate result banner</button>
         <button id="auto-calib-help" class="btn" title="Turn on drafting help in RTA first">Calibrate game's drafting help</button>
         <button id="auto-read-cr" class="btn" title="Shortcut: R">Read CR bar now</button>
+        <button id="auto-read-teams" class="btn" title="Finds every hero on the CR bar (round icons) and which side they're on">Read teams from the CR bar</button>
         <label class="inline">100% end
           <select id="auto-cr-end"><option value="auto">auto</option><option value="top">top</option><option value="bottom">bottom</option><option value="right">right</option><option value="left">left</option></select>
         </label>
@@ -151,12 +152,21 @@
           <div class="pics-what">
             <img id="pics-preview" alt="Chosen game picture" />
             <div id="pics-parts" class="pics-parts"></div>
+            <button class="btn primary" id="pics-label" title="Each name you give is remembered: that hero's banner is recognised from then on">Name the heroes on this picture (teaches the pick banners)</button>
           </div>
           <p class="hint" style="margin-top:10px"><b>Or teach a screen from this picture</b> (for screens that are too quick to teach live, like the match-start profile art):
             <select id="pics-teach"><option value="">this picture shows…</option></select></p>
           <div class="btn-row"><button id="pics-back" class="btn">← Other picture</button></div>
         </div>
         <div class="btn-row"><button id="pics-clear" class="btn danger">Delete all</button><span class="spacer"></span><button id="pics-close" class="btn">Close</button></div>
+      </dialog>
+      <dialog id="label-dlg" class="wide-dialog">
+        <h3>Name the heroes on this picture</h3>
+        <p class="hint">Type each hero's name (the box suggests names). The app remembers what each one looks like, so next time
+          it recognises them by itself. Leave a box empty to skip it. Guesses the app is sure of are filled in already.</p>
+        <div id="label-grid" class="label-grid"></div>
+        <label class="inline"><input type="checkbox" id="label-apply" /> Also use these as the current draft</label>
+        <div class="btn-row"><span class="spacer"></span><button id="label-cancel" class="btn">Cancel</button><button id="label-save" class="btn primary">Save names</button></div>
       </dialog>
       <div id="calib" class="card wide hidden">
         <h3 id="calib-title">Calibration</h3>

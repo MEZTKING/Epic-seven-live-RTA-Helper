@@ -16,6 +16,10 @@
     .ov-label { background: rgba(12, 14, 22, .8); border-radius: 4px; padding: 1px 5px; font-weight: 700; font-size: 12px; }
     .ov .gwdot { width: 14px; height: 14px; }
     .preview-note { position: fixed; left: 12px; bottom: 10px; color: #9a9db0; font-size: 12px; }
+    /* "is it working?" badge: shown for a few seconds when the overlay comes on or is tested */
+    .ov-badge { position: fixed; left: 10px; top: 44px; padding: 4px 10px; border-radius: 12px; background: rgba(12,14,22,.85); color: #7fe0a6;
+      font: 600 13px system-ui, sans-serif; border: 1px solid rgba(127,224,166,.5); pointer-events: none; transition: opacity .6s; opacity: 0; }
+    .ov-badge.on { opacity: 1; }
     .ov-frame { position: fixed; inset: 0; border: 2px dashed rgba(201,162,74,.35); pointer-events: none; display: none; }
     body.preview .ov-frame { display: block; }
   </style>
@@ -93,7 +97,28 @@
       chan.onmessage = (e) => { if (e.data && e.data.layer) { layers[e.data.layer] = e.data.items || []; draw(); } };
       chan.postMessage({ hello: true });
       addEventListener('resize', draw);
-      window.E7OverlayView = { layers, draw };
+      // "is it working?": a small badge for a few seconds when the overlay starts (desktop), and a test card on request
+      const badge = document.createElement('div');
+      badge.className = 'ov-badge';
+      badge.textContent = '✓ Epic 7 Engine overlay';
+      document.body.appendChild(badge);
+      let badgeTimer = null;
+      const showBadge = (text, ms = 6000) => {
+        badge.textContent = text || '✓ Epic 7 Engine overlay';
+        badge.classList.add('on');
+        clearTimeout(badgeTimer);
+        badgeTimer = setTimeout(() => badge.classList.remove('on'), ms);
+      };
+      if (desktop) showBadge();
+      function testCard() {
+        showBadge('✓ Epic 7 Engine overlay is working', 5000);
+        layers.test = [{ x: 0.36, y: 0.42, w: 0.0, h: 0.0, kind: 'card', side: 'right', level: 'green', title: '✓ The overlay is working', lines: ['Suggestions, enemy speeds, gear verdicts and', 'Guild War dots appear on the game like this.', 'This card goes away in 5 seconds.'] }];
+        draw();
+        setTimeout(() => { delete layers.test; draw(); }, 5000);
+      }
+      chan.addEventListener('message', (e) => e.data && e.data.test && testCard());
+      if (window.E7Desktop && E7Desktop.onHotkey) E7Desktop.onHotkey((n) => n === 'overlay-test' && testCard());
+      window.E7OverlayView = { layers, draw, testCard };
     })();
   </script>
 </body>
