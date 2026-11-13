@@ -43,6 +43,15 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 6. Opponent names in Korean / Japanese / Chinese: load those tesseract languages for the name reader; result +/− from the
    arrow colour, not the OCR'd sign.
 
+## Any window size / Guild War fortresses (owner, DEVLOG #38)
+- [x] Any window size: title bar from the pixels, anchored built-in positions, screen signatures from the middle 16:9 part.
+- [x] Guild War: which fortress (Stinger / Darkwood / Vortex) and its defenders' names from the fortress map.
+- [ ] **Our own side's fortresses** (the shield view): needs a screenshot of our side's map (badge colour unknown; the reader
+  only takes red-ringed enemy badges now).
+- [ ] RTA screens at a wider window: verify the anchors of the pre-ban / pick boxes (needs RTA screenshots from the maximized window).
+- [ ] Enemy defense panel at a wider window: verify left vs middle (both are tried now).
+- [ ] Better name reading (game font): 6–8 of 10 names exact now; corrections are remembered.
+
 ## Desktop-only + in-game overlays (owner, DEVLOG #37)
 - [x] Desktop app is the product; web keeps only Guild War for guildmates; offline web app and My devices sync removed.
 - [ ] **Steam / Discord overlay awareness:** teach a "covered" screen from real screenshots (Steam overlay open with

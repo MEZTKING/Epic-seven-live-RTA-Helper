@@ -46,6 +46,7 @@
         <button id="gw-teach" class="btn desktop-only" title="Press while an enemy's defense/profile is showing">This is the enemy screen</button>
         <span id="gw-watch-read" class="hint"></span>
         <div id="gw-seen" class="gw-seen hidden"></div>
+        <div id="gw-fort-seen" class="gw-seen hidden"></div>
       </div>
       <div id="gw-screen" class="hint"></div>
       <div id="war-summary" class="cards" style="margin-top:12px"></div>
@@ -61,6 +62,7 @@
       <div class="filters">
         <input id="target-search" type="search" placeholder="Search enemy player / tower / hero…" autocomplete="off" />
         <select id="target-filter"><option value="">All targets</option><option value="open">Not cleared</option><option value="cleared">Cleared</option><option value="mine">Assigned to me</option></select>
+        <select id="target-fort"><option value="">All fortresses</option><option>Stinger Fortress</option><option>Darkwood Fortress</option><option>Vortex Fortress</option></select>
         <select id="target-dot"><option value="">All dots</option><option value="green">Green: gear checks out</option><option value="proven">Green ring: proven</option><option value="yellow">Yellow</option><option value="red">Red</option><option value="grey">Grey</option></select>
       </div>
       <div id="targets" class="targets"></div>
@@ -168,7 +170,8 @@
       <h3 id="target-title">Enemy defense</h3>
       <div class="two">
         <label>Enemy player <input name="player" list="gw-enemies" required /></label>
-        <label>Tower / fort <input name="tower" placeholder="e.g. Left 3" /></label>
+        <label>Fortress <input name="tower" list="gw-forts" placeholder="Stinger / Darkwood / Vortex Fortress" /></label>
+        <datalist id="gw-forts"><option value="Stinger Fortress"></option><option value="Darkwood Fortress"></option><option value="Vortex Fortress"></option></datalist>
       </div>
       <div id="team-editors"></div>
       <label>Notes <textarea name="notes" rows="2"></textarea></label>
@@ -227,8 +230,10 @@
   <script src="js/overlay-bus.js"></script>
   <script src="js/ceciliabot.js"></script>
   <script src="js/heroinfo.js"></script>
+  <script src="js/gwmap.js"></script>
   <script src="js/guild-app.js"></script>
   <script src="js/guild-pip.js"></script>
+  <script src="js/frame.js"></script>
   <script src="js/game-area.js"></script>
   <script src="js/vision/core.js"></script>
   <script src="js/vision/bus.js"></script>

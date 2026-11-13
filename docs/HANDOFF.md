@@ -44,6 +44,8 @@ a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) a
 
 | File | Global | Does |
 |---|---|---|
+| `js/frame.js` | `E7Frame` | Where the game is inside a captured window / screenshot: title bar and thin borders found from the pixels (`detect`), any size (DEVLOG #38) |
+| `js/gwmap.js` | `E7GWMap` | Guild War fortress map: defender badges, name boxes, letter mask, name cleaning/matching, which fortress (pager); `FORTS` |
 | `js/teach.js` | `E7Teach` | Hero faces you taught (Live → Teach heroes; UI in `js/teach-ui.js`): add/remove/switch/export/import, `templates(F)` for the face matcher (source 'taught by you') |
 | `js/roster.js` | `RTARoster` | Official list parsing, name matching, Fribbels `gear.txt` roster, CSV match import, `epic7xUrl`, `tagSources` |
 | `js/learn.js` | `RTALearn` | Learning from matches: hero/matchup/pair stats, player profiles, combos, scouting summary, sessions, suggestion follow-through, `gameHelpStats` |
@@ -98,6 +100,9 @@ only receive events.
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
+| `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
+| `localStorage['e7-gw-known-names']` | `js/guild-app.js` → `js/vision/readers/guild-fortress.js` | Enemy player names you already have (for matching what's read on a fortress map) |
+| `localStorage['e7-gw-name-fixes']` | `js/guild-app.js` (`saveFortress`) → fortress reader | `{ readText(lowercase): name }`: names you corrected after a fortress read, used next time |
 | `localStorage['e7-face-examples']` | `js/teach.js` (Live → Teach heroes, `js/teach-ui.js`); read by `js/auto.js` and `js/vision/readers/guild-defense.js` | Hero faces you taught: `{on, examples: [{id, code, q, thumb, from, at}]}`, source label 'taught by you', ≤ 12 per hero / 500 total. |
 | `localStorage['e7-gw-face-corrections']` | `js/guild-app.js`, `js/vision/readers/guild-defense.js` | Guild War icons you named: `[{code, q}]` (face examples, newest 300) |
 | `localStorage['e7-match-trace']` | `js/matchtrace.js` | Per match (draft id): timeline events + last slot snapshot (newest 15) |
@@ -193,7 +198,14 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #37)
+## 7. Status (end of DEVLOG #38)
+
+**Any window size** (DEVLOG #38): the game picture is found from the pixels (`js/frame.js`; title bar cut), built-in
+positions are anchored left / middle / right and scale with the height (`js/layouts.js` `place`, `layoutFor` for any
+shape, `alternatives` for unverified anchors), screen signatures use the middle 16:9 part (`RTAScreens.refCrop`).
+Verified on the owner's Guild War screens (16:9 vs 2000×1070). RTA anchors are still guesses (no wide RTA screenshot).
+**Guild War fortresses:** `guild-fortress` reader → `guild:fortress {index, fort, players, keep}` → Guild War page
+"Save as this war's <fortress>" (targets get `tower` = fortress, `keep` flag); War tab filter by fortress.
 
 **Desktop-only** (owner, DEVLOG #37): the browser/phone version, the offline web app (manifest, service worker) and My
 devices sync are gone; the web keeps `guild.html` for guildmates. **Steam / Discord in-game overlays** draw inside the game
@@ -204,7 +216,7 @@ real screenshots (ROADMAP).
 covers the game's display. Why it is/isn't visible: Overlay → Overlay status, Live page "Overlay now", the `overlay:` line
 in Copy report (`E7Desktop.overlayStatus()`). **Teach heroes** (Live page): your own face examples, `e7-face-examples`.
 
-**Guild War from the screen:** name (built-in box) + defense teams (`guild-defense` reader → `guild:defense` → "Save as …'s
+**Guild War from the screen:** fortress maps (which fortress + its defenders' names, `guild-fortress`), name (built-in box) + defense teams (`guild-defense` reader → `guild:defense` → "Save as …'s
 defense"; learning in `e7-gw-face-corrections`). **Portraits for pixel reading must use `RTARoster.PORTRAIT_URL_CORS`.**
 
 

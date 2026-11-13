@@ -30,8 +30,10 @@
     localStorage.setItem(S.STORAGE_KEY, JSON.stringify(list));
     for (const fn of listeners) fn();
   }
+  const dims = (s) => ({ w: s.videoWidth || s.naturalWidth || s.width, h: s.videoHeight || s.naturalHeight || s.height });
   function fpOf(source) {
-    ctx.drawImage(source, 0, 0, S.W, S.H);
+    const d = dims(source);
+    ctx.drawImage(source, ...S.refCrop(d.w, d.h), 0, 0, S.W, S.H); // middle 16:9 part (any window shape)
     return S.fingerprint(ctx.getImageData(0, 0, S.W, S.H).data);
   }
   /** Call once per frame/tick. Returns the stable screen id (or null). */

@@ -7,6 +7,107 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #38 · Any window size; Guild War fortresses (which fortress, its defenders) · this commit (previous: `58b9ec4`)
+
+**Asked for:** the owner confirmed the overlay now works (badge visible, Overlay status "following the game window at 0,0
+(2560×1392)"), then: "make it work at any window size, since i have to sometimes take a screenshot using the windows
+snippet and that might not be accurate, also for the guild wars dont forget that there are 3 different defence areas on
+each side of the war … each place has its own set of player" (+ the overview and the three fortress maps from a
+maximized window, 2000×1070).
+
+**Findings**
+- The owner's maximized window is **not 16:9** (2560×1392 with title bar).
+  - The old title-bar rule only worked for 16:9 windows, so the title bar stayed in the picture.
+  - `layoutFor` returned nothing for other shapes, so **no built-in position was used at all** on the owner's PC.
+- **How the game adapts to a wider window** (pixel-checked: the owner's 16:9 and 2000×1070 shots of the same screens,
+  patch matching): everything scales with the window **height** and is pinned to the **left edge, the middle or the
+  right edge**.
+  - Left: title, Havoc bar, guild emblems, bottom-left buttons (offset 0 px as 'l').
+  - Right: menu, shield/swords, fortress pager (0 px as 'r').
+  - Middle: fortress map, player icons, the three fortresses (0 px as 'c').
+- **Title bar from the pixels:**
+  - Title-bar rows are ≥ 0.96 one colour and take the window's colour, never black, ending abruptly.
+  - The game's own top band can be PURE BLACK (RTA screens) and must be kept.
+  - On all 33 screenshots the owner has sent, only the two with a title bar were cut (18 rows); every game-only
+    picture was left whole.
+- **Fortresses:**
+  - All three use the same castle picture; which one is open is the white pill in the bottom-right pager (left /
+    middle / right).
+  - 10 defenders each (9 + the keep, whose locked badge is at the same spot in all three).
+  - Each defender has a dark round badge (house/tower symbol, red ring for the enemy) with the name below it at a fixed
+    offset.
+  - The owner's earlier 16:9 "map2" is Darkwood.
+- **Badge finder:** measured rule, on a copy scaled to 1070 px high:
+  - dark at 0.8 r and 0.9 r, mean brightness at 0.9 r ≤ 65
+  - ≥ 15% red on the rim, not dark just outside
+  - Result: all 9 on the wide Stinger map, on the 16:9 copy of it and on 16:9 Darkwood. The reader also needs a clear
+    pager pill (contrast ≥ 100; maps 174), because other screens give a few hits.
+- **Names:**
+  - OCR of the whole map is useless (3 of 10, garbled).
+  - Per badge: crop the name box, keep white letters only, cut to the letters around the middle, read one line.
+  - Real Stinger map: 6/10 exact (Ozythral, AkariRen, Reimarion, Miidou, Fri13Kayle, YDI), 2 close (TubuZ for TuDuZ,
+    RyanVo76.x), 2 wrong.
+  - So the names are shown editable, matched to names you already have (small edit distance), and corrections are
+    remembered.
+- Screen signatures: the wide map scores 0.978 against the 16:9 one when taken from the middle 16:9 part (0.924 when
+  squeezed).
+
+**Changed**
+- `js/frame.js` (new, pure): finds the game inside a window / screenshot.
+  - `js/game-area.js` `windowFrame`: window capture at any size. Detection runs on a ≤1000 px copy, when the size
+    changes and every 3 s; the old 16:9 rule is the fallback.
+  - The result goes to `localStorage['e7-window-frame']` so `overlay.html` lines up.
+- `js/layouts.js`:
+  - every region has an anchor; `place`, `layoutFor` (any shape 1.2–2.6) and `alternatives` (unverified anchors)
+  - Guild War defense panel `l` with `c` as alternative; RTA anchors guessed from position (pre-bans `c` with `l` as
+    alternative, my picks `l`, opponent picks `r`)
+  - new `gwFortPager` (right) and `gwKeepName` (middle)
+- `js/screens.js` `refCrop`: screen signatures from the middle 16:9 part (`js/screen-watch.js`, `js/vision/hub.js`).
+- `js/vision/readers/guild-defense.js`: reads every placement offered and keeps the one recognising the most heroes.
+- `js/gwmap.js` (new, pure): badges, name boxes, letter mask/span, `cleanName`, `matchName`, `pagerIndex`, `FORTS`.
+- `js/vision/readers/guild-fortress.js` (new):
+  - fortress map → `guild:fortress {index, fort, players:[{name, raw, known, x, y}], keep}`
+  - same map seen twice before the names are read; enemy (red) badges only
+  - `js/vision/hub.js` `ocr(canvas, {line})` gives the one-line text mode
+- Guild War page:
+  - "Seen in game: <fortress>" with editable names (✓ = already known) and **Save as this war's <fortress>**
+    (`GuildApp.saveFortress`): creates/updates this war's targets with `tower` = fortress and `keep`
+  - corrections → `e7-gw-name-fixes`; known names → `e7-gw-known-names`
+  - War tab: fortress filter, cards sorted Stinger → Darkwood → Vortex, "Defense not scouted yet" for players without
+    teams
+  - the target editor's Tower field is now "Fortress" with the three names suggested
+- Fixtures (player names replaced: real names blurred out, made-up names drawn in the game's style, same spots):
+  - `steam-gw-map-stinger-wide.jpg` (2000×1070) and `steam-gw-map-darkwood.jpg` (1228×691)
+  - `steam-gw-overview-wide-blurred.jpg` (guild names blurred)
+  - `steam-window-titlebar-lobby.jpg`: the owner's lobby with its title bar; the owner's in-game name and a coupon code
+    blurred
+  - Made with Pillow + DejaVu Sans on this machine (no outside source).
+
+**Tested**
+- `npm test` **110**. New `tests/frame-gwmap.test.js`: title bar cut / black band kept / plain area kept; badges found on
+  a wide and a 16:9 map and not on a plain dark blob; pager thirds; real OCR outputs cleaned and matched; letter span.
+  `layouts.test.js` replaced the "16:9 only" test with anchored placement at 2000×1070 and 1600×1200.
+- New `gw-fortress.e2e.js`:
+  - Stinger (wide): "Stinger Fortress", 9 defenders + keep, 6/10 exact made-up names; one corrected in the panel → Save
+    → 10 targets in Stinger, keep marked, fortress filter Stinger 10 / Darkwood 0, fix remembered
+  - Darkwood (16:9): "Darkwood Fortress", 8/10 exact
+  - wide overview: not read as a map
+  - title bar in the lobby screenshot: exactly 18 rows
+  - enemy defense on a 2000×1070 picture with the panel pinned left or centred: 3/6 both, the same as at 16:9
+- Browser suite **25/25** clean.
+- Before writing the code, checked on the owner's real (unredacted) screenshots on this machine only: badges 9/9 on
+  three maps, pager on Stinger/Darkwood, names as above, frame detection on all 33 screenshots.
+- **Not tested:** the desktop app on the owner's PC at 2560×1392; RTA screens at a wider window (no screenshots); our own
+  side's fortress maps.
+
+**Open / assumptions**
+- Narrower-than-16:9 windows are assumed to scale with the width, centred vertically (not seen yet).
+- A loose Snipping Tool box (extra desktop around the game) isn't detected; positions then shift by that margin. Snip
+  close to the game, or use the app's own capture.
+- Korean / other-script names can't be read by the English OCR; type them once and the fix is remembered.
+
+---
+
 ## 2026-11-13 · #37 · Desktop-only: web keeps only Guild War for guildmates; Steam / Discord overlay safety · this commit (previous: `9588219`)
 
 **Asked for:** "lets move away from a browser version and use a proper desktop one with a proper overlay, also beware of
