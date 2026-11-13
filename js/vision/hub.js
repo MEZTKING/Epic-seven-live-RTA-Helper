@@ -10,6 +10,7 @@
  *   E7Vision.register({ id, label, screen, every, module, ready(), hasBoxes(), read(ctx), idle(ctx) })
  *   ctx: { source, w, h, crop(rect, {minH, filter}), ocr(canvas, {line}), publish(type, data), note(text) }
  *   ocr(canvas, { line: true }) reads ONE line of text (Tesseract page mode 7: names under icons)
+ *   ocrWords(canvas) -> [{ text, conf, x, y }] scattered words with their centres (page mode 11: labels on a picture)
  *
  * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach, save-picture.
  * Events it publishes: vision:status (every 3 s + on change), vision:started / vision:stopped,
@@ -77,6 +78,17 @@
       await wk.setParameters({ tessedit_pageseg_mode: opts.line ? '7' : '3' });
       const { data } = await wk.recognize(canvas);
       return ((data && data.text) || '').replace(/\n+/g, ' ').trim();
+    });
+    ocrChain = job.catch(() => {});
+    return job;
+  }
+
+  function ocrWords(canvas) {
+    const job = ocrChain.then(async () => {
+      const wk = await loadOcr();
+      await wk.setParameters({ tessedit_pageseg_mode: '11' });
+      const { data } = await wk.recognize(canvas);
+      return ((data && data.words) || []).map((w) => ({ text: w.text, conf: w.confidence, x: (w.bbox.x0 + w.bbox.x1) / 2, y: (w.bbox.y0 + w.bbox.y1) / 2 }));
     });
     ocrChain = job.catch(() => {});
     return job;
@@ -173,6 +185,7 @@
     h,
     crop,
     ocr,
+    ocrWords,
     publish: (type, data) => bus.publish(type, data),
     note: (t) => {
       if (r.note !== t) {

@@ -27,10 +27,12 @@ test('built-in layout at any window shape: scales with the height, anchored left
   // sizes follow the height, not the width: a round icon stays round
   const ic = px(b.regions.gwDef1);
   assert.ok(Math.abs(ic.w - ic.h) < 0.5);
-  // the Guild War defense panel's anchor isn't verified yet: both placements are offered
-  const alts = L.alternatives(W, H, 'gwDef1');
-  assert.deepEqual(alts.map((x) => x.anchor), ['l', 'c']);
-  assert.equal(L.alternatives(1920, 1080, 'gwDef1').length, 1, 'at 16:9 all anchors are the same place');
+  // the Guild War defense panel is verified pinned left (DEVLOG #39): one placement; RTA pre-bans aren't verified: two
+  assert.deepEqual(L.alternatives(W, H, 'gwDef1').map((x) => x.anchor), ['l']);
+  assert.deepEqual(L.alternatives(W, H, 'mePreban1').map((x) => x.anchor), ['c', 'l']);
+  assert.equal(L.alternatives(1920, 1080, 'mePreban1').length, 1, 'at 16:9 all anchors are the same place');
+  // measured on the owner's 2000×1070 enemy screen: the first defense icon sits where the 16:9 one is, scaled by height
+  assert.ok(Math.abs(px(b.regions.gwDef1).x - base.gwDef1.x * refW) < 0.5);
   // narrower than 16:9: scales with the width, centred vertically; round stays round
   const n = L.layoutFor(1600, 1200).regions.gwDef1;
   assert.ok(Math.abs(n.w * 1600 - n.h * 1200) < 0.5);

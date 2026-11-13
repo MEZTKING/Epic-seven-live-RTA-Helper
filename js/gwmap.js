@@ -2,30 +2,39 @@
  * Guild War fortress map (DEVLOG #38): which fortress is open and where its players are. Pure (Node + browser).
  * Browser: window.E7GWMap. Used by js/vision/readers/guild-fortress.js and the Guild War page.
  *
- * Each side has three fortresses (Stinger, Darkwood, Vortex; owner, 2026-11-13). All three use the same castle picture;
- * which one is open is shown by the page indicator at the bottom right (a white pill: left / middle / right).
- * Every defender has a round portrait with a dark round BADGE next to it (house or tower symbol, red ring for the enemy);
- * the player's name is written under them. The keep (locked badge, middle of the castle) is at the same spot in all three.
+ * Each side has three fortresses, named per side and war (enemy: Stinger, Darkwood, Vortex; ours: Domino, Crown, Log;
+ * owner, 2026-11-13); the overview shows their names (fortNamesFromWords) and which side is shown (toggleSide: the
+ * shield / swords switch at the bottom right). All fortress maps use the same castle picture; which one is open is shown
+ * by the page indicator at the bottom right (a white pill: left / middle / right). Players can be moved between
+ * fortresses and places by the guild leader, so nothing here relies on fixed places.
+ * Every defender has a round portrait with a dark round BADGE next to it (house or tower symbol). Its ring is the
+ * defender's health: RED = enemy, GREEN = our side, all grey = beaten. The player's name is written under them. The keep
+ * (locked badge for the enemy, gold one for us; middle of the castle) is at the same spot in all three.
  *
- * Measured on the owner's maps (Stinger, 2000×1070 and 1228×691, all 9 badges found, none elsewhere):
+ * Measured on the owner's maps (2 enemy, 3 own; 2000×1070 and 1228×691; all 9 badges on each, beaten ones included):
  *   badge: dark disc (r ≈ 0.030 × picture height): dark at 0.8 r and 0.9 r (≥ 90%), mean brightness at 0.9 r ≤ 65,
- *          ≥ 15% red pixels on its rim (0.97–1.1 r), and NOT dark just outside (≤ 70% at 1.3 r)
+ *          an even ring (brightness spread at 0.8 r ≤ 35; name labels are 49–64),
+ *          a bright symbol in the middle (≥ 40% light pixels at 0.15 r or 0.3 r), NOT dark just outside (≤ 70% at 1.3 r).
+ *          Ring colour (0.97–1.1 r, ≥ 4%: a short arc = little health left): red → 'enemy', green → 'ours', neither → 'beaten'
  *   name:  centred 0.045 h left of and 0.051 h below the badge centre; white letters with a dark outline
  * Work on a copy scaled to NORM_H (1070) pixels high: the thresholds hold at any window size.
  *
- *   findBadges(rgba, W, H)          -> [{ x, y, r }] (pixels of that picture)
+ *   findBadges(rgba, W, H)          -> [{ x, y, r, state: 'enemy' | 'ours' | 'beaten' }] (pixels of that picture)
+ *   sideOf(badges)                  -> 'enemy' | 'ours' | null (most coloured rings)
+ *   toggleSide(rgba, W, H, rect)    -> 'ours' | 'enemy' | null (overview: which half of the switch is lit)
+ *   fortNamesFromWords(words, W, H) -> [left, middle, right] fortress names from OCR words on the overview
  *   nameBox({x, y}, H)              -> { x, y, w, h } pixels around where the name is
  *   letterMask(rgba, W, H)          -> Uint8Array 1 = white letter pixel
  *   letterSpan(mask, W, H)          -> [left, right] columns of the letters around the middle (or null)
  *   cleanName(ocrText)              -> best name-like word ('' if none)
  *   matchName(raw, known)           -> a known name within a small edit distance, else null
  *   pagerIndex(rgba, W, H, rect)    -> { index: 0|1|2, contrast } (rect in pixels: the indicator bar)
- *   FORTS                           -> ['Stinger Fortress', 'Darkwood Fortress', 'Vortex Fortress']
+ *   DEFAULT_FORTS                   -> names used until the overview has been seen
  */
 (function (root) {
   'use strict';
   const NORM_H = 1070;
-  const FORTS = ['Stinger Fortress', 'Darkwood Fortress', 'Vortex Fortress'];
+  const DEFAULT_FORTS = ['Left fortress', 'Middle fortress', 'Right fortress'];
   const R_FRAC = 0.03;
   const N = 48;
   const COS = Array.from({ length: N }, (_, i) => Math.cos((2 * Math.PI * i) / N));
@@ -35,12 +44,16 @@
     const R = R_FRAC * H;
     const lum = new Float32Array(W * H);
     const red = new Uint8Array(W * H);
+    const green = new Uint8Array(W * H);
+    const light = new Uint8Array(W * H);
     for (let i = 0, p = 0; i < W * H; i++, p += 4) {
       const r = rgba[p];
       const g = rgba[p + 1];
       const b = rgba[p + 2];
       lum[i] = (r + g + b) / 3;
       red[i] = r > 110 && r - g > 55 ? 1 : 0;
+      green[i] = g > 110 && g - r > 45 && g - b > 20 ? 1 : 0;
+      light[i] = lum[i] > 140 && Math.max(r, g, b) - Math.min(r, g, b) < 40 ? 1 : 0;
     }
     const at = (cx, cy, f, k) => {
       const x = Math.min(W - 1, Math.max(0, Math.round(cx + R * f * COS[k])));
@@ -57,27 +70,39 @@
       for (let k = 0; k < N; k++) v += lum[at(cx, cy, f, k)];
       return v / N;
     };
-    const rimAt = (cx, cy) => {
-      let rim = 0;
-      for (const f of [0.97, 1.04, 1.1]) {
-        let n = 0;
-        for (let k = 0; k < N; k++) n += red[at(cx, cy, f, k)];
-        rim = Math.max(rim, n / N);
+    const stdAt = (cx, cy, f) => {
+      let a = 0;
+      let b = 0;
+      for (let k = 0; k < N; k++) {
+        const v = lum[at(cx, cy, f, k)];
+        a += v;
+        b += v * v;
       }
-      return rim;
+      return Math.sqrt(Math.max(0, b / N - (a / N) ** 2));
+    };
+    const maxFrac = (m, cx, cy, fs) => {
+      let best = 0;
+      for (const f of fs) {
+        let n = 0;
+        for (let k = 0; k < N; k++) n += m[at(cx, cy, f, k)];
+        best = Math.max(best, n / N);
+      }
+      return best;
     };
     // score at one point; strict = the measured rule, loose = worth refining around
     const score = (cx, cy, strict) => {
-      const lim = strict ? { d: 0.9, mean: 65, out: 0.7, rim: 0.15 } : { d: 0.75, mean: 80, out: 0.8, rim: 0.08 };
+      const lim = strict ? { d: 0.9, mean: 65, out: 0.7, glyph: 0.4, std: 35 } : { d: 0.75, mean: 80, out: 0.8, glyph: 0.25, std: 50 };
       const d9 = darkFrac(cx, cy, 0.9);
       if (d9 < lim.d) return null;
       const d8 = darkFrac(cx, cy, 0.8);
       if (d8 < lim.d || meanAt(cx, cy, 0.9) > lim.mean) return null;
+      // an even dark ring (real badges ≤ 24), not white letters with dark outlines (a name label: 49–64)
+      if (stdAt(cx, cy, 0.8) > lim.std) return null;
+      const glyph = maxFrac(light, cx, cy, [0.15, 0.3]);
+      if (glyph < lim.glyph) return null;
       const out = darkFrac(cx, cy, 1.3);
       if (out > lim.out) return null;
-      const rim = rimAt(cx, cy);
-      if (rim < lim.rim) return null;
-      return d8 + d9 + rim - out;
+      return d8 + d9 + glyph - out;
     };
     const step = Math.max(2, Math.round(R / 10));
     const m = Math.ceil(R * 1.4);
@@ -103,7 +128,60 @@
     cands.sort((a, b) => b.s - a.s);
     const picked = [];
     for (const c of cands) if (picked.every((p) => (p.x - c.x) ** 2 + (p.y - c.y) ** 2 > (2.2 * R) ** 2)) picked.push(c);
-    return picked.map((p) => ({ x: p.x, y: p.y, r: R })).sort((a, b) => a.y - b.y || a.x - b.x);
+    return picked
+      .map((p) => {
+        const rr = maxFrac(red, p.x, p.y, [0.97, 1.04, 1.1]);
+        const gg = maxFrac(green, p.x, p.y, [0.97, 1.04, 1.1]);
+        // any coloured arc = still standing (a nearly beaten defender keeps a short arc; beaten ones measured 0.00)
+        const state = rr >= 0.04 && rr >= gg ? 'enemy' : gg >= 0.04 ? 'ours' : 'beaten';
+        return { x: p.x, y: p.y, r: R, state };
+      })
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+  }
+  function sideOf(badges) {
+    const e = badges.filter((b) => b.state === 'enemy').length;
+    const o = badges.filter((b) => b.state === 'ours').length;
+    return e > o ? 'enemy' : o > e ? 'ours' : null;
+  }
+  /** Overview: the shield / swords switch, same place as the map's page indicator. Left half lit = our side. */
+  function toggleSide(rgba, W, H, rect) {
+    const half = (k) => {
+      let s = 0;
+      let n = 0;
+      for (let y = Math.round(rect.y + rect.h * 0.3); y < Math.round(rect.y + rect.h * 0.7); y++) {
+        for (let x = Math.round(rect.x + (k * rect.w) / 2); x < Math.round(rect.x + ((k + 1) * rect.w) / 2); x++) {
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const p = (y * W + x) * 4;
+          s += (rgba[p] + rgba[p + 1] + rgba[p + 2]) / 3;
+          n++;
+        }
+      }
+      return n ? s / n : 0;
+    };
+    const l = half(0);
+    const r = half(1);
+    if (Math.abs(l - r) < 40) return null;
+    return l > r ? 'ours' : 'enemy';
+  }
+  /**
+   * Overview: the three fortress names from OCR words ({ text, conf, x } with x in pixels of a W×H picture; e.g. both a
+   * grey and a white-letter reading of the label band). A name is a confident word that isn't "Fortress"; which
+   * fortress it belongs to follows from where it is (measured: left 0.31–0.34, middle 0.56–0.60, right 0.79–0.81 of the
+   * middle 16:9 part, on both sides' overviews).
+   */
+  function fortNamesFromWords(words, W, H) {
+    const refW = Math.min(W, (H * 16) / 9);
+    const off = (W - refW) / 2;
+    const slots = [[], [], []];
+    // a name read by several passes counts once; "Singer" (conf 0) etc. are dropped by the confidence rule
+    for (const w of words || []) {
+      const t = String(w.text || '').replace(/[^\p{L}\p{N}'-]/gu, '');
+      if (t.length < 3 || /^fo/i.test(t) || (w.conf || 0) < 85 || !/^\p{Lu}/u.test(t)) continue;
+      const fx = (w.x - off) / refW;
+      const k = fx < 0.45 ? 0 : fx < 0.7 ? 1 : 2;
+      if (!slots[k].some((s) => s.t.toLowerCase() === t.toLowerCase())) slots[k].push({ t, x: w.x });
+    }
+    return slots.map((s) => (s.length ? `${s.sort((a, b) => a.x - b.x).map((q) => q.t).join(' ')} Fortress` : null));
   }
 
   function nameBox(b, H) {
@@ -194,7 +272,7 @@
     return { index: order[0], contrast: mean[order[0]] - mean[order[1]], mean };
   }
 
-  const api = { NORM_H, FORTS, findBadges, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex };
+  const api = { NORM_H, DEFAULT_FORTS, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);

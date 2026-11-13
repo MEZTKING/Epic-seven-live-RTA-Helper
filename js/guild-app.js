@@ -40,8 +40,10 @@
   let records = [];
   let state = GW.buildState([]);
   let activeTab = 'war';
-  // the three fortresses on each side of a war (owner, DEVLOG #38); E7GWMap has the same list
-  const FORTS = (window.E7GWMap && window.E7GWMap.FORTS) || ['Stinger Fortress', 'Darkwood Fortress', 'Vortex Fortress'];
+  // three fortresses on each side of a war, named per side and war (owner, DEVLOG #38/#39): read from the game's overview
+  // into war.forts = { enemy: [left, middle, right], ours: [...] }; until then generic names
+  const DEFAULT_FORTS = (window.E7GWMap && window.E7GWMap.DEFAULT_FORTS) || ['Left fortress', 'Middle fortress', 'Right fortress'];
+  const fortsOf = (war, side = 'enemy') => DEFAULT_FORTS.map((d, i) => (war && war.forts && war.forts[side] && war.forts[side][i]) || d);
   let warId = null;
 
   function loadConn() {
@@ -104,7 +106,7 @@
       state = GW.buildState(records);
       // names the fortress-map reader may match what it reads to (js/vision/readers/guild-fortress.js)
       try {
-        localStorage.setItem('e7-gw-known-names', JSON.stringify([...new Set(state.targets.map((t) => t.player).filter(Boolean))].slice(-1000)));
+        localStorage.setItem('e7-gw-known-names', JSON.stringify([...new Set([...state.targets.map((t) => t.player), ...state.members.map((m) => m.name)].filter(Boolean))].slice(-1000)));
       } catch (_) { /* only a help */ }
       render();
     });
@@ -185,6 +187,24 @@
     const R0 = rules();
     const sum = GW.warSummary(state, warId, R0, today());
     const myLeft = (sum.members.find((m) => GW.playerKey(m.name) === GW.playerKey(me())) || {}).left;
+    const war = state.wars.find((w) => w.id === warId);
+    const FORTS = fortsOf(war);
+    // fortress filter: this war's enemy fortresses (+ any other tower text used)
+    const fsel = $('#target-fort');
+    if (fsel) {
+      const keep = fsel.value;
+      const opts = [...new Set([...FORTS, ...sum.targets.map((s) => s.target.tower).filter(Boolean)])];
+      fsel.innerHTML = '<option value="">All fortresses</option>' + opts.map((o) => `<option ${o === keep ? 'selected' : ''}>${esc(o)}</option>`).join('');
+    }
+    if ($('#gw-forts')) $('#gw-forts').innerHTML = FORTS.map((f) => `<option value="${esc(f)}"></option>`).join('');
+    // our side, as read from the game (Save as our … on a fortress map)
+    const ours = (war && war.ourForts) || {};
+    const ob = $('#war-ours');
+    if (ob) {
+      const rows = fortsOf(war, 'ours').filter((f) => ours[f]).map((f) => `<div><b>${esc(f)}</b>: ${ours[f].map((p) => `${esc(p.name)}${p.keep ? ' <span class="hint">(keep)</span>' : ''}${p.state === 'beaten' ? ' <span class="hint">✗</span>' : ''}`).join(', ')}</div>`);
+      ob.innerHTML = rows.length ? `<h4 style="margin:0 0 4px">Our side <span class="src game">read from the game</span></h4>${rows.join('')}<div class="hint">✗ = beaten (grey ring) when it was read</div>` : '';
+      ob.classList.toggle('hidden', !rows.length);
+    }
     $('#war-summary').innerHTML = `
       <div class="card"><div class="hint">Defenses cleared</div><div class="stat">${sum.cleared}/${sum.targets.length}</div><div class="hint">${sum.teamsCleared}/${sum.teamsTotal} teams</div></div>
       <div class="card"><div class="hint">Attacks</div><div class="stat">${sum.wins}-${sum.attacks - sum.wins}</div><div class="hint">win rate ${pct(sum.wins, sum.attacks)}</div></div>
@@ -748,9 +768,24 @@
    * fortress (existing ones only get their fortress set). Names you corrected are remembered for next time.
    * players: [{ name, raw, keep }]. Returns { added, moved, same }.
    */
-  async function saveFortress(fort, players) {
+  async function saveFortress(fort, players, side = 'enemy') {
     if (!warId) throw new Error('Start a war first (New war).');
     const out = { added: 0, moved: 0, same: 0 };
+    if (side === 'ours') {
+      // our side: who defends where, kept on the war (shared with the guild); members added if new
+      const war = state.wars.find((w) => w.id === warId);
+      const list = players.filter((p) => String(p.name || '').trim()).map((p) => ({ name: p.name.trim(), keep: !!p.keep, state: p.state || '' }));
+      await put('war', { ...war, ourForts: { ...((war && war.ourForts) || {}), [fort]: list } });
+      for (const p of list) {
+        const id = 'm-' + GW.playerKey(p.name).replace(/[^a-z0-9]+/g, '-');
+        if (!state.members.some((m) => m.id === id || GW.playerKey(m.name) === GW.playerKey(p.name))) {
+          await put('member', { id, name: p.name });
+          out.added++;
+        } else out.same++;
+      }
+      if (window.E7Diag) window.E7Diag.log('guild', `saved our ${fort} from the game`, out);
+      return out;
+    }
     const fixes = (() => {
       try {
         return JSON.parse(localStorage.getItem('e7-gw-name-fixes') || '{}') || {};
@@ -780,7 +815,17 @@
   window.GuildApp = {
     openTargetWith: (seen) => openTarget(null, seen),
     saveFortress,
-    FORTS: () => FORTS,
+    /** Fortress names read on the overview: kept on the current war (shared), only when they changed. */
+    async saveFortNames(side, names) {
+      const war = state.wars.find((w) => w.id === warId);
+      if (!war || !Array.isArray(names)) return false;
+      const cur = (war.forts && war.forts[side]) || [];
+      const next = DEFAULT_FORTS.map((_, i) => names[i] || cur[i] || null);
+      if (JSON.stringify(next) === JSON.stringify(cur)) return false;
+      await put('war', { ...war, forts: { ...(war.forts || {}), [side]: next } });
+      return true;
+    },
+    fortsOf: (side) => fortsOf(state.wars.find((w) => w.id === warId), side),
     get state() {
       return state;
     },

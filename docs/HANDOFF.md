@@ -45,7 +45,7 @@ a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) a
 | File | Global | Does |
 |---|---|---|
 | `js/frame.js` | `E7Frame` | Where the game is inside a captured window / screenshot: title bar and thin borders found from the pixels (`detect`), any size (DEVLOG #38) |
-| `js/gwmap.js` | `E7GWMap` | Guild War fortress map: defender badges, name boxes, letter mask, name cleaning/matching, which fortress (pager); `FORTS` |
+| `js/gwmap.js` | `E7GWMap` | Guild War: defender badges with state (enemy / ours / beaten), `sideOf`, name boxes, letter mask, name cleaning/matching, which fortress (pager), overview switch (`toggleSide`) and fortress names (`fortNamesFromWords`); `DEFAULT_FORTS` |
 | `js/teach.js` | `E7Teach` | Hero faces you taught (Live → Teach heroes; UI in `js/teach-ui.js`): add/remove/switch/export/import, `templates(F)` for the face matcher (source 'taught by you') |
 | `js/roster.js` | `RTARoster` | Official list parsing, name matching, Fribbels `gear.txt` roster, CSV match import, `epic7xUrl`, `tagSources` |
 | `js/learn.js` | `RTALearn` | Learning from matches: hero/matchup/pair stats, player profiles, combos, scouting summary, sessions, suggestion follow-through, `gameHelpStats` |
@@ -101,6 +101,7 @@ only receive events.
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
+| `localStorage['e7-gw-forts']` | `js/vision/readers/guild-overview.js` → fortress reader | Fortress names per side `{ ours: [3], enemy: [3], side, at }` (read on the overview; also kept on the war record as `forts`) |
 | `localStorage['e7-gw-known-names']` | `js/guild-app.js` → `js/vision/readers/guild-fortress.js` | Enemy player names you already have (for matching what's read on a fortress map) |
 | `localStorage['e7-gw-name-fixes']` | `js/guild-app.js` (`saveFortress`) → fortress reader | `{ readText(lowercase): name }`: names you corrected after a fortress read, used next time |
 | `localStorage['e7-face-examples']` | `js/teach.js` (Live → Teach heroes, `js/teach-ui.js`); read by `js/auto.js` and `js/vision/readers/guild-defense.js` | Hero faces you taught: `{on, examples: [{id, code, q, thumb, from, at}]}`, source label 'taught by you', ≤ 12 per hero / 500 total. |
@@ -198,7 +199,12 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #38)
+## 7. Status (end of DEVLOG #39)
+
+**Guild War, both sides** (DEVLOG #39): overview reader (`guild-overview`: fortress names + side → `guild:forts`, kept on
+the war as `war.forts = {enemy, ours}`); fortress maps on either side (ring colour: red enemy, green ours, grey beaten);
+our side saved on the war (`war.ourForts[fortress] = [{name, keep, state}]`, members added). Fortress names are per side
+and war, never built in. Enemy defense panel verified pinned left at 2000×1070.
 
 **Any window size** (DEVLOG #38): the game picture is found from the pixels (`js/frame.js`; title bar cut), built-in
 positions are anchored left / middle / right and scale with the height (`js/layouts.js` `place`, `layoutFor` for any
