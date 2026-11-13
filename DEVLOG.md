@@ -7,6 +7,61 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-13 · #27 · Sync my devices (PC ↔ phone) · this commit (previous: `b6b3fce`)
+
+**Asked for:** "Then why do we have it as a phone browser if it cant do the same thing" → option 2 "do 2 then 1b": make the
+phone version worthwhile by syncing the owner's own data between PC and phone (step 1b follows).
+
+**Design**
+- The owner's own Firebase project (the Guild War one can be reused), Firestore `personal/{key}`, anonymous sign-in.
+  The 36-hex random key is the secret and travels in a link; the part after `#` never reaches a server.
+- Data goes in **sections** that stay separate:
+  - RTA: notes, custom heroes/owned/typed speeds, Fribbels import, presets, matches (+ match sources), scouting, game
+    help, meta imports, settings
+  - Gear: gear.txt items, screen-read items, rules/weights
+- **Not synced (per device):** current draft, pending, sim, calibration and corrections, game area, pictures, taught
+  screens.
+- Per section: changed here only → upload; there only → download; both → lists with ids (matches, presets, scouting,
+  game help) are merged **three-way** (adds and deletes from both sides kept); anything else → newer change wins. A
+  device joining for the first time takes the cloud copy (lists are merged).
+- Firestore documents max out at 1 MiB, so big sections (gear.txt) are split into 700 kB chunks. Each chunk carries the
+  section hash, so a half-written upload is skipped, not applied.
+
+**Changed**
+- `js/mysync.js` (new, pure + tested): `readLocal`, `applyLocal`, `mergeList` (three-way), `decide`, `syncOnce`,
+  `memoryRemote`, `firestoreRemote`, `link` / `parseLink`, `newKey`.
+- `js/mysync-app.js` (new): background pass 1.5 s after opening, every 30 s and when the app comes back to the
+  foreground. One tab at a time (Web Locks). After data comes in, the page reloads it (`e7-synced` event; other tabs via
+  the storage event).
+  - **Home card "Sync my devices (PC ↔ phone)":** turn on (Guild War project or pasted config), last sync with
+    ↓ ⇄ ↑ per section, Sync now, copy the link for the other device, turn off.
+  - Opening `index.html#sync=…&c=…` asks, then connects that device and removes the key from the address bar.
+- `index.html`, `rta.html`, `gear.html` load it. `js/app.js` and `js/gear-app.js` reload on `e7-synced`.
+- `firestore.rules`: private `personal/{key}/{sections|chunks}/{doc}` (signed in, key ≥ 32 chars, doc < 1 MB).
+  **The owner must publish the rules again.**
+- `docs/GUILD_SETUP.md`, `docs/SOURCES.md` (6b), Home intro text, `sw.js` v19.
+
+**Tested**
+- `npm test`: 7 new tests:
+  - PC → empty phone (draft and calibration stay per device)
+  - matches added on both plus a delete merged, and the delete stays deleted
+  - notes edited on both: newer wins
+  - 6000-item gear split into chunks and rebuilt
+  - half-written upload skipped
+  - links
+  - Firestore remote with a fake SDK: only `personal/{key}/…` paths, gear in ≥ 2 chunks, anonymous sign-in
+- New `tests/e2e/mysync.e2e.js`: a PC and an iPhone-sized phone (separate storage) sharing one fake cloud.
+  - The PC's gear.txt shows on the phone's Gear page (248 items).
+  - The PC's match and notes appear on the phone's RTA page; a match added on the phone reaches the PC.
+  - The Home card works at phone width.
+  - A sync link connects a new device and the key leaves the address bar.
+- **Not tested:** a real Firebase project (none exists yet), a real phone.
+
+**Open:** the "newer change wins" rule uses when a change was first *noticed* (passes run every 30 s), so two edits of
+the same notes on two devices within the same half minute can go either way. Lists with ids don't have this problem.
+
+---
+
 ## 2026-11-13 · #26 · Phone: publish the web app from the work branch · this commit (previous: `5b3bd4a`)
 
 **Asked for:** "How to run this on mobile".
