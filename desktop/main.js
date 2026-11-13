@@ -123,6 +123,9 @@ ipcMain.on('e7:choose', (e, choice) => {
   d && d(choice ? config.capture : null);
 });
 ipcMain.handle('e7:pick', () => pickWindow());
+ipcMain.on('e7:version', (e) => {
+  e.returnValue = app.getVersion();
+});
 // ---- developer tool: collect game screenshots automatically (for improving the readers) ----
 const devFolder = () => path.join(app.getPath('pictures'), 'Epic 7 Engine', new Date().toISOString().slice(0, 10));
 let devCount = 0;

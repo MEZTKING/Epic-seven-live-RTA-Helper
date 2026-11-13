@@ -95,6 +95,7 @@ only receive events.
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
+| `localStorage['e7-match-trace']` | `js/matchtrace.js` | Per match (draft id): timeline events + last slot snapshot (newest 15) |
 | `localStorage['e7-mysync']` | `js/mysync-app.js` | My devices sync: `{key, config, enabled, device, sections:{id:{hash,at,ids}}, changedAt, lastAt, last, error}`. Cloud: Firestore `personal/{key}/sections` + `chunks` |
 | `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card), `table` or `heroes` (gear per hero) |
 | IndexedDB `e7-pictures` | `js/pictures.js` | Saved game pictures (newest 24) to calibrate on after a match (choose the part first: draft, one box, CR, expanded CR, result, drafting help): Ctrl+Shift+S (desktop), "Save a game picture", or auto every 15 s while RTA isn't calibrated |
@@ -184,7 +185,11 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #32)
+## 7. Status (end of DEVLOG #33)
+
+**Per-match debugging:** RTA → Auto → Match review (timeline, slot snapshot, pictures with boxes, download, copy for Claude;
+`js/matchtrace.js`, `localStorage['e7-match-trace']`, pictures with `draftId`).
+
 
 **Pick banners** are learned by naming them on a saved picture (`openLabel`); **teams** can come from the CR bar (`scanCRTeams`,
 `draft.crTeams`). Overlay check: Overlay → Show a test card / Live → Show a test card on the overlay.

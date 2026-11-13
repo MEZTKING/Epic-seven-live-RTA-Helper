@@ -124,6 +124,13 @@
       </div>
       <div id="auto-cr-out" class="hint"></div>
       <div class="card wide" style="margin-top:10px">
+        <h3>Match review: what the app saw</h3>
+        <p class="hint">Every match keeps a timeline, what each slot looked like, and pictures (match start, the draft screen every 20 s, the draft board).
+          <b>Show with boxes</b> draws where the app looks; if a box isn't on the hero, that's why it isn't read. <b>Download</b> a picture to send it to Claude.</p>
+        <div class="btn-row"><select id="mr-match"></select><button id="mr-refresh" class="btn">Refresh</button><button id="mr-copy" class="btn">Copy this match for Claude</button></div>
+        <div id="mr-body"></div>
+      </div>
+      <div class="card wide" style="margin-top:10px">
         <h3>What the reader knows about the screen</h3>
         <p id="auto-layout-head" class="hint"></p>
         <table class="mini layout-status"><thead><tr><th>Part</th><th>Boxes</th><th></th></tr></thead><tbody id="auto-layout"></tbody></table>
@@ -513,6 +520,7 @@
   <script src="js/app.js"></script>
   <script src="js/game-area.js"></script>
   <script src="js/pictures.js"></script>
+  <script src="js/matchtrace.js"></script>
   <script src="js/vision/core.js"></script>
   <script src="js/vision/bus.js"></script>
   <script src="js/vision/client.js"></script>
