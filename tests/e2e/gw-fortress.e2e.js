@@ -191,7 +191,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
       await new Promise((res) => setTimeout(res, 500));
     }
     off();
-    const H = window.RTASources.officialSnapshot.heroes;
+    const H = window.RTASources.allHeroes;
     return { note: rd.note, sure: got ? got.teams.flat().map((x) => (x && x.sure ? (H.find((h) => h.code === x.code) || {}).name : '?')) : null };
   }, dataUrl('steam-gw-enemy-wide.jpg'));
   console.log('enemy defense (2000×1070):', dw.note, JSON.stringify(dw.sure));

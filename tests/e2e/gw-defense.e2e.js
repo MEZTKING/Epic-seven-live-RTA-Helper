@@ -54,8 +54,10 @@ const { autoAsk, ask } = require('./_ask.js');
   const filled = await gp.$$eval('#team-editors .h3', (i) => i.map((x) => x.value));
   console.log('editor prefilled:', JSON.stringify(filled));
   // type a hero for the first empty place (as the owner would for a skin), then save -> learned
-  const emptyIdx = filled.findIndex((v) => !v);
-  if (emptyIdx >= 0) await (await gp.$$('#team-editors .h3'))[emptyIdx].fill('Bellona');
+  // (since DEVLOG #43 all six are recognised on this screen, so the first one is corrected instead: a correction is
+  // learned the same way)
+  const emptyIdx = Math.max(0, filled.findIndex((v) => !v));
+  await (await gp.$$('#team-editors .h3'))[emptyIdx].fill('Bellona');
   await gp.click('#target-form button[type=submit], #target-save');
   await gp.waitForTimeout(500);
   const after = await gp.evaluate(() => ({ targets: window.GuildApp.state.targets.map((t) => [t.player, t.teams.map((tm) => tm.heroes.length)]), learned: JSON.parse(localStorage.getItem('e7-gw-face-corrections') || '[]').length }));

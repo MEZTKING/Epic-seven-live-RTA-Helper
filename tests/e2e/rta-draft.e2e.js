@@ -84,6 +84,26 @@ const ENEMY = ['Rhianna and Luciella', 'Tidal Rift Elvira', 'Zio', 'Shepherd of 
   }
   const vs = await show(dataUrl('steam-rta-match-start.png'));
   console.log(`versus screen: stage ${vs.stage} · first pick: ${vs.first}`);
+  // 6) the next app start: hero pictures come from the template cache, nothing is downloaded again (DEVLOG #43)
+  const again = await ctx.newPage();
+  again.on('pageerror', (e) => errs.push('again: ' + e.message));
+  let pictures = 0;
+  again.on('request', (r) => /raw\.githubusercontent\.com|smilegatemegaport\.com\/event/.test(r.url()) && pictures++);
+  await again.goto(BASE + 'live.html');
+  await again.evaluate(() => { window.E7RtaDraft.loadWide(); window.E7RtaDraft.loadRound(); });
+  await again.waitForFunction(() => window.E7RtaDraft.wideReady() && window.E7RtaDraft.roundReady(), null, { timeout: 60000 });
+  console.log('second start:', await again.evaluate(() => `wide from cache ${window.E7RtaDraft.wide.fromCache} (${window.E7RtaDraft.wide.enemy.length}) · round from cache ${window.E7RtaDraft.round.fromCache} (${window.E7RtaDraft.round.tpl.length})`), '· picture downloads:', pictures);
+  const ban2 = await again.evaluate(async (url) => {
+    const im = new Image();
+    await new Promise((r) => { im.onload = r; im.src = url; });
+    window.E7Vision._useSource(im);
+    let last = null;
+    const off = window.E7Bus.on('rta:draft', (d) => (last = d));
+    for (let i = 0; i < 4; i++) await window.E7Vision.tick(true);
+    off();
+    return last && [...last.names.own, ...last.names.enemy];
+  }, dataUrl('steam-rta-ban.png'));
+  console.log('BAN screen read from cached templates:', hits(ban2 || [], [...OWN, ...ENEMY]), '/ 10');
   console.log('errors:', errs);
   await b.close();
 })();

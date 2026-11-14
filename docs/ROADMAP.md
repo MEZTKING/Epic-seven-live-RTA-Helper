@@ -53,7 +53,7 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
   - opponent scouting during a draft; Guild War: an enemy's most-used heroes and speed order from their arena games
   - top players' statistics → E7DaT-style win-rate model, pick policy, team plans, reasons
 - [ ] Verify on real picking-phase screens: pre-ban icons, hover vs confirmed cards, turn counting (only a BAN screen so far).
-- [ ] Keep computed portrait templates between app starts (now ~460 small downloads on the first draft of a session).
+- [x] Keep computed portrait templates between app starts (DEVLOG #43).
 - [ ] Opening rule (E7DaT reads it on Korean screens only), which hero was banned at the end (faded card).
 - [ ] RTA at a wider window: confirm where the enemy cards and pre-bans sit (alternatives are tried now).
 
@@ -65,6 +65,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - [ ] RTA screens at a wider window: verify the anchors (needs RTA screenshots from the maximized window; see the E7DaT section).
 - [x] Enemy defense panel at a wider window: pinned left (DEVLOG #39).
 - [ ] Better name reading (game font): 6–8 of 10 names exact now; corrections are remembered.
+- [ ] Round icons of skins (67 in the asset repository) for the face matcher: tried in DEVLOG #43, changed nothing on the
+  owner's screens (the misses were new heroes, not skins); add when a skin is actually missed.
 
 ## Desktop-only + in-game overlays (owner, DEVLOG #37)
 - [x] Desktop app is the product; web keeps only Guild War for guildmates; offline web app and My devices sync removed.
