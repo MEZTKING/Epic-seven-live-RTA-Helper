@@ -170,6 +170,8 @@
    *   deny     false to turn off "also strong for them"
    *   sourceWeights { [group]: multiplier }  see SOURCE_GROUPS
    *   knowledge     { notesFor(code, allies, enemies) } hero mechanics (js/knowledge.js), or null
+   *   topStats      RTALearn.buildStats() of top players' games (+ .games = number of games), or null
+   *   recordProfile { name, games, picks: [{ code, rate }] } this opponent on the official record site, or null
    *   gameHelp { live: { phase, player, recs[] } | null, stats: RTALearn.gameHelpStats() | null }
    */
   const TIER_SCORE = { S: 3, A: 2, B: 1, C: 0, '': 0 };
@@ -195,6 +197,13 @@
     gameHelpAgainst: 0.4, // per time the game recommended it against an enemy on the board (max 5)
     gameHelpWith: 0.25, // per time it was recommended alongside an ally (max 5)
     gameHelpBan: 0.3, // per time the game recommended banning it (max 8), for ban ideas
+    // top players' games from the official record site (js/records.js; DEVLOG #44): same shape as 'learned', weaker
+    // per point because it is everyone's meta, not your own results
+    topHero: 8,
+    topMatchup: 6,
+    topPair: 5,
+    topPick: 2.5, // x how often top players pick it (predicting the opponent)
+    recordHabit: 5, // x how often THIS opponent picked it in their recorded arena games
   };
   const MIN_SHOW = 0.3; // hide tiny learned effects from the reason list
 
@@ -203,7 +212,7 @@
    * whole group (1 = normal, 0 = off) — e.g. the values "Tune from my matches"
    * finds. Meta sources are named 'meta: <dataset>' and share the 'meta' weight.
    */
-  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny', 'game help', 'E7DaT knowledge'];
+  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny', 'game help', 'E7DaT knowledge', 'top players', 'official record'];
   const groupOf = (source) => (source.startsWith('meta') ? 'meta' : source);
 
   function noteOf(ctx, code) {
@@ -281,6 +290,43 @@
         if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(p.raw)} with ${a.name} (${gm(p.games)})`, 'learned');
         else quiet(v, 'learned');
       }
+    }
+
+    // top players' games (ctx.topStats = RTALearn.buildStats over Legend / Emperor games; source 'top players')
+    if (ctx.topStats && ctx.learn) {
+      const L = ctx.learn;
+      const T = ctx.topStats;
+      const MIN_G = 30; // a hero / pair needs this many games among top players to say anything
+      const h = T.hero.get(hero.code);
+      if (h && h.team.games >= MIN_G) {
+        const v = (h.team.wins / h.team.games - 0.5) * W.topHero;
+        if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(h.team.wins / h.team.games)} win rate among top players (${gm(h.team.games)})`, 'top players');
+        else quiet(v, 'top players');
+        if (opts.side === 'opp' && T.games) {
+          const rate = (h.pickedByMe + h.pickedByOpp) / T.games; // share of games it is picked in (either side)
+          if (rate >= 0.05) push(rate * W.topPick, `Picked in ${pct(rate)} of top players' games`, 'top players');
+        }
+      }
+      for (const e of enemies) {
+        const m = L.matchupOf(T, hero.code, e.code);
+        if (!m || m.games < MIN_G) continue;
+        const v = (m.raw - 0.5) * W.topMatchup;
+        if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(m.raw)} vs ${e.name} among top players (${gm(m.games)})`, 'top players');
+        else quiet(v, 'top players');
+      }
+      for (const a of allies) {
+        const p = L.pairOf(T, hero.code, a.code);
+        if (!p || p.games < MIN_G) continue;
+        const v = (p.raw - 0.5) * W.topPair;
+        if (Math.abs(v) >= MIN_SHOW) push(v, `${pct(p.raw)} with ${a.name} among top players (${gm(p.games)})`, 'top players');
+        else quiet(v, 'top players');
+      }
+    }
+
+    // this opponent's own recorded arena games (ctx.recordProfile = { name, games, picks: [{ code, rate }] })
+    if (ctx.recordProfile && opts.side === 'opp') {
+      const hit = (ctx.recordProfile.picks || []).find((p) => p.code === hero.code);
+      if (hit && hit.rate >= 0.1) push(hit.rate * W.recordHabit, `${ctx.recordProfile.name} picked it in ${pct(hit.rate)} of their last ${ctx.recordProfile.games} arena games`, 'official record');
     }
 
     // meta datasets (each its own source)

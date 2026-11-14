@@ -26,6 +26,7 @@ const fs = require('fs');
 const { pathToFileURL } = require('url');
 const updater = require('./updater');
 const wintrack = require('./wintrack');
+const recordsLib = require('./records');
 const PRELOAD = path.join(__dirname, 'preload.js');
 // tests only (tests/desktop/overlay-status.js): behave as on Windows, so the window tracker really starts (and,
 // off Windows, really fails: no PowerShell), and expose trackGame
@@ -133,6 +134,19 @@ ipcMain.on('e7:choose', (e, choice) => {
   d && d(choice ? config.capture : null);
 });
 ipcMain.handle('e7:pick', () => pickWindow());
+// ---- official record site (desktop/records.js): pages ask, the main process does the (spaced-out) lookups ----
+let records = null;
+ipcMain.handle('e7:records', async (e, req) => {
+  // only the app's own pages
+  const url = e.senderFrame ? e.senderFrame.url : '';
+  if (!url.startsWith(`${ORIGIN}/`)) throw new Error('Not allowed.');
+  if (!records) records = recordsLib.create({ dir: path.join(app.getPath('userData'), 'records'), ...(process.env.E7_RECORDS_BASE ? { base: process.env.E7_RECORDS_BASE, userUrl: (w) => `${process.env.E7_RECORDS_BASE}users_${w}.json`, interval: 0 } : {}) });
+  const r = req || {};
+  if (r.op === 'game') return records.game(String(r.name || ''), r.params || {});
+  if (r.op === 'find') return records.find(String(r.world || ''), String(r.name || ''));
+  if (r.op === 'status') return records.status();
+  throw new Error('Unknown request.');
+});
 ipcMain.on('e7:version', (e) => {
   e.returnValue = app.getVersion();
 });

@@ -48,10 +48,15 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - [x] Newest heroes (missing from the official list) from the Fribbels dataset.
 - [x] Hero mechanics, blocking rules and top-player builds from its knowledge file as their own source (DEVLOG #42).
 - [ ] The knowledge file is a snapshot of Nov 2026: refresh it when E7DaT publishes a newer one (`tools/make-e7dat-knowledge.py`).
-- [ ] **Needs the owner's OK first:** the official record site's lookups (undocumented, imitating the site's own requests):
-  - own RTA match history, exact (picks, bans, pre-bans, first pick, result, speed order)
-  - opponent scouting during a draft; Guild War: an enemy's most-used heroes and speed order from their arena games
-  - top players' statistics → E7DaT-style win-rate model, pick policy, team plans, reasons
+- [x] The official record site's lookups (owner's OK 2026-11-14, DEVLOG #44): own match history, opponent scouting in
+  the draft, Guild War "Arena record", top players' games → win-rate statistics as a suggestion source.
+- [ ] From the top players' games (stored in IndexedDB `e7-records`), still to port from E7DaT: the fitted win-rate
+  model (hero strength + pairs + counters, player strength removed), pick policy ("what top players pick here"),
+  pre-ban / ban advice, the team planner, reasons in sentences.
+- [ ] Record site, to confirm on the owner's PC: "Find me", import after a real match (delay), twin detection with the
+  app's own recording, a full top-player run; then tune the 4 / 12 minute import delays.
+- [ ] Record site ideas: opponent's win rate per hero and against my heroes; Guild War: look up all enemies of a war
+  in one go; show my own habits the way the opponent would see them.
 - [ ] Verify on real picking-phase screens: pre-ban icons, hover vs confirmed cards, turn counting (only a BAN screen so far).
 - [x] Keep computed portrait templates between app starts (DEVLOG #43).
 - [ ] Opening rule (E7DaT reads it on Korean screens only), which hero was banned at the end (faded card).

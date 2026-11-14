@@ -46,6 +46,7 @@
       </div>
       <div id="tilt-box" class="pending tilt hidden"></div>
       <div id="opp-profile" class="profile-strip hidden"></div>
+      <div id="records-opp" class="profile-strip hidden"></div>
       <div id="pending-box" class="pending hidden"></div>
 
       <div id="draft-status" class="status"></div>
@@ -371,6 +372,10 @@
             <button id="fribbels-clear" class="btn danger">Remove</button>
           </div>
         </div>
+        <div class="card wide" id="records-card">
+          <h3>Official match records <span class="src record">official record</span></h3>
+          <div id="records-card-body"></div>
+        </div>
         <div class="card">
           <h3>Suggestion sources</h3>
           <label class="inline block"><input id="use-notes" type="checkbox" /> <span class="src notes">my notes</span> tiers, counters, synergies</label>
@@ -383,6 +388,8 @@
           <label class="inline block"><input id="use-deny" type="checkbox" /> <span class="src deny">deny</span> heroes also strong for them</label>
           <label class="inline block"><input id="use-game-help" type="checkbox" /> <span class="src game">game help</span> the game's own drafting help</label>
           <label class="inline block"><input id="use-knowledge" type="checkbox" /> <span class="src know">E7DaT knowledge</span> hero mechanics: what blocks what (fixed data of Nov 2026)</label>
+          <label class="inline block"><input id="use-top-players" type="checkbox" /> <span class="src top">top players</span> statistics from top players' recorded games</label>
+          <label class="inline block"><input id="use-record-profile" type="checkbox" /> <span class="src record">official record</span> this opponent's recorded arena games</label>
           <label class="inline block"><input id="use-manual-owned" type="checkbox" /> Owned ticks I set by hand</label>
           <div id="src-notes" class="hint"></div>
         </div>
@@ -531,6 +538,8 @@
   <script src="js/vision/bus.js"></script>
   <script src="js/vision/client.js"></script>
   <script src="js/auto.js"></script>
+  <script src="js/records.js"></script>
+  <script src="js/records-app.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/pip.js"></script>
 </body>

@@ -22,6 +22,7 @@
       "main.js",
       "updater.js",
       "wintrack.js",
+      "records.js",
       "preload.js",
       "picker.html",
       "package.json"
