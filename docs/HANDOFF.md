@@ -45,6 +45,8 @@ a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) a
 | File | Global | Does |
 |---|---|---|
 | `js/ask.js` | `E7Ask` | Questions inside the page (`E7Ask(msg, value)`, `.form(title, fields)`, `.show(msg, text)`). **`window.prompt()` does nothing in Electron**: never use it (`tests/no-prompt.test.js` checks) |
+| `js/wide.js` | `E7Wide` | RTA pick cards from the heroes' wide portraits (`{code}_l.png`, skins; mirrored on my side): `slotBox`, `patchRect`, `template`, `match`, `isConfident` (DEVLOG #41, method from E7DaT) |
+| `js/draftscreen.js` | `E7Draft` | RTA draft stage: text templates (`matchTemplate`, `tint`), confirmed-card check (`lockScore`), `Tracker` (stage, turn, first pick, picks, pre-bans, held), `toBoard` |
 | `js/frame.js` | `E7Frame` | Where the game is inside a captured window / screenshot: title bar and thin borders found from the pixels (`detect`), any size (DEVLOG #38) |
 | `js/gwmap.js` | `E7GWMap` | Guild War: defender badges with state (enemy / ours / beaten), `sideOf`, name boxes, letter mask, name cleaning/matching, which fortress (pager), overview switch (`toggleSide`) and fortress names (`fortNamesFromWords`); `DEFAULT_FORTS` |
 | `js/teach.js` | `E7Teach` | Hero faces you taught (Live → Teach heroes; UI in `js/teach-ui.js`): add/remove/switch/export/import, `templates(F)` for the face matcher (source 'taught by you') |
@@ -201,7 +203,18 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #40)
+## 7. Status (end of DEVLOG #41)
+
+**RTA draft without calibration** (DEVLOG #41, method and layout from E7DaT, see `docs/E7DAT_NOTES.md`): watcher reader
+`js/vision/readers/rta-draft.js` → `rta:draft {stage, turn, firstPick, own, enemy, prebans, held, board}` /
+`rta:draft-end`. `js/auto.js` `onWatcherDraft` applies the board (`applyBoard(board)`); its own slot reading stands back
+for 20 s after each event. Wide portraits and round icons of the newest heroes come from CeciliaBot/E7Assets-Temp at run
+time (list in `js/sources/wide-portraits.js`, `tools/update-wide-list.py`). **Roster:** `RTASources.allHeroes` = official
++ heroes only the Fribbels dataset has (`source: 'fribbels-data'`, `js/sources/all-heroes.js`, `RTARoster.extraHeroes`).
+Draft model: unseen pre-bans are placeholders (`RTALogic.UNSEEN`, skipped by `draftView`). Displayed portraits are plain
+`<img>` (no `crossorigin`); pixel reading uses `PORTRAIT_URL_CORS` / the asset repo.
+**Waiting for the owner:** official record site lookups (own match history, opponent scouting, top-player statistics):
+see `docs/E7DAT_NOTES.md` "Data pipeline".
 
 **Wars start by themselves** (DEVLOG #40): the overview reader also reads both guild names (`gwOurGuild`, `gwEnemyGuild`;
 two readings must agree, ≥ 3 characters) → `guild:forts {…, enemyGuild}` → `GuildApp.warFromGame`: selects the active war

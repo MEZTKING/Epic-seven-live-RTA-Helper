@@ -30,6 +30,10 @@
     return steps;
   }
 
+  /** A pre-ban the screen reader never saw: takes its step in the draft, is left out of every list. */
+  const UNSEEN = '?unseen';
+  const isUnseen = (id) => typeof id === 'string' && id.startsWith(UNSEEN);
+
   function newDraft(firstPick) {
     return { firstPick: firstPick === 'opp' ? 'opp' : 'me', actions: [] };
   }
@@ -51,6 +55,7 @@
       postbans: { me: [], opp: [] }, // postbans.me = enemy hero that *I* banned
     };
     for (const a of draft.actions) {
+      if (isUnseen(a.heroId)) continue; // a pre-ban nobody saw: it took its step, but it is no hero
       const bucket = a.phase === 'preban' ? v.prebans : a.phase === 'pick' ? v.picks : v.postbans;
       bucket[a.player].push(a.heroId);
     }
@@ -100,9 +105,14 @@
     let d = newDraft(firstPick);
     const used = { preban: { me: 0, opp: 0 }, pick: { me: 0, opp: 0 }, postban: { me: 0, opp: 0 } };
     const src = { preban: board.prebans || {}, pick: board.picks || {}, postban: board.postbans || {} };
+    // Pre-bans that were never seen (the app started watching mid-draft, or an icon wasn't recognised) must not hold
+    // back the picks: when the board has picks, a missing pre-ban is filled with an "unseen" placeholder (DEVLOG #41).
+    const anyPick = ((board.picks || {}).me || []).length + ((board.picks || {}).opp || []).length > 0;
+    let unseen = 0;
     for (const step of draftSteps(d.firstPick)) {
       const list = src[step.phase][step.player] || [];
-      const code = list[used[step.phase][step.player]];
+      let code = list[used[step.phase][step.player]];
+      if (!code && step.phase === 'preban' && anyPick) code = UNSEEN + ++unseen;
       if (!code || canSelect(d, code)) break;
       d = select(d, code);
       used[step.phase][step.player]++;
@@ -683,6 +693,8 @@
   }
 
   const api = {
+    UNSEEN,
+    isUnseen,
     draftSteps,
     newDraft,
     currentStep,

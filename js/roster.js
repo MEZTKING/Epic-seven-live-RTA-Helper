@@ -8,7 +8,16 @@
  */
 (function (root) {
   const OFFICIAL_HERO_URL = 'https://static.smilegatemegaport.com/gameRecord/epic7/epic7_hero.json';
-  const PORTRAIT_URL = (code) => `https://static.smilegatemegaport.com/event/live/epic7/guide/images/hero/${code}_s.png`;
+  // The official site has no icon for heroes its list doesn't have yet (HTTP 403, checked 2026-11-14); those come from
+  // the community asset repository (CeciliaBot/E7Assets-Temp, same file names; CORS *). js/sources/all-heroes.js
+  // registers their codes.
+  const ASSET_REPO = 'https://raw.githubusercontent.com/CeciliaBot/E7Assets-Temp/main/assets/face/';
+  const WIDE_PORTRAIT_URL = (name) => `${ASSET_REPO}${name}.png`; // name = c1234_l or c1234_s01_l (pick cards)
+  const repoIcons = new Set();
+  const useAssetRepoFor = (codes) => {
+    for (const c of codes || []) repoIcons.add(c);
+  };
+  const PORTRAIT_URL = (code) => (repoIcons.has(code) ? `${ASSET_REPO}${code}_s.png` : `https://static.smilegatemegaport.com/event/live/epic7/guide/images/hero/${code}_s.png`);
   // For READING a portrait's pixels (face matching). The server only adds its CORS header when asked from a page and
   // doesn't mark the answer as varying by origin, so a copy cached from a normal <img> can't be read later ("blocked by
   // CORS"). A different address = a separate cache entry that always carries the header (DEVLOG #34).
@@ -40,6 +49,25 @@
       });
     }
     return out;
+  }
+
+  /**
+   * Heroes the official list doesn't have yet (it lags weeks behind new releases), taken from the Fribbels dataset
+   * (RexQian fork: name, element, class, rarity). Each keeps source 'fribbels-data'; a hero the official list has is
+   * never replaced. Skins / NPC codes are skipped the same way as in the official list. (DEVLOG #41)
+   */
+  function extraHeroes(official, fribbelsStats) {
+    const have = new Set((official || []).map((h) => h.code));
+    const out = [];
+    for (const [code, s] of Object.entries(fribbelsStats || {})) {
+      if (have.has(code) || !/^c[0-9]\d{3}$/.test(code) || !s || !s.name || !s.element || !s.role) continue;
+      out.push({ code, name: String(s.name), element: ELEMENTS.includes(s.element) ? s.element : 'fire', role: ROLES.includes(s.role) ? s.role : 'warrior', grade: Number(s.grade) || 0, source: 'fribbels-data' });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  /** The official heroes plus the ones only the Fribbels dataset knows (each labelled with its source). */
+  function allHeroes(official, fribbelsStats) {
+    return [...(official || []), ...extraHeroes(official, fribbelsStats)];
   }
 
   /** Normalise a name for matching: case, accents, punctuation and spaces ignored. */
@@ -220,6 +248,11 @@
     OFFICIAL_HERO_URL,
     PORTRAIT_URL,
     PORTRAIT_URL_CORS,
+    extraHeroes,
+    allHeroes,
+    useAssetRepoFor,
+    WIDE_PORTRAIT_URL,
+    ASSET_REPO,
     ELEMENT_LABEL,
     ROLE_LABEL,
     ELEMENTS,

@@ -72,6 +72,10 @@
         eff: s.eff,
         efr: s.efr,
         eeSpeed: ee.some((e) => e && e.stat && e.stat.type === 'speed') || undefined,
+        // element / class / rarity (DEVLOG #41): the official list lags behind new heroes, this dataset has them
+        element: h.attribute || undefined,
+        role: h.role || undefined,
+        grade: h.rarity || undefined,
       };
     }
     return out;

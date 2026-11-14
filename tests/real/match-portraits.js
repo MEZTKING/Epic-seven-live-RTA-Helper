@@ -26,7 +26,7 @@ const BASE = process.env.E7_BASE || 'http://localhost:8766/'; // serve the repo 
     const portraits = {};
     let failed = 0;
     await Promise.all(heroes.map(async (h) => {
-      const i = await load(R.PORTRAIT_URL(h.code));
+      const i = await load(R.PORTRAIT_URL_CORS(h.code));
       if (!i) { failed++; return; }
       portraits[h.code] = i;
       const W = i.naturalWidth, H = i.naturalHeight;

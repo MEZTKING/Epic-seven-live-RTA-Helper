@@ -32,7 +32,7 @@ const scene = { mePreban: ['Belian', 'Luna'], oppPreban: ['Krau', 'Aria'], mePic
   const png = await p.evaluate(async ({ W, H, S, LAY, scene }) => {
     const heroes = window.RTAApp.cache.heroes;
     const code = (n) => heroes.find((h) => h.name === n).code;
-    const load = (c) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = window.RTARoster.PORTRAIT_URL(c); });
+    const load = (c) => new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = window.RTARoster.PORTRAIT_URL_CORS(c); });
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d'); g.fillStyle = '#1b2333'; g.fillRect(0, 0, W, H);
     const s = S * W;

@@ -10,7 +10,7 @@
   const bus = window.E7Bus;
   const GS = window.GearStore;
   const S = window.RTAGearSort;
-  const HEROES = window.RTASources.officialSnapshot.heroes;
+  const HEROES = window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes; // official + newest heroes (fribbels-data)
   const byCode = new Map(HEROES.map((h) => [h.code, h]));
   const nameOf = (c) => (byCode.get(c) || {}).name || c;
 

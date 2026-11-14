@@ -190,7 +190,11 @@
   /** Rebuild everything computed from the stored sources. */
   function derive() {
     const official = (store.official || SNAPSHOT).heroes;
-    const heroes = [...official, ...store.custom].sort((a, b) => a.name.localeCompare(b.name));
+    // newest heroes the official list doesn't have yet, from the Fribbels dataset (own source label; DEVLOG #41)
+    const fstats = { ...FRIB_SNAPSHOT.stats, ...Object.fromEntries(Object.entries((store.fribbelsData || {}).stats || {}).filter(([, s]) => s && s.element)) };
+    const extra = R.extraHeroes(official, fstats).filter((h) => !store.custom.some((c) => c.code === h.code));
+    R.useAssetRepoFor(extra.map((h) => h.code));
+    const heroes = [...official, ...extra, ...store.custom].sort((a, b) => a.name.localeCompare(b.name));
     const byCode = new Map(heroes.map((h) => [h.code, h]));
     const owned = new Set();
     if (store.settings.useFribbels && store.fribbels) for (const h of store.fribbels.heroes) owned.add(h.code);
@@ -250,8 +254,10 @@
 
   function portrait(code, cls = 'pt', lazy = false) {
     const h = hero(code);
-    if (h && h.source === 'official') {
-      return `<img class="${cls}"${lazy ? ' loading="lazy"' : ''} crossorigin="anonymous" alt="" src="${esc(R.PORTRAIT_URL(code))}" onerror="this.classList.add('broken')" />`;
+    // shown only, never read as pixels: plain mode on every page (a cross-origin-mode copy and a plain copy of the same
+    // address in one cache block each other; pixel reading uses PORTRAIT_URL_CORS). Newest heroes: asset repository.
+    if (h && (h.source === 'official' || h.source === 'fribbels-data')) {
+      return `<img class="${cls}"${lazy ? ' loading="lazy"' : ''} alt="" src="${esc(R.PORTRAIT_URL(code))}" onerror="this.classList.add('broken')" />`;
     }
     return `<span class="${cls} dot-pt ${esc(h ? h.element : '')}"></span>`;
   }

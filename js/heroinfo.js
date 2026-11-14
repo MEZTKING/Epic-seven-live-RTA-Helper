@@ -15,7 +15,7 @@
   'use strict';
   const R = window.RTARoster;
   const L = window.RTALogic;
-  const HEROES = window.RTASources.officialSnapshot.heroes;
+  const HEROES = window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes;
   const byCode = new Map(HEROES.map((h) => [h.code, h]));
   const TAG_GROUPS = (L && L.TAG_GROUPS) || {};
   const ALL_TAGS = [...new Set(Object.values(TAG_GROUPS).flat())];

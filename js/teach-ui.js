@@ -13,7 +13,7 @@
   const R = window.RTARoster;
   if (!T || !F || !R || !$('#teach')) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const HEROES = (window.RTASources && window.RTASources.officialSnapshot && window.RTASources.officialSnapshot.heroes) || [];
+  const HEROES = (window.RTASources && (window.RTASources.allHeroes || (window.RTASources.officialSnapshot && window.RTASources.officialSnapshot.heroes))) || [];
   const NAME = new Map(HEROES.map((h) => [h.code, h.name]));
   const nameOf = (code) => NAME.get(code) || code;
   const byName = new Map(HEROES.map((h) => [h.name.toLowerCase(), h.code]));

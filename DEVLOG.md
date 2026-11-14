@@ -7,6 +7,92 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #41 · RTA draft read with no calibration (from E7DaT); newest heroes added to the roster · this commit (previous: `1d192f8`)
+
+**Asked for:** the owner supplied `E7DaT-main.zip`: "Use this to help you create the perfect application. Especially for rta
+and guild war".
+
+**Research (the archive was unpacked into its own folder and only read; none of its code was run)**
+- E7DaT 1.0.0 (ohrgon-game, MIT) is a Python World Arena draft assistant for the same Steam client: it reads the draft from
+  the screen and recommends from top players' match records. Nothing in it is about Guild War.
+- Its measured draft layout fits the owner's real BAN screenshot exactly (10 card boxes, the stage text box, the pre-ban
+  row). **My by-eye pre-ban row was ~5% of the height too high**: that alone explains "pre-bans aren't even detected".
+- Pick cards show the hero's **wide portrait** (`{code}_l.png`, skins `_sNN_l`; community repository
+  CeciliaBot/E7Assets-Temp: 400 heroes, 66 skins), mirrored on my side.
+  - E7DaT matches SIFT features. My own SIFT run (written from its description) on the 1340×754 JPEG-sourced fixture
+    read only 4 of 10 cards, but it showed that the portrait is always drawn at the same place and scale.
+  - So a direct masked correlation at that fixed geometry works, with no OpenCV needed: all 10 cards right.
+  - Pinning the alignment to 1 pixel raised scores to 0.85–0.98 (a greyed-out card 0.66, lead 0.11).
+  - On five screens without cards nothing passes the confidence rule.
+- **The official hero list lags:** 6 of the 10 heroes on that screen (Estelle, Haru, Rhianna and Luciella, Tidal Rift
+  Elvira, Shepherd of the Dark Diene, Eye of the Abyss Fumyr) aren't in it at all.
+  - The Fribbels dataset (RexQian) has 24 such heroes with element and class.
+  - The official site has no icons for them (HTTP 403); the asset repository does.
+- Stage texts ("Your Turn" blue, "Opponent's Turn" red, "BAN", "Ready", "First Pick", "Select Pre-Ban Hero") are plain;
+  E7DaT's crops exist for English, Korean and Japanese.
+- A confirmed card of mine has a solid blue band (E7DaT: ≥ 0.43 of the band; the real screen here: 0.44–0.76); a hero
+  only clicked doesn't.
+- E7DaT's data comes from the official record site's own lookups (`e7api.onstove.com/gameApi`, undocumented, called
+  imitating the site). One `getSeasonList` call answered; a further probe was **blocked by this session's safety
+  check** and not retried. Own-history import, opponent scouting and the statistics model therefore wait for the
+  owner's decision (docs/E7DAT_NOTES.md has the full study, written with a sub-agent's read-through of the other
+  5,000 lines).
+
+**Changed**
+- `js/wide.js` (new, pure): card boxes, patch geometry, portrait templates (enemy orientation + mirror), coarse-then-fine
+  masked correlation at 1-pixel steps, confidence rule.
+- `js/draftscreen.js` (new, pure): template matching for the stage texts, text colour, confirmed-card check, and a
+  `Tracker`:
+  - stages: idle / versus / pre-ban / pick / ban / ready; whose turn, turn number, first pick
+  - a hero counts on the second identical read; hovered heroes are `held`; picks are never dropped
+  - the draft is handed over 10 s after the texts disappear
+- `js/vision/readers/rta-draft.js` (new, in the game watcher):
+  - language found by itself (en / ko / ja); FIRST PICK marker on the versus screen
+  - cards against wide portraits (loaded once per session, 12 at a time); pre-ban icons with the face matcher
+  - any window shape: unverified anchors are tried and the working one kept
+  - publishes `rta:draft` / `rta:draft-end`
+- `js/auto.js`: takes the watcher's board (`onWatcherDraft`); its own slot reading doesn't touch the draft for 20 s after.
+- `js/logic.js`: pre-bans nobody saw become placeholders (`UNSEEN`), so picks aren't held back; `draftView` skips them.
+- `js/layouts.js`: pre-ban boxes from E7DaT's centres and radius.
+- Roster:
+  - `js/gear.js` keeps element / class / rarity from the Fribbels data; snapshot refreshed (393 heroes)
+  - `RTARoster.extraHeroes` / `allHeroes`, `js/sources/all-heroes.js` (`RTASources.allHeroes`, each hero keeps its source)
+  - used by the RTA app, hero info, Guild War, Gear, Teach heroes and the readers
+  - `PORTRAIT_URL` uses the asset repository for heroes the official site has no icon for
+- `js/sources/draft-labels.js` (`tools/make-draft-labels.py`), `js/sources/wide-portraits.js`
+  (`tools/update-wide-list.py`).
+- **Bug found by the suite:** displayed portraits used `crossorigin` on some pages and not on others, at the same
+  address in one cache (the #34 problem again, from the display side). All displayed portraits are plain now; tests that
+  build fake screens load them through `PORTRAIT_URL_CORS`.
+- Docs: `docs/E7DAT_NOTES.md` (study + porting plan), SOURCES rows 8–9, HANDOFF, ROADMAP.
+
+**Tested**
+- `npm test` **118**. New `tests/draft.test.js`:
+  - synthetic cards matched on both sides, shifted ±4 px and greyed out; empty / unknown cards rejected
+  - text template found inside its search area, red vs blue
+  - confirmed-card band
+  - a whole tracked draft: versus → pre-ban → hover → confirm → turn change → bad reads → ban → end → the app's board
+    and draft
+- New `rta-draft.e2e.js` on real screens:
+  - BAN screen: stage "final ban", **10/10 cards**, my five look confirmed (0.44–0.76)
+  - the RTA page's draft shows both teams with no calibration
+  - the same picture as a 2000×1070 window: 10/10
+  - arena menu, match found, Guild War, Victory: idle, nothing read
+  - both pre-ban pickers: stage "pre-bans", nothing read
+  - versus screen: opponent picks first (the older OCR test agrees)
+- Browser suite **27/27** clean.
+- **Not tested:**
+  - a real picking-phase screen (pre-ban icons at the new positions, hover vs confirm, turn counting)
+  - Korean / Japanese screens
+  - the desktop app on Windows
+
+**Open / assumptions**
+- One positive real frame so far; thresholds come from it and four negative frames.
+- About 460 small picture downloads on the first draft of a session (cached by the app's HTTP cache for revalidation).
+- The official record site lookups: the owner decides (see ROADMAP).
+
+---
+
 ## 2026-11-13 · #40 · New war works in the desktop app + wars start by themselves from the game; bug sweep · this commit (previous: `97ee0b5`)
 
 **Asked for:**

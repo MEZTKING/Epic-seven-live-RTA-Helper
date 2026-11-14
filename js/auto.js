@@ -593,8 +593,22 @@
     return `prebans ${b.prebans.me.length}+${b.prebans.opp.length}, picks ${b.picks.me.length}+${b.picks.opp.length}`;
   }
 
-  function applyBoard() {
-    const b = board();
+  // The game watcher's draft reader (js/vision/readers/rta-draft.js, DEVLOG #41: stage texts + wide portraits, nothing
+  // to calibrate) sends its board here; while it is reporting, this page's own slot reading doesn't touch the draft.
+  let watcherDraftAt = 0;
+  function onWatcherDraft(d) {
+    if (!d || !d.board) return;
+    watcherDraftAt = Date.now();
+    if (d.board.firstPick) lastFirstPick = d.board.firstPick;
+    if (cfg().apply !== false) applyBoard(d.board);
+    const n = (a) => a.filter(Boolean).length;
+    note(`draft from the game watcher: ${d.stage}${d.turn ? ` (${d.turn === 'me' ? 'your' : "opponent's"} turn)` : ''}`, { own: n(d.own), enemy: n(d.enemy), prebans: n(d.prebans), first: d.firstPick });
+  }
+  if (window.E7Bus) window.E7Bus.on('rta:draft', onWatcherDraft);
+
+  function applyBoard(fromWatcher) {
+    if (!fromWatcher && Date.now() - watcherDraftAt < 20000) return; // the watcher's reader is on it
+    const b = fromWatcher || board();
     const cur = App.store.draft;
     const curView = L.draftView(cur);
     const nonPost = cur.actions.filter((a) => a.phase !== 'postban').length;
@@ -607,7 +621,7 @@
     const newMatch = curPre.length > 0 && scrPre.length > 0 && scrPre.some((c) => !curPre.includes(c)) && b.picks.me.length + b.picks.opp.length <= 1;
     if (newMatch) lastFirstPick = null;
 
-    const inferred = L.inferFirstPick(b);
+    const inferred = (fromWatcher && fromWatcher.firstPick) || L.inferFirstPick(b);
     if (inferred) lastFirstPick = inferred;
     const firstPick = lastFirstPick || cur.firstPick;
 

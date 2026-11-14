@@ -4,7 +4,7 @@
   const R = window.RTARoster;
   const GW = window.RTAGuildWar;
   const Sync = window.RTASync;
-  const HEROES = window.RTASources.officialSnapshot.heroes;
+  const HEROES = window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes; // official + newest heroes (fribbels-data)
   const CONN_KEY = 'e7-guild-conn'; // { guildCode, guildName, myName, config }
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -16,7 +16,7 @@
     const h = R.findHero(text, HEROES, idx);
     return h ? h.code : null;
   };
-  const pt = (c) => (byCode.get(c) ? `<img class="pt sm" alt="" crossorigin="anonymous" src="${esc(R.PORTRAIT_URL(c))}" onerror="this.classList.add('broken')" />` : '');
+  const pt = (c) => (byCode.get(c) ? `<img class="pt sm" alt="" src="${esc(R.PORTRAIT_URL(c))}" onerror="this.classList.add('broken')" />` : '');
   const chip = (c) => `<span class="hchip clickable" data-hero="${esc(c)}" title="Tap for skills and tags">${pt(c)}${esc(nameOf(c))}</span>`;
   const chipT = (c) => chip(c) + (window.HeroInfo ? window.HeroInfo.tagChips(c, 2) : '');
   const team = (codes) => (codes || []).map(chip).join('') || '<span class="hint">—</span>';
