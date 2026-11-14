@@ -39,6 +39,7 @@
     sound: true,
     autoRecord: true, // record results detected on screen (as source 'auto')
     useGameHelp: true,
+    useKnowledge: true, // hero mechanics from E7DaT's knowledge file (source 'E7DaT knowledge')
     sourceWeights: null, // { group: multiplier } from "Tune from my matches" or sliders
     variance: 5,
   };
@@ -249,7 +250,7 @@
   const gm = (n) => `${n} ${n === 1 ? 'game' : 'games'}`;
   const pct = (w, g) => (g ? Math.round((w / g) * 100) + '%' : '—');
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const SRC_CLASS = { 'my notes': 'notes', learned: 'learned', 'game rule': 'rule', presets: 'presets', player: 'player', speed: 'speed', deny: 'deny', scouting: 'player', gear: 'fribbels', 'game help': 'game' };
+  const SRC_CLASS = { 'my notes': 'notes', learned: 'learned', 'game rule': 'rule', presets: 'presets', player: 'player', speed: 'speed', deny: 'deny', scouting: 'player', gear: 'fribbels', 'game help': 'game', 'E7DaT knowledge': 'know' };
   const srcBadge = (src) => `<span class="src ${SRC_CLASS[src] || (src.startsWith('meta') ? 'meta' : 'other')}">${esc(src)}</span>`;
 
   function portrait(code, cls = 'pt', lazy = false) {
@@ -311,6 +312,7 @@
       deny: s.useDeny,
       sourceWeights: s.sourceWeights,
       gameHelp: s.useGameHelp ? { live: liveGameHelp(), stats: cache.gameHelp } : null,
+      knowledge: s.useKnowledge !== false ? window.E7Knowledge || null : null,
     };
   }
 
@@ -1232,6 +1234,7 @@
     '#use-notes': 'useNotes',
     '#use-learned': 'useLearned',
     '#use-element': 'useElement',
+    '#use-knowledge': 'useKnowledge',
     '#use-presets': 'usePresets',
     '#use-player': 'usePlayer',
     '#use-fribbels': 'useFribbels',

@@ -46,6 +46,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 ## From E7DaT (owner supplied the project, DEVLOG #41; notes in docs/E7DAT_NOTES.md)
 - [x] RTA draft read with no calibration: stage texts, pick cards from wide portraits, pre-ban icon positions, first pick.
 - [x] Newest heroes (missing from the official list) from the Fribbels dataset.
+- [x] Hero mechanics, blocking rules and top-player builds from its knowledge file as their own source (DEVLOG #42).
+- [ ] The knowledge file is a snapshot of Nov 2026: refresh it when E7DaT publishes a newer one (`tools/make-e7dat-knowledge.py`).
 - [ ] **Needs the owner's OK first:** the official record site's lookups (undocumented, imitating the site's own requests):
   - own RTA match history, exact (picks, bans, pre-bans, first pick, result, speed order)
   - opponent scouting during a draft; Guild War: an enemy's most-used heroes and speed order from their arena games

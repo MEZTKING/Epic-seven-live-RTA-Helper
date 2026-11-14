@@ -45,6 +45,7 @@ a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) a
 | File | Global | Does |
 |---|---|---|
 | `js/ask.js` | `E7Ask` | Questions inside the page (`E7Ask(msg, value)`, `.form(title, fields)`, `.show(msg, text)`). **`window.prompt()` does nothing in Electron**: never use it (`tests/no-prompt.test.js` checks) |
+| `js/knowledge.js` | `E7Know` (`E7Knowledge` = built from `RTASources.e7datKnowledge`) | Hero mechanics as their own source 'E7DaT knowledge': `mechanics`, `versus`, `notesFor` (reasons / cautions with E7DaT's record-based filters), `threats`, `builds`, `opener` (DEVLOG #42) |
 | `js/wide.js` | `E7Wide` | RTA pick cards from the heroes' wide portraits (`{code}_l.png`, skins; mirrored on my side): `slotBox`, `patchRect`, `template`, `match`, `isConfident` (DEVLOG #41, method from E7DaT) |
 | `js/draftscreen.js` | `E7Draft` | RTA draft stage: text templates (`matchTemplate`, `tint`), confirmed-card check (`lockScore`), `Tracker` (stage, turn, first pick, picks, pre-bans, held), `toBoard` |
 | `js/frame.js` | `E7Frame` | Where the game is inside a captured window / screenshot: title bar and thin borders found from the pixels (`detect`), any size (DEVLOG #38) |
@@ -203,7 +204,12 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #41)
+## 7. Status (end of DEVLOG #42)
+
+**Hero mechanics** (DEVLOG #42): `js/sources/e7dat-knowledge.js` (built by `tools/make-e7dat-knowledge.py` from E7DaT's
+frozen `knowledge.json`) → `js/knowledge.js`. Used by RTA suggestions (`ctx.knowledge` in `scoreCandidate`, source group
+'E7DaT knowledge', setting `useKnowledge`), the hero card (mechanics, top-player builds, opener) and Guild War (defense
+cards "Watch for", attack window `#atk-mech`).
 
 **RTA draft without calibration** (DEVLOG #41, method and layout from E7DaT, see `docs/E7DAT_NOTES.md`): watcher reader
 `js/vision/readers/rta-draft.js` → `rta:draft {stage, turn, firstPick, own, enemy, prebans, held, board}` /

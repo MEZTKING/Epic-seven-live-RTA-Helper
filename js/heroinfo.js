@@ -155,11 +155,29 @@
       ${tags.length ? `<div class="hi-tags">${tags.map((x) => `<span class="tag" title="from ${esc(x.sources.join(' + '))}">${esc(x.tag)}${x.sources.length > 1 ? ' ✓' : ''}</span>`).join('')}</div>` : '<p class="hint">No role tags yet. Add yours below; the guild can add shared ones from the Guild War page.</p>'}
       <p><a href="${esc(R.epic7xUrl(h.name))}" target="_blank" rel="noopener">Full, current skill descriptions on epic7x.com ↗</a></p>
       ${adapter.extras ? adapter.extras(current) || '' : ''}
+      ${knowledgeBlock(current)}
       ${CB ? `<div class="hi-src"><h4><span class="src other">ceciliabot</span> Skills <span class="hint">· from <a href="${esc(CB.heroPage(current))}" target="_blank" rel="noopener">CeciliaBot</a></span>
         <label class="inline" style="margin-left:auto"><input type="checkbox" data-hi="toggle-cb" ${CB.enabled() ? 'checked' : ''}/> use</label></h4><div class="hi-cb">${CB.enabled() ? '<p class="hint">Loading skills…</p>' : '<p class="hint">Switched off.</p>'}</div></div>` : ''}
       ${editing === 'mine' ? editor('mine', mine) : sourceBlock('my notes', 'notes', mine, true, 'mine')}
       ${editing === 'guild' ? editor('guild', guild) : sourceBlock('guild', 'game', guild, !!adapter.saveGuildNote, 'guild')}
       ${!adapter.saveGuildNote ? '<p class="hint">Guild notes are edited on the Guild War page and shown here from this device\'s last sync.</p>' : ''}`;
+  }
+
+  /** Mechanics, usual builds and turn order from E7DaT's knowledge file (js/knowledge.js; its own source). */
+  function knowledgeBlock(code) {
+    const K = window.E7Knowledge;
+    if (!K) return '';
+    const mech = K.mechanics(code);
+    const builds = K.builds(code);
+    const op = K.opener(code);
+    if (!mech.length && !builds.length && !op) return '';
+    return `<div class="hi-src"><h4><span class="src know">E7DaT knowledge</span> Mechanics and top-player builds <span class="hint">· fixed data of ${esc(K.date)}</span></h4>
+      ${mech.length ? `<div class="hi-tags">${mech.map((m) => `<span class="tag" title="${m.artifact ? 'from the artifact ' + esc(m.artifact) : 'from the skill descriptions'}">${esc(m.label)}${m.artifact ? ' <span class="hint">(' + esc(m.artifact) + ')</span>' : ''}</span>`).join('')}</div>` : ''}
+      ${op ? `<p class="small">Fastest hero on the field in <b>${op.fastest}%</b> of top players' games with it.</p>` : ''}
+      ${builds.length ? `<table class="mini"><thead><tr><th>Artifact</th><th>Sets</th><th title="Share of top players' games">Used</th><th title="Combat Readiness at the start: 100 = fastest on the field">Start CR</th></tr></thead><tbody>${builds
+        .map((b) => `<tr><td>${esc(b.artifact)}</td><td>${esc(b.sets.join(' + '))}</td><td>${b.share}%</td><td>${b.startCR}%</td></tr>`)
+        .join('')}</tbody></table>` : ''}
+    </div>`;
   }
 
   async function onClick(e) {

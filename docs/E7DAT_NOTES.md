@@ -15,6 +15,7 @@ JavaScript. Source comments are Korean.
 | `tracker.py`: stage from the top text + its colour, pre-ban window, versus screen, hover vs confirmed (blue band), "same twice", turn counting | `js/draftscreen.js` (`Tracker`, `lockScore`, `matchTemplate`, `tint`), simplified |
 | `vision.py`: pick cards = wide portraits `{code}_l.png` (+ skins), mirrored on my side | `js/wide.js`, but a direct masked correlation at the measured fixed geometry instead of SIFT (no OpenCV in the app) |
 | `templates.py`: round icons from the official site, falling back to CeciliaBot/E7Assets-Temp | `RTARoster.PORTRAIT_URL` (asset repo for heroes the official list lacks) |
+| `assets/knowledge.json` + the filters of `knowledge.py` (HURT_OK 1.5, AVOID_OK 0.8, MIN_LIFT 1.3, strict rules need pair data) | `js/sources/e7dat-knowledge.js`, `js/knowledge.js` (DEVLOG #42): reasons / cautions, builds, openers. Not used: `needs` (feeds E7DaT's win-rate model), `imprint`, `exclusive`, per-pair counter lists |
 
 Not ported from the tracker: the opening rule (Korean templates only), VICTORY/DEFEAT templates (this app has its own
 result reader), unknown-slot marking, re-verification of the previous turn's cards, weak pre-ban reads for small windows.

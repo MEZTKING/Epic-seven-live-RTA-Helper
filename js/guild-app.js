@@ -266,6 +266,7 @@
               ${speeds.length ? `<div class="hint">Speed: ${speeds.map(([c, v]) => `${esc(nameOf(c))} ${esc(v)}`).join(' · ')}</div>` : ''}
               ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
               ${!st.cleared && counters.length ? `<div class="hint">Beaten before by: ${counters.map((c) => `${c.attack.map(nameOf).map(esc).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', similar'})`).join(' · ')}</div>` : ''}
+              ${!st.cleared ? mechLine(tm.heroes) : ''}
               ${!st.cleared && tv.level !== 'grey' ? `<div class="hint verdict-line">${esc(tv.label)}${tv.lines.length ? ' · ' + esc(tv.lines[tv.lines.length - 1]) : ''}</div>` : ''}
               ${!st.cleared ? `<button class="btn" data-attack="${esc(t.id)}" data-team="${i + 1}">Log attack</button>` : ''}
             </div>`;
@@ -523,17 +524,49 @@
     showAttackCounters();
     $('#attack-dialog').showModal();
   }
+  // Hero mechanics (js/knowledge.js, source 'E7DaT knowledge'): what a defense brings, and what it does to my team
+  const KNOW = () => window.E7Knowledge || null;
+  const knowBadge = '<span class="src know">E7DaT knowledge</span>';
+  /** "Watch for: front-line guard (Boss Arunka) · blocks revive (Lethe)" for one defense team. */
+  function mechLine(codes) {
+    const K = KNOW();
+    if (!K) return '';
+    const th = K.threats((codes || []).filter(Boolean));
+    if (!th.length) return '';
+    const by = new Map();
+    for (const t of th) by.set(t.label, [...(by.get(t.label) || []), nameOf(t.code)]);
+    return `<div class="hint">${knowBadge} Watch for: ${[...by.entries()].map(([label, names]) => `${esc(label)} (${names.map(esc).join(', ')})`).join(' · ')}</div>`;
+  }
+  /** In the attack window: what the defense shuts down on the heroes typed in, and what they shut down on it. */
+  function showAttackMech() {
+    const el = $('#atk-mech');
+    const K = KNOW();
+    if (!el || !K || !attackTarget) return;
+    const tm = (attackTarget.teams || [])[Number($('#attack-form').team.value) - 1] || {};
+    const foes = (tm.heroes || []).filter(Boolean).map((c) => ({ code: c, name: nameOf(c) }));
+    const mine = $$('#atk-heroes .h3').map((i) => codeOf(i.value)).filter(Boolean);
+    const lines = [];
+    for (const c of mine) {
+      const n = K.notesFor(c, [], foes);
+      for (const b of n.bad) lines.push(`<span class="warn-text">⚠ ${esc(nameOf(c))}</span>: ${esc(b.text)}`);
+      for (const g of n.good) lines.push(`<span class="ok-text">✓ ${esc(nameOf(c))}</span>: ${esc(g.text)}`);
+    }
+    el.innerHTML = lines.length ? `${knowBadge} ${lines.join('<br>')}` : mine.length && foes.length ? `${knowBadge} nothing on record between these heroes` : '';
+  }
   function showAttackCounters() {
+    showAttackMech();
     const tm = (attackTarget.teams || [])[Number($('#attack-form').team.value) - 1] || {};
     const c = GW.suggestCounters(tm.heroes || [], GW.counterBook(state), { members: state.members, limit: 3 });
     $('#atk-counters').innerHTML = c.length ? `Worked before: ${c.map((x) => `<button type="button" class="link" data-fill="${esc(x.attack.join(','))}">${esc(x.attack.map(nameOf).join(' + '))}</button> (${x.wins}-${x.games - x.wins})`).join(' · ')}` : '';
   }
   $('#attack-form').team.addEventListener('change', showAttackCounters);
+  $('#atk-heroes').addEventListener('input', showAttackMech);
   $('#atk-counters').addEventListener('click', (e) => {
     const b = e.target.closest('[data-fill]');
     if (!b) return;
     const codes = b.dataset.fill.split(',');
     $$('#atk-heroes .h3').forEach((i, k) => (i.value = codes[k] ? nameOf(codes[k]) : ''));
+    showAttackMech();
   });
   $('#attack-cancel').addEventListener('click', () => $('#attack-dialog').close());
   $('#attack-form').addEventListener('click', async (e) => {
