@@ -8,6 +8,7 @@
  *   E7Desktop.showSelf(bool)   -> show/hide this window (the hidden game watcher shows itself to ask something)
  *   E7Desktop.zoom() / onZoom(cb) -> { zoom, overlayZoom } (overlay.html scales its items by overlayZoom / zoom)
  *   E7Desktop.records.game(name, params) / .find(world, name) / .status()  -> the official record site (desktop/records.js)
+ *   E7Desktop.guildStandby({ beginsAt }) / warReminder() -> Guild War reminder before the next war (desktop/reminder.js)
  *   E7Desktop.overlayStatus()  -> { on, visible, bounds, mode, tracking, gameState, fallback, error, … } (Live page, report)
  * Used by js/game-area.js (no box needed when only the game window is captured) and overlay.html.
  * The picker page (desktop/picker.html) also uses sources() / choose().
@@ -26,6 +27,8 @@ contextBridge.exposeInMainWorld('E7Desktop', {
     find: (world, name) => ipcRenderer.invoke('e7:records', { op: 'find', world, name }),
     status: () => ipcRenderer.invoke('e7:records', { op: 'status' }),
   },
+  guildStandby: (d) => ipcRenderer.send('e7:guild-standby', { beginsAt: d && d.beginsAt }),
+  warReminder: () => ipcRenderer.sendSync('e7:war-reminder'),
   showSelf: (show) => ipcRenderer.send('e7:show-self', !!show),
   onHotkey: (cb) => ipcRenderer.on('e7:hotkey', (_e, name) => cb(name)),
   // developer tool: automatic screenshots (game watcher only)

@@ -96,6 +96,8 @@
         localStorage.setItem(KEY, JSON.stringify({ at: new Date(now).toISOString(), minutes, beginsAt: out.beginsAt, season }));
       } catch (_) { /* only a help */ }
       ctx.publish('guild:standby', out);
+      // the desktop app reminds you about 30 minutes before that war (desktop/reminder.js)
+      if (out.beginsAt && window.E7Desktop && window.E7Desktop.guildStandby) window.E7Desktop.guildStandby({ beginsAt: out.beginsAt });
     },
   });
   window.E7GuildStandby = { _reset: () => ((seen = { key: '', n: 0 }), (sent = { key: '', at: 0 })) };

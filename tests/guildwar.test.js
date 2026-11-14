@@ -226,3 +226,18 @@ test('matchPlayer: tolerant to small OCR mistakes, rejects strangers', () => {
   assert.equal(GW.matchPlayer('Somebody', names), null);
   assert.equal(GW.matchPlayer('x', names), null);
 });
+
+test('guildwar: a defender the fortress map showed beaten counts as cleared, also without a logged attack (DEVLOG #50)', () => {
+  const target = { id: 'tb', warId: 'w', player: 'Foe', teams: [], beaten: true };
+  const none = GW.targetStatus(target, []);
+  assert.strictEqual(none.cleared, true);
+  assert.strictEqual(none.fromGame, true);
+  assert.ok(none.teams.every((t) => t.cleared && t.fromGame && t.by === null));
+  // a logged win keeps its author; the other team is "from the game"
+  const one = GW.targetStatus(target, [{ targetId: 'tb', team: 1, result: 'win', by: 'Ann' }]);
+  assert.deepStrictEqual(one.teams.map((t) => [t.cleared, t.fromGame, t.by]), [[true, false, 'Ann'], [true, true, null]]);
+  // not beaten: as before
+  const open = GW.targetStatus({ ...target, beaten: false }, [{ targetId: 'tb', team: 1, result: 'win', by: 'Ann' }]);
+  assert.strictEqual(open.cleared, false);
+  assert.strictEqual(open.fromGame, false);
+});

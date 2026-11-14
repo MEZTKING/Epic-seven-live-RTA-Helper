@@ -233,6 +233,11 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
 
+**Guild War reminder + beaten from the map** (DEVLOG #50): `desktop/reminder.js` (config `warReminder`
+`{ beginsAt, firedFor }`, IPC `e7:guild-standby` / `e7:war-reminder`, `E7Desktop.guildStandby / warReminder`);
+`GuildApp.markBeaten(players)` on `guild:fortress` (enemy side) sets target `beaten / beatenAt / beatenBy`
+(`beatenByHand` after "Not beaten"); `GW.targetStatus` treats `target.beaten` as cleared (`fromGame`).
+
 **Guild War standby page** (DEVLOG #46): reader `js/vision/readers/guild-standby.js` (green-button check → title →
 countdown; places in `E7GWMap.STANDBY`) → `guild:standby { minutes, beginsAt, season, text }` → `GuildApp.standbyFromGame`
 (banner `#war-standby`, shares `settings.nextWar`, marks open wars finished with Undo) and `GuildApp.standby()`.

@@ -125,6 +125,18 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   console.log('corrected:', fixed || 'nothing needed', '·', await gp.textContent('#gw-fort-msg'));
   const saved = await gp.evaluate(() => window.GuildApp.state.targets.map((t) => [t.player, t.tower, !!t.keep]));
   console.log('targets now:', saved.length, 'all in Stinger:', saved.every((t) => t[1] === 'Stinger Fortress'), '· keep:', JSON.stringify(saved.filter((t) => t[2]).map((t) => t[0])));
+  // beaten defenders straight from the map's badges (DEVLOG #50): no button; only names the war already has
+  const fortEvent = (players, keep) => lv.evaluate((d) => window.E7Bus.publish('guild:fortress', d), { side: 'enemy', index: 0, fort: 'Stinger Fortress', players, keep });
+  await fortEvent([{ name: 'Alpha01', state: 'beaten' }, { name: 'BravoKnight', state: 'enemy' }, { name: 'NotInTheWar', state: 'beaten' }], { name: 'Tango', state: 'beaten', keep: true });
+  await gp.waitForTimeout(700);
+  const beaten = () => gp.evaluate(() => window.GuildApp.state.targets.filter((t) => t.beaten).map((t) => t.player).sort());
+  console.log('beaten from the map:', JSON.stringify(await beaten()), '· targets', await gp.evaluate(() => window.GuildApp.state.targets.length), '·', (await gp.textContent('#war-summary .card')).replace(/\s+/g, ' ').trim());
+  console.log('card:', (await gp.evaluate(() => { const c = [...document.querySelectorAll('#targets .gw-card')].find((x) => /Alpha01/.test(x.textContent)); return c ? c.querySelector('.gw-beaten').textContent.replace(/\s+/g, ' ').replace(/\([^)]*\)/, '(<when, who>)').trim() : 'no card'; })));
+  await gp.evaluate(() => [...document.querySelectorAll('#targets .gw-card')].find((x) => /Alpha01/.test(x.textContent)).querySelector('[data-unbeaten]').click());
+  await gp.waitForTimeout(400);
+  await fortEvent([{ name: 'Alpha01', state: 'beaten' }], { name: 'Tango', state: 'enemy', keep: true });
+  await gp.waitForTimeout(700);
+  console.log('after "Not beaten" on Alpha01 and a map showing Tango standing again:', JSON.stringify(await beaten()));
   console.log('fortress filter offers:', JSON.stringify(await gp.$$eval('#target-fort option', (o) => o.map((x) => x.textContent))));
   await gp.selectOption('#target-fort', 'Darkwood Fortress');
   const inDark = await gp.$$eval('#targets .gw-card', (c) => c.length);

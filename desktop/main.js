@@ -20,13 +20,14 @@
  *
  * Shortcuts: Ctrl+Shift+O show/hide overlay · Ctrl+Shift+E show the main window · Ctrl+Shift+S save a game picture
  */
-const { app, BrowserWindow, protocol, net, screen, session, desktopCapturer, globalShortcut, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, protocol, net, screen, session, desktopCapturer, globalShortcut, Menu, ipcMain, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 const updater = require('./updater');
 const wintrack = require('./wintrack');
 const recordsLib = require('./records');
+const reminderLib = require('./reminder');
 const PRELOAD = path.join(__dirname, 'preload.js');
 // tests only (tests/desktop/overlay-status.js): behave as on Windows, so the window tracker really starts (and,
 // off Windows, really fails: no PowerShell), and expose trackGame
@@ -175,6 +176,35 @@ function setDevCapture(on) {
   if (vision && !vision.isDestroyed()) vision.webContents.send('e7:dev-changed', config.devCapture);
   buildMenu();
 }
+
+// Guild War reminder (desktop/reminder.js): the watcher read "War Begins in 29h" on the standby page (or a guildmate's
+// reading arrived on the Guild War page) -> one desktop notification about 30 minutes before the war.
+const warReminder = reminderLib.create({
+  load: () => config.warReminder || {},
+  save: (v) => {
+    config.warReminder = v;
+    saveConfig();
+  },
+  notify: ({ title, body }) => {
+    try {
+      const n = new Notification({ title, body });
+      n.on('click', () => {
+        if (!main) return;
+        main.show();
+        main.focus();
+        main.loadURL(`${ORIGIN}/guild.html`);
+      });
+      n.show();
+    } catch (_) { /* notifications are switched off in the system */ }
+  },
+});
+ipcMain.on('e7:guild-standby', (e, d) => {
+  if (!String(e.senderFrame && e.senderFrame.url).startsWith(ORIGIN)) return;
+  if (d && typeof d.beginsAt === 'string') warReminder.set(d.beginsAt);
+});
+ipcMain.on('e7:war-reminder', (e) => {
+  e.returnValue = warReminder.state();
+});
 
 // a hidden window (the game watcher) shows itself while it needs the user, e.g. "Where is the game?"
 ipcMain.on('e7:show-self', (e, show) => {
@@ -545,6 +575,7 @@ app.whenReady().then(() => {
   createOverlay();
   createVision();
   buildMenu();
+  warReminder.restore();
   updater.init(() => main, () => buildMenu()); // checks at start; the menu line shows when and what it found
   // window mode: start following the game window right away (if it's open)
   if (config.capture && config.capture.mode === 'window') resolveSourceQuiet();
