@@ -89,7 +89,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - [ ] Guild War states still unknown: what the game shows between standby and the war (matching / preparation), and
   when a war has just ended (results). Needs screenshots; then a reminder shortly before a war begins.
 - [ ] Standby page in other game languages (the title is matched in English).
-- [ ] Use "beaten" from the map to mark targets cleared / count attacks left (now only shown).
+- [x] "Beaten" from the enemy map marks targets cleared; reminder 30 minutes before the next war (DEVLOG #50).
+- [ ] Count attacks left from the game (the map shows who is beaten, not who attacked).
 - [ ] RTA screens at a wider window: verify the anchors (needs RTA screenshots from the maximized window; see the E7DaT section).
 - [x] Enemy defense panel at a wider window: pinned left (DEVLOG #39).
 - [ ] Better name reading (game font): 6–8 of 10 names exact now; corrections are remembered.

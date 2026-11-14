@@ -52,9 +52,12 @@
     for (let t = 1; t <= rules.teamsPerDefense; t++) {
       const on = mine.filter((a) => Number(a.team) === t);
       const win = on.find((a) => a.result === 'win');
-      teams.push({ team: t, cleared: !!win, by: win ? win.by : null, attempts: on.length, losses: on.filter((a) => a.result === 'loss').length });
+      // target.beaten: the fortress map showed this defender beaten (grey ring; DEVLOG #50) -> every team is done,
+      // also the ones nobody logged an attack for
+      const game = !win && !!target.beaten;
+      teams.push({ team: t, cleared: !!win || game, by: win ? win.by : null, fromGame: game, attempts: on.length, losses: on.filter((a) => a.result === 'loss').length });
     }
-    return { cleared: teams.every((x) => x.cleared), teams, attempts: mine.length };
+    return { cleared: teams.every((x) => x.cleared), fromGame: !!target.beaten, teams, attempts: mine.length };
   }
 
   /** Attacks used per member in a war (or one day of it, if `day` is given as YYYY-MM-DD). */

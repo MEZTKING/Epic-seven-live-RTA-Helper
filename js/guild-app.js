@@ -262,7 +262,7 @@
             const counters = GW.suggestCounters(tm.heroes || [], book, { members: state.members, limit: 2 });
             const speeds = Object.entries(tm.speeds || {}).filter(([, v]) => v);
             return `<div class="gw-team ${st.cleared ? 'cleared' : ''}">
-              <div class="gw-team-head">${st.cleared ? '' : dot(tv)} Team ${i + 1} ${st.cleared ? `<span class="vd keep">cleared by ${esc(st.by)}</span>` : st.attempts ? `<span class="vd sell">${st.losses} failed</span>` : ''}</div>
+              <div class="gw-team-head">${st.cleared ? '' : dot(tv)} Team ${i + 1} ${st.cleared ? `<span class="vd keep">${st.fromGame ? 'beaten (seen in the game)' : `cleared by ${esc(st.by)}`}</span>` : st.attempts ? `<span class="vd sell">${st.losses} failed</span>` : ''}</div>
               <div>${(tm.heroes || []).map(chipT).join('') || '<span class="hint">—</span>'}</div>
               ${speeds.length ? `<div class="hint">Speed: ${speeds.map(([c, v]) => `${esc(nameOf(c))} ${esc(v)}`).join(' · ')}</div>` : ''}
               ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
@@ -281,6 +281,7 @@
               <button class="btn" data-edit="${esc(t.id)}">Edit</button></div>
             ${teams.join('') || '<div class="hint">Defense not scouted yet: open this player in the game while watching, then "Save as … defense".</div>'}
             ${t.notes ? `<div class="hint">${esc(t.notes)}</div>` : ''}
+            ${t.beaten ? `<div class="hint gw-beaten"><span class="src game">read from the game</span> Beaten: the fortress map showed a grey ring${t.beatenAt ? ` (${esc(new Date(t.beatenAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}${t.beatenBy ? `, ${esc(t.beatenBy)}` : ''})` : ''}. <button class="btn" data-unbeaten="${esc(t.id)}">Not beaten</button></div>` : ''}
             <div class="hint gw-record" data-record-out="${esc(t.id)}">${recordLine(t)}</div>
             <div class="hint">Last edit: ${esc(t.updatedBy || '?')}</div>
           </div>`;
@@ -384,15 +385,20 @@
     const m = Math.max(0, Math.round(ms / 60000));
     return m >= 120 ? `${Math.round(m / 60)} hours` : m >= 60 ? `1 hour${m % 60 >= 10 ? ` ${m % 60} min` : ''}` : `${m} min`;
   };
+  let remindedFor = '';
   function renderStandby() {
     const el = $('#war-standby');
     if (!el) return;
     const s = standby();
     if (!s) return el.classList.add('hidden');
     const begins = s.beginsAt ? new Date(s.beginsAt) : null;
+    if (begins && window.E7Desktop && window.E7Desktop.guildStandby && remindedFor !== s.beginsAt) {
+      remindedFor = s.beginsAt; // (also a guildmate's shared reading: this PC reminds too)
+      window.E7Desktop.guildStandby({ beginsAt: s.beginsAt });
+    }
     el.innerHTML = `<b>No Guild War right now.</b> <span class="src game">read from the game</span> The game shows the standby page${s.season ? ` (season ${esc(s.season)})` : ''}.
       ${begins ? `The next war begins in about <b>${span(begins - Date.now())}</b> (around ${esc(begins.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}).` : ''}
-      <span class="hint">Read ${span(Date.now() - Date.parse(s.at))} ago${s.by ? ` by ${esc(s.by)}` : ''}${begins ? '; the game only shows whole hours, so the time is rough' : ''}.</span>`;
+      <span class="hint">Read ${span(Date.now() - Date.parse(s.at))} ago${s.by ? ` by ${esc(s.by)}` : ''}${begins ? '; the game only shows whole hours, so the time is rough' : ''}.${begins && window.E7Desktop && window.E7Desktop.guildStandby ? ' The desktop app reminds you about 30 minutes before.' : ''}</span>`;
     el.classList.remove('hidden');
   }
   setInterval(renderStandby, 60000);
@@ -485,6 +491,12 @@
   $('#targets').addEventListener('click', (e) => {
     const b = e.target.closest('[data-record]');
     if (b) showRecord(b.dataset.record);
+    const u = e.target.closest('[data-unbeaten]');
+    if (u) {
+      const t = state.targets.find((x) => x.id === u.dataset.unbeaten);
+      // (the map keeps showing grey if it really is beaten; a correction by hand is not overwritten by the next reading)
+      if (t) put('target', { ...t, beaten: false, beatenByHand: true });
+    }
   });
   $('#targets').addEventListener('change', async (e) => {
     const id = e.target.dataset.assign;
@@ -1011,6 +1023,35 @@
    * fortress (existing ones only get their fortress set). Names you corrected are remembered for next time.
    * players: [{ name, raw, keep }]. Returns { added, moved, same }.
    */
+  /**
+   * A fortress map of the ENEMY was seen (js/vision/readers/guild-fortress.js): defenders whose name is one of this
+   * war's targets get "beaten" from their badge (grey ring = beaten, red = still standing). No button needed; names
+   * the app does not know yet are left for "Save as this war's …". Returns { beaten, standing } = how many changed.
+   */
+  let beatenBusy = Promise.resolve();
+  function markBeaten(players) {
+    beatenBusy = beatenBusy.catch(() => {}).then(() => markBeatenNow(players));
+    return beatenBusy;
+  }
+  async function markBeatenNow(players) {
+    const out = { beaten: 0, standing: 0 };
+    if (!warId || !backend) return out;
+    for (const p of players || []) {
+      const name = String(p.name || '').trim();
+      if (!name || (p.state !== 'beaten' && p.state !== 'enemy')) continue;
+      const t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(name));
+      if (!t) continue;
+      if (p.state === 'beaten' && !t.beaten && !t.beatenByHand) { // ("Not beaten" pressed by hand stays for this war)
+        await put('target', { ...t, beaten: true, beatenAt: new Date().toISOString(), beatenBy: me() });
+        out.beaten++;
+      } else if (p.state === 'enemy' && t.beaten && !t.beatenByHand) {
+        await put('target', { ...t, beaten: false }); // an earlier reading was wrong: the game shows it standing
+        out.standing++;
+      }
+    }
+    if ((out.beaten || out.standing) && window.E7Diag) window.E7Diag.log('guild', 'beaten state from the fortress map', out);
+    return out;
+  }
   async function saveFortress(fort, players, side = 'enemy') {
     if (!warId) throw new Error('Start a war first (New war).');
     const out = { added: 0, moved: 0, same: 0 };
@@ -1042,7 +1083,7 @@
       if (p.raw && p.raw.toLowerCase() !== name.toLowerCase()) fixes[p.raw.toLowerCase()] = name;
       const t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(name));
       if (!t) {
-        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '' });
+        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '', ...(p.state === 'beaten' ? { beaten: true, beatenAt: new Date().toISOString(), beatenBy: me() } : {}) });
         out.added++;
       } else if (t.tower !== fort || !!t.keep !== !!p.keep) {
         await put('target', { ...t, tower: fort, keep: !!p.keep });
@@ -1058,6 +1099,7 @@
   window.GuildApp = {
     openTargetWith: (seen) => openTarget(null, seen),
     saveFortress,
+    markBeaten,
     warFromGame,
     standbyFromGame,
     standby,

@@ -23,6 +23,7 @@
       "updater.js",
       "wintrack.js",
       "records.js",
+      "reminder.js",
       "preload.js",
       "picker.html",
       "package.json"

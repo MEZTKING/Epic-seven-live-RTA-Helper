@@ -7,6 +7,53 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #50 · Guild War: reminder before the next war; enemies marked beaten from the fortress map · this commit (previous: `fd71a7a`)
+
+**Asked for:** "and do everything else" (Guild War part of the list: a reminder shortly before a war begins, targets
+cleared from the "beaten" badges).
+
+**Findings**
+- The fortress-map reader already tells for every defender whether the badge ring is red (standing) or grey
+  (beaten); it was only shown, never used.
+- No enemy map among the owner's screenshots has a beaten defender (the beaten ones are on our own side's maps), so
+  the enemy case is tested with the reader's event, not with a picture.
+- The time of the next war is known since #46, rough to the hour.
+
+**Changed**
+- **Reminder** (desktop app):
+  - `desktop/reminder.js` (new): one timer, one notification about 30 minutes before the war, once per war. Readings
+    of the same war (up to 3 hours apart) do not repeat it; the earlier estimate wins; kept in `config.json`
+    (`warReminder`) so it also fires after a restart. Clicking the notification opens the Guild War page.
+  - bridge `E7Desktop.guildStandby({ beginsAt })` / `warReminder()`; called by the standby reader and by the Guild
+    War page (so a guildmate's shared reading reminds this PC too). The standby banner says that a reminder is set.
+- **Beaten from the map**:
+  - `js/guild-app.js` `markBeaten(players)`: when an enemy fortress map is seen, defenders whose name is one of this
+    war's targets get `beaten` from their badge, without a button (grey = beaten; red after an earlier grey = back
+    to standing). Shared with the guild. Names the war does not have yet are left for "Save as this war's …", which
+    now keeps the beaten state too.
+  - `js/guildwar.js` `targetStatus`: a beaten target counts as cleared (all teams, also without a logged attack;
+    `fromGame`), so summary, filters, "who can take what" and the dots follow.
+  - card: "beaten (seen in the game)" and a line with when and who, with **Not beaten** to take it back; that
+    correction is not overwritten by later readings in this war.
+
+**Tested**
+- `npm test` **148** (+2: reminder timing with a fake clock: 29 h ahead, the same war read again, the next war, an
+  earlier reading, restart, already announced, less than 30 minutes left, nonsense; `targetStatus` with `beaten`).
+- Browser: `tests/e2e/gw-fortress.e2e.js` (after the real Stinger map was saved: a map event with two known
+  defenders beaten and one unknown name → 2 of 10 cleared, card line, "Not beaten", a later reading leaves the hand
+  correction alone and puts another one back to standing); `gw-standby`, `gw-autowar`, `web-guild` still clean.
+- Desktop (packaged Linux build): `tests/desktop/war-reminder.js`: the bridge schedules the time, keeps it in
+  `config.json`, has it again after a restart.
+- **Not tested:** the notification itself on Windows; a real enemy map with a beaten defender (colour rule is the
+  one measured on our own side's maps in #39).
+
+**Open**
+- A wrongly read grey ring would show a target as cleared to the whole guild until someone presses "Not beaten" or
+  the next reading shows it standing.
+- Still unknown: what the game shows right before a war and right after one (screenshots needed).
+
+---
+
 ## 2026-11-14 · #49 · Statistics page: my own numbers next to the top players', weekly trends · this commit (previous: `a924ec1`)
 
 **Asked for:** "and do everything else" (the list of improvements offered after #48; this is the statistics part:

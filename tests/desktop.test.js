@@ -110,9 +110,83 @@ test('desktop build: every local file main.js / preload.js loads is in the packa
   const dir = path.join(__dirname, '..', 'desktop');
   const files = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).build.files;
   const need = new Set();
-  for (const f of ['main.js', 'preload.js', 'updater.js', 'wintrack.js', 'records.js']) {
+  for (const f of ['main.js', 'preload.js', 'updater.js', 'wintrack.js', 'records.js', 'reminder.js']) {
     need.add(f);
     for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/require\('\.\/([\w-]+)'\)/g)) need.add(m[1] + '.js');
   }
   assert.deepStrictEqual([...need].filter((f) => !files.includes(f)), [], 'missing from desktop/package.json build.files: the packaged app would not start');
+});
+
+test('desktop: Guild War reminder — once per war, about 30 minutes before, also after a restart (DEVLOG #50)', () => {
+  const { create } = require('../desktop/reminder.js');
+  const T0 = Date.parse('2026-11-14T22:00:00Z');
+  const world = (saved = {}) => {
+    const w = { t: T0, timers: [], notes: [], saved };
+    w.r = create({
+      now: () => w.t,
+      setTimer: (fn, ms) => { const h = { fn, at: w.t + ms, off: false }; w.timers.push(h); return h; },
+      clearTimer: (h) => (h.off = true),
+      notify: (n) => w.notes.push(n),
+      load: () => w.saved,
+      save: (v) => (w.saved = v),
+    });
+    w.go = (to) => { // run the timers that are due until `to`
+      for (;;) {
+        const due = w.timers.filter((h) => !h.off && h.at <= to).sort((a, b) => a.at - b.at)[0];
+        if (!due) break;
+        due.off = true;
+        w.t = due.at;
+        due.fn();
+      }
+      w.t = to;
+    };
+    return w;
+  };
+  const iso = (ms) => new Date(ms).toISOString();
+  const H = 3600000;
+  // "War Begins in 29h": nothing for 28 hours, one notification 30 minutes before
+  const w = world();
+  assert.strictEqual(w.r.set(iso(T0 + 29 * H)), true);
+  w.go(T0 + 28 * H);
+  assert.strictEqual(w.notes.length, 0);
+  w.go(T0 + 28.6 * H);
+  assert.strictEqual(w.notes.length, 1);
+  assert.strictEqual(w.notes[0].minutes, 30);
+  assert.match(w.notes[0].body, /about 30 minutes/);
+  // the same war read again (the game shows whole hours: the estimate moves a little): no second notification
+  assert.strictEqual(w.r.set(iso(T0 + 29.4 * H)), false);
+  w.r.set(iso(T0 + 28.9 * H));
+  w.go(T0 + 30 * H);
+  assert.strictEqual(w.notes.length, 1);
+  // the next war, two days later: again
+  w.r.set(iso(T0 + 77 * H));
+  w.go(T0 + 78 * H);
+  assert.strictEqual(w.notes.length, 2);
+  // an earlier reading of the same war wins; a later one does not push the reminder back
+  const e = world();
+  e.r.set(iso(T0 + 10 * H));
+  assert.strictEqual(e.r.set(iso(T0 + 10.8 * H)), false);
+  assert.strictEqual(e.r.set(iso(T0 + 9.5 * H)), true);
+  e.go(T0 + 9.1 * H);
+  assert.strictEqual(e.notes.length, 1);
+  // restart in between: scheduled again from what was saved; a war already announced stays quiet
+  const a = world();
+  a.r.set(iso(T0 + 5 * H));
+  const b = world(a.saved);
+  b.r.restore();
+  b.go(T0 + 4.6 * H);
+  assert.strictEqual(b.notes.length, 1);
+  const c = world(b.saved);
+  c.r.restore();
+  c.go(T0 + 6 * H);
+  assert.strictEqual(c.notes.length, 0);
+  // read when the war is less than 30 minutes away: said right away, with the real number of minutes
+  const d = world();
+  d.r.set(iso(T0 + 12 * 60000));
+  d.go(T0 + 2000);
+  assert.strictEqual(d.notes.length, 1);
+  assert.strictEqual(d.notes[0].minutes, 12);
+  // nonsense and the past are ignored
+  assert.strictEqual(d.r.set('soon'), false);
+  assert.strictEqual(d.r.set(iso(T0 - H)), false);
 });

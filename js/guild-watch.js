@@ -172,6 +172,14 @@
   bus.on('guild:fortress', (d) => {
     seenFort = d;
     renderFort();
+    // enemy defenders the app already has: beaten / still standing straight from their badges (no button)
+    if (d && d.side !== 'ours' && A.markBeaten) {
+      A.markBeaten([...(d.players || []), ...(d.keep ? [d.keep] : [])])
+        .then((r) => {
+          if ((r.beaten || r.standing) && $('#gw-fort-msg')) $('#gw-fort-msg').textContent = `${r.beaten ? `${r.beaten} marked beaten` : ''}${r.beaten && r.standing ? ', ' : ''}${r.standing ? `${r.standing} back to standing` : ''} from this map.`;
+        })
+        .catch(() => {});
+    }
   });
   function renderFort() {
     const el = $('#gw-fort-seen');
