@@ -7,6 +7,83 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #45 · Win-rate model, pick policy, ban and pre-ban advice from top players' games (E7DaT's statistical core) · this commit (previous: `bdf7ac4`)
+
+**Asked for:** the rest of "add the record site, all of it": use the collected top-player games the way E7DaT does,
+not only as plain win rates.
+
+**Findings**
+- Ported from E7DaT (MIT; `stats.py`, `model.py`, `policy.py`, `recommend.py`), read in full first:
+  - which games count: both players Legend / Emperor (1.0 / 0.6, multiplied), last 60 days, previous season blended
+    out as the new one fills
+  - the fit: logistic regression with hero effects, **player skill** (players with ≥ 12 games, else their grade),
+    first-pick bias, a popularity trend; then pair / counter / first-or-second-side effects from what the fit gets
+    wrong, pulled towards 0 when games are few; two rounds
+  - a self-check: a model built without the newest ~1,000 games predicts them; this picks the pull strengths and a
+    scale against overconfidence
+  - pick policy: share of top-player drafts with a hero in this slot, backed off from all drafts to drafts sharing
+    my picks and the enemy picks visible at that moment
+  - candidates: gain, risk from counters still open, discount for heroes that get banned a lot; pre-bans by role;
+    final ban by expected win rate after both bans
+- **Checked on real games** (collected for this check the same way the app does: 110 ranked players, 1,100 lookups,
+  10,615 games, kept outside the repository):
+  - 6,734 games usable; fit with the full search 2.7 s; stored model 418 kB
+  - held-out 1,104 newest games: winner named in **57%**, log-loss 0.680 against 0.693 for a coin; predicted and real
+    win rates agree per band (e.g. predicted 58% → real 60%, predicted 67% → real 67%)
+  - a draft decides only part of a match, so 55–60% is what such a model can reach (E7DaT reports the same range)
+  - the model's first choice for the second side's third pick was the real pick in 21%, in its top five in 60%
+- Seen in the real games, and used:
+  - **the third pick of a side is never banned** (0 of 21,230 picks; last pick banned in 50%, fourth in 29%)
+  - top players pre-ban very differently by role (one hero is pre-banned by 90% of second-pick players and rarely by
+    first-pick players), so pre-ban advice uses the role
+  - first pick wins 52%
+- Changed on purpose from E7DaT: it is updated daily and weighs the newest day 1.0, older days 0.2; this app is updated
+  when the owner presses a button, so the last 14 days weigh 1.0 and older games 0.5.
+
+**Changed**
+- `js/topmodel.js` (new, pure): `build(rows)` → stored statistics; `Model` (position → win rate, `gain` with its
+  parts); `Policy.slot`; `Engine` (`rows`, `prebans`, `firstPicks`, `bans`, `winrate`).
+- `js/topmodel-worker.js` (new): the fit runs in a background worker, the app stays usable.
+- `js/records-app.js`: after an update (and at start) the model is fitted, kept in IndexedDB `e7-records` (now
+  version 2, store `kv`, key `model`) and reused while the stored games are the same. Data tab: what it is built on
+  and its self-check result. Draft tab `#top-model-line`: win chance for the board as it stands; with 5 v 5 the best
+  ban and which of my heroes they will likely ban.
+- `js/logic.js`, source **`top players`** (same switch as before):
+  - pick reasons: "Top-player model: +2.3 pp win chance (hero +1.1, with A +0.8, vs B +0.4)", "Top players pick it
+    at this spot in X% of similar drafts", "Still open against it: A, B (−X pp risk)", "Banned in X% of top players'
+    games when picked"; these replace #44's plain win rates when a model exists (≥ 400 usable games)
+  - final ban: "banning it is worth +X pp"; **game rule: the third pick cannot be banned** (never suggested now, also
+    without the model)
+  - pre-bans: "Top players pre-ban it in X% of their drafts as first / second pick"; lowered for heroes I play a lot
+- `js/app.js`: `ctx.topModel`, `ctx.nameOf`, `ctx.myUse`.
+
+**Bugs found and fixed while building**
+- With the model present, the final-ban list still added #44's plain win rates for the same games → only one of them.
+- The third-pick rule first applied only with all five picks; it holds from the third pick on (post-ban risk).
+
+**Tested**
+- `npm test` **136** (new `tests/topmodel.test.js` ×8: a made-up world with planted effects: strong hero found, good
+  players' favourite NOT mistaken for a strong hero, pair, counter, first-pick bias, self-check beats a coin, policy
+  back-off, risk, ban-guard slot, pre-bans by role, final ban, JSON round trip).
+- Browser suite **30/30** clean; new `tests/e2e/topmodel.e2e.js` (6,000 made-up games between real heroes put into the
+  records database): fitted in a worker, Data tab line, pick reasons naming the ally / enemy, win-chance line,
+  pre-ban idea, final ban with the third pick refused and "they will likely ban", after a restart the stored model
+  (no second fit), source switched off → no model reasons.
+- Desktop (packaged Linux build): `tests/desktop/topmodel.js` → fitted **in the worker** under the app's own page
+  protocol, stored, reused after a reload; `records-live`, `newwar` still pass.
+- Real games: see Findings.
+- **Not tested:** on Windows; with the owner's own collection (first run 200 players ≈ 15–20 minutes); how the
+  advice reads during a real draft.
+
+**Open**
+- Not ported yet (ROADMAP): turn-order model (who moves first), ban forecast, similar-team records, heroes that need a
+  specific ally, the team planner (whole-team plans), reasons from the opening rule.
+- The weights that turn model numbers into suggestion points (`W.topModel` 0.8 per pp, capped; `topPolicy`,
+  `topBanned`, `topPreban`) are first guesses; "Tune from my matches" can scale the whole `top players` group.
+- The model assumes equal skill and gear on both sides.
+
+---
+
 ## 2026-11-14 · #44 · Official record site: own match history, opponent scouting, Guild War player lookup, top-player statistics · this commit (previous: `580527b`)
 
 **Asked for:** "yes add the record site, all of it and what details did you need i can send them now" (the owner's OK

@@ -33,10 +33,17 @@ result reader), unknown-slot marking, re-verification of the previous turn's car
   `iswin` (1 win, 2 loss), `my_deck` / `enemy_deck` `.hero_list[5]` `{hero_code, first_pick, ban}` and `.preban_list`,
   `energyGauge` (start CR per hero: 100 = fastest, 0 = banned).
 - SQLite: `battles` (seq PK, picks in pick order, bans, pre-bans, first pick, win, energy), `players`, `meta`.
-- A session safety check blocked calling these lookups from the development environment (2026-11-14), so nothing here
-  was verified live beyond one `getSeasonList` call that answered.
+- Verified live on 2026-11-14 after the owner's OK (DEVLOG #44, #45).
 
 ## Statistics (`stats.py`, output `stats.json` format 6)
+
+**Ported in DEVLOG #45 (`js/topmodel.js`):** game selection and weights (recency changed: 14 days 1.0, older 0.5),
+the fit (`_fit`, `_lbfgs`), residual tables for pairs / counters / sides / rules (`_residual_pass`, `_step`,
+`_offsets`, `_estimate`), `_model_part`, the self-check (`_tune` without the turn and bundle steps), per-hero numbers
+and the drafts table (`build`), `DraftModel` (without turn order and needs), `Policy.slot`, `Engine.rows` / `risk` /
+`prebans` / `first_picks` / `bans` (without forecast and bundles).
+**Not ported:** `_turn_model`, `_ban_model`, bundles, `players` / `users` tables, `Policy.pair`, `Engine.pairs`,
+`enemy_likely` / deny, `build_priority`, `plan.py`, `advisor.py`.
 
 - Row weight: `gw[a_grade] · gw[b_grade]` (legend 1.0, emperor 0.6, others dropped); older than the latest
   `recent_days` × 0.2; older than 60 days dropped; previous-season games blended out as the new season reaches 10,000 games.
@@ -83,8 +90,8 @@ result reader), unknown-slot marking, re-verification of the previous turn's car
 1. **Needs the data first.** Everything statistical needs ≥ 10,000 Legend/Emperor games from the record site. Since
    DEVLOG #44 the app collects them (RTA → Data → Official match records → top players; IndexedDB `e7-records`) and
    uses plain win rates from them; the steps below are still open.
-2. Cheap pure ports once `stats.json`-like data exists: `DraftModel`, `Policy`, `Bundles`, candidate rows, pre-bans, bans,
-   enemy-likely picks, the planner (typed-array loops), advisor sentences.
-3. Moderate: the fit (L-BFGS logistic, ~300 heroes + ~400 players) — or fixed λ / k / calib without the daily grid.
+2. Done in DEVLOG #45: `DraftModel`, `Policy` (slots), candidate rows, pre-bans, bans, the fit with its grid.
+   Open: `Bundles`, enemy-likely picks, the planner (typed-array loops), advisor sentences, turn order.
+3. Measured: the fit with the full grid takes 2.7 s for 6,700 games in Node (background worker in the app).
 4. Keep it a separate source in this app ("top players' matches (official record site)"), switchable, with every
    suggestion reason labelled, next to the owner's notes and the app's own learning.

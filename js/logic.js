@@ -171,6 +171,8 @@
    *   sourceWeights { [group]: multiplier }  see SOURCE_GROUPS
    *   knowledge     { notesFor(code, allies, enemies) } hero mechanics (js/knowledge.js), or null
    *   topStats      RTALearn.buildStats() of top players' games (+ .games = number of games), or null
+   *   topModel      E7TopModel.Engine fitted on top players' games (js/topmodel.js), or null; replaces topStats' reasons
+   *   nameOf        code -> hero name (for heroes that are not on the board), optional
    *   recordProfile { name, games, picks: [{ code, rate }] } this opponent on the official record site, or null
    *   gameHelp { live: { phase, player, recs[] } | null, stats: RTALearn.gameHelpStats() | null }
    */
@@ -204,6 +206,11 @@
     topPair: 5,
     topPick: 2.5, // x how often top players pick it (predicting the opponent)
     recordHabit: 5, // x how often THIS opponent picked it in their recorded arena games
+    // the model fitted on top players' games (js/topmodel.js; DEVLOG #45)
+    topModel: 0.8, // per percentage point of expected win rate (capped at ±8 points of score)
+    topPolicy: 3, // x min(1, share of similar top-player drafts with this hero in this slot / 15%)
+    topBanned: 3, // x (how often it gets banned when picked − 25%), outside the third pick
+    topPreban: 10, // x share of top players who pre-ban it
   };
   const MIN_SHOW = 0.3; // hide tiny learned effects from the reason list
 
@@ -292,8 +299,42 @@
       }
     }
 
-    // top players' games (ctx.topStats = RTALearn.buildStats over Legend / Emperor games; source 'top players')
-    if (ctx.topStats && ctx.learn) {
+    // the model fitted on top players' games (ctx.topModel = E7TopModel.Engine; source 'top players'). Expected win
+    // rate with this hero added (hero + pairs + counters, player skill taken out), what top players pick at this spot
+    // in similar drafts, counters still open, how often it gets banned. Replaces the plain win rates below.
+    const TMdl = !opts.noTopModel && ctx.topModel && ctx.topModel.ready ? ctx.topModel : null;
+    if (TMdl) {
+      const nm = (c) => {
+        const on = allies.find((x) => x.code === c) || enemies.find((x) => x.code === c);
+        return on ? on.name : ctx.nameOf ? ctx.nameOf(c) : c;
+      };
+      const sg = (x) => (x > 0 ? '+' : '−') + Math.abs(x).toFixed(1);
+      const first = opts.first === undefined ? null : opts.first;
+      const slot = opts.slot === undefined ? null : opts.slot;
+      const theirs = enemies.map((e) => e.code);
+      const res = TMdl.rows(allies.map((a) => a.code), theirs, opts.taken || [], first, slot, opts.rEnemy === undefined ? Math.max(0, 5 - theirs.length) : opts.rEnemy);
+      const row = res.rows.get(hero.code);
+      if (row) {
+        const M = TMdl.model;
+        const parts = [`hero ${sg(M.pp(row.gain.base))}`];
+        for (const p of [...row.gain.pairs].sort((x, y) => Math.abs(y.v) - Math.abs(x.v)).slice(0, 3)) {
+          if (Math.abs(M.pp(p.v)) >= 0.5) parts.push(`${p.kind === 'syn' ? 'with' : 'vs'} ${nm(p.code)} ${sg(M.pp(p.v))}`);
+        }
+        const v = clamp(row.pp * W.topModel, -8, 8);
+        if (Math.abs(v) >= MIN_SHOW) push(v, `Top-player model: ${sg(row.pp)} pp win chance (${parts.join(', ')})`, 'top players');
+        else quiet(v, 'top players');
+        if (row.pol !== null && row.pol >= 0.02) {
+          push(Math.min(1, row.pol / 0.15) * W.topPolicy, `Top players pick it at this spot in ${pct(row.pol)} of similar drafts`, 'top players');
+        }
+        if (row.counters.length && row.riskPp >= 0.5) {
+          push(-row.riskPp * W.topModel, `Still open against it: ${row.counters.map((c) => nm(c.code)).join(', ')} (−${row.riskPp.toFixed(1)} pp risk)`, 'top players');
+        }
+        if (opts.side === 'me' && slot !== null && slot !== 2 && row.qban >= 0.4) {
+          push(-(row.qban - 0.25) * W.topBanned, `Banned in ${pct(row.qban)} of top players' games when picked`, 'top players');
+        }
+      }
+    } else if (!(ctx.topModel && ctx.topModel.ready) && ctx.topStats && ctx.learn) {
+      // no model yet (too few games): plain win rates from the same games
       const L = ctx.learn;
       const T = ctx.topStats;
       const MIN_G = 30; // a hero / pair needs this many games among top players to say anything
@@ -453,6 +494,9 @@
       allies: v.picks[side].map((c) => byCode.get(c)).filter(Boolean),
       enemies: v.picks[other].map((c) => byCode.get(c)).filter(Boolean),
       firstPick: !v.picks.me.length && !v.picks.opp.length,
+      slot: v.picks[side].length, // which of that side's five picks this is (0..4; 2 = the third pick, which cannot be banned)
+      prebans: [...v.prebans.me, ...v.prebans.opp],
+      rEnemy: 5 - v.picks[other].length,
     };
   }
 
@@ -461,7 +505,7 @@
     const pc = pickContext(draft, heroes);
     if (!pc) return [];
     const owned = pc.side === 'me' && ctx.owned && ctx.owned.size ? ctx.owned : null;
-    const opts = { side: pc.side, deny: ctx.deny !== false, firstPick: pc.firstPick };
+    const opts = { side: pc.side, deny: ctx.deny !== false, firstPick: pc.firstPick, first: draft.firstPick === pc.side, slot: pc.slot, taken: pc.prebans, rEnemy: pc.rEnemy };
     return heroes
       .filter((h) => !pc.taken.has(h.code) && (!owned || owned.has(h.code)))
       .map((h) => ({ hero: h, ...scoreCandidate(h, pc.allies, pc.enemies, ctx, opts) }))
@@ -514,9 +558,27 @@
     const other = forPlayer === 'me' ? 'opp' : 'me';
     const mine = v.picks[forPlayer].map((c) => byCode.get(c)).filter(Boolean);
     const theirs = v.picks[other].map((c) => byCode.get(c)).filter(Boolean);
+    // game rule (confirmed on 11,700 recorded drafts, DEVLOG #45): the THIRD pick of a side cannot be banned
+    const guard = v.picks[other].length >= 3 ? v.picks[other][2] : null;
+    // the top-player model's view of the ban: expected win rate after both bans (js/topmodel.js Engine.bans)
+    const TB = ctx.topModel && ctx.topModel.ready && v.picks.me.length === 5 && v.picks.opp.length === 5 ? ctx.topModel.bans(v.picks[forPlayer], v.picks[other], draft.firstPick === forPlayer) : null;
     return theirs
       .map((h) => {
-        const r = scoreCandidate(h, theirs.filter((t) => t.code !== h.code), mine, ctx, { side: other });
+        const r = scoreCandidate(h, theirs.filter((t) => t.code !== h.code), mine, ctx, { side: other, noTopModel: !!TB });
+        if (h.code === guard) {
+          r.score = Math.round((r.score - 50) * 10) / 10;
+          r.reasons = [{ text: 'Third pick: cannot be banned', source: 'game rule', value: -50 }];
+          return { hero: h, guarded: true, ...r };
+        }
+        const tb = TB && TB.rows.find((x) => x.code === h.code);
+        if (tb) {
+          const w = ctx.sourceWeights && ctx.sourceWeights['top players'] !== undefined ? ctx.sourceWeights['top players'] : 1;
+          const v4 = clamp(tb.pp * W.topModel, -8, 8) * w;
+          if (v4) {
+            r.score = Math.round((r.score + v4) * 10) / 10;
+            r.reasons = [{ text: forPlayer === 'me' ? `Top-player model: banning it is worth ${tb.pp > 0 ? '+' : '−'}${Math.abs(tb.pp).toFixed(1)} pp (${pct(tb.wr)} win chance after the bans)` : `Top-player model: losing it costs you ${Math.abs(tb.pp).toFixed(1)} pp`, source: 'top players', value: Math.round(v4 * 10) / 10 }, ...r.reasons];
+          }
+        }
         // the game's drafting help recommending this postban right now
         const gl = ctx.gameHelp && ctx.gameHelp.live;
         if (forPlayer === 'me' && gl && gl.phase === 'postban' && gl.player === 'me' && gl.recs.includes(h.code)) {
@@ -561,12 +623,20 @@
     const v = draftView(draft);
     const taken = new Set(v.prebans.me);
     const ownedList = ctx.owned ? heroes.filter((h) => ctx.owned.has(h.code)) : [];
+    // what top players pre-ban (js/topmodel.js Engine.prebans); heroes I play a lot myself rank lower (ctx.myUse)
+    // By role: who has the first pick is shown before the pre-bans, and top players pre-ban very differently as first
+    // and as second pick (seen on real games, DEVLOG #45). The reason text names the role that was assumed.
+    const TP = ctx.topModel && ctx.topModel.ready ? new Map(ctx.topModel.prebans([], ctx.myUse || {}, ctx.firstPickKnown === false ? null : draft.firstPick === 'me').map((x) => [x.code, x])) : null;
     return heroes
       .filter((h) => !taken.has(h.code))
       .map((h) => {
         const acc = makeAcc(ctx);
         const push = acc.add;
         const n = noteOf(ctx, h.code);
+        const tp = TP && TP.get(h.code);
+        if (tp && tp.rate >= 0.03 && tp.score > 0) {
+          push(tp.score * W.topPreban, `Top players pre-ban it in ${pct(tp.rate)} of their drafts${tp.byRole ? (draft.firstPick === 'me' ? ' as first pick' : ' as second pick') : ''}${tp.myUse >= 0.05 ? ' (lowered: you play it yourself)' : ''}`, 'top players');
+        }
         if (ctx.notes && n) {
           if (n.tier && TIER_SCORE[n.tier]) push(TIER_SCORE[n.tier], `Tier ${n.tier}`, 'my notes');
           const hits = ownedList.filter((o) => o.code !== h.code && (n.counters || []).includes(o.code));

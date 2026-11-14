@@ -50,9 +50,18 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - [ ] The knowledge file is a snapshot of Nov 2026: refresh it when E7DaT publishes a newer one (`tools/make-e7dat-knowledge.py`).
 - [x] The official record site's lookups (owner's OK 2026-11-14, DEVLOG #44): own match history, opponent scouting in
   the draft, Guild War "Arena record", top players' games → win-rate statistics as a suggestion source.
-- [ ] From the top players' games (stored in IndexedDB `e7-records`), still to port from E7DaT: the fitted win-rate
-  model (hero strength + pairs + counters, player strength removed), pick policy ("what top players pick here"),
-  pre-ban / ban advice, the team planner, reasons in sentences.
+- [x] From the top players' games: fitted win-rate model (hero strength + pairs + counters, player skill removed),
+  self-check, pick policy, pre-ban and final-ban advice, third-pick ban rule (DEVLOG #45, `js/topmodel.js`).
+- [ ] Still to port from E7DaT (`docs/E7DAT_NOTES.md`):
+  - turn-order model: who moves first, heroes that depend on it (the games' start combat readiness is already stored)
+  - ban forecast (which of my five they ban) and with it the expected value of the final ban
+  - similar-team records ("teams sharing 4 of these 5 went 31–12")
+  - heroes that need a specific ally; opening-rule effects in the reasons
+  - the team planner: whole-team plans looking ahead over the remaining slots, two different plans
+- [ ] Model, to confirm with the owner's own collection: fit time on Windows, how the advice reads in a real draft;
+  then tune `W.topModel` / `topPolicy` / `topBanned` / `topPreban` in `js/logic.js`.
+- [ ] Show the model's hero table somewhere (strongest heroes with player skill removed, most banned, pre-bans by
+  role, first picks): the numbers exist in the stored model.
 - [ ] Record site, to confirm on the owner's PC: "Find me", import after a real match (delay), twin detection with the
   app's own recording, a full top-player run; then tune the 4 / 12 minute import delays.
 - [ ] Record site ideas: opponent's win rate per hero and against my heroes; Guild War: look up all enemies of a war

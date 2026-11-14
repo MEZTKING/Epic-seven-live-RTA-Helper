@@ -107,7 +107,7 @@ only receive events.
 | IndexedDB `e7-templates` (store `t`, keys `wide`, `round`) | `js/vision/readers/rta-draft.js` | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
 | `localStorage['e7-records']` | `js/records-app.js` | Official record site settings: `me {world, name, nickNo}`, `autoImport`, `autoScout`, `lastImportAt`, `lastImport`, `top {players, at, season, games, rows}` |
 | `localStorage['e7-records-players']` | `js/records-app.js` | Looked-up players (newest 30, fresh for 12 h): name, server, grade, summary of their last games |
-| IndexedDB `e7-records` (stores `battles` by `seq`, `players` by `k`) | `js/records-app.js` | Top players' games (parsed rows) and the followed players with their newest stored game |
+| IndexedDB `e7-records` (version 2: stores `battles` by `seq`, `players` by `k`, `kv` by `k`) | `js/records-app.js` | Top players' games (parsed rows), the followed players with their newest stored game, and `kv` `model` = `{ sig, stats, at }` (the fitted top-player model, `js/topmodel.js`) |
 | `<userData>/records/users_<world>.json` (desktop) | `desktop/records.js` | The record site's player list per server, re-downloaded after 3 days |
 | `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
 | `localStorage['e7-gw-forts']` | `js/vision/readers/guild-overview.js` → fortress reader, Guild War page | Fortress names per side `{ ours: [3], enemy: [3], side, ourGuild, enemyGuild (this reading only), at }` (read on the overview; also kept on the war record as `forts`) |
@@ -210,7 +210,21 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #44)
+## 7. Status (end of DEVLOG #45)
+
+**Top-player model** (DEVLOG #45; port of E7DaT's statistical core, see `docs/E7DAT_NOTES.md`):
+- `js/topmodel.js` (`E7TopModel`, pure): `build(rows, opts)` → stats `{ meta (games, calib, backtest…), heroes, syn,
+  ctr, rule, drafts }` or null below 400 usable games; `engine(stats)` → `Engine` (`model`, `policy`, `rows(mine,
+  enemy, taken, meFirst, slot, rEnemy)` cached per position, `prebans`, `firstPicks`, `bans`, `winrate`).
+- `js/records-app.js` `rebuildTop()` → `loadModel(rows)`: stored copy (IndexedDB `e7-records` v2, store `kv`, key
+  `model`, signature = row count | newest game | format) or a fit in `js/topmodel-worker.js` (falls back to the page
+  thread); `E7RecordsApp.topModel()`, `topState().modelVia` (`worker` / `page` / `stored`).
+- `js/logic.js`: `ctx.topModel` in `scoreCandidate` (needs `opts.first`, `opts.slot`, `opts.taken`, `opts.rEnemy`
+  from `suggestPicks`; `opts.noTopModel` for callers that add their own model line), `suggestPostban` (third pick =
+  ban guard, model ban), `suggestPrebans` (by role, `ctx.myUse`). With a model, #44's plain `ctx.topStats` reasons
+  are not added.
+- Draft tab `#top-model-line`; Data tab `#rec-model`.
+
 
 **Official record site** (DEVLOG #44; desktop app only):
 - Transport `desktop/records.js` in the main process (allowed lookups only, serial, 0.35 s apart, retries; player lists
@@ -225,7 +239,7 @@ only receive events.
   opponent's habits; Guild War enemy card "Arena record".
 - Settings `useTopPlayers`, `useRecordProfile`; source groups 'top players', 'official record'.
 - Live check (real site, public data): `tests/desktop/records-live.js` (not in the regular suites).
-- **Not ported:** E7DaT's fitted win-rate model, pick policy and planner (`docs/E7DAT_NOTES.md`).
+- The model on top of these games: see "Top-player model" above.
 
 
 **Faces:** `RTAFaces.isConfident` also accepts score ≥ 0.86 with lead ≥ 0.07 (default call only). With the newest heroes

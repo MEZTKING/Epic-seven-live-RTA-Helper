@@ -218,10 +218,12 @@
   const db = () =>
     dbp ||
     (dbp = new Promise((res, rej) => {
-      const r = indexedDB.open('e7-records', 1);
+      const r = indexedDB.open('e7-records', 2);
       r.onupgradeneeded = () => {
-        r.result.createObjectStore('battles', { keyPath: 'seq' });
-        r.result.createObjectStore('players', { keyPath: 'k' });
+        const have = r.result.objectStoreNames;
+        if (!have.contains('battles')) r.result.createObjectStore('battles', { keyPath: 'seq' });
+        if (!have.contains('players')) r.result.createObjectStore('players', { keyPath: 'k' });
+        if (!have.contains('kv')) r.result.createObjectStore('kv', { keyPath: 'k' }); // version 2: the fitted model
       };
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
@@ -260,8 +262,63 @@
     async count() {
       return req((await db()).transaction('battles').objectStore('battles').count());
     },
+    async kvGet(k) {
+      const v = await req((await db()).transaction('kv').objectStore('kv').get(k));
+      return v ? v.v : null;
+    },
+    async kvSet(k, v) {
+      return req((await db()).transaction('kv', 'readwrite').objectStore('kv').put({ k, v }));
+    },
   };
-  const top = { stats: null, building: null, running: false, stop: false, progress: null };
+  const top = { stats: null, model: null, modelInfo: null, building: null, running: false, stop: false, progress: null };
+  const TM = window.E7TopModel;
+  /** Fit the model in a worker (the page stays usable); on this thread when a worker cannot start. */
+  function fitModel(rows) {
+    const here = () => {
+      top.modelVia = 'page';
+      return TM.build(rows, {});
+    };
+    return new Promise((res) => {
+      let w = null;
+      try {
+        w = new Worker('js/topmodel-worker.js');
+      } catch (_) {
+        return res(here());
+      }
+      const done = (v) => {
+        w.terminate();
+        res(v);
+      };
+      w.onmessage = (e) => {
+        if (e.data && e.data.ok) top.modelVia = 'worker';
+        done(e.data && e.data.ok ? e.data.stats : here());
+      };
+      w.onerror = () => done(here());
+      w.postMessage({ rows, opts: {} });
+    });
+  }
+  /** The model for the stored games: from the copy kept in the database when the games did not change. */
+  async function loadModel(rows) {
+    if (!TM) return null;
+    let newest = '';
+    for (const r of rows) if (r.date > newest) newest = r.date;
+    const sig = `${rows.length}|${newest}|${TM.FORMAT}`;
+    let saved = null;
+    try {
+      saved = await store.kvGet('model');
+    } catch (_) { /* older database: fit again */ }
+    let stats = saved && saved.sig === sig ? saved.stats : null;
+    if (stats) top.modelVia = 'stored';
+    if (!stats && rows.length >= TM.DEFAULTS.minGames) {
+      const t0 = Date.now();
+      stats = await fitModel(rows);
+      log('top-player model fitted', { rows: rows.length, ms: Date.now() - t0, games: stats ? stats.meta.games : 0, via: top.modelVia });
+      try {
+        await store.kvSet('model', { sig, stats, at: new Date().toISOString() });
+      } catch (_) { /* only a cache */ }
+    }
+    return stats ? TM.engine(stats) : null;
+  }
   async function rebuildTop() {
     if (top.building) return top.building;
     top.building = (async () => {
@@ -269,13 +326,24 @@
       const rows = await store.battles();
       if (!Learn || !rows.length) {
         top.stats = null;
+        top.model = null;
+        top.modelInfo = null;
         return null;
       }
       const matches = R.toStatsMatches(rows);
       const st = Learn.buildStats(matches);
       top.stats = st;
       saveCfg({ top: { ...cfg().top, games: matches.length, rows: rows.length } });
+      if (App()) App().renderDraft(); // plain win rates right away; the model follows
+      try {
+        top.model = await loadModel(rows);
+      } catch (e) {
+        top.model = null;
+        log('top-player model failed', { error: String(e && e.message) });
+      }
+      top.modelInfo = top.model ? top.model.meta : null;
       if (App()) App().renderDraft();
+      if ($('#rec-model')) $('#rec-model').innerHTML = modelLine();
       return st;
     })().finally(() => (top.building = null));
     return top.building;
@@ -306,6 +374,14 @@
   }
 
   // ---- pages ---------------------------------------------------------------------------------------------------------
+  /** What the model is built on and how well it called games it had not seen. */
+  function modelLine() {
+    const m = top.modelInfo;
+    if (!TM) return '';
+    if (!m) return `Win-rate model: needs at least ${TM.DEFAULTS.minGames} games between Legend / Emperor players from the last ${TM.DEFAULTS.maxAgeDays} days; until then plain win rates are used.`;
+    const bt = m.backtest && m.backtest.n ? m.backtest : null;
+    return `<b>Win-rate model</b> fitted on ${m.games.toLocaleString()} games (newest ${esc(m.latestDay || '')}; hero strength with player skill taken out, pairs, counters, first pick). ${bt ? `Check on the ${bt.n.toLocaleString()} newest games it was not shown: it named the winner in <b>${Math.round(bt.accuracy * 100)}%</b> (a coin: 50%). Drafts decide only part of a match, so this number stays modest.` : 'Too few games for its self-check yet, so its numbers are kept cautious.'}`;
+  }
   function renderCard(msg) {
     const el = $('#records-card-body');
     if (!el) return;
@@ -329,6 +405,7 @@
       <div class="btn-row"><label>Players to follow <select id="rec-top-n">${[100, 200, 400].map((n) => `<option ${t.players === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <button id="rec-top" class="btn">${top.running ? 'Stop' : 'Update now'}</button></div>
       <p class="hint">${t.rows ? `${t.rows.toLocaleString()} games stored, ${t.games.toLocaleString()} between Legend / Emperor players in use${t.season ? ` · ${esc(t.season)}` : ''}${t.at ? ` · updated ${new Date(t.at).toLocaleString()}` : ''}.` : 'Nothing collected yet. The first update reads up to 10 pages per player (about 5 seconds each): 100 players ≈ 8 minutes, 400 ≈ 35 minutes. Later updates only read what is new. You can keep using the app meanwhile.'}</p>
+      <p id="rec-model" class="hint">${modelLine()}</p>
       <p id="rec-msg" class="hint">${esc(msg || '')}</p>`;
     const say = (m) => ($('#rec-msg').textContent = m);
     $('#rec-find').onclick = async () => {
@@ -389,6 +466,27 @@
     if ($('#rec-opp-go')) $('#rec-opp-go').onclick = () => go(false);
     if ($('#rec-opp-again')) $('#rec-opp-again').onclick = () => go(true);
   }
+  /** Draft tab: the model's expected win rate for the board as it stands (equal skill assumed). */
+  function renderModelLine() {
+    const el = $('#top-model-line');
+    const A = App();
+    if (!el || !A) return;
+    const M = top.model && A.store.settings.useTopPlayers !== false ? top.model : null;
+    const d = A.store.draft;
+    const v = window.RTALogic.draftView(d);
+    if (!M || !M.ready || (!v.picks.me.length && !v.picks.opp.length)) return el.classList.add('hidden');
+    const meFirst = d.firstPick === 'me';
+    const mine = v.picks.me.filter((c) => !v.postbans.opp.includes(c));
+    const theirs = v.picks.opp.filter((c) => !v.postbans.me.includes(c));
+    const wr = M.winrate(mine, theirs, meFirst);
+    let extra = '';
+    if (v.picks.me.length === 5 && v.picks.opp.length === 5 && !v.postbans.me.length && !v.postbans.opp.length) {
+      const b = M.bans(v.picks.me, v.picks.opp, meFirst);
+      if (b.rows.length) extra = ` · best ban <b>${esc(hero(b.rows[0].code))}</b> (${b.rows[0].pp > 0 ? '+' : '−'}${Math.abs(b.rows[0].pp).toFixed(1)} pp)${b.theirBan ? `, they will likely ban your <b>${esc(hero(b.theirBan))}</b>` : ''}`;
+    }
+    el.innerHTML = `<span class="src top">top players</span> Model: <b>${Math.round(wr * 100)}%</b> win chance for you with the board as it stands${extra} <small>(${M.meta.games.toLocaleString()} top-player games, equal skill and gear assumed)</small>`;
+    el.classList.remove('hidden');
+  }
   async function scout(name, force) {
     renderOpp('looking up…');
     try {
@@ -406,6 +504,7 @@
     const check = () => {
       const name = (A.store.draft.opponent || '').trim();
       renderOpp();
+      renderModelLine();
       if (!API || !cfg().autoScout || name.length < 2 || name === oppShown) return;
       clearTimeout(oppTimer);
       oppTimer = setTimeout(() => {
@@ -436,7 +535,7 @@
 
   window.E7RecordsApp = {
     available: () => !!API, cfg, saveCfg, findMe, importMine, lookup, cached, profileFor, playerHTML, updateTop, rebuildTop,
-    stopTop: () => (top.stop = true), topStats: () => top.stats, topState: () => ({ running: top.running, progress: top.progress }), _store: store,
+    stopTop: () => (top.stop = true), topStats: () => top.stats, topModel: () => top.model, topState: () => ({ running: top.running, progress: top.progress, modelVia: top.modelVia || '' }), _store: store,
   };
   renderCard();
   watchOpponent();
