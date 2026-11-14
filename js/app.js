@@ -297,6 +297,17 @@
     );
   }
 
+  /** Share of my logged games in which I picked each hero (lowers "pre-ban it" for my own main heroes). */
+  let myUseOf = null;
+  let myUseMap = {};
+  function myUse() {
+    const st = cache.stats;
+    if (st === myUseOf) return myUseMap;
+    myUseOf = st;
+    myUseMap = {};
+    if (st && st.games >= 20) for (const [c, h] of st.hero) if (h.pickedByMe) myUseMap[c] = h.pickedByMe / st.games;
+    return myUseMap;
+  }
   function suggestionContext() {
     const s = store.settings;
     return {
@@ -317,6 +328,10 @@
       knowledge: s.useKnowledge !== false ? window.E7Knowledge || null : null,
       // the official record site (js/records-app.js): top players' statistics and this opponent's recorded games
       topStats: s.useTopPlayers !== false && window.E7RecordsApp ? window.E7RecordsApp.topStats() : null,
+      // … and the win-rate model fitted on them (js/topmodel.js); when present it replaces the plain win rates
+      topModel: s.useTopPlayers !== false && window.E7RecordsApp && window.E7RecordsApp.topModel ? window.E7RecordsApp.topModel() : null,
+      nameOf,
+      myUse: myUse(),
       recordProfile: s.useRecordProfile !== false && window.E7RecordsApp ? window.E7RecordsApp.profileFor(store.draft.opponent) : null,
     };
   }
