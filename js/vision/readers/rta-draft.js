@@ -45,8 +45,47 @@
   })();
   let probe = 0;
 
+  // Computed templates are kept between app starts (DEVLOG #43): IndexedDB 'e7-templates', one record per set, valid for
+  // the same picture list and month. Without it every session downloads ~850 small pictures before its first draft.
+  const MONTH = new Date().toISOString().slice(0, 7);
+  const tcache = (() => {
+    const open = () =>
+      new Promise((res) => {
+        try {
+          const r = indexedDB.open('e7-templates', 1);
+          r.onupgradeneeded = () => r.result.createObjectStore('t');
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => res(null);
+        } catch (_) {
+          res(null);
+        }
+      });
+    return {
+      async get(key) {
+        const db = await open();
+        if (!db) return null;
+        return new Promise((res) => {
+          try {
+            const q = db.transaction('t').objectStore('t').get(key);
+            q.onsuccess = () => res(q.result || null);
+            q.onerror = () => res(null);
+          } catch (_) {
+            res(null);
+          }
+        });
+      },
+      async set(key, val) {
+        const db = await open();
+        if (!db) return;
+        try {
+          db.transaction('t', 'readwrite').objectStore('t').put(val, key);
+        } catch (_) { /* no room: it is only a cache */ }
+      },
+    };
+  })();
+
   // wide portraits (pick cards): once, in the background, 12 at a time
-  const wide = { own: [], enemy: [], total: 0, done: 0, started: false };
+  const wide = { own: [], enemy: [], total: 0, done: 0, started: false, fromCache: false };
   function loadWide() {
     if (wide.started) return;
     wide.started = true;
@@ -58,11 +97,19 @@
       for (const nn of list.skins[h.code] || []) names.push([h.code, `${h.code}_s${nn}_l`]);
     }
     wide.total = names.length;
+    const sig = `${list.listedAt || ''}|${names.length}|${MONTH}|v1`;
+    const add = (code, t) => {
+      wide.enemy.push({ code, name: NAME.get(code) || code, t });
+      wide.own.push({ code, name: NAME.get(code) || code, t: W.mirror(t) });
+    };
     const cv = document.createElement('canvas');
     const cx = cv.getContext('2d', { willReadFrequently: true });
     let i = 0;
+    const finished = () => {
+      if (wide.done >= wide.total && !wide.fromCache && wide.enemy.length >= wide.total * 0.9) tcache.set('wide', { sig, items: wide.enemy.map((x) => ({ code: x.code, idx: x.t.idx, val: x.t.val, n: x.t.n })) });
+    };
     const next = () => {
-      if (i >= names.length) return;
+      if (i >= names.length) return finished();
       const [code, name] = names[i++];
       const im = new Image();
       im.crossOrigin = 'anonymous';
@@ -74,10 +121,7 @@
           cx.clearRect(0, 0, w, 89);
           cx.drawImage(im, 0, 0, w, 89);
           const t = W.template(cx.getImageData(0, 0, w, 89).data, w, 89);
-          if (t) {
-            wide.enemy.push({ code, name: NAME.get(code) || code, t });
-            wide.own.push({ code, name: NAME.get(code) || code, t: W.mirror(t) });
-          }
+          if (t) add(code, t);
         } catch (_) { /* unreadable: skipped */ }
         wide.done++;
         next();
@@ -88,18 +132,30 @@
       };
       im.src = R.WIDE_PORTRAIT_URL(name);
     };
-    for (let k = 0; k < 12; k++) next();
+    tcache.get('wide').then((c) => {
+      if (c && c.sig === sig && Array.isArray(c.items) && c.items.length) {
+        for (const x of c.items) add(x.code, { idx: x.idx, val: x.val, n: x.n });
+        wide.fromCache = true;
+        wide.done = wide.total;
+        return;
+      }
+      for (let k = 0; k < 12; k++) next();
+    });
   }
   const wideReady = () => wide.started && wide.total > 0 && wide.done >= wide.total; // all of them: the newest heroes load last
 
   // round icons (pre-bans)
-  const round = { tpl: [], started: false, done: 0 };
+  const round = { tpl: [], started: false, done: 0, fromCache: false };
   function loadRound() {
     if (round.started || !F) return;
     round.started = true;
+    const sig = `${HEROES.length}|${MONTH}|v1`;
     let i = 0;
     const next = () => {
-      if (i >= HEROES.length) return;
+      if (i >= HEROES.length) {
+        if (round.done >= HEROES.length && !round.fromCache && round.tpl.length >= HEROES.length * 0.9) tcache.set('round', { sig, items: round.tpl.map((x) => ({ code: x.code, vec: x.vec })) });
+        return;
+      }
       const h = HEROES[i++];
       const im = new Image();
       im.crossOrigin = 'anonymous';
@@ -116,7 +172,15 @@
       };
       im.src = R.PORTRAIT_URL_CORS(h.code);
     };
-    for (let k = 0; k < 12; k++) next();
+    tcache.get('round').then((c) => {
+      if (c && c.sig === sig && Array.isArray(c.items) && c.items.length) {
+        for (const x of c.items) round.tpl.push({ code: x.code, vec: x.vec, source: 'official' });
+        round.fromCache = true;
+        round.done = HEROES.length;
+        return;
+      }
+      for (let k = 0; k < 12; k++) next();
+    });
   }
   const roundReady = () => round.started && round.done >= HEROES.length;
 

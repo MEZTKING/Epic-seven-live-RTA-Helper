@@ -104,6 +104,7 @@ only receive events.
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
+| IndexedDB `e7-templates` (store `t`, keys `wide`, `round`) | `js/vision/readers/rta-draft.js` | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
 | `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
 | `localStorage['e7-gw-forts']` | `js/vision/readers/guild-overview.js` → fortress reader, Guild War page | Fortress names per side `{ ours: [3], enemy: [3], side, ourGuild, enemyGuild (this reading only), at }` (read on the overview; also kept on the war record as `forts`) |
 | `localStorage['e7-gw-dismissed']` | `js/guild-app.js` | `{ enemyGuild: time }`: wars you undid after they were started from the game; not started again by themselves for 5 days |
@@ -204,7 +205,10 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #42)
+## 7. Status (end of DEVLOG #43)
+
+**Faces:** `RTAFaces.isConfident` also accepts score ≥ 0.86 with lead ≥ 0.07 (default call only). With the newest heroes
+in the roster the real Guild War enemy screen reads 6/6. Hero-picture templates are cached in IndexedDB `e7-templates`.
 
 **Hero mechanics** (DEVLOG #42): `js/sources/e7dat-knowledge.js` (built by `tools/make-e7dat-knowledge.py` from E7DaT's
 frozen `knowledge.json`) → `js/knowledge.js`. Used by RTA suggestions (`ctx.knowledge` in `scoreCandidate`, source group

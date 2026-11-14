@@ -36,7 +36,9 @@ const { chromium } = require('playwright');
   }, url);
   const before = await readDefense();
   console.log('reader before:', before.note, JSON.stringify(before.icons));
-  const idx = before.icons.findIndex((x) => !x || !x.sure);
+  // an icon the reader isn't sure of; since DEVLOG #43 all six are recognised here, so then icon 1 is re-taught as
+  // another hero (your own example must win over the official portrait)
+  const idx = Math.max(0, before.icons.findIndex((x) => !x || !x.sure));
   console.log('teaching icon #', idx + 1);
 
   // 2) Teach heroes: open the file, drag a sloppy square (4 px off, 6% bigger) around that icon

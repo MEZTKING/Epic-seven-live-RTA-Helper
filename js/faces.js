@@ -100,7 +100,16 @@
     const second = ranked[1] || null;
     return { empty: false, best, second, lead: best && second ? best.score - second.score : best ? best.score : 0 };
   }
-  const isConfident = (r, minScore = MIN_SCORE, minLead = MIN_LEAD) => !!r && !r.empty && !!r.best && r.best.score >= minScore && r.lead >= minLead;
+  // A very high score needs a little less lead (DEVLOG #43). Since the newest heroes joined the roster, a right match
+  // often has a similar-looking new hero close behind: on the owner's real screens (40 pre-ban faces + 6 Guild War
+  // icons) every match scoring >= 0.86 was right (leads 0.08-0.09 among them), and no wrong one scored above 0.76.
+  const HIGH_SCORE = 0.86;
+  const HIGH_LEAD = 0.07;
+  const isConfident = (r, minScore, minLead) => {
+    if (!r || r.empty || !r.best) return false;
+    if (minScore === undefined && minLead === undefined) return (r.best.score >= MIN_SCORE && r.lead >= MIN_LEAD) || (r.best.score >= HIGH_SCORE && r.lead >= HIGH_LEAD);
+    return r.best.score >= (minScore === undefined ? MIN_SCORE : minScore) && r.lead >= (minLead === undefined ? MIN_LEAD : minLead);
+  };
 
   // ------------------------------------------------------------- element badge (owner's idea, DEVLOG #29)
   // Every hero icon shows its element as a coloured badge (top right on round icons): fire = orange flame, ice = blue
@@ -294,7 +303,7 @@
     return { element: e.element, role: c.role, classScore: c.score, classLead: c.lead };
   }
 
-  const api = { CLASS_BADGE, classVector, classFromVectors, badgeAllow, classVectorsAt, badgesAt, ELEMENT_HUES, BADGE, elementFromRGBA, elementAllow, elementAt, N, MASK, COUNT, MIN_SCORE, MIN_LEAD, PORTRAIT_WINDOW, GAME_VARIANTS, WIDE_VARIANTS, vector, classify, isConfident, quantize, dequantize, fromPortrait, fromRect };
+  const api = { CLASS_BADGE, classVector, classFromVectors, badgeAllow, classVectorsAt, badgesAt, ELEMENT_HUES, BADGE, elementFromRGBA, elementAllow, elementAt, N, MASK, COUNT, MIN_SCORE, MIN_LEAD, HIGH_SCORE, HIGH_LEAD, PORTRAIT_WINDOW, GAME_VARIANTS, WIDE_VARIANTS, vector, classify, isConfident, quantize, dequantize, fromPortrait, fromRect };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAFaces = api;
 })(typeof self !== 'undefined' ? self : this);

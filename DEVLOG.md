@@ -7,6 +7,49 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #43 · Guild War defense 6/6 on the real screen; hero pictures cached between starts · this commit (previous: `79506b5`)
+
+**Asked for:** still "anything that works in the meantime".
+
+**Findings**
+- The three Guild War defense icons the reader was "unsure" of since #34 (blamed on skins) were **new heroes missing
+  from the roster**: Rhianna and Luciella, Lisette, Renoa. With #41's roster they get the right best match.
+- Two right matches then missed the certainty rule by a hair (Kawerik 0.90 with lead 0.09, Lisette 0.87 / 0.08): a
+  similar-looking new hero now scores close behind.
+- Evidence for a second rule, from the owner's real screens with the full roster (40 faces of the pre-ban grid, checked
+  on a contact sheet, plus the 6 Guild War icons):
+  - every match scoring ≥ 0.86 is right
+  - no wrong match scores above 0.76
+  - The grid's top rows, which the app couldn't name at all before, are now matched correctly too (Tidal Rift Elvira,
+    Ivana, Salome, Ruiza, Aki, Shepherd of the Dark Diene, …).
+- Adding the 67 round skin icons from the asset repository changed nothing on these screens, so they are not added.
+- Every session downloaded about 850 small pictures (458 wide portraits, 391 round icons) before its first draft.
+
+**Changed**
+- `js/faces.js` `isConfident`: also sure when score ≥ 0.86 and lead ≥ 0.07 (only for the default call; callers that pass
+  their own thresholds are unchanged).
+- `js/vision/readers/rta-draft.js`: computed templates are kept in IndexedDB `e7-templates` (wide portraits and round
+  icons; valid for the same picture list and calendar month) and reused on the next start.
+- Tests: `gw-defense` and `teach` now correct a recognised icon (there is no unsure one left on that screen);
+  `rta-draft` checks a second start.
+
+**Tested**
+- `npm test` **121**.
+- `gw-defense.e2e.js` on the real enemy screen: **6/6 recognised** (was 3/6 in #34, 4/6 after #41): Rhianna and
+  Luciella, Lionheart Cermia, Kawerik · Frieren, Lisette, Renoa; the editor is prefilled with all six; a correction is
+  still learned.
+- `gw-fortress.e2e.js` (the 2000×1070 enemy screen): 6/6.
+- `faces-real.e2e.js`: no unconfirmed face named confidently; known faces 14/15 plain, 15/15 with the badge filter (as
+  before).
+- `rta-draft.e2e.js`: second start → wide and round templates from the cache, **0 picture downloads**, BAN screen
+  10/10.
+- Browser suite **28/28** clean.
+- **Not tested:** the cache inside the desktop app on Windows (same browser engine).
+
+**Open:** the names of the six defenders were judged by eye against the screenshot (no in-game confirmation).
+
+---
+
 ## 2026-11-14 · #42 · Hero mechanics as a suggestion source: RTA reasons, hero card, Guild War warnings (E7DaT knowledge) · this commit (previous: `202ee25`)
 
 **Asked for:** "Anything work in the meantime, work on that" (while the owner decides about the official record site).
