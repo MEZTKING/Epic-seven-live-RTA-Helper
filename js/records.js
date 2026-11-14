@@ -115,6 +115,7 @@
       theyBanned: row.a.ban,
       notes: '',
       recordSeq: row.seq,
+      season: seasonOf(row.season),
       grade: row.aGrade,
       oppGrade: row.bGrade,
       rule: row.rule,
@@ -209,6 +210,28 @@
     const cur = rows.find((s) => s.season_code === code);
     if (!cur) return [];
     return rows.filter((s) => begin(s) && begin(s) < begin(cur)).sort((x, y) => (begin(y) > begin(x) ? 1 : -1)).map((s) => ({ code: s.season_code, name: s.name || '' }));
+  }
+
+  /** The site's season list as a table, oldest first: [{ code, name, start, end }] ('YYYY-MM-DD HH:MM:SS'). */
+  function seasonTable(seasons) {
+    return (seasons || []).filter((s) => s && s.season_code && begin(s)).map((s) => ({ code: s.season_code, name: s.name || s.season_code, start: begin(s), end: String(s.endDate || '').slice(0, 19) })).sort((x, y) => (x.start > y.start ? 1 : -1));
+  }
+  /**
+   * The season a date belongs to: the one that started last before it (so the pre-season after a season's end still
+   * counts to that season, as on the record site). date: ISO or 'YYYY-MM-DD HH:MM:SS'. null before the first season.
+   */
+  function seasonForDate(table, date) {
+    const t = String(date || '').slice(0, 19).replace('T', ' ');
+    if (!t) return null;
+    let hit = null;
+    for (const s of table || []) if (s.start <= t) hit = s;
+    return hit;
+  }
+  /** A match's season code: what the record site said, else by its date. '' when unknown. */
+  function seasonOfMatch(table, m) {
+    if (m && m.season) return seasonOf(m.season);
+    const s = m && m.date ? seasonForDate(table, m.date) : null;
+    return s ? s.code : '';
   }
 
   // ---- collecting top players' games --------------------------------------------------------------------------------
@@ -318,7 +341,7 @@
     return out;
   }
 
-  const api = { WORLDS, SETS, setName, GRADES_TOP, seasonOf, frag, parseBattle, toMatch, summary, latestSeason, earlierSeasons, crawl, toStatsMatches };
+  const api = { WORLDS, SETS, setName, GRADES_TOP, seasonOf, frag, parseBattle, toMatch, summary, latestSeason, earlierSeasons, seasonTable, seasonForDate, seasonOfMatch, crawl, toStatsMatches };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7Records = api;
 })(typeof self !== 'undefined' ? self : this);

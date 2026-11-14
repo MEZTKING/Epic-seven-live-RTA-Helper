@@ -208,3 +208,24 @@ test('records: top players and the opponent\'s record become labelled suggestion
   assert.deepEqual(p.reasons.map((x) => [x.source, x.text]), [['official record', 'Rival picked it in 60% of their last 20 arena games']]);
   assert.ok(L.SOURCE_GROUPS.includes('top players') && L.SOURCE_GROUPS.includes('official record'));
 });
+
+test('records: seasons — table, the season of a date (a pre-season counts to the season before), a match\'s season (DEVLOG #48)', () => {
+  const raw = [
+    { season_code: 'pvp_rta_ss21', name: 'Fall 2026', startDate: '2026-08-08 00:00:00.0', endDate: '2026-11-14 00:00:00.0' },
+    { season_code: 'pvp_rta_ss20', name: 'Summer 2026', startDate: '2026-05-02 00:00:00.0', endDate: '2026-08-01 00:00:00.0' },
+    { season_code: '', name: 'broken' },
+  ];
+  const T = R.seasonTable(raw);
+  assert.deepStrictEqual(T.map((s) => s.code), ['pvp_rta_ss20', 'pvp_rta_ss21'], 'oldest first');
+  assert.strictEqual(R.seasonForDate(T, '2026-06-01T10:00:00Z').code, 'pvp_rta_ss20');
+  assert.strictEqual(R.seasonForDate(T, '2026-08-03T10:00:00Z').code, 'pvp_rta_ss20', 'between two seasons: still the one before');
+  assert.strictEqual(R.seasonForDate(T, '2026-08-08T00:00:01Z').code, 'pvp_rta_ss21');
+  assert.strictEqual(R.seasonForDate(T, '2026-12-24T10:00:00Z').code, 'pvp_rta_ss21', 'after its end: its pre-season');
+  assert.strictEqual(R.seasonForDate(T, '2026-01-01T10:00:00Z'), null);
+  assert.strictEqual(R.seasonForDate([], '2026-06-01T10:00:00Z'), null);
+  // what the record site said wins over the date; a pre-season code is its season
+  assert.strictEqual(R.seasonOfMatch(T, { season: 'pvp_rta_ss21f', date: '2026-06-01T10:00:00Z' }), 'pvp_rta_ss21');
+  assert.strictEqual(R.seasonOfMatch(T, { date: '2026-06-01T10:00:00Z' }), 'pvp_rta_ss20');
+  assert.strictEqual(R.seasonOfMatch([], { date: '2026-06-01T10:00:00Z' }), '');
+  assert.strictEqual(R.seasonOfMatch(T, {}), '');
+});

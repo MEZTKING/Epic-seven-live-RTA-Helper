@@ -31,6 +31,8 @@ const { autoAsk } = require('./_ask.js');
   p.on('dialog', (d) => d.accept());
   await p.goto(BASE + 'rta.html');
   await p.evaluate(async () => { localStorage.clear(); await new Promise((r) => { const q = indexedDB.deleteDatabase('e7-records'); q.onsuccess = q.onerror = q.onblocked = r; }); });
+  // (the oldest quarter of the games belongs to the season before; season names as the record site lists them)
+  await p.evaluate(() => localStorage.setItem('e7-records-seasons', JSON.stringify({ at: new Date().toISOString(), list: [{ code: 'pvp_rta_ss20', name: 'Summer 2026', start: '2026-05-02 00:00:00', end: '' }, { code: 'pvp_rta_ss21', name: 'Fall 2026', start: '2026-08-08 00:00:00', end: '' }] })));
   await p.reload();
   await p.waitForFunction(() => window.RTAApp && window.RTAApp.cache.heroes.length > 100 && window.E7RecordsApp);
 
@@ -92,7 +94,7 @@ const { autoAsk } = require('./_ask.js');
       const tb = pb.filter((h) => h !== banB);
       const z = z1(ta, tb) - z1(tb, ta) + (aFirst ? 0.15 : -0.15);
       const day = `2026-11-${String(1 + Math.floor((g / 6000) * 12)).padStart(2, '0')}`;
-      rows.push({ seq: 'x' + g, day, date: `${day}T10:00:${String(g % 60).padStart(2, '0')}Z`, season: 'pvp_rta_ss21', rule: '', aGrade: 'legend', bGrade: g % 3 ? 'legend' : 'emperor', aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: 1000 + Math.floor(R() * 150), aWorld: 'world_global', bNick: 2000 + Math.floor(R() * 150), bWorld: 'world_kor', a: { picks: pa, ban: banA, prebans: preA, builds: Object.fromEntries(pa.map((c) => [c, { artifact: g % 4 ? 'art-one' : 'art-two', sets: g % 4 ? ['set_speed', 'set_immune'] : ['set_max_hp', 'set_res'] }])), energy: {} }, b: { picks: pb, ban: banB, prebans: preB, builds: {}, energy: {} } });
+      rows.push({ seq: 'x' + g, day, date: `${day}T10:00:${String(g % 60).padStart(2, '0')}Z`, season: g < 1500 ? 'pvp_rta_ss20' : 'pvp_rta_ss21', rule: '', aGrade: 'legend', bGrade: g % 3 ? 'legend' : 'emperor', aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: 1000 + Math.floor(R() * 150), aWorld: 'world_global', bNick: 2000 + Math.floor(R() * 150), bWorld: 'world_kor', a: { picks: pa, ban: banA, prebans: preA, builds: Object.fromEntries(pa.map((c) => [c, { artifact: g % 4 ? 'art-one' : 'art-two', sets: g % 4 ? ['set_speed', 'set_immune'] : ['set_max_hp', 'set_res'] }])), energy: {} }, b: { picks: pb, ban: banB, prebans: preB, builds: {}, energy: {} } });
     }
     await window.E7RecordsApp._store.addBattles(rows);
     await window.E7RecordsApp.rebuildTop();
@@ -179,6 +181,15 @@ const { autoAsk } = require('./_ask.js');
   const lists = await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-lists .card')].map((c) => `${c.querySelector('h4').childNodes[0].textContent.trim()}: ${(c.querySelector('.ts-row') || { textContent: '—' }).textContent.replace(/\s+/g, ' ').trim()}`));
   console.log('lists (first line of each):', JSON.stringify(lists, null, 1));
   await p.click('#ts-close');
+  // seasons (DEVLOG #48): what the numbers are from, and one season alone
+  console.log('season line:', (await p.textContent('#top-stats .ts-season')).replace(/\s+/g, ' ').trim().slice(0, 330));
+  await p.selectOption('#ts-season', 'pvp_rta_ss20');
+  await p.waitForFunction(() => /Only games of/.test((document.querySelector('#top-stats .ts-season') || { textContent: '' }).textContent), null, { timeout: 30000 });
+  await p.waitForTimeout(800);
+  console.log('Summer 2026 only:', await tile(0), '·', (await p.textContent('#top-stats .ts-season .hint')).replace(/\s+/g, ' ').trim());
+  await p.selectOption('#ts-season', '');
+  await p.waitForSelector('#top-stats .ts-table tbody tr');
+  console.log('back to the newest:', await tile(0));
 
   // 5) restart: the stored model, no second fit; source off -> no model reasons
   await p.reload();

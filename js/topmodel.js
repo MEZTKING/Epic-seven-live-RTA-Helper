@@ -11,6 +11,7 @@
  * need a specific ally, the team planner. Changed on purpose: recency weighting (see DEFAULTS).
  *
  * Input rows are E7Records.parseBattle() rows:
+ *   (opts.onlySeason = a season code builds from that season alone)
  *   { seq, day, season, rule, aGrade, bGrade, aFirst (true / false / null), aWin, aNick, aWorld, bNick, bWorld,
  *     a: { picks[5] in pick order, ban, prebans, energy {code: start CR} }, b: { … } }
  *
@@ -596,8 +597,9 @@
    */
   function build(allRows, opts = {}) {
     const cfg = { ...DEFAULTS, ...opts };
-    const all = (allRows || []).filter(Boolean);
-    const sp = seasonPlan(all, cfg);
+    // opts.onlySeason = a season code: only that season's games (its pre-season included), nothing mixed in
+    const all = (allRows || []).filter((r) => r && (!opts.onlySeason || seasonOf(r.season) === opts.onlySeason));
+    const sp = opts.onlySeason ? { code: opts.onlySeason, games: all.length, need: 0, blend: 0, only: true } : seasonPlan(all, cfg);
     const sel = select(all, cfg, sp);
     const rows = sel.rows;
     if (rows.length < cfg.minGames) return null;
@@ -712,7 +714,8 @@
     const ci = new Map(codes.map((c, i) => [c, i]));
     const meta = {
       ...sel.info, ...part.meta, format: FORMAT, games: rows.length, recentGames, weightedGames: round(total, 1),
-      season: sp ? { code: sp.code, games: sp.games, blend: sp.blend } : null,
+      // games = usable games of that season; otherGames = games of the season before that are mixed in (weight blend)
+      season: sp ? { code: sp.code, games: sp.only ? rows.length : sp.games, blend: sp.blend, only: !!sp.only, otherGames: rows.filter(({ r }) => seasonOf(r.season) !== sp.code).length } : null,
       firstPickWr: fpN ? round(fpW / fpN, 4) : null,
       l2Hero: l2, kPair, usePop, calib: ok ? tuned.calib : DEFAULT_CALIB,
       backtest: ok ? tuned.backtest : tuned || null,

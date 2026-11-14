@@ -201,3 +201,27 @@ test('topmodel: stored statistics survive JSON and an old format is refused', ()
   assert.strictEqual(TM.engine({ ...copy, meta: { ...copy.meta, format: 0 } }), null);
   assert.strictEqual(TM.engine(null), null);
 });
+
+test('topmodel: seasons — the season before is mixed in while the new one is small; onlySeason uses one season alone (DEVLOG #48)', () => {
+  // the oldest third of the games belongs to the season before
+  const rows = ROWS.map((r) => (r.day <= '2026-11-04' ? { ...r, season: 'pvp_rta_ss20' } : r));
+  const mixed = TM.build(rows, { tune: false });
+  assert.strictEqual(mixed.meta.season.code, 'pvp_rta_ss21');
+  assert.ok(mixed.meta.season.blend > 0 && mixed.meta.season.blend < 1, `blend ${mixed.meta.season.blend}`);
+  assert.ok(mixed.meta.season.otherGames > 1000, `other ${mixed.meta.season.otherGames}`);
+  assert.strictEqual(mixed.meta.season.games + mixed.meta.season.otherGames, mixed.meta.games);
+  assert.strictEqual(mixed.meta.season.only, false);
+  // a big new season: nothing of the old one is used
+  const big = TM.build(rows, { tune: false, seasonMinGames: 1000 });
+  assert.strictEqual(big.meta.season.otherGames, 0);
+  assert.strictEqual(big.meta.games, mixed.meta.season.games);
+  // one season alone
+  const old = TM.build(rows, { tune: false, onlySeason: 'pvp_rta_ss20' });
+  assert.deepStrictEqual([old.meta.season.code, old.meta.season.only, old.meta.season.otherGames], ['pvp_rta_ss20', true, 0]);
+  assert.strictEqual(old.meta.games, mixed.meta.season.otherGames);
+  assert.ok(old.meta.latestDay <= '2026-11-04');
+  assert.strictEqual(TM.build(rows, { onlySeason: 'pvp_rta_ss99' }), null, 'a season without games: no model');
+  // a pre-season code counts to its season
+  const pre = ROWS.map((r) => (r.day >= '2026-11-11' ? { ...r, season: 'pvp_rta_ss21f' } : r));
+  assert.strictEqual(TM.build(pre, { tune: false }).meta.season.otherGames, 0);
+});

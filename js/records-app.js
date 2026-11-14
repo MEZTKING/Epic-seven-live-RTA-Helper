@@ -67,9 +67,33 @@
   }
   const worldLabel = (code) => (R.WORLDS.find((w) => w.code === code) || { label: code }).label;
 
+  // ---- seasons (cached list of the record site; js/app.js reads the same key to split my matches by season) ----------
+  const SKEY = 'e7-records-seasons'; // { at, list: [{ code, name, start, end }] } oldest first
+  function seasons() {
+    try {
+      return (JSON.parse(localStorage.getItem(SKEY) || 'null') || {}).list || [];
+    } catch (_) {
+      return [];
+    }
+  }
+  function keepSeasons(raw) {
+    const list = R.seasonTable(raw);
+    if (!list.length) return;
+    const before = JSON.stringify(seasons());
+    try {
+      localStorage.setItem(SKEY, JSON.stringify({ at: new Date().toISOString(), list }));
+    } catch (_) { /* only a help */ }
+    if (before !== JSON.stringify(list) && App() && App().rederive) App().rederive(); // my matches are split by season
+  }
+  const seasonName = (code) => (seasons().find((s) => s.code === code) || { name: code || 'unknown season' }).name;
+
   // ---- the site ------------------------------------------------------------------------------------------------------
   const site = {
-    seasons: async () => ((await API.game('getSeasonList', {})) || {}).result_body || [],
+    seasons: async () => {
+      const raw = ((await API.game('getSeasonList', {})) || {}).result_body || [];
+      keepSeasons(raw);
+      return raw;
+    },
     ranking: async (season, page) => {
       const v = (await API.game('getWorldUserRankingDetail', { season_code: season, world_code: 'all', current_page: page })) || {};
       return Array.isArray(v.result_body) ? v.result_body : [];
@@ -274,10 +298,10 @@
   const top = { stats: null, model: null, modelInfo: null, building: null, running: false, stop: false, progress: null };
   const TM = window.E7TopModel;
   /** Fit the model in a worker (the page stays usable); on this thread when a worker cannot start. */
-  function fitModel(rows) {
+  function fitModel(rows, opts = {}) {
     const here = () => {
       top.modelVia = 'page';
-      return TM.build(rows, {});
+      return TM.build(rows, opts);
     };
     return new Promise((res) => {
       let w = null;
@@ -295,27 +319,32 @@
         done(e.data && e.data.ok ? e.data.stats : here());
       };
       w.onerror = () => done(here());
-      w.postMessage({ rows, opts: {} });
+      w.postMessage({ rows, opts });
     });
   }
-  /** The model for the stored games: from the copy kept in the database when the games did not change. */
-  async function loadModel(rows) {
+  /**
+   * The model for the stored games: from the copy kept in the database when the games did not change.
+   * season = a season code: the model of that season alone (the statistics page); none = the one suggestions use
+   * (newest season, the season before mixed in while the new one fills up).
+   */
+  async function loadModel(rows, season) {
     if (!TM) return null;
     let newest = '';
     for (const r of rows) if (r.date > newest) newest = r.date;
-    const sig = `${rows.length}|${newest}|${TM.FORMAT}`;
+    const sig = `${rows.length}|${newest}|${TM.FORMAT}|2`;
+    const key = season ? `model:${season}` : 'model';
     let saved = null;
     try {
-      saved = await store.kvGet('model');
+      saved = await store.kvGet(key);
     } catch (_) { /* older database: fit again */ }
     let stats = saved && saved.sig === sig ? saved.stats : null;
-    if (stats) top.modelVia = 'stored';
+    if (stats && !season) top.modelVia = 'stored';
     if (!stats && rows.length >= TM.DEFAULTS.minGames) {
       const t0 = Date.now();
-      stats = await fitModel(rows);
+      stats = await fitModel(rows, season ? { onlySeason: season } : {});
       log('top-player model fitted', { rows: rows.length, ms: Date.now() - t0, games: stats ? stats.meta.games : 0, via: top.modelVia });
       try {
-        await store.kvSet('model', { sig, stats, at: new Date().toISOString() });
+        await store.kvSet(key, { sig, stats, at: new Date().toISOString() });
       } catch (_) { /* only a cache */ }
     }
     return stats ? TM.engine(stats) : null;
@@ -350,6 +379,29 @@
     })().finally(() => (top.building = null));
     return top.building;
   }
+  /** Statistics page: the model of ONE season (cached per season until the stored games change). */
+  const seasonModels = new Map();
+  async function modelFor(season) {
+    if (!season) return top.model;
+    const rows = await store.battles();
+    const k = `${season}|${rows.length}`;
+    if (!seasonModels.has(k)) {
+      seasonModels.clear();
+      seasonModels.set(k, loadModel(rows, season).catch(() => null));
+    }
+    return seasonModels.get(k);
+  }
+  /** Seasons among the stored games with their number of Legend / Emperor games, newest first. */
+  async function storedSeasons() {
+    const n = new Map();
+    for (const r of await store.battles()) {
+      if (!R.GRADES_TOP.includes(r.aGrade) || !R.GRADES_TOP.includes(r.bGrade)) continue;
+      const c = R.seasonOf(r.season);
+      if (c) n.set(c, (n.get(c) || 0) + 1);
+    }
+    const order = seasons().map((s) => s.code);
+    return [...n.entries()].map(([code, games]) => ({ code, games, name: seasonName(code) })).sort((x, y) => order.indexOf(y.code) - order.indexOf(x.code));
+  }
   /** Collect top players' games (resumable; press Stop any time). */
   async function updateTop(onProgress) {
     if (top.running || !API) return null;
@@ -382,7 +434,9 @@
     if (!TM) return '';
     if (!m) return `Win-rate model: needs at least ${TM.DEFAULTS.minGames} games between Legend / Emperor players from the last ${TM.DEFAULTS.maxAgeDays} days; until then plain win rates are used.`;
     const bt = m.backtest && m.backtest.n ? m.backtest : null;
-    return `<b>Win-rate model</b> fitted on ${m.games.toLocaleString()} games (newest ${esc(m.latestDay || '')}; hero strength with player skill taken out, pairs, counters, first pick). ${bt ? `Check on the ${bt.n.toLocaleString()} newest games it was not shown: it named the winner in <b>${Math.round(bt.accuracy * 100)}%</b> (a coin: 50%). Drafts decide only part of a match, so this number stays modest.` : 'Too few games for its self-check yet, so its numbers are kept cautious.'}`;
+    const ss = m.season;
+    const seasonNote = ss ? ` Season: <b>${esc(seasonName(ss.code))}</b>${ss.otherGames ? ` (${(m.games - ss.otherGames).toLocaleString()} games) with ${ss.otherGames.toLocaleString()} games of the season before mixed in at ${Math.round(ss.blend * 100)}% weight until the new season has ${TM.DEFAULTS.seasonMinGames.toLocaleString()} games` : ', games of other seasons are not used'}.` : '';
+    return `<b>Win-rate model</b> fitted on ${m.games.toLocaleString()} games (newest ${esc(m.latestDay || '')}; hero strength with player skill taken out, pairs, counters, first pick). ${bt ? `Check on the ${bt.n.toLocaleString()} newest games it was not shown: it named the winner in <b>${Math.round(bt.accuracy * 100)}%</b> (a coin: 50%). Drafts decide only part of a match, so this number stays modest.` : 'Too few games for its self-check yet, so its numbers are kept cautious.'}${seasonNote}`;
   }
   function renderCard(msg) {
     const el = $('#records-card-body');
@@ -405,7 +459,8 @@
       <p class="hint">${c.me ? `Account: <b>${esc(c.me.name)}</b> on ${esc(worldLabel(c.me.world))}.` : 'No account set yet.'}${c.lastImportAt ? ` Last import ${new Date(c.lastImportAt).toLocaleString()}: ${c.lastImport ? `${c.lastImport.added} new, ${c.lastImport.already} already recorded by the app` : ''}.` : ''}</p>
       <h4 style="margin:12px 0 4px"><span class="src top">top players</span> Statistics from top players' games</h4>
       <div class="btn-row"><label>Players to follow <select id="rec-top-n">${[100, 200, 400].map((n) => `<option ${t.players === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
-        <button id="rec-top" class="btn">${top.running ? 'Stop' : 'Update now'}</button></div>
+        <button id="rec-top" class="btn">${top.running ? 'Stop' : 'Update now'}</button>
+        <label class="inline"><input id="rec-top-auto" type="checkbox" ${t.auto !== false ? 'checked' : ''} /> update when the app starts</label></div>
       <p class="hint">${t.rows ? `${t.rows.toLocaleString()} games stored, ${t.games.toLocaleString()} between Legend / Emperor players in use${t.season ? ` · ${esc(t.season)}` : ''}${t.at ? ` · updated ${new Date(t.at).toLocaleString()}` : ''}.` : 'Nothing collected yet. The first update reads up to 10 pages per player (about 5 seconds each): 100 players ≈ 8 minutes, 400 ≈ 35 minutes. Later updates only read what is new. You can keep using the app meanwhile.'}</p>
       <p id="rec-model" class="hint">${modelLine()}</p>
       <p id="rec-msg" class="hint">${esc(msg || '')}</p>`;
@@ -433,6 +488,7 @@
     $('#rec-auto').onchange = (e) => saveCfg({ autoImport: e.target.checked });
     $('#rec-scout').onchange = (e) => saveCfg({ autoScout: e.target.checked });
     $('#rec-top-n').onchange = (e) => saveCfg({ top: { ...cfg().top, players: Number(e.target.value) } });
+    $('#rec-top-auto').onchange = (e) => saveCfg({ top: { ...cfg().top, auto: e.target.checked } });
     $('#rec-top').onclick = async () => {
       if (top.running) {
         top.stop = true;
@@ -537,11 +593,35 @@
 
   window.E7RecordsApp = {
     available: () => !!API, cfg, saveCfg, findMe, importMine, lookup, cached, profileFor, playerHTML, updateTop, rebuildTop,
-    stopTop: () => (top.stop = true), topStats: () => top.stats, topModel: () => top.model, onTop: (fn) => topListeners.push(fn),
+    stopTop: () => (top.stop = true), topStats: () => top.stats, topModel: () => top.model, onTop: (fn) => topListeners.push(fn), modelFor, storedSeasons, seasons, seasonName, _autoTop: () => autoTop(), seasonOfRow: (r) => R.seasonOf(r.season),
     names: { artifact, hero, set: (t) => R.setName(t) }, topState: () => ({ running: top.running, progress: top.progress, modelVia: top.modelVia || '' }), _store: store,
   };
   renderCard();
   watchOpponent();
   autoImport();
   if (API && cfg().top.rows) setTimeout(() => rebuildTop().catch(() => {}), 1500); // statistics from what was collected before
+  // the season list: once a day (one lookup), so matches and statistics can be split by season
+  if (API) {
+    let at = 0;
+    try {
+      at = Date.parse((JSON.parse(localStorage.getItem(SKEY) || 'null') || {}).at || 0) || 0;
+    } catch (_) { /* none */ }
+    if (Date.now() - at > 24 * 3600 * 1000) setTimeout(() => site.seasons().catch(() => {}), 3000);
+  }
+  // top players' games: fetch what is new when the app starts (owner: "make the check for update happen on startup").
+  // Only after the first update was started by hand, at most every 6 hours, and it can be switched off on the card.
+  const TOP_EVERY = 6 * 3600 * 1000;
+  function autoTop() {
+    const t = cfg().top;
+    if (!API || !App() || t.auto === false || !t.at || top.running) return null;
+    if (Date.now() - Date.parse(t.at) < TOP_EVERY) return null;
+    log('top players: update at start');
+    const say = (m) => $('#rec-msg') && ($('#rec-msg').textContent = m);
+    if ($('#rec-top')) $('#rec-top').textContent = 'Stop';
+    return updateTop((p) => say(p.step === 'ranking' ? `Update at start: reading the ranking… ${p.players} players` : `Update at start: player ${p.done} of ${p.of} · ${p.added.toLocaleString()} new games`))
+      .then((r) => renderCard(r ? `Update at start ${r.stopped ? 'stopped' : 'done'}: ${r.players} players, ${r.added.toLocaleString()} new games.` : ''))
+      .catch((e) => renderCard(`Update at start failed: ${e.message}`));
+  }
+  setTimeout(autoTop, 20000);
+  setInterval(autoTop, 30 * 60000); // … and when the app stays open for hours
 })();

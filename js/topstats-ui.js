@@ -21,8 +21,10 @@
   const sg = (x) => (x === null || x === undefined ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x).toFixed(1)}`);
   const chip = (c) => `<button class="link ts-hero" data-ts="${esc(c)}">${pic(c)}<span>${esc(name(c))}</span></button>`;
 
-  const view = { sort: 'pick', dir: -1, q: '', min: 50, hero: null };
+  const view = { sort: 'pick', dir: -1, q: '', min: 50, hero: null, season: '' }; // season '' = what suggestions use
   let cache = { engine: null, rows: null, builds: null, players: 0 };
+  let seasonEngine = { code: '', engine: null, loading: false };
+  let storedSeasons = [];
 
   /** A "how much" bar with its number: value 0..max. */
   const bar = (v, max, label, title) =>
@@ -133,6 +135,22 @@
     </div>`;
   }
 
+  /** Which season the numbers are from, and the choice of one season alone. */
+  function seasonBar(engine) {
+    const R = RA();
+    const ss = engine.meta.season;
+    if (!ss) return '';
+    const TMd = window.E7TopModel ? window.E7TopModel.DEFAULTS : { seasonMinGames: 10000, minGames: 400 };
+    const note = ss.only
+      ? `Only games of <b>${esc(R.seasonName(ss.code))}</b> (its pre-season included).`
+      : `Season <b>${esc(R.seasonName(ss.code))}</b> (its pre-season included)${ss.otherGames ? `, with ${ss.otherGames.toLocaleString()} games of the season before mixed in at ${Math.round(ss.blend * 100)}% weight: a new season starts with few Legend / Emperor games, the older ones fade out as it reaches ${TMd.seasonMinGames.toLocaleString()}` : '; games of other seasons are not used'}. This is what the suggestions use.`;
+    const opts = storedSeasons.filter((s) => s.games >= TMd.minGames);
+    return `<div class="filters ts-season"><label class="inline">Season <select id="ts-season">
+        <option value="">newest (as the suggestions use it)</option>
+        ${opts.map((s) => `<option value="${esc(s.code)}" ${view.season === s.code ? 'selected' : ''}>${esc(s.name)} only · ${s.games.toLocaleString()} games</option>`).join('')}
+      </select></label><span class="hint">${note}</span></div>`;
+  }
+
   /** Builds and the number of players come from the stored games: read once per model. */
   async function loadExtras(engine) {
     if (cache.engine === engine && cache.builds) return;
@@ -141,16 +159,37 @@
     const players = new Set();
     for (const r of rows) {
       if (since && r.day < since) continue;
+      if (engine.meta.season && engine.meta.season.only && RA().seasonOfRow(r) !== engine.meta.season.code) continue;
       for (const [n, w, g] of [[r.aNick, r.aWorld, r.aGrade], [r.bNick, r.bWorld, r.bGrade]]) if (g === 'legend' || g === 'emperor') players.add(`${w}:${n}`);
     }
-    cache = { engine, rows: null, builds: TS.builds(rows, { since }), players: players.size };
+    const season = engine.meta.season && engine.meta.season.only ? engine.meta.season.code : '';
+    cache = { engine, rows: null, builds: TS.builds(season ? rows.filter((r) => RA().seasonOfRow(r) === season) : rows, { since }), players: players.size };
+    storedSeasons = await RA().storedSeasons();
   }
 
   function render() {
     const el = root();
     if (!el) return;
     const R = RA();
-    const engine = R && R.topModel ? R.topModel() : null;
+    const base = R && R.topModel ? R.topModel() : null;
+    // one season alone: its own model, fitted on demand (kept until the stored games change)
+    if (view.season && base && seasonEngine.code !== view.season) {
+      seasonEngine = { code: view.season, engine: null, loading: true };
+      R.modelFor(view.season).then((e) => {
+        if (seasonEngine.code !== view.season) return;
+        seasonEngine = { code: view.season, engine: e, loading: false };
+        render();
+      });
+    }
+    if (view.season && base && seasonEngine.loading) {
+      el.innerHTML = `<p class="hint"><span class="src top">top players</span> Working out the statistics of ${esc(R.seasonName(view.season))}…</p>`;
+      return;
+    }
+    if (view.season && base && !seasonEngine.engine) {
+      el.innerHTML = `<p><span class="src top">top players</span> ${esc(R.seasonName(view.season))} has too few stored games between Legend / Emperor players for its own statistics (400 needed). <button class="btn" id="ts-season-back">Back to the newest season</button></p>`;
+      return;
+    }
+    const engine = view.season && base ? seasonEngine.engine : base;
     if (!engine || !engine.ready) {
       const t = R && R.cfg ? R.cfg().top : null;
       el.innerHTML = `<div class="card wide"><h3><span class="src top">top players</span> Statistics from top players' games</h3>
@@ -172,6 +211,7 @@
     const keep = document.activeElement && document.activeElement.id === 'ts-q' ? document.activeElement.selectionStart : null;
     el.innerHTML = `
       <p class="hint"><span class="src top">top players</span> From the games collected on the official record site (Data tab). Bars show how much; blue / red around the middle line show better / worse than average. Hover a number for details, click a column to sort, click a hero for more.</p>
+      ${seasonBar(engine)}
       ${tiles(o, cache)}
       ${sel ? detail(stats, model, sel) : ''}
       <div class="filters"><input id="ts-q" type="search" placeholder="Search hero…" autocomplete="off" value="${esc(view.q)}" />
@@ -195,6 +235,10 @@
         view.sort = k;
         view.dir = -1;
       }
+      return render();
+    }
+    if (e.target.closest('#ts-season-back')) {
+      view.season = '';
       return render();
     }
     if (e.target.closest('#ts-close')) {
@@ -222,7 +266,17 @@
       view.min = Number(e.target.value);
       render();
     }
+    if (e.target.id === 'ts-season') {
+      view.season = e.target.value;
+      view.hero = null;
+      render();
+    }
   });
-  if (RA() && RA().onTop) RA().onTop(() => App() && App().activeTab() === 'top' && render());
+  if (RA() && RA().onTop) {
+    RA().onTop(() => {
+      seasonEngine = { code: '', engine: null, loading: false }; // the stored games changed
+      if (App() && App().activeTab() === 'top') render();
+    });
+  }
   window.E7TopStatsUI = { render, view };
 })();

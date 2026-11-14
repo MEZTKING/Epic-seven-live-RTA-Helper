@@ -12,9 +12,11 @@
  *    script swaps the files and starts the new version (same file name and place,
  *    so shortcuts keep working).
  *
- * Checks quietly ~10 s after start (only says something if there is an update)
- * and from the menu "Check for updates…". Only talks to github.com / api.github.com
- * (public release info and files); nothing about you is sent.
+ * Checks 3 s after start (owner: "make the check for update happen on startup"), again after 5 minutes when that
+ * failed (no internet yet), and every 6 hours while the app stays open; and from the menu "Check for updates…".
+ * A dialog only appears when there is an update; the menu line under "Check for updates…" always says when the last
+ * check was and what it found (DEVLOG #48). A version you answered "Not now" to is not offered again by itself.
+ * Only talks to github.com / api.github.com (public release info and files); nothing about you is sent.
  */
 const { app, dialog, net, shell } = require('electron');
 const path = require('path');
@@ -30,6 +32,23 @@ const portableExe = () => process.env.PORTABLE_EXECUTABLE_FILE || '';
 let getWindow = () => null;
 let busy = false;
 let autoUpdater = null;
+let onStatus = () => {};
+let state = { at: 0, result: '', version: '' }; // result: 'current' | 'available' | 'failed'
+let declined = ''; // a version answered with "Not now": automatic checks stay quiet about it
+function setState(result, version) {
+  state = { at: Date.now(), result, version: version || '' };
+  try {
+    onStatus(state);
+  } catch (_) { /* only a menu line */ }
+}
+/** One line for the menu: when the last check was and what it found. */
+function statusText(now = Date.now()) {
+  if (!state.at) return app.isPackaged ? 'Updates: checking at start…' : 'Updates: only in the built app';
+  const t = new Date(state.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const day = new Date(state.at).toDateString() === new Date(now).toDateString() ? '' : new Date(state.at).toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ';
+  const what = state.result === 'current' ? `up to date (${app.getVersion()})` : state.result === 'available' ? `version ${state.version} is available` : 'could not reach the update server';
+  return `Last check ${day}${t}: ${what}`;
+}
 
 /** Compare "1.2.3" style versions. >0 when a is newer. */
 function newer(a, b) {
@@ -75,11 +94,17 @@ async function checkInstalled(manual) {
   const res = await autoUpdater.checkForUpdates();
   const info = res && res.updateInfo;
   if (!info || newer(info.version, app.getVersion()) <= 0) {
+    setState('current');
     if (manual) ask({ type: 'info', message: `You have the newest version (${app.getVersion()}).` });
     return;
   }
+  setState('available', info.version);
+  if (!manual && declined === info.version) return;
   const r = await ask({ type: 'question', buttons: ['Update now', 'Not now'], defaultId: 0, cancelId: 1, title: 'Update available', message: `Version ${info.version} is available (you have ${app.getVersion()}).`, detail: 'It downloads in the background; you can keep using the app.' });
-  if (r.response !== 0) return;
+  if (r.response !== 0) {
+    declined = info.version;
+    return;
+  }
   busy = true;
   progress(0.01);
   await autoUpdater.downloadUpdate();
@@ -121,16 +146,22 @@ async function checkPortable(manual) {
   const rel = await latestRelease();
   const version = rel && String(rel.tag_name || '').replace(/^v/, '');
   if (!rel || newer(version, app.getVersion()) <= 0) {
+    setState('current');
     if (manual) ask({ type: 'info', message: `You have the newest version (${app.getVersion()}).` });
     return;
   }
+  setState('available', version);
+  if (!manual && declined === version) return;
   const asset = (rel.assets || []).find((a) => /-portable\.exe$/i.test(a.name));
   if (!asset) {
     if (manual) ask({ type: 'info', message: `Version ${version} is out, but it has no portable .exe. Get it from the Releases page.` }).then(() => shell.openExternal(RELEASES));
     return;
   }
   const r = await ask({ type: 'question', buttons: ['Update now', 'Not now'], defaultId: 0, cancelId: 1, title: 'Update available', message: `Version ${version} is available (you have ${app.getVersion()}).`, detail: 'It downloads in the background. When it\'s done the app restarts on the new version (same file, same place).' });
-  if (r.response !== 0) return;
+  if (r.response !== 0) {
+    declined = version;
+    return;
+  }
   const exe = portableExe();
   const tmp = exe + '.update';
   busy = true;
@@ -207,6 +238,11 @@ async function check(manual) {
   } catch (e) {
     busy = false;
     progress(-1);
+    setState('failed');
+    if (!manual && retries < 3) {
+      retries++;
+      setTimeout(() => check(false), 5 * 60000); // no internet yet at start: try again in 5 minutes
+    }
     if (manual) {
       const r = await ask({ type: 'warning', buttons: ['Open Releases page', 'Close'], defaultId: 0, cancelId: 1, message: 'Could not check for updates.', detail: String((e && e.message) || e) });
       if (r.response === 0) shell.openExternal(RELEASES);
@@ -214,12 +250,15 @@ async function check(manual) {
   }
 }
 
-function init(windowGetter) {
+let retries = 0;
+function init(windowGetter, statusListener) {
   getWindow = windowGetter;
+  if (statusListener) onStatus = statusListener;
   // a leftover download from an update that never got swapped in
   const exe = portableExe();
   if (exe) fs.rm(exe + '.update', { force: true }, () => {});
-  setTimeout(() => check(false), 10000);
+  setTimeout(() => check(false), 3000);
+  setInterval(() => check(false), 6 * 3600 * 1000);
 }
 
-module.exports = { init, check, newer, RELEASES };
+module.exports = { init, check, newer, statusText, status: () => ({ ...state }), RELEASES };

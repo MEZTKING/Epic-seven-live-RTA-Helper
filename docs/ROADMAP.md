@@ -62,6 +62,10 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
   then tune `W.topModel` / `topPolicy` / `topBanned` / `topPreban` in `js/logic.js`.
 - [x] Statistics page RTA → Top players: hero table, details per hero, pre-bans by role, openers, pairs, counters,
   builds (DEVLOG #47).
+- [x] Seasons: my matches / learning per season (History → Seasons), statistics of one season alone, the season
+  shown wherever top-player numbers appear; update checks at start for the app and the top players' games
+  (DEVLOG #48).
+- [ ] Seasons, to confirm at the next real season change: the list's time zone, the pre-season code, the blend.
 - [ ] Statistics page, next: change over time (this week against last), what top players pick at a given draft
   position, my own numbers next to theirs, element / class filters.
 - [x] Record site on the owner's PC (2026-11-14, from a screenshot): "Find me" on Global, first import (97 games) and
