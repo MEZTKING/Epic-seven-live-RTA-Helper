@@ -66,8 +66,9 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
   shown wherever top-player numbers appear; update checks at start for the app and the top players' games
   (DEVLOG #48).
 - [ ] Seasons, to confirm at the next real season change: the list's time zone, the pre-season code, the blend.
-- [ ] Statistics page, next: change over time (this week against last), what top players pick at a given draft
-  position, my own numbers next to theirs, element / class filters.
+- [x] Statistics page: weekly trend, my own matches and build next to the top players' (DEVLOG #49).
+- [ ] Statistics page, next: what top players pick at a given draft position, element / class filters, a list of
+  the heroes I build differently (needs my gear: gear.txt or the screen-read gear).
 - [x] Record site on the owner's PC (2026-11-14, from a screenshot): "Find me" on Global, first import (97 games) and
   the top-player update work.
 - [ ] Record site, still to confirm on the owner's PC: import after a real match (delay), twin detection with the

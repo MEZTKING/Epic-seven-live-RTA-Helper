@@ -7,6 +7,33 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #49 · Statistics page: my own numbers next to the top players', weekly trends · this commit (previous: `a924ec1`)
+
+**Asked for:** "and do everything else" (the list of improvements offered after #48; this is the statistics part:
+my numbers next to theirs, meta changes over time). Owner's PC: the 400-player update finished (33,953 games stored,
+23,888 in use; the model named the winner in 58% of 6,006 games it had not seen).
+
+**Changed**
+- `js/topstats.js`: `trends(rows)` (each hero's pick rate in the newest 7 days against the 7 days before; needs 150
+  games in each week), `sameBuild(mine, top)`.
+- Top players tab (`js/topstats-ui.js`):
+  - new column **Trend** (points of pick rate, week against week) and two lists "Picked more / less this week"
+  - new column **Me**: my matches with the hero and my win rate (from History; the season choice there applies)
+  - hero details, block **You**: my record with the hero against the top players' win rate; my build from gear.txt
+    next to the builds top players use most ("same sets as 33% of top players" / "different from …")
+  - the tab is wider than the others (up to 1420 px) so the twelve columns fit
+- Not built: a list of all heroes I build differently (the owner's gear.txt import does not work with the Steam
+  client, so there is nothing to compare yet; the per-hero line is there for when gear is known).
+
+**Tested**
+- `npm test` **146** (+2: trends with windows, ignored games and too-few-games; build comparison).
+- Browser suite **32/32** clean; `tests/e2e/topmodel.e2e.js`: sort by my own matches, the "You" block ("6 of 6 … you
+  do better than they do"), the trend lists and column.
+- Looked at with the real games of #45: e.g. one hero went from 21% to 28% pick rate in a week.
+- **Not tested:** the build comparison on the page with a real gear.txt (unit-tested only).
+
+---
+
 ## 2026-11-14 · #48 · Seasons: my matches and the statistics per season; update checks at start (app and top-player games) · this commit (previous: `aae51fb`)
 
 **Asked for:** "and is the rta stuff separated by seasons, also make the check for update happen on startup".

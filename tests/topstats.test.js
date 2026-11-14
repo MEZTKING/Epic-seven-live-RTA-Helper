@@ -91,3 +91,31 @@ test('topstats: builds from games the hero played in (Legend / Emperor only, ban
   assert.equal(B.has('B'), false, 'B was banned: it did not play');
   assert.equal(B.get('A2').list[0].wins, 0, 'the other side lost that game');
 });
+
+test('topstats: trends — pick rate of the newest week against the week before (DEVLOG #49)', () => {
+  const side = (picks) => ({ picks, ban: null, prebans: [], builds: {}, energy: {} });
+  const rows = [];
+  const add = (day, n, picksA, grade = 'legend') => {
+    for (let i = 0; i < n; i++) rows.push({ day, aGrade: grade, bGrade: 'legend', aWin: true, a: side(picksA), b: side(['Z']) });
+  };
+  add('2026-11-13', 100, ['A', 'B']); // newest week: A in every game, B in every game
+  add('2026-11-08', 100, ['A']);
+  add('2026-11-06', 100, ['B']); // the week before (Oct 31 – Nov 6): A in none, B in half
+  add('2026-11-01', 100, ['C']);
+  add('2026-10-20', 500, ['A']); // older: ignored
+  add('2026-11-12', 300, ['C'], 'champion'); // not a top game: ignored
+  const T = TS.trends(rows);
+  assert.deepEqual([T.from, T.mid, T.to, T.gamesNow, T.gamesBefore], ['2026-10-31', '2026-11-07', '2026-11-13', 200, 200]);
+  assert.deepEqual(T.heroes.get('A'), { now: 1, before: 0, delta: 1 });
+  assert.deepEqual(T.heroes.get('B'), { now: 0.5, before: 0.5, delta: 0 });
+  assert.deepEqual(T.heroes.get('C'), { now: 0, before: 0.5, delta: -0.5 });
+  assert.equal(T.heroes.get('Z').delta, 0);
+  assert.equal(TS.trends(rows.slice(0, 250)), null, 'too few games in the week before');
+  assert.equal(TS.trends([]), null);
+});
+
+test('topstats: my build against a top-player build (names; order and case do not matter)', () => {
+  assert.deepEqual(TS.sameBuild({ sets: ['Speed', 'Immunity'], artifact: 'Veritas' }, { sets: ['immunity', 'Speed'], artifact: 'veritas ' }), { sets: true, artifact: true });
+  assert.deepEqual(TS.sameBuild({ sets: ['Speed', 'Immunity'], artifact: 'Veritas' }, { sets: ['Speed', 'Hit'], artifact: 'Veritas' }), { sets: false, artifact: true });
+  assert.deepEqual(TS.sameBuild({ sets: [], artifact: '' }, { sets: [], artifact: '' }), { sets: false, artifact: false }, 'nothing known is not "the same"');
+});

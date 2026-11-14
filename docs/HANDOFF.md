@@ -229,7 +229,8 @@ loaded BEFORE `js/app.js` in `rta.html` for this. Top players: `TM.build(rows, {
 **Top players statistics tab** (DEVLOG #47): `rta.html` `#tab-top` / `#top-stats`; tables from `js/topstats.js`
 (`E7TopStats`, pure) over the stored model (`E7RecordsApp.topModel().stats`) and, for builds, the stored games;
 drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in `js/app.js` and
-`E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card).
+`E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
+(week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
 
 **Guild War standby page** (DEVLOG #46): reader `js/vision/readers/guild-standby.js` (green-button check → title →
