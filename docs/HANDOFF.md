@@ -111,6 +111,9 @@ only receive events.
 | `<userData>/records/users_<world>.json` (desktop) | `desktop/records.js` | The record site's player list per server, re-downloaded after 3 days |
 | `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
 | `localStorage['e7-gw-forts']` | `js/vision/readers/guild-overview.js` → fortress reader, Guild War page | Fortress names per side `{ ours: [3], enemy: [3], side, ourGuild, enemyGuild (this reading only), at }` (read on the overview; also kept on the war record as `forts`) |
+| `localStorage['e7-gw-standby']` | `js/vision/readers/guild-standby.js` → `js/guild-app.js`, `js/guild-watch.js` | The game's standby page as last read: `{ at, minutes, beginsAt (estimated), season }`; holds until `beginsAt` or until a war is started after it |
+| `localStorage['e7-gw-standby-undone']` | `js/guild-app.js` | Time you undid "marked finished" after a standby reading: not done again for 12 hours |
+| Firestore / local `settings`.`nextWar` (shared) | `js/guild-app.js` (`standbyFromGame`) | `{ at, beginsAt, season, by }`: the next war's time as a member's game showed it |
 | `localStorage['e7-gw-dismissed']` | `js/guild-app.js` | `{ enemyGuild: time }`: wars you undid after they were started from the game; not started again by themselves for 5 days |
 | `localStorage['e7-gw-known-names']` | `js/guild-app.js` → `js/vision/readers/guild-fortress.js` | Enemy player names you already have (for matching what's read on a fortress map) |
 | `localStorage['e7-gw-name-fixes']` | `js/guild-app.js` (`saveFortress`) → fortress reader | `{ readText(lowercase): name }`: names you corrected after a fortress read, used next time |
@@ -210,7 +213,13 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #45)
+## 7. Status (end of DEVLOG #46)
+
+**Guild War standby page** (DEVLOG #46): reader `js/vision/readers/guild-standby.js` (green-button check → title →
+countdown; places in `E7GWMap.STANDBY`) → `guild:standby { minutes, beginsAt, season, text }` → `GuildApp.standbyFromGame`
+(banner `#war-standby`, shares `settings.nextWar`, marks open wars finished with Undo) and `GuildApp.standby()`.
+`js/guild-watch.js` applies the newer of the stored standby reading and the stored overview reading when a page opens.
+
 
 **Top-player model** (DEVLOG #45; port of E7DaT's statistical core, see `docs/E7DAT_NOTES.md`):
 - `js/topmodel.js` (`E7TopModel`, pure): `build(rows, opts)` → stats `{ meta (games, calib, backtest…), heroes, syn,

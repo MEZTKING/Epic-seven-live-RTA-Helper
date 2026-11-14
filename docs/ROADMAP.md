@@ -62,7 +62,9 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
   then tune `W.topModel` / `topPolicy` / `topBanned` / `topPreban` in `js/logic.js`.
 - [ ] Show the model's hero table somewhere (strongest heroes with player skill removed, most banned, pre-bans by
   role, first picks): the numbers exist in the stored model.
-- [ ] Record site, to confirm on the owner's PC: "Find me", import after a real match (delay), twin detection with the
+- [x] Record site on the owner's PC (2026-11-14, from a screenshot): "Find me" on Global, first import (97 games) and
+  the top-player update work.
+- [ ] Record site, still to confirm on the owner's PC: import after a real match (delay), twin detection with the
   app's own recording, a full top-player run; then tune the 4 / 12 minute import delays.
 - [ ] Record site ideas: opponent's win rate per hero and against my heroes; Guild War: look up all enemies of a war
   in one go; show my own habits the way the opponent would see them.
@@ -75,6 +77,11 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - [x] Any window size: title bar from the pixels, anchored built-in positions, screen signatures from the middle 16:9 part.
 - [x] Guild War: which fortress (Stinger / Darkwood / Vortex) and its defenders' names from the fortress map.
 - [x] Our own side's fortresses (the shield view), fortress names read from the overview, beaten defenders (DEVLOG #39).
+- [x] Standby page (no war running, time to the next war): recognised, said on the War tab, open war finished with
+  Undo, next war's time shared with the guild (DEVLOG #46).
+- [ ] Guild War states still unknown: what the game shows between standby and the war (matching / preparation), and
+  when a war has just ended (results). Needs screenshots; then a reminder shortly before a war begins.
+- [ ] Standby page in other game languages (the title is matched in English).
 - [ ] Use "beaten" from the map to mark targets cleared / count attacks left (now only shown).
 - [ ] RTA screens at a wider window: verify the anchors (needs RTA screenshots from the maximized window; see the E7DaT section).
 - [x] Enemy defense panel at a wider window: pinned left (DEVLOG #39).

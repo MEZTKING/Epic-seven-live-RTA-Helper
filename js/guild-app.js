@@ -175,6 +175,7 @@
 
   // -------------------------------------------------------------------- war
   function renderWar() {
+    renderStandby();
     $('#war-select').innerHTML = state.wars.length
       ? state.wars.map((w) => `<option value="${esc(w.id)}" ${w.id === warId ? 'selected' : ''}>vs ${esc(w.enemyGuild)}${w.season ? ' · ' + esc(w.season) : ''} · ${esc(String(w.startedAt || '').slice(0, 10))}${w.status === 'done' ? ' (finished)' : ''}</option>`).join('')
       : '<option value="">No wars yet</option>';
@@ -358,6 +359,92 @@
     showAutoWar(w);
     if (window.E7Diag) window.E7Diag.log('guild', `war vs ${enemyGuild} started from the game`);
     return 'started';
+  }
+  // ---- the game's standby page: no war is running (js/vision/readers/guild-standby.js; DEVLOG #46) ----------------
+  const STANDBY = 'e7-gw-standby'; // { at, minutes, beginsAt, season } written by the reader (this device)
+  const STANDBY_UNDONE = 'e7-gw-standby-undone'; // time you undid "marked finished": not done again for 12 hours
+  /** The newest standby reading that still holds (mine, or a guildmate's shared in the settings), or null. */
+  function standby() {
+    let mine = null;
+    try {
+      mine = JSON.parse(localStorage.getItem(STANDBY) || 'null');
+    } catch (_) { /* none */ }
+    const shared = state.settings && state.settings.nextWar;
+    let s = mine && mine.at ? mine : null;
+    if (shared && shared.at && (!s || shared.at > s.at)) s = shared;
+    if (!s) return null;
+    // holds until the war it announces begins (3 days when the countdown could not be read) …
+    const until = s.beginsAt ? Date.parse(s.beginsAt) : Date.parse(s.at) + 3 * 86400000;
+    if (!(Date.now() < until)) return null;
+    // … or until a war is started after it
+    if (state.wars.some((w) => w.status !== 'done' && Date.parse(w.startedAt || 0) > Date.parse(s.at))) return null;
+    return s;
+  }
+  const span = (ms) => {
+    const m = Math.max(0, Math.round(ms / 60000));
+    return m >= 120 ? `${Math.round(m / 60)} hours` : m >= 60 ? `1 hour${m % 60 >= 10 ? ` ${m % 60} min` : ''}` : `${m} min`;
+  };
+  function renderStandby() {
+    const el = $('#war-standby');
+    if (!el) return;
+    const s = standby();
+    if (!s) return el.classList.add('hidden');
+    const begins = s.beginsAt ? new Date(s.beginsAt) : null;
+    el.innerHTML = `<b>No Guild War right now.</b> <span class="src game">read from the game</span> The game shows the standby page${s.season ? ` (season ${esc(s.season)})` : ''}.
+      ${begins ? `The next war begins in about <b>${span(begins - Date.now())}</b> (around ${esc(begins.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}).` : ''}
+      <span class="hint">Read ${span(Date.now() - Date.parse(s.at))} ago${s.by ? ` by ${esc(s.by)}` : ''}${begins ? '; the game only shows whole hours, so the time is rough' : ''}.</span>`;
+    el.classList.remove('hidden');
+  }
+  setInterval(renderStandby, 60000);
+  let standbyUndo = null;
+  /**
+   * The watcher saw the standby page at `at` (default: now): say so, share the next war's time with the guild, and
+   * mark a war that is still open as finished (with Undo). Returns 'finished' | 'shown' | 'waiting'.
+   */
+  async function standbyFromGame(d, at) {
+    const seenAt = at || new Date().toISOString();
+    if (warBusy) await warBusy.catch(() => {});
+    renderStandby();
+    if (!backend || !loaded) {
+      if (!conn.guildCode) return 'shown';
+      for (let i = 0; i < 60 && !(backend && loaded); i++) await new Promise((r) => setTimeout(r, 500));
+      if (!(backend && loaded)) return 'waiting';
+    }
+    // share "next war at" with the guild (the web page of guildmates shows it too), when it is news
+    try {
+      const cur = state.settings && state.settings.nextWar;
+      const news = d && d.beginsAt && (!cur || !cur.beginsAt || Math.abs(Date.parse(cur.beginsAt) - Date.parse(d.beginsAt)) > 90 * 60000);
+      if (news && me()) await put('settings', { ...(state.settings || {}), id: 'settings', nextWar: { at: seenAt, beginsAt: d.beginsAt, season: d.season || '', by: me() } });
+    } catch (_) { /* only a help */ }
+    let undone = 0;
+    try {
+      undone = Number(localStorage.getItem(STANDBY_UNDONE)) || 0;
+    } catch (_) { /* none */ }
+    const open = state.wars.filter((w) => w.status !== 'done' && Date.parse(w.startedAt || 0) < Date.parse(seenAt));
+    if (!open.length || Date.now() - undone < 12 * 3600 * 1000) {
+      renderStandby();
+      return 'shown';
+    }
+    for (const w of open) await put('war', { ...w, status: 'done', finishedBy: 'standby page' });
+    standbyUndo = open;
+    if (window.E7Diag) window.E7Diag.log('guild', `standby page seen: ${open.map((w) => 'war vs ' + w.enemyGuild).join(', ')} marked finished`);
+    const el = $('#war-auto');
+    if (el) {
+      el.innerHTML = `The game shows no war running, so the war vs <b>${open.map((w) => esc(w.enemyGuild)).join(', ')}</b> was marked finished. <button class="btn" id="war-auto-undo">Undo</button> <button class="btn" id="war-auto-ok">OK</button>`;
+      el.classList.remove('hidden');
+      $('#war-auto-ok').onclick = () => el.classList.add('hidden');
+      $('#war-auto-undo').onclick = async () => {
+        try {
+          localStorage.setItem(STANDBY_UNDONE, String(Date.now()));
+        } catch (_) { /* only a help */ }
+        for (const w of standbyUndo || []) await put('war', { ...w, status: 'active' });
+        standbyUndo = null;
+        el.classList.add('hidden');
+        renderWar();
+      };
+    }
+    renderWar();
+    return 'finished';
   }
   function showAutoWar(w) {
     const el = $('#war-auto');
@@ -972,6 +1059,8 @@
     openTargetWith: (seen) => openTarget(null, seen),
     saveFortress,
     warFromGame,
+    standbyFromGame,
+    standby,
     /** Fortress names read on the overview: kept on the current war (shared), only when they changed. */
     async saveFortNames(side, names, enemyGuild) {
       const war = state.wars.find((w) => w.id === warId);

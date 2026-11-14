@@ -31,6 +31,9 @@
  *   pagerIndex(rgba, W, H, rect)    -> { index: 0|1|2, contrast } (rect in pixels: the indicator bar)
  *   cleanGuild(ocrText)             -> a guild name from the overview's name line ("SomeGuild “Global" -> "SomeGuild")
  *   DEFAULT_FORTS                   -> names used until the overview has been seen
+ *   isStandbyTitle(ocrText)         -> true for the standby page's title ("Guild War Standby")
+ *   standbyMinutes(ocrText)         -> minutes until the next war from "War Begins in 29h" ("in 1d 5h", "in 45m"), or null
+ *   greenShare(rgba, W, H, rect)    -> share of clearly green pixels in a rect (the standby page's Team Formation button)
  */
 (function (root) {
   'use strict';
@@ -283,7 +286,56 @@
     return { index: order[0], contrast: mean[order[0]] - mean[order[1]], mean };
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex };
+  // ---- the standby page (no war running; DEVLOG #46). Middle of the screen, top to bottom: "2026-3 Season",
+  // "Guild War Standby", a dark band with a sentence, "War Begins" / "in 29h", then three buttons (the first one green).
+  // Fractions of the picture height, x measured from the middle (owner's 2000×1070 screen).
+  const STANDBY = {
+    season: { cx: 0, y: 0.222, w: 0.34, h: 0.05 },
+    title: { cx: 0, y: 0.262, w: 0.5, h: 0.066 },
+    label: { cx: 0, y: 0.59, w: 0.3, h: 0.045 },
+    time: { cx: 0, y: 0.628, w: 0.3, h: 0.055 },
+    button: { cx: 0, y: 0.714, w: 0.36, h: 0.056 },
+  };
+  /** A STANDBY part as a pixel rect of a W × H picture. */
+  const standbyRect = (key, W, H) => {
+    const r = STANDBY[key];
+    return { x: W / 2 + (r.cx - r.w / 2) * H, y: r.y * H, w: r.w * H, h: r.h * H };
+  };
+  const isStandbyTitle = (text) => /stand\s*-?\s*by/i.test(String(text || '')) && /guild|war/i.test(String(text || ''));
+  /** "in 29h", "War Begins in 1d 5h", "in 45m" -> minutes; null when no time is found. OCR slips in the digits are mended. */
+  function standbyMinutes(text) {
+    const t = String(text || '').replace(/\s+/g, ' ');
+    const at = t.search(/\b[il1|]n\b/i);
+    const tail = at >= 0 ? t.slice(at + 2) : t;
+    let total = 0;
+    let found = false;
+    for (const m of tail.matchAll(/([\dOoIlSsB]{1,3})\s*([dhm])(?![a-z])/gi)) {
+      const n = Number(m[1].replace(/[Oo]/g, '0').replace(/[Il]/g, '1').replace(/[Ss]/g, '5').replace(/B/g, '8'));
+      if (!Number.isFinite(n)) continue;
+      const u = m[2].toLowerCase();
+      if ((u === 'd' && n > 14) || (u === 'h' && n > 400) || (u === 'm' && n > 59)) continue;
+      total += u === 'd' ? n * 1440 : u === 'h' ? n * 60 : n;
+      found = true;
+    }
+    return found && total > 0 && total <= 14 * 1440 ? total : null;
+  }
+  /** Share of clearly green pixels in a rect (the standby page's first button is green; the two below are dark). */
+  function greenShare(rgba, W, H, rect) {
+    let n = 0;
+    let g = 0;
+    const x0 = Math.max(0, Math.round(rect.x));
+    const x1 = Math.min(W, Math.round(rect.x + rect.w));
+    for (let y = Math.max(0, Math.round(rect.y)); y < Math.min(H, Math.round(rect.y + rect.h)); y++) {
+      for (let x = x0; x < x1; x++) {
+        const p = (y * W + x) * 4;
+        n++;
+        if (rgba[p + 1] > rgba[p] + 18 && rgba[p + 1] > rgba[p + 2] + 18) g++;
+      }
+    }
+    return n ? g / n : 0;
+  }
+
+  const api = { NORM_H, DEFAULT_FORTS, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);
