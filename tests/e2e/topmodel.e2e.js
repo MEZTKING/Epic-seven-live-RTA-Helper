@@ -7,6 +7,7 @@
 //  3) pre-ban ideas from what top players pre-ban
 //  4) final ban: the third pick cannot be banned; the model's ban; "they will likely ban"
 //  5) after a restart the stored model is used (no second fit); switching the source off removes its reasons
+//  6) the statistics tab "Top players" (DEVLOG #47)
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const { chromium } = require('playwright');
 const { autoAsk } = require('./_ask.js');
@@ -91,7 +92,7 @@ const { autoAsk } = require('./_ask.js');
       const tb = pb.filter((h) => h !== banB);
       const z = z1(ta, tb) - z1(tb, ta) + (aFirst ? 0.15 : -0.15);
       const day = `2026-11-${String(1 + Math.floor((g / 6000) * 12)).padStart(2, '0')}`;
-      rows.push({ seq: 'x' + g, day, date: `${day}T10:00:${String(g % 60).padStart(2, '0')}Z`, season: 'pvp_rta_ss21', rule: '', aGrade: 'legend', bGrade: g % 3 ? 'legend' : 'emperor', aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: 1000 + Math.floor(R() * 150), aWorld: 'world_global', bNick: 2000 + Math.floor(R() * 150), bWorld: 'world_kor', a: { picks: pa, ban: banA, prebans: preA, builds: {}, energy: {} }, b: { picks: pb, ban: banB, prebans: preB, builds: {}, energy: {} } });
+      rows.push({ seq: 'x' + g, day, date: `${day}T10:00:${String(g % 60).padStart(2, '0')}Z`, season: 'pvp_rta_ss21', rule: '', aGrade: 'legend', bGrade: g % 3 ? 'legend' : 'emperor', aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: 1000 + Math.floor(R() * 150), aWorld: 'world_global', bNick: 2000 + Math.floor(R() * 150), bWorld: 'world_kor', a: { picks: pa, ban: banA, prebans: preA, builds: Object.fromEntries(pa.map((c) => [c, { artifact: g % 4 ? 'art-one' : 'art-two', sets: g % 4 ? ['set_speed', 'set_immune'] : ['set_max_hp', 'set_res'] }])), energy: {} }, b: { picks: pb, ban: banB, prebans: preB, builds: {}, energy: {} } });
     }
     await window.E7RecordsApp._store.addBattles(rows);
     await window.E7RecordsApp.rebuildTop();
@@ -152,6 +153,32 @@ const { autoAsk } = require('./_ask.js');
   });
   console.log('ban ranking:', JSON.stringify(ban, null, 1));
   console.log('win chance line:', (await p.textContent('#top-model-line')).replace(/\s+/g, ' ').trim());
+
+  // 6) the statistics tab (DEVLOG #47): tiles, the hero table (sortable, searchable), a hero's details, the lists
+  await p.click('.tab[data-tab=top]');
+  await p.waitForSelector('#top-stats .ts-table tbody tr');
+  await p.waitForTimeout(1200); // builds are read from the stored games
+  const tile = (i) => p.evaluate((k) => { const t = document.querySelectorAll('#top-stats .ts-tile')[k]; return `${t.children[0].textContent}: ${t.children[1].textContent}`; }, i);
+  console.log('statistics tiles:', [await tile(0), await tile(1), await tile(2), await tile(3)].join(' · '));
+  const firstRows = () => p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-table tbody tr')].slice(0, 3).map((tr) => tr.children[0].textContent.trim()));
+  console.log('table, most picked first:', JSON.stringify(await firstRows()), '· rows', await p.locator('#top-stats .ts-table tbody tr').count());
+  await p.click('#top-stats th[data-sort=pp]');
+  console.log(`sorted by strength (planted strong hero ${names.A}):`, JSON.stringify(await firstRows()));
+  await p.click('#top-stats th[data-sort=prebanSecond]');
+  console.log(`sorted by pre-bans of second-pick players (planted ${names.P}):`, JSON.stringify((await firstRows())[0]));
+  await p.fill('#ts-q', names.C.slice(0, 5));
+  await p.waitForTimeout(200);
+  console.log(`search "${names.C.slice(0, 5)}":`, JSON.stringify(await firstRows()), '· the box keeps the focus:', await p.evaluate(() => document.activeElement.id === 'ts-q'));
+  await p.fill('#ts-q', '');
+  await p.click(`#top-stats .ts-table tr[data-ts="${C}"]`);
+  await p.waitForSelector('#ts-detail');
+  const det = (await p.textContent('#ts-detail')).replace(/\s+/g, ' ');
+  console.log('details:', det.slice(0, 150));
+  console.log(`  best with names ${names.B}:`, new RegExp('Best with\\s*' + names.B.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(det), '· pick order shown:', /3rd pick \(cannot be banned\)/.test(det), '· builds:', (det.match(/How top players build it(.{0,90})/) || ['', 'missing'])[1].trim());
+  console.log('  the app\'s own hero card did not open:', await p.evaluate(() => !document.querySelector('dialog[open]')));
+  const lists = await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-lists .card')].map((c) => `${c.querySelector('h4').childNodes[0].textContent.trim()}: ${(c.querySelector('.ts-row') || { textContent: '—' }).textContent.replace(/\s+/g, ' ').trim()}`));
+  console.log('lists (first line of each):', JSON.stringify(lists, null, 1));
+  await p.click('#ts-close');
 
   // 5) restart: the stored model, no second fit; source off -> no model reasons
   await p.reload();

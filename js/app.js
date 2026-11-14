@@ -370,6 +370,7 @@
     players: () => renderPlayers(),
     history: () => renderHistory(),
     data: () => renderData(),
+    top: () => window.E7TopStatsUI && window.E7TopStatsUI.render(),
     auto: () => window.RTAAuto && window.RTAAuto.render(),
   };
   function render() {

@@ -23,6 +23,7 @@
       <button class="tab" data-tab="teams" role="tab">Teams</button>
       <button class="tab" data-tab="players" role="tab">Players</button>
       <button class="tab" data-tab="history" role="tab">History</button>
+      <button class="tab" data-tab="top" role="tab">Top players</button>
       <button class="tab" data-tab="data" role="tab">Data</button>
     </nav>
   </header>
@@ -354,6 +355,11 @@
     </section>
 
     <!-- ============================== DATA =============================== -->
+    <!-- ============================== TOP PLAYERS (statistics, DEVLOG #47) ============================== -->
+    <section id="tab-top" class="panel">
+      <div id="top-stats"></div>
+    </section>
+
     <section id="tab-data" class="panel">
       <p class="hint">Each source is stored separately and never merged into another. If one turns out to be wrong, switch it off or delete it without touching the rest.</p>
       <div class="cards">
@@ -542,6 +548,8 @@
   <script src="js/topmodel.js"></script>
   <script src="js/records.js"></script>
   <script src="js/records-app.js"></script>
+  <script src="js/topstats.js"></script>
+  <script src="js/topstats-ui.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/pip.js"></script>
 </body>

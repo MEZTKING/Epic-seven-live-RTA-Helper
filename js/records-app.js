@@ -270,6 +270,7 @@
       return req((await db()).transaction('kv', 'readwrite').objectStore('kv').put({ k, v }));
     },
   };
+  const topListeners = []; // pages that show the statistics (js/topstats-ui.js)
   const top = { stats: null, model: null, modelInfo: null, building: null, running: false, stop: false, progress: null };
   const TM = window.E7TopModel;
   /** Fit the model in a worker (the page stays usable); on this thread when a worker cannot start. */
@@ -342,6 +343,7 @@
         log('top-player model failed', { error: String(e && e.message) });
       }
       top.modelInfo = top.model ? top.model.meta : null;
+      for (const fn of topListeners) fn();
       if (App()) App().renderDraft();
       if ($('#rec-model')) $('#rec-model').innerHTML = modelLine();
       return st;
@@ -535,7 +537,8 @@
 
   window.E7RecordsApp = {
     available: () => !!API, cfg, saveCfg, findMe, importMine, lookup, cached, profileFor, playerHTML, updateTop, rebuildTop,
-    stopTop: () => (top.stop = true), topStats: () => top.stats, topModel: () => top.model, topState: () => ({ running: top.running, progress: top.progress, modelVia: top.modelVia || '' }), _store: store,
+    stopTop: () => (top.stop = true), topStats: () => top.stats, topModel: () => top.model, onTop: (fn) => topListeners.push(fn),
+    names: { artifact, hero, set: (t) => R.setName(t) }, topState: () => ({ running: top.running, progress: top.progress, modelVia: top.modelVia || '' }), _store: store,
   };
   renderCard();
   watchOpponent();

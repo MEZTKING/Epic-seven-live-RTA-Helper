@@ -60,8 +60,10 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
   - the team planner: whole-team plans looking ahead over the remaining slots, two different plans
 - [ ] Model, to confirm with the owner's own collection: fit time on Windows, how the advice reads in a real draft;
   then tune `W.topModel` / `topPolicy` / `topBanned` / `topPreban` in `js/logic.js`.
-- [ ] Show the model's hero table somewhere (strongest heroes with player skill removed, most banned, pre-bans by
-  role, first picks): the numbers exist in the stored model.
+- [x] Statistics page RTA → Top players: hero table, details per hero, pre-bans by role, openers, pairs, counters,
+  builds (DEVLOG #47).
+- [ ] Statistics page, next: change over time (this week against last), what top players pick at a given draft
+  position, my own numbers next to theirs, element / class filters.
 - [x] Record site on the owner's PC (2026-11-14, from a screenshot): "Find me" on Global, first import (97 games) and
   the top-player update work.
 - [ ] Record site, still to confirm on the owner's PC: import after a real match (delay), twin detection with the

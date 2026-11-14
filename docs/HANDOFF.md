@@ -213,7 +213,13 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #46)
+## 7. Status (end of DEVLOG #47)
+
+**Top players statistics tab** (DEVLOG #47): `rta.html` `#tab-top` / `#top-stats`; tables from `js/topstats.js`
+(`E7TopStats`, pure) over the stored model (`E7RecordsApp.topModel().stats`) and, for builds, the stored games;
+drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in `js/app.js` and
+`E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card).
+
 
 **Guild War standby page** (DEVLOG #46): reader `js/vision/readers/guild-standby.js` (green-button check → title →
 countdown; places in `E7GWMap.STANDBY`) → `guild:standby { minutes, beginsAt, season, text }` → `GuildApp.standbyFromGame`

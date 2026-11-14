@@ -7,6 +7,54 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #47 · "Top players" statistics page: hero table, hero details, pre-bans, openers, pairs, counters, builds · this commit (previous: `a82ddf3`)
+
+**Asked for:** "can you make a statistics page that shows useful information regarding the stats from top players'
+games".
+
+**Findings**
+- Everything needed is already in the stored model of #45 (per hero: pick rate, win rate, skill-adjusted strength,
+  pre-bans by role, opening picks, bans, pick order, start readiness; pair and counter tables). Builds (artifact +
+  gear sets) are in the stored games.
+- With the real games collected for #45 (6,734 usable): the plain win rate and the skill-adjusted strength often
+  disagree (a hero with 59% win rate has −1.5 points of strength: its users are simply better players), so both are
+  shown side by side.
+- The app opens its hero card for anything marked `data-hero`; the page's own rows must not use that attribute.
+
+**Changed**
+- New tab **RTA → Top players** (`rta.html` `#tab-top`):
+  - four headline numbers: games in use, players seen, first-pick win rate, the model's self-check
+  - hero table, sortable by every column, with search and a minimum-games filter: picked, win rate, strength,
+    pre-banned by first-pick / second-pick players, opening pick, banned when picked, moves first, games
+  - click a hero: best / worse with, good / struggles against, in which pick it is taken, how top players build it
+    (artifact + sets, share, win rate), and a button to the app's hero card
+  - lists: pre-bans with the first pick, pre-bans when picking second, opening picks, strongest pairs, biggest counters
+  - an explanation when nothing is collected yet or the model is not ready
+- `js/topstats.js` (new, pure): `overview`, `heroes`, `sortRows`, `partners`, `matchups`, `topPairs`, `topCounters`,
+  `prebans`, `openers`, `builds`.
+- `js/topstats-ui.js` (new): draws the tab; redraws when the model changes (`E7RecordsApp.onTop`).
+- `js/records-app.js`: `onTop(fn)`, `names { artifact, hero, set }`. `js/app.js`: the tab's render hook.
+- `css/styles.css`: `.ts-*`. One blue for "how much" bars; blue / red around a middle line for better / worse than
+  average (the pair passes the colour-blind separation and contrast checks on the app's dark panel); every bar has
+  its number next to it.
+
+**Tested**
+- `npm test` **142** (new `tests/topstats.test.js` ×5: rows, sorting with missing values, partners / match-ups from
+  the hero's own side, lists, builds).
+- Browser suite **31/31** clean; `tests/e2e/topmodel.e2e.js` now also opens the tab: headline numbers, sort by
+  strength (planted strong hero first) and by second-pick pre-bans (planted hero first), search keeps the focus, hero
+  details (planted partner under "Best with", pick order, builds), the app's own hero card does not open, the lists.
+- Looked at with the 10,615 real games of #45 loaded (not committed): layout fits the page at 1500 px, real names and
+  portraits, plausible content (e.g. one hero pre-banned by 91% of second-pick players).
+- **Not tested:** in the desktop app on Windows with the owner's collection; windows narrower than about 1250 px (the
+  table then scrolls sideways).
+
+**Open**
+- Not shown yet: change over time (pick rate this week against last), the pick policy for a given draft position,
+  my own numbers next to the top players'.
+
+---
+
 ## 2026-11-14 · #46 · Guild War standby page: "no war running, next war in 29 h" is recognised · this commit (previous: `a93acf1`)
 
 **Asked for:** (two screenshots of the standby page: maximized, and in a small window next to the app) "that is the
