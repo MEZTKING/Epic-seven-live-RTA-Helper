@@ -37,6 +37,9 @@
     useSpeed: true,
     useDeny: true,
     sound: true,
+    // which of my matches count (History, what the app learns, opponent profiles): 'all', 'current' (the season
+    // running now, with its pre-season; follows new seasons by itself) or one season code. DEVLOG #48
+    seasonScope: 'all',
     autoRecord: true, // record results detected on screen (as source 'auto')
     useGameHelp: true,
     useKnowledge: true, // hero mechanics from E7DaT's knowledge file (source 'E7DaT knowledge')
@@ -190,6 +193,13 @@
     derive();
   }
 
+  function seasonList() {
+    try {
+      return (JSON.parse(localStorage.getItem('e7-records-seasons') || 'null') || {}).list || [];
+    } catch (_) {
+      return [];
+    }
+  }
   /** Rebuild everything computed from the stored sources. */
   function derive() {
     const official = (store.official || SNAPSHOT).heroes;
@@ -203,7 +213,14 @@
     if (store.settings.useFribbels && store.fribbels) for (const h of store.fribbels.heroes) owned.add(h.code);
     if (store.settings.useManualOwned) for (const c of store.manualOwned) owned.add(c);
     const stars = new Map((store.fribbels ? store.fribbels.heroes : []).map((h) => [h.code, h.stars]));
-    const enabledMatches = store.matches.filter((m) => (store.matchSources[m.source] || {}).enabled !== false);
+    const sourceMatches = store.matches.filter((m) => (store.matchSources[m.source] || {}).enabled !== false);
+    // seasons (js/records.js; the list is cached by js/records-app.js from the official record site)
+    const seasons = seasonList();
+    const seasonOf = (m) => (window.E7Records ? window.E7Records.seasonOfMatch(seasons, m) : m.season || '');
+    const scope = store.settings.seasonScope || 'all';
+    const nowSeason = window.E7Records && seasons.length ? window.E7Records.seasonForDate(seasons, new Date().toISOString()) : null;
+    const scopeCode = scope === 'all' ? '' : scope === 'current' ? (nowSeason ? nowSeason.code : '') : scope;
+    const enabledMatches = scopeCode ? sourceMatches.filter((m) => seasonOf(m) === scopeCode) : sourceMatches;
     const stats = Learn.buildStats(enabledMatches);
     const fdata = store.fribbelsData || FRIB_SNAPSHOT;
     const builds = new Map();
@@ -230,7 +247,7 @@
           .map(([name, m]) => ({ name, rows: m.rows }))
       : [];
     const gameHelp = Learn.gameHelpStats(store.gameHelp, enabledMatches);
-    cache = { heroes, byCode, owned, stars, enabledMatches, stats, fdata, builds, mySpeeds, typedSpeeds, scout, meta, gameHelp };
+    cache = { heroes, byCode, owned, stars, enabledMatches, sourceMatches, seasons, seasonOf, scopeCode, nowSeason, stats, fdata, builds, mySpeeds, typedSpeeds, scout, meta, gameHelp };
   }
 
   function clone(x) {
@@ -1178,14 +1195,55 @@
   });
 
   // =================================================================== history
+  /** History: my record per season, and which season(s) count (for this page and for what the app learns). */
+  function renderSeasons() {
+    const el = $('#hist-season');
+    if (!el) return;
+    const name = (code) => (cache.seasons.find((s) => s.code === code) || { name: code }).name;
+    const by = new Map();
+    for (const m of cache.sourceMatches) {
+      const c = cache.seasonOf(m) || '';
+      if (!by.has(c)) by.set(c, []);
+      by.get(c).push(m);
+    }
+    const order = cache.seasons.map((s) => s.code);
+    const codes = [...by.keys()].sort((x, y) => (x === '' ? 1 : y === '' ? -1 : order.indexOf(y) - order.indexOf(x)));
+    if (codes.length <= 1 && !cache.seasons.length) {
+      el.classList.add('hidden');
+      return;
+    }
+    el.classList.remove('hidden');
+    const scope = store.settings.seasonScope || 'all';
+    const wr = (arr) => pct(arr.filter((m) => m.result === 'win').length, arr.length);
+    const row = (label, arr, on) => `<tr class="${on ? 'sel' : ''}"><td>${label}</td><td>${arr.length}</td><td>${wr(arr)}</td><td>${wr(arr.filter((m) => m.firstPick === 'me'))}</td><td>${wr(arr.filter((m) => m.firstPick === 'opp'))}</td></tr>`;
+    const cur = cache.nowSeason ? cache.nowSeason.code : '';
+    el.innerHTML = `<h3>Seasons</h3>
+      <label class="inline">Count my matches from <select id="hist-season-sel">
+        <option value="all" ${scope === 'all' ? 'selected' : ''}>all seasons</option>
+        ${cur ? `<option value="current" ${scope === 'current' ? 'selected' : ''}>the current season only (${esc(name(cur))}; switches by itself)</option>` : ''}
+        ${codes.filter(Boolean).map((c) => `<option value="${esc(c)}" ${scope === c ? 'selected' : ''}>${esc(name(c))} only</option>`).join('')}
+      </select></label>
+      <span class="hint">This sets what this page shows and what the app learns from your matches ${srcBadge('learned')} (win rates, opponent habits, tuning). A pre-season counts to the season before it.</span>
+      <div class="table-wrap"><table class="mini"><thead><tr><th>Season</th><th>Matches</th><th>Win rate</th><th>When I pick first</th><th>When they pick first</th></tr></thead><tbody>
+        ${codes.map((c) => row(c ? `${esc(name(c))}${c === cur ? ' <span class="hint">(now)</span>' : ''}` : '<span class="hint">season unknown</span>', by.get(c), cache.scopeCode === c)).join('')}
+        ${row('<b>All seasons</b>', cache.sourceMatches, !cache.scopeCode)}
+      </tbody></table></div>
+      ${cache.seasons.length ? '' : '<p class="hint">Season dates come from the official record site (desktop app, Data → Official match records). Until they are known, only matches imported from there carry a season.</p>'}`;
+    $('#hist-season-sel').onchange = (e) => {
+      store.settings.seasonScope = e.target.value;
+      save();
+      render();
+    };
+  }
   function renderHistory() {
+    renderSeasons();
     const ms = cache.enabledMatches;
     const wins = ms.filter((m) => m.result === 'win').length;
     const fp = ms.filter((m) => m.firstPick === 'me');
     const sp = ms.filter((m) => m.firstPick === 'opp');
     const wr = (arr) => pct(arr.filter((m) => m.result === 'win').length, arr.length);
     $('#hist-summary').innerHTML = `
-      <div class="card"><div class="hint">Matches (enabled sources)</div><div class="stat">${ms.length}</div></div>
+      <div class="card"><div class="hint">Matches (enabled sources${cache.scopeCode ? `, ${esc((cache.seasons.find((s) => s.code === cache.scopeCode) || { name: cache.scopeCode }).name)}` : ''})</div><div class="stat">${ms.length}</div></div>
       <div class="card"><div class="hint">Win rate</div><div class="stat">${pct(wins, ms.length)}</div></div>
       <div class="card"><div class="hint">When I pick first</div><div class="stat">${wr(fp)}</div><div class="hint">${gm(fp.length)}</div></div>
       <div class="card"><div class="hint">When they pick first</div><div class="stat">${wr(sp)}</div><div class="hint">${gm(sp.length)}</div></div>`;
@@ -1626,6 +1684,11 @@
     },
     save,
     render,
+    /** The season list changed (js/records-app.js): split the matches again. */
+    rederive() {
+      derive();
+      render();
+    },
     renderDraft,
     nameOf,
     portrait,

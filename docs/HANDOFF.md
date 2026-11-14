@@ -106,8 +106,9 @@ only receive events.
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | IndexedDB `e7-templates` (store `t`, keys `wide`, `round`) | `js/vision/readers/rta-draft.js` | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
 | `localStorage['e7-records']` | `js/records-app.js` | Official record site settings: `me {world, name, nickNo}`, `autoImport`, `autoScout`, `lastImportAt`, `lastImport`, `top {players, at, season, games, rows}` |
+| `localStorage['e7-records-seasons']` | `js/records-app.js` → `js/app.js` | The record site's season list `{ at, list: [{ code, name, start, end }] }` (oldest first), refreshed once a day |
 | `localStorage['e7-records-players']` | `js/records-app.js` | Looked-up players (newest 30, fresh for 12 h): name, server, grade, summary of their last games |
-| IndexedDB `e7-records` (version 2: stores `battles` by `seq`, `players` by `k`, `kv` by `k`) | `js/records-app.js` | Top players' games (parsed rows), the followed players with their newest stored game, and `kv` `model` = `{ sig, stats, at }` (the fitted top-player model, `js/topmodel.js`) |
+| IndexedDB `e7-records` (version 2: stores `battles` by `seq`, `players` by `k`, `kv` by `k`) | `js/records-app.js` | Top players' games (parsed rows), the followed players with their newest stored game, and `kv` `model` = `{ sig, stats, at }` (the fitted top-player model, `js/topmodel.js`) plus `model:<season code>` (one season alone, for the statistics page) |
 | `<userData>/records/users_<world>.json` (desktop) | `desktop/records.js` | The record site's player list per server, re-downloaded after 3 days |
 | `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
 | `localStorage['e7-gw-forts']` | `js/vision/readers/guild-overview.js` → fortress reader, Guild War page | Fortress names per side `{ ours: [3], enemy: [3], side, ourGuild, enemyGuild (this reading only), at }` (read on the overview; also kept on the war record as `forts`) |
@@ -213,7 +214,17 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #47)
+## 7. Status (end of DEVLOG #48)
+
+**Seasons** (DEVLOG #48): season list of the record site cached in `localStorage['e7-records-seasons']`
+(`js/records-app.js`, once a day); `E7Records.seasonTable / seasonForDate / seasonOfMatch`. `js/app.js` `derive()`
+filters `cache.enabledMatches` by `settings.seasonScope` (`all` | `current` | a season code; `cache.sourceMatches` =
+before the season filter, `cache.scopeCode`, `cache.nowSeason`); History card `#hist-season`. `js/records.js` is
+loaded BEFORE `js/app.js` in `rta.html` for this. Top players: `TM.build(rows, { onlySeason })`,
+`E7RecordsApp.modelFor(code)`, selector `#ts-season` on the statistics page.
+**Updates at start:** `desktop/updater.js` (3 s after start, retry, every 6 h, `statusText()` in the menu);
+`js/records-app.js` `autoTop()` (top players' games when older than 6 h; `cfg.top.auto`).
+
 
 **Top players statistics tab** (DEVLOG #47): `rta.html` `#tab-top` / `#top-stats`; tables from `js/topstats.js`
 (`E7TopStats`, pure) over the stored model (`E7RecordsApp.topModel().stats`) and, for builds, the stored games;

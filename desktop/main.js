@@ -420,6 +420,7 @@ function buildMenu() {
         { label: 'Live (overlay & screens)', click: () => main && main.loadURL(`${ORIGIN}/live.html`) },
         { type: 'separator' },
         { label: 'Check for updates…', click: () => updater.check(true) },
+        { label: updater.statusText(), enabled: false },
         { label: `Version ${app.getVersion()} · release notes`, click: () => shell.openExternal(updater.RELEASES) },
         { type: 'separator' },
         { role: 'reload' },
@@ -544,7 +545,7 @@ app.whenReady().then(() => {
   createOverlay();
   createVision();
   buildMenu();
-  updater.init(() => main);
+  updater.init(() => main, () => buildMenu()); // checks at start; the menu line shows when and what it found
   // window mode: start following the game window right away (if it's open)
   if (config.capture && config.capture.mode === 'window') resolveSourceQuiet();
   globalShortcut.register('Ctrl+Shift+O', toggleOverlay);

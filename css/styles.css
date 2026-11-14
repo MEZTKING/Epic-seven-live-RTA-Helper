@@ -541,3 +541,8 @@ dialog.ask-dialog input { width: 100%; }
 .ts-lists h4 .hint { font-weight: 400; font-size: 12px; margin-left: 6px; }
 .ts-table td:first-child { max-width: 215px; overflow: hidden; }
 .ts-table td.ts-n { text-align: right; }
+
+.ts-season { align-items: center; }
+.ts-season .hint { flex: 1; min-width: 260px; margin: 0; }
+#hist-season table.mini tr.sel td { color: var(--accent); }
+#hist-season select { width: auto; }

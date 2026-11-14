@@ -7,6 +7,66 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #48 · Seasons: my matches and the statistics per season; update checks at start (app and top-player games) · this commit (previous: `aae51fb`)
+
+**Asked for:** "and is the rta stuff separated by seasons, also make the check for update happen on startup".
+
+**Findings**
+- Before this change:
+  - top players' model: yes, by season (newest season; games of the season before are mixed in with falling weight
+    until the new one has 10,000 games; a pre-season counts to its season). Nothing on screen said so.
+  - my own matches, what the app learns from them, the History page: **not** separated.
+  - the statistics page: no way to look at one season alone.
+- The app's own update check already ran 10 s after start, but silently: nothing showed that it had happened, and a
+  failed check (no internet yet) was not tried again.
+- Top players' games were only fetched when "Update now" was pressed.
+- The record site's season list has code, name, start and end; games carry their season code (`…f` = pre-season).
+  The real fixture page is from July 2026 with code `pvp_rta_ss20f`, i.e. the pre-season after season 20.
+
+**Changed**
+- Seasons
+  - `js/records.js`: `seasonTable`, `seasonForDate` (the season that started last before a date), `seasonOfMatch`
+    (the site's code when the match has one, else by date); imported matches now keep `season`.
+  - `js/records-app.js`: the season list is fetched once a day and kept in `localStorage['e7-records-seasons']`;
+    `seasons()`, `seasonName()`, `storedSeasons()`, `modelFor(season)` (a model of one season alone, kept in
+    IndexedDB `kv` under `model:<code>`).
+  - `js/app.js` + History tab: new card **Seasons** with my record per season and the choice "count my matches from:
+    all seasons / the current season only (switches by itself) / one season". The choice (`settings.seasonScope`,
+    default: all) sets what History shows **and** what the app learns from my matches.
+  - `js/topmodel.js`: `opts.onlySeason`; `meta.season` now says how many games of the season before are mixed in.
+  - Statistics page and Data tab: a line saying which season the numbers are from and how much of the season before
+    is mixed in; the statistics page can show one stored season alone (needs 400 usable games of it).
+- Update checks at start
+  - `desktop/updater.js`: the app update check runs 3 s after start, again after 5 minutes when it failed (up to 3
+    times) and every 6 hours while the app is open. The menu shows "Last check 14:02: up to date (version)" /
+    "version X is available" / "could not reach the update server" under "Check for updates…". A version answered
+    with "Not now" is not offered again by itself.
+  - `js/records-app.js`: top players' games are fetched by themselves 20 s after start (and every 30 minutes the
+    age is looked at again) when the last update is older than 6 hours. Only after a first update by hand; switch
+    "update when the app starts" on the card. It reads only what is new (usually one page per player).
+
+**Tested**
+- `npm test` **144** (+2: season table / season of a date / of a match; model per season and blending).
+- Browser suite **32/32** clean:
+  - new `tests/e2e/seasons.e2e.js` (stand-in site, clock set to 14 Nov 2026): season list kept; imported matches get
+    `pvp_rta_ss20` from the site's `ss20f`; Seasons card (Fall 2 matches, Summer 13); "Summer only" → 13 matches
+    shown and learned from; "current season" → 2; kept after a restart; update at start: not without a first update
+    by hand, runs when 7 hours old, not when fresh, not when switched off
+  - `tests/e2e/topmodel.e2e.js`: season line ("1,500 games of the season before mixed in at 55% weight"), "Summer
+    2026 only" → 1,500 games, back to the newest
+- Desktop (packaged Linux build): new `tests/desktop/update-check.js`: the menu line goes from "checking at start…"
+  to "Last check <time>: …" without anyone asking; `topmodel`, `newwar` still pass.
+- **Not tested:** the update dialogs on Windows with a real newer release; the season list's real names and time zone
+  (dates are compared as written; a match within hours of a season's start could land in the neighbouring season
+  unless the site gave its code); a real season change.
+
+**Open**
+- Default stays "all seasons" for my own matches, so nothing disappears by surprise; "current season only" is one
+  choice away. Say if the default should be the current season.
+- The stored models are fitted once more after this update (their signature changed).
+
+---
+
 ## 2026-11-14 · #47 · "Top players" statistics page: hero table, hero details, pre-bans, openers, pairs, counters, builds · this commit (previous: `a82ddf3`)
 
 **Asked for:** "can you make a statistics page that shows useful information regarding the stats from top players'
