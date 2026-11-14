@@ -92,9 +92,11 @@ const { autoAsk } = require('./_ask.js');
       const banB = pb[[0, 1, 3, 4][Math.floor(R() * 4)]];
       const ta = pa.filter((h) => h !== banA);
       const tb = pb.filter((h) => h !== banB);
+      // start readiness: the planted opener O is always the fastest; the others by a fixed order (DEVLOG #51)
+      const en = (picks) => Object.fromEntries(picks.map((c) => [c, c === O ? 100 : 50 + codes.indexOf(c)]));
       const z = z1(ta, tb) - z1(tb, ta) + (aFirst ? 0.15 : -0.15);
       const day = `2026-11-${String(1 + Math.floor((g / 6000) * 12)).padStart(2, '0')}`;
-      rows.push({ seq: 'x' + g, day, date: `${day}T10:00:${String(g % 60).padStart(2, '0')}Z`, season: g < 1500 ? 'pvp_rta_ss20' : 'pvp_rta_ss21', rule: '', aGrade: 'legend', bGrade: g % 3 ? 'legend' : 'emperor', aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: 1000 + Math.floor(R() * 150), aWorld: 'world_global', bNick: 2000 + Math.floor(R() * 150), bWorld: 'world_kor', a: { picks: pa, ban: banA, prebans: preA, builds: Object.fromEntries(pa.map((c) => [c, { artifact: g % 4 ? 'art-one' : 'art-two', sets: g % 4 ? ['set_speed', 'set_immune'] : ['set_max_hp', 'set_res'] }])), energy: {} }, b: { picks: pb, ban: banB, prebans: preB, builds: {}, energy: {} } });
+      rows.push({ seq: 'x' + g, day, date: `${day}T10:00:${String(g % 60).padStart(2, '0')}Z`, season: g < 1500 ? 'pvp_rta_ss20' : 'pvp_rta_ss21', rule: '', aGrade: 'legend', bGrade: g % 3 ? 'legend' : 'emperor', aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: 1000 + Math.floor(R() * 150), aWorld: 'world_global', bNick: 2000 + Math.floor(R() * 150), bWorld: 'world_kor', a: { picks: pa, ban: banA, prebans: preA, builds: Object.fromEntries(pa.map((c) => [c, { artifact: g % 4 ? 'art-one' : 'art-two', sets: g % 4 ? ['set_speed', 'set_immune'] : ['set_max_hp', 'set_res'] }])), energy: en(pa) }, b: { picks: pb, ban: banB, prebans: preB, builds: {}, energy: en(pb) } });
     }
     await window.E7RecordsApp._store.addBattles(rows);
     await window.E7RecordsApp.rebuildTop();
@@ -128,6 +130,9 @@ const { autoAsk } = require('./_ask.js');
   console.log(`${names.A} (strong):`, JSON.stringify(await reasonsFor(A)));
   console.log('suggestion list shows the model:', /Top-player model/.test(await p.textContent('#suggest-list')));
   console.log('win chance line:', (await p.textContent('#top-model-line')).replace(/\s+/g, ' ').trim());
+  // turn order (DEVLOG #51): the planted opener O pulls the first turn to my side
+  const oReasons = await reasonsFor(O);
+  console.log(`${names.O} (always the fastest):`, JSON.stringify(oReasons && oReasons.reasons.filter((r) => /move first|first turn/.test(r))));
   // their D on the board -> my E gets a counter warning inside the model reason
   await p.evaluate(([B2, D2, f2]) => window.RTAApp.replaceDraft(window.RTALogic.boardToDraft({ prebans: { me: [], opp: [] }, picks: { me: [B2], opp: [D2, f2] } }, 'me'), { newMatch: true }), [B, D, filler2]);
   await p.waitForTimeout(300);
@@ -181,6 +186,8 @@ const { autoAsk } = require('./_ask.js');
   const lists = await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-lists .card')].map((c) => `${c.querySelector('h4').childNodes[0].textContent.trim()}: ${(c.querySelector('.ts-row') || { textContent: '—' }).textContent.replace(/\s+/g, ' ').trim()}`));
   console.log('lists (first line of each):', JSON.stringify(lists, null, 1));
   await p.click('#ts-close');
+  console.log('turn lists:', JSON.stringify(await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-lists.two .card')].filter((c) => /Moves first|Needs the first turn/.test(c.querySelector('h4').textContent)).map((c) => `${c.querySelector('h4').childNodes[0].textContent.trim()}: ${(c.querySelector('.ts-row') || { textContent: '—' }).textContent.replace(/\s+/g, ' ').trim()}`))));
+  console.log('model check tile:', (await p.evaluate(() => document.querySelectorAll('#top-stats .ts-tile')[3].textContent.replace(/\s+/g, ' ').trim())));
   // my own numbers and the weekly trend (DEVLOG #49)
   await p.evaluate((C2) => {
     const A2 = window.RTAApp;

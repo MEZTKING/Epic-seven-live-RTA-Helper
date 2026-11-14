@@ -53,7 +53,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 - [x] From the top players' games: fitted win-rate model (hero strength + pairs + counters, player skill removed),
   self-check, pick policy, pre-ban and final-ban advice, third-pick ban rule (DEVLOG #45, `js/topmodel.js`).
 - [ ] Still to port from E7DaT (`docs/E7DAT_NOTES.md`):
-  - turn-order model: who moves first, heroes that depend on it (the games' start combat readiness is already stored)
+  - ~~turn-order model~~: done (DEVLOG #51). Open: the correction from my own matches ("I move first more / less often
+    than my heroes suggest"), E7DaT `personal.py`
   - ban forecast (which of my five they ban) and with it the expected value of the final ban
   - similar-team records ("teams sharing 4 of these 5 went 31–12")
   - heroes that need a specific ally; opening-rule effects in the reasons

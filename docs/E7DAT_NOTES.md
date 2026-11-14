@@ -42,7 +42,9 @@ the fit (`_fit`, `_lbfgs`), residual tables for pairs / counters / sides / rules
 `_offsets`, `_estimate`), `_model_part`, the self-check (`_tune` without the turn and bundle steps), per-hero numbers
 and the drafts table (`build`), `DraftModel` (without turn order and needs), `Policy.slot`, `Engine.rows` / `risk` /
 `prebans` / `first_picks` / `bans` (without forecast and bundles).
-**Not ported:** `_turn_model`, `_ban_model`, bundles, `players` / `users` tables, `Policy.pair`, `Engine.pairs`,
+**Ported in DEVLOG #51:** `_turn`, `_turn_model`, the turn terms and step 4 of `_tune`, `ft_logit` / `p_first` /
+`turn_z` / `turn_gain`, `turn_info`, `speed_threats`.
+**Not ported:** `_ban_model`, bundles, `players` / `users` tables, `Policy.pair`, `Engine.pairs`,
 `enemy_likely` / deny, `build_priority`, `plan.py`, `advisor.py`.
 
 - Row weight: `gw[a_grade] · gw[b_grade]` (legend 1.0, emperor 0.6, others dropped); older than the latest

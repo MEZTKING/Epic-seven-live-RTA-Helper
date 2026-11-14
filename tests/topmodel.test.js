@@ -35,6 +35,12 @@ function world(games, seed = 1) {
     if (team.includes('c1004') && other.includes('c1005')) z += 0.9;
     return z;
   };
+  // turn order (DEVLOG #51), from its own random stream: c1008 is the fastest hero by far, c1010 the next; c1007 is
+  // strong with the first turn (+0.8) and weak without it (−0.4); the side that moves first gets +0.2
+  const R2 = rng(seed + 1000);
+  const speed = Object.fromEntries(codes.map((c) => [c, 180 + R2() * 120]));
+  speed.c1008 = 330;
+  speed.c1010 = 312;
   const rows = [];
   for (let g = 0; g < games; g++) {
     const A = players[Math.floor(R() * players.length)];
@@ -76,9 +82,15 @@ function world(games, seed = 1) {
     const banB = pb[[0, 1, 3, 4][Math.floor(R() * 4)]];
     const ta = pa.filter((h) => h !== banA);
     const tb = pb.filter((h) => h !== banB);
-    const z = teamZ(ta, tb) - teamZ(tb, ta) + A.skill - B.skill + (aFirst ? 0.15 : -0.15);
+    const gear = [(R2() - 0.5) * 20, (R2() - 0.5) * 20];
+    const raw = [ta, tb].map((team, k) => Object.fromEntries(team.map((h) => [h, speed[h] + gear[k] + (R2() - 0.5) * 16])));
+    const top = Math.max(...Object.values(raw[0]), ...Object.values(raw[1]));
+    const energy = raw.map((m) => Object.fromEntries(Object.entries(m).map(([h, v]) => [h, Math.round((v / top) * 1000) / 10])));
+    const turn = Math.max(...Object.values(raw[0])) > Math.max(...Object.values(raw[1])) ? 1 : -1;
+    const dep = (team, mine) => (team.includes('c1007') ? (mine ? 0.8 : -0.4) : 0);
+    const z = teamZ(ta, tb) - teamZ(tb, ta) + A.skill - B.skill + (aFirst ? 0.15 : -0.15) + 0.2 * turn + dep(ta, turn > 0) - dep(tb, turn < 0);
     const day = `2026-11-${String(1 + Math.floor((g / games) * 12)).padStart(2, '0')}`;
-    rows.push({ seq: String(g), day, date: day + 'T10:00:00Z', season: 'pvp_rta_ss21', rule: '', aGrade: A.grade, bGrade: B.grade, aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: A.nick, aWorld: A.world, bNick: B.nick, bWorld: B.world, a: { picks: pa, ban: banA, prebans: preA, energy: {} }, b: { picks: pb, ban: banB, prebans: preB, energy: {} } });
+    rows.push({ seq: String(g), day, date: day + 'T10:00:00Z', season: 'pvp_rta_ss21', rule: '', aGrade: A.grade, bGrade: B.grade, aFirst, aWin: R() < 1 / (1 + Math.exp(-z)), aNick: A.nick, aWorld: A.world, bNick: B.nick, bWorld: B.world, a: { picks: pa, ban: banA, prebans: preA, energy: energy[0] }, b: { picks: pb, ban: banB, prebans: preB, energy: energy[1] } });
   }
   return rows;
 }
@@ -224,4 +236,70 @@ test('topmodel: seasons — the season before is mixed in while the new one is s
   // a pre-season code counts to its season
   const pre = ROWS.map((r) => (r.day >= '2026-11-11' ? { ...r, season: 'pvp_rta_ss21f' } : r));
   assert.strictEqual(TM.build(pre, { tune: false }).meta.season.otherGames, 0);
+});
+
+test('topmodel: turn order — who moves first, heroes that depend on it, opener threats (DEVLOG #51)', () => {
+  assert.strictEqual(TM.turnOf({ a: { energy: { x: 100, y: 80 } }, b: { energy: { z: 95 } } }), 1);
+  assert.strictEqual(TM.turnOf({ a: { energy: { x: 90 } }, b: { energy: { z: 100 } } }), -1);
+  assert.strictEqual(TM.turnOf({ a: { energy: {} }, b: { energy: { z: 100 } } }), 0);
+  assert.strictEqual(TM.turnOf({ a: { energy: { x: 100 } }, b: { energy: { z: 100 } } }), 0);
+  // counted and fitted from the games (also without the self-check)
+  const H = STATS.heroes;
+  const bySp = Object.keys(H).filter((c) => H[c].n >= 100).sort((x, y) => H[y].sp - H[x].sp);
+  assert.deepStrictEqual(bySp.slice(0, 2), ['c1008', 'c1010'], `fastest: ${bySp.slice(0, 4)}`);
+  assert.ok(H.c1008.fast > 0.8, `c1008 fastest in ${H.c1008.fast}`);
+  assert.ok(H.c1007.wr1 - H.c1007.wr0 > 0.15, `c1007 with / without the first turn: ${H.c1007.wr1} / ${H.c1007.wr0}`);
+  assert.ok(STATS.meta.ftWin > 0.52, `the first turn wins ${STATS.meta.ftWin}`);
+  const E = new TM.Engine(STATS);
+  assert.ok(E.model.hasTurn);
+  assert.ok(E.model.pFirst(['c1008'], ['c1011']) > 0.85);
+  assert.ok(E.model.pFirst(['c1011'], ['c1008']) < 0.15);
+  assert.ok(Math.abs(E.model.pFirst(['c1011'], ['c1011']) - 0.5) < 1e-9);
+  const ti = E.turnInfo('c1007');
+  assert.ok(ti.dep > 0.15 && ti.n1 >= 15 && ti.n0 >= 15);
+  assert.strictEqual(E.turnInfo('nobody'), null);
+  // rows carry the chance of the first turn before and after the pick
+  const r = E.rows(['c1011'], ['c1012'], [], true, 1, 4);
+  assert.ok(Math.abs(r.pf0 - E.model.pFirst(['c1011'], ['c1012'])) < 1e-12);
+  assert.ok(r.rows.get('c1008').pf > r.pf0 + 0.3);
+  // without the self-check the win rate does not use turn order …
+  assert.strictEqual(STATS.meta.useTurn, false);
+  assert.strictEqual(E.model.turnZ(['c1007', 'c1008'], ['c1011']), 0);
+  // … the self-check measures how well the first turn is called from the draft, and decides
+  const bt = TUNED.meta.backtest;
+  assert.ok(bt.ftAccuracy > 0.7 && bt.ftGames >= 100, JSON.stringify([bt.ftAccuracy, bt.ftGames]));
+  assert.strictEqual(typeof TUNED.meta.useTurn, 'boolean');
+  if (TUNED.meta.useTurn) {
+    const T = new TM.Engine(TUNED);
+    // c1007 is worth more next to the fastest hero than against it
+    const withFast = T.model.gain('c1007', ['c1008'], ['c1011']);
+    const againstFast = T.model.gain('c1007', ['c1011'], ['c1008']);
+    assert.ok(withFast.turn > againstFast.turn, `${withFast.turn} vs ${againstFast.turn}`);
+    assert.ok(Math.abs(withFast.total - (withFast.base + withFast.syn + withFast.ctr + withFast.turn)) < 1e-12);
+    // … and the fastest open hero is listed as a threat to it (the model may book it as a counter, as turn order, or both)
+    assert.ok(T.speedThreats(new Set()).includes('c1008'));
+    const th = T.threats('c1007', new Set(), ['c1011'], [], T.speedThreats(new Set()));
+    assert.ok(th.some((t) => t.code === 'c1008'), JSON.stringify(th.slice(0, 3)));
+    assert.ok(th.every((t) => typeof t.byTurn === 'boolean'));
+  }
+});
+
+test('topmodel: turn order in the suggestion reasons (source "top players")', () => {
+  const L = require('../js/logic.js');
+  const E = new TM.Engine(STATS);
+  const hero = (c) => ({ code: c, name: c.toUpperCase(), element: 'fire', role: 'knight' });
+  const ctx = { topModel: E, nameOf: (c) => c.toUpperCase() };
+  const opts = { side: 'me', first: true, slot: 1, taken: [], rEnemy: 4 };
+  const fast = L.scoreCandidate(hero('c1008'), [hero('c1011')], [hero('c1012')], ctx, opts);
+  const move = fast.reasons.find((r) => /^Your chance to move first: \d+% → \d+%$/.test(r.text));
+  assert.ok(move && move.value > 0 && move.source === 'top players', JSON.stringify(fast.reasons));
+  // c1007 needs the first turn: against the fastest hero it is warned about, next to it it is praised
+  const bad = L.scoreCandidate(hero('c1007'), [hero('c1011')], [hero('c1008')], ctx, opts);
+  const warn = bad.reasons.find((r) => /^Needs the first turn/.test(r.text));
+  assert.ok(warn && warn.value < 0, JSON.stringify(bad.reasons));
+  const good = L.scoreCandidate(hero('c1007'), [hero('c1008')], [hero('c1012')], ctx, opts);
+  assert.ok(good.reasons.some((r) => /^Gets the first turn it needs/.test(r.text) && r.value > 0), JSON.stringify(good.reasons));
+  // predicting the opponent's pick: worded for their side
+  const opp = L.scoreCandidate(hero('c1008'), [hero('c1011')], [hero('c1012')], ctx, { ...opts, side: 'opp' });
+  assert.ok(opp.reasons.some((r) => /^Their chance to move first/.test(r.text)));
 });
