@@ -7,6 +7,61 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #46 · Guild War standby page: "no war running, next war in 29 h" is recognised · this commit (previous: `a93acf1`)
+
+**Asked for:** (two screenshots of the standby page: maximized, and in a small window next to the app) "that is the
+guild war standby page if no guild wars are around, so detect that since there is no guild war for today, war begins
+in 29 hours". The same message showed the record features working on the owner's PC.
+
+**Findings**
+- The standby page has, in the middle from top to bottom: "2026-3 Season", "Guild War Standby", a sentence on a dark
+  band, "War Begins" / "in 29h", then three buttons (Team Formation is green, Battle Log and War Ranking dark).
+  Everything is centred and scales with the picture height, the same in the 2000×1070 screenshot and the small window.
+- The existing overview reader does **not** take this page for an overview ("no shield / swords switch"), so it did
+  not start a war from it. The "started by itself" banner in the owner's screenshot came from an overview read
+  earlier. Nothing closed that war again once the game showed standby: fixed here.
+- A Guild War page opened later used a stored overview reading up to 12 hours old, even when the game had shown the
+  standby page since.
+- Owner's PC (Windows, from the screenshot), first real use of #44: "Find me" found the account on Global, the import
+  read 97 games, the top-player update was at player 33 of 200 with 3,262 games.
+
+**Changed**
+- `js/gwmap.js`: `STANDBY` places, `standbyRect`, `isStandbyTitle`, `standbyMinutes` ("in 29h", "in 1d 5h", "in 45m";
+  mends OCR slips), `greenShare`.
+- `js/vision/readers/guild-standby.js` (new reader; `vision.html`, `live.html`):
+  - every pass, cheap: is the green button where the standby page has it?
+  - then the title must read "Guild War Standby", then the countdown and the season are read
+  - published after two passes agree: `guild:standby { minutes, beginsAt, season, text }`; kept in
+    `localStorage['e7-gw-standby']`; while the page stays open it is read again once a minute
+- `js/guild-app.js` / `guild.html` / `js/guild-watch.js`:
+  - War tab banner `#war-standby`: "No Guild War right now … next war begins in about 29 hours (around <day, time>)",
+    counted down from the reading; gone when a war is started after it or when the time has passed
+  - a war still open is **marked finished** (shared with the guild), with **Undo**; after Undo it is left alone for
+    12 hours
+  - the next war's time is shared in the guild's settings record (`nextWar`), so guildmates see the banner too
+  - a page opened later uses whichever the game showed last: the standby page or an overview
+
+**Tested**
+- `npm test` **137** (+1: title, countdown formats and OCR slips, places at two window sizes, green share).
+- Browser suite **31/31** clean; new `tests/e2e/gw-standby.e2e.js` on the owner's two real screens (new fixtures
+  `steam-gw-standby-wide.jpg` 2000×1070 and `steam-gw-standby-window.jpg`, the small window cut from the desktop
+  screenshot, title bar included):
+  - both read "no war running · next war in 29 h", season 2026-3 (the window one after the title bar is cut from the
+    pixels: 1162×654)
+  - not taken for standby: our overview, a fortress map, the enemy defense screen, the RTA ban screen, the lobby
+  - Guild War page: banner; open war finished + Undo; after Undo another reading leaves it alone; an overview read
+    afterwards starts that war and hides the banner; pages opened later follow the last thing the game showed
+- **Not tested:** live on the owner's PC; other countdown forms ("in 45m", "in 1d 5h" are guesses, only "in 29h" was
+  seen); the game in another language (the title is matched in English).
+
+**Open**
+- The game shows whole hours, so "begins around" can be up to an hour early.
+- What the game shows between "standby" and the war (matching / preparation) is not known yet: a screenshot helps.
+- The banner in the owner's screenshot belongs to a war started from an earlier overview reading; which guild name
+  was read there is not visible. If it was wrong, Undo removes it; the standby page now finishes it either way.
+
+---
+
 ## 2026-11-14 · #45 · Win-rate model, pick policy, ban and pre-ban advice from top players' games (E7DaT's statistical core) · this commit (previous: `bdf7ac4`)
 
 **Asked for:** the rest of "add the record site, all of it": use the collected top-player games the way E7DaT does,

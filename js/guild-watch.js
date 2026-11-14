@@ -145,9 +145,28 @@
       return null;
     }
   };
+  // the standby page (js/vision/readers/guild-standby.js): no war running. Said on the War tab; an open war is
+  // marked finished (with Undo). A stored reading counts when it is newer than the last overview reading.
+  bus.on('guild:standby', (d) => A.standbyFromGame && A.standbyFromGame(d).catch(() => {}));
+  const storedStandby = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem('e7-gw-standby') || 'null');
+      return v && v.at && Date.now() - Date.parse(v.at) < 12 * 3600 * 1000 ? v : null;
+    } catch (_) {
+      return null;
+    }
+  };
   // (the page waits for the guild's records itself; live readings arrive on the bus, so no storage listener: that
   // delivered every reading twice and could start the same war twice)
-  applyForts(stored());
+  const sb = storedStandby();
+  let fortsAt = '';
+  try {
+    fortsAt = (JSON.parse(localStorage.getItem('e7-gw-forts') || 'null') || {}).at || '';
+  } catch (_) { /* none */ }
+  // whichever the game showed last wins: the standby page (the war is over) or an overview (a war is on)
+  if (sb && sb.at > fortsAt) {
+    if (A.standbyFromGame) A.standbyFromGame(sb, sb.at).catch(() => {});
+  } else applyForts(stored());
   // a fortress map seen in game (js/vision/readers/guild-fortress.js): its defenders, editable, saved into this war
   let seenFort = null;
   bus.on('guild:fortress', (d) => {

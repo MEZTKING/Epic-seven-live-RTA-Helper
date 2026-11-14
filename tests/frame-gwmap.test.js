@@ -117,3 +117,32 @@ test('gwmap: the letters of one name, not the snow next to it', () => {
   put(2, 8); // bright snow at the far left, more than 0.35 × height away
   assert.deepEqual(G.letterSpan(m, W, H), [80, 125]);
 });
+
+test('gwmap: standby page (DEVLOG #46) — title, countdown, green button, places for any window size', () => {
+  assert.equal(G.isStandbyTitle('Guild War Standby'), true);
+  assert.equal(G.isStandbyTitle('Guild War Stand by'), true);
+  assert.equal(G.isStandbyTitle('Guild War'), false);
+  assert.equal(G.isStandbyTitle('Standby'), false);
+  assert.equal(G.standbyMinutes('in 29h'), 29 * 60);
+  assert.equal(G.standbyMinutes('War Begins in 29h'), 29 * 60);
+  assert.equal(G.standbyMinutes('In 1d 5h'), 29 * 60);
+  assert.equal(G.standbyMinutes('in 5h 30m'), 330);
+  assert.equal(G.standbyMinutes('in 45m'), 45);
+  assert.equal(G.standbyMinutes('ln 2Sh'), 25 * 60, 'OCR slips in "in" and in the digits are mended');
+  assert.equal(G.standbyMinutes('in'), null);
+  assert.equal(G.standbyMinutes('in 0h'), null);
+  assert.equal(G.standbyMinutes('in 900h'), null);
+  assert.equal(G.standbyMinutes(''), null);
+  // places: centred, sized by the picture height, so a wider window only moves them sideways
+  const a = G.standbyRect('title', 2000, 1070);
+  const b = G.standbyRect('title', 1162, 654);
+  assert.ok(Math.abs(a.x + a.w / 2 - 1000) < 1e-6 && Math.abs(b.x + b.w / 2 - 581) < 1e-6);
+  assert.ok(Math.abs(a.y / 1070 - b.y / 654) < 1e-9 && Math.abs(a.w / 1070 - b.w / 654) < 1e-9);
+  // the green button
+  const W = 40;
+  const H = 10;
+  const px = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < W * H; i++) px.set(i % W < 30 ? [40, 110, 45, 255] : [30, 34, 48, 255], i * 4);
+  assert.ok(Math.abs(G.greenShare(px, W, H, { x: 0, y: 0, w: W, h: H }) - 0.75) < 1e-9);
+  assert.equal(G.greenShare(px, W, H, { x: 30, y: 0, w: 10, h: H }), 0);
+});
