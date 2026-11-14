@@ -27,6 +27,9 @@
   const v = px(1343, 758); // victory fixture
   const g = px(1228, 691); // Guild War enemy-defense file (pixel-measured)
   const ring = (cx, cy) => g(cx - 31, cy - 31, 62, 62); // a round hero icon (gold ring box)
+  // a pre-ban icon: circle centre (fractions) and radius (fraction of the WIDTH) -> its box (E7DaT layout.py)
+  const PB = { cx: [0.3146, 0.3585, 0.4169, 0.46], cy: 0.9438, r: 0.0235 };
+  const pb = (k) => ({ x: PB.cx[k] - PB.r, y: PB.cy - (PB.r * 16) / 9, w: 2 * PB.r, h: (2 * PB.r * 16) / 9 });
   const REF = 16 / 9;
   // anchors: a = 'l' | 'c' | 'r'; alt = other anchors worth trying (not verified on a non-16:9 picture yet)
   const A = (r, a, alt) => ({ ...r, a, ...(alt ? { alt } : {}) });
@@ -36,13 +39,16 @@
       id: 'steam-16x9',
       label: 'Steam client, 16:9',
       aspect: 16 / 9,
-      measured: { draft: 'by eye from chat screenshots', result: 'pixel exact from a real screenshot file' },
+      measured: { draft: 'pre-bans and pick cards: E7DaT (checked on a real screenshot); old pick boxes by eye', result: 'pixel exact from a real screenshot file' },
       regions: {
-        // RTA (anchors guessed from where they sit; no wider RTA screenshot yet)
-        mePreban1: A(d(403, 653, 52, 52), 'c', ['l']),
-        mePreban2: A(d(459, 653, 52, 52), 'c', ['l']),
-        oppPreban1: A(d(537, 653, 52, 52), 'c', ['l']),
-        oppPreban2: A(d(593, 653, 52, 52), 'c', ['l']),
+        // RTA draft: the four pre-ban icons (left two mine, right two the opponent's). Centres and radius measured by
+        // E7DaT (github.com/ohrgon-game/E7DaT, layout.py; 2600×1460 recordings) and checked against the owner's real
+        // BAN screen (DEVLOG #41). The earlier by-eye boxes were ~5% of the height too high. Anchors: no wider RTA
+        // screenshot yet, so readers try the alternatives.
+        mePreban1: A(pb(0), 'c', ['l']),
+        mePreban2: A(pb(1), 'c', ['l']),
+        oppPreban1: A(pb(2), 'c', ['l']),
+        oppPreban2: A(pb(3), 'c', ['l']),
         mePickFirst: A(d(42, 129, 130, 70), 'l'),
         mePickLast: A(d(42, 550, 130, 70), 'l'),
         oppPickFirst: A(d(867, 129, 140, 70), 'r', ['c']),

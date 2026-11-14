@@ -43,12 +43,24 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
 6. Opponent names in Korean / Japanese / Chinese: load those tesseract languages for the name reader; result +/− from the
    arrow colour, not the OCR'd sign.
 
+## From E7DaT (owner supplied the project, DEVLOG #41; notes in docs/E7DAT_NOTES.md)
+- [x] RTA draft read with no calibration: stage texts, pick cards from wide portraits, pre-ban icon positions, first pick.
+- [x] Newest heroes (missing from the official list) from the Fribbels dataset.
+- [ ] **Needs the owner's OK first:** the official record site's lookups (undocumented, imitating the site's own requests):
+  - own RTA match history, exact (picks, bans, pre-bans, first pick, result, speed order)
+  - opponent scouting during a draft; Guild War: an enemy's most-used heroes and speed order from their arena games
+  - top players' statistics → E7DaT-style win-rate model, pick policy, team plans, reasons
+- [ ] Verify on real picking-phase screens: pre-ban icons, hover vs confirmed cards, turn counting (only a BAN screen so far).
+- [ ] Keep computed portrait templates between app starts (now ~460 small downloads on the first draft of a session).
+- [ ] Opening rule (E7DaT reads it on Korean screens only), which hero was banned at the end (faded card).
+- [ ] RTA at a wider window: confirm where the enemy cards and pre-bans sit (alternatives are tried now).
+
 ## Any window size / Guild War fortresses (owner, DEVLOG #38)
 - [x] Any window size: title bar from the pixels, anchored built-in positions, screen signatures from the middle 16:9 part.
 - [x] Guild War: which fortress (Stinger / Darkwood / Vortex) and its defenders' names from the fortress map.
 - [x] Our own side's fortresses (the shield view), fortress names read from the overview, beaten defenders (DEVLOG #39).
 - [ ] Use "beaten" from the map to mark targets cleared / count attacks left (now only shown).
-- [ ] RTA screens at a wider window: verify the anchors of the pre-ban / pick boxes (needs RTA screenshots from the maximized window).
+- [ ] RTA screens at a wider window: verify the anchors (needs RTA screenshots from the maximized window; see the E7DaT section).
 - [x] Enemy defense panel at a wider window: pinned left (DEVLOG #39).
 - [ ] Better name reading (game font): 6–8 of 10 names exact now; corrections are remembered.
 

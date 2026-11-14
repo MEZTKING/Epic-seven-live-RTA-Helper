@@ -4,7 +4,7 @@
   const R = window.RTARoster;
   const G = window.RTAGear;
   const S = window.RTAGearSort;
-  const HEROES = window.RTASources.officialSnapshot.heroes;
+  const HEROES = window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes; // official + newest heroes (fribbels-data)
   const GS = window.GearStore; // shared with the game watcher's gear consumer (storage key 'rta-gear-v1')
   const MAIN_KEY = 'rta-helper-v2'; // the RTA Helper's store (we only update its `fribbels` roster)
   const $ = (s) => document.querySelector(s);

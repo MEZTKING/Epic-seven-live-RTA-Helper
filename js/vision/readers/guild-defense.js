@@ -14,7 +14,7 @@
   const L = window.E7Layouts;
   const R = window.RTARoster;
   if (!V || !F || !L || !R) return;
-  const HEROES = window.RTASources.officialSnapshot.heroes;
+  const HEROES = window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes; // official + newest heroes (fribbels-data)
   const OTHER = /^(gw-map|gw-overview|gw-battle|rta-)/;
   const tpl = [];
   let loading = null;
