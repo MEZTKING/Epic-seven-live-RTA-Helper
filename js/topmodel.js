@@ -1125,6 +1125,65 @@
       }
       return p ? { p, wr, cnt, nDeep, depth } : null;
     }
+    /**
+     * Two of my slots chosen together (a two-pick turn). -> { joint: Map("code1|code2" -> share of similar drafts with
+     * code1 in slot s1 and code2 in slot s2), nDeep }. Same back-off as slot().
+     */
+    pair(meFirst, s1, s2, mine = [], enemy = []) {
+      if (!this.ok) return { joint: new Map(), nDeep: 0 };
+      meFirst = !!meFirst;
+      const T = meFirst ? this.F : this.S;
+      const O = meFirst ? this.S : this.F;
+      const seen = OPP_SEEN[meFirst][Math.min(s1, s2)];
+      const G = this.G;
+      const n = this.n;
+      const m = new Int32Array(G);
+      const mi = mine.map((h) => this.idx.get(h)).filter((i) => i !== undefined);
+      const ei = seen ? enemy.map((h) => this.idx.get(h)).filter((i) => i !== undefined) : [];
+      let maxM = 0;
+      for (let g = 0; g < G; g++) {
+        let c = 0;
+        const o = g * 5;
+        for (const i of mi) {
+          for (let k = 0; k < 5; k++) {
+            if (k !== s1 && k !== s2 && T[o + k] === i) {
+              c++;
+              break;
+            }
+          }
+        }
+        for (const i of ei) {
+          for (let k = 0; k < seen; k++) {
+            if (O[o + k] === i) {
+              c++;
+              break;
+            }
+          }
+        }
+        m[g] = c;
+        if (c > maxM) maxM = c;
+      }
+      let p = null;
+      let nDeep = 0;
+      for (let t = 0; t <= maxM; t++) {
+        const c = new Float64Array(n * n);
+        let nT = 0;
+        for (let g = 0; g < G; g++) {
+          if (m[g] < t) continue;
+          nT += this.w[g];
+          c[T[g * 5 + s1] * n + T[g * 5 + s2]] += this.w[g];
+        }
+        if (nT <= 0) break;
+        if (!p) {
+          p = c;
+          for (let i = 0; i < p.length; i++) p[i] /= nT;
+        } else for (let i = 0; i < p.length; i++) p[i] = (c[i] + K_BACKOFF * p[i]) / (nT + K_BACKOFF);
+        nDeep = nT;
+      }
+      const joint = new Map();
+      if (p) for (let i = 0; i < p.length; i++) if (p[i] > 1e-6) joint.set(`${this.codes[Math.floor(i / n)]}|${this.codes[i % n]}`, p[i]);
+      return { joint, nDeep };
+    }
   }
 
   // ---------------------------------------------------------------- engine
@@ -1314,7 +1373,7 @@
     }
   }
 
-  const api = { DEFAULTS, FORMAT, BAN_GUARD_SLOT, build, select, seasonPlan, turnOf, Model, Policy, Engine, engine: (stats) => (stats && stats.meta && stats.meta.format === FORMAT ? new Engine(stats) : null), _lbfgs: lbfgs, _calib: calib, sigmoid };
+  const api = { DEFAULTS, FORMAT, BAN_GUARD_SLOT, GAIN_WEIGHT, POL_FLOOR, build, select, seasonPlan, turnOf, Model, Policy, Engine, engine: (stats) => (stats && stats.meta && stats.meta.format === FORMAT ? new Engine(stats) : null), _lbfgs: lbfgs, _calib: calib, sigmoid };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7TopModel = api;
 })(typeof self !== 'undefined' ? self : this);

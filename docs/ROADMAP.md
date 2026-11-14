@@ -58,7 +58,8 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
   - ban forecast (which of my five they ban) and with it the expected value of the final ban
   - similar-team records ("teams sharing 4 of these 5 went 31–12")
   - heroes that need a specific ally; opening-rule effects in the reasons
-  - the team planner: whole-team plans looking ahead over the remaining slots, two different plans
+  - ~~the team planner~~: done (DEVLOG #52, `js/teamplan.js`). Open: plans on the in-game overlay, following a plan
+    I chose, "had you built this hero" for heroes I do not own
 - [ ] Model, to confirm with the owner's own collection: fit time on Windows, how the advice reads in a real draft;
   then tune `W.topModel` / `topPolicy` / `topBanned` / `topPreban` in `js/logic.js`.
 - [x] Statistics page RTA → Top players: hero table, details per hero, pre-bans by role, openers, pairs, counters,

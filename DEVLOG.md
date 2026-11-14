@@ -7,6 +7,52 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #52 · Whole-team plans: what to pick now and what to follow it with (E7DaT's planner) · this commit (previous: `6ac61be`)
+
+**Asked for:** "and do everything else" (last item of the list: plans for the whole team instead of one pick at a
+time, with a second plan in case a hero is taken or banned).
+
+**Findings**
+- Read E7DaT `plan.py` in full (587 lines). Its core: candidates per remaining slot, every team from them (up to
+  120,000), a later-slot hero counted only by the chance the enemy has not taken it by then, early picks paying for
+  counters still open, the value of a pick now = mean of the best three teams after it minus leaving it open, rank =
+  top players' pick share × e^(weight × scale × value), two plans (best and clearly different).
+- E7DaT's own measurements, taken over as they are:
+  - valuing a team by the expected 4 v 4 after both bans made plans **worse**; it is switched off there → not ported
+  - of the difference the model sees between options, about a third holds up → the number shown is damped (0.035 ×
+    the difference of the log ranking scores)
+- On the real games of #45: 43,000 teams for five open slots in about 55 ms, 1,000 teams late in the draft in 20 ms.
+  Quick enough to run on every redraw of the draft.
+- Not ported: similar-team records, heroes that need a specific ally, following a plan the user chose, "deny",
+  the correction for heroes I do not own ("had you built it").
+
+**Changed**
+- `js/teamplan.js` (new, pure): `E7TeamPlan.search(engine, { own, enemy, taken, meFirst, pool })` → choices for
+  the pick(s) now and up to two plans, each with the five heroes by slot, and for every later slot the chance the
+  hero is still free plus two stand-ins. With a roster, only heroes I own (when I own enough of them).
+- `js/topmodel.js`: `Policy.pair` (two slots picked together, from similar drafts).
+- Draft tab (`js/app.js`, insights): card **Team plans** on my pick: "Plan A: now X + Y, then Z (86% still free;
+  else A / B) … +2.0 pp" and "Plan B: a different team …". Clicking a hero of "now" picks it.
+- `tests/_world.js`: the made-up test world, now shared by the model and the planner tests.
+
+**Tested**
+- `npm test` **157** (+7: slots per side and turn, a planted pair completed, no taken hero and no hero twice,
+  ranking and shown numbers in the same order, the second plan differs, availability of later picks, only my own
+  heroes, speed, joint pick share of two slots).
+- Browser suite **32/32** clean; `tests/e2e/topmodel.e2e.js`: two plans on the draft tab, Plan A picks the planted
+  partner of my hero now, clicking a planned hero picks it.
+- Desktop (packaged Linux build): `topmodel`, `newwar`, `update-check` pass.
+- Looked at with the real games (screenshot): two full plans after the most common opener, readable in the side
+  column.
+- **Not tested:** in a real draft on the owner's PC; whether following the plans wins more (E7DaT measured +0.6 to
+  +1.0 points for looking ahead at a lower ranking weight, and "hard to say" at the weight used now).
+
+**Open**
+- The plans are not on the in-game overlay yet (only the single-pick suggestions are).
+- The suggestion list (all sources added up) and the plans (top-player model alone) can disagree; both are labelled.
+
+---
+
 ## 2026-11-14 · #51 · Turn order: who moves first, heroes that need the first turn (E7DaT's turn model) · this commit (previous: `094ff73`)
 
 **Asked for:** "and do everything else" (item: use the stored start readiness to say who moves first and warn when

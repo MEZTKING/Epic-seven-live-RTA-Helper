@@ -501,6 +501,23 @@
     const ctx = suggestionContext();
     const v = L.draftView(d);
     const out = [];
+    // whole-team plans from the top-player model (js/teamplan.js; DEVLOG #52): what to pick now and what to follow
+    // it with, looking over all of my remaining slots; a second, clearly different plan in case the first is spoiled
+    const TP = window.E7TeamPlan;
+    if (TP && ctx.topModel && ctx.topModel.ready && step && step.phase === 'pick' && step.player === 'me') {
+      let plan = null;
+      try {
+        plan = TP.search(ctx.topModel, { own: v.picks.me, enemy: v.picks.opp, taken: [...v.prebans.me, ...v.prebans.opp], meFirst: d.firstPick === 'me', pool: cache.owned.size ? cache.owned : null });
+      } catch (_) { /* a plan is extra: suggestions work without it */ }
+      if (plan && plan.plans.length) {
+        const pick = (c) => `<button class="link" data-code="${esc(c)}">${heroChip(c)}</button>`;
+        const sg = (x) => `${x > 0 ? '+' : x < 0 ? '−' : ''}${Math.abs(x).toFixed(1)} pp`;
+        const row = (p, i) => `<div class="plan-row"><b>${i ? 'Plan B' : 'Plan A'}</b> <span class="hint">${i ? 'a different team' : 'best'}</span> now ${p.codes.map(pick).join(' + ')}${p.later.length ? ` <span class="hint">then</span> ${p.later.map((l) => `${heroChip(l.code)}${l.avail < 0.9 ? `<span class="hint" title="Chance that the opponent has not taken it by then (from what top players pick in between)">${Math.round(l.avail * 100)}% still free</span>` : ''}${l.alts.length ? `<span class="hint">(else ${l.alts.map((c) => esc(nameOf(c))).join(' / ')})</span>` : ''}`).join(' <span class="hint">·</span> ')}` : ''}
+          <span class="score" title="Against the usual pick of top players at this spot. Shown cautiously: about a third of what the model sees">${sg(p.pp)}</span></div>`;
+        out.push(`<div class="ins plan" id="team-plans"><h4>Team plans ${srcBadge('top players')}</h4>${plan.plans.map(row).join('')}
+          <span class="why">Looked at ${plan.n.toLocaleString()} teams for your ${plan.now.length + plan.later.length} open ${plan.now.length + plan.later.length === 1 ? 'slot' : 'slots'}${plan.mineOnly ? ', only heroes you own' : ''}. A hero planned for later counts by the chance it is still free; one picked early pays for counters still open. The third pick cannot be banned.</span></div>`);
+      }
+    }
     if (step && step.phase === 'pick' && step.player === 'me') {
       const pairs = L.suggestPairs(d, cache.heroes, ctx);
       if (pairs.length) {
