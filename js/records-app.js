@@ -436,7 +436,7 @@
     const bt = m.backtest && m.backtest.n ? m.backtest : null;
     const ss = m.season;
     const seasonNote = ss ? ` Season: <b>${esc(seasonName(ss.code))}</b>${ss.otherGames ? ` (${(m.games - ss.otherGames).toLocaleString()} games) with ${ss.otherGames.toLocaleString()} games of the season before mixed in at ${Math.round(ss.blend * 100)}% weight until the new season has ${TM.DEFAULTS.seasonMinGames.toLocaleString()} games` : ', games of other seasons are not used'}.` : '';
-    return `<b>Win-rate model</b> fitted on ${m.games.toLocaleString()} games (newest ${esc(m.latestDay || '')}; hero strength with player skill taken out, pairs, counters, first pick). ${bt ? `Check on the ${bt.n.toLocaleString()} newest games it was not shown: it named the winner in <b>${Math.round(bt.accuracy * 100)}%</b> (a coin: 50%). Drafts decide only part of a match, so this number stays modest.` : 'Too few games for its self-check yet, so its numbers are kept cautious.'}${seasonNote}`;
+    return `<b>Win-rate model</b> fitted on ${m.games.toLocaleString()} games (newest ${esc(m.latestDay || '')}; hero strength with player skill taken out, pairs, counters, first pick). ${bt ? `Check on the ${bt.n.toLocaleString()} newest games it was not shown: it named the winner in <b>${Math.round(bt.accuracy * 100)}%</b> (a coin: 50%). Drafts decide only part of a match, so this number stays modest.${bt.ftAccuracy ? ` Who moves first it called right in <b>${Math.round(bt.ftAccuracy * 100)}%</b>${m.useTurn ? '; turn order is part of its win rates' : '; turn order did not improve its win rates on these games, so it is shown but not counted in them'}.` : ''}` : 'Too few games for its self-check yet, so its numbers are kept cautious.'}${seasonNote}`;
   }
   function renderCard(msg) {
     const el = $('#records-card-body');
@@ -538,11 +538,14 @@
     const theirs = v.picks.opp.filter((c) => !v.postbans.me.includes(c));
     const wr = M.winrate(mine, theirs, meFirst);
     let extra = '';
+    // who moves first, from the heroes alone (equal gear assumed)
+    const pf = M.model.hasTurn && mine.length && theirs.length ? M.model.pFirst(mine, theirs) : null;
+    const first = pf === null ? '' : ` · you move first in about <b>${Math.round(pf * 100)}%</b>`;
     if (v.picks.me.length === 5 && v.picks.opp.length === 5 && !v.postbans.me.length && !v.postbans.opp.length) {
       const b = M.bans(v.picks.me, v.picks.opp, meFirst);
       if (b.rows.length) extra = ` · best ban <b>${esc(hero(b.rows[0].code))}</b> (${b.rows[0].pp > 0 ? '+' : '−'}${Math.abs(b.rows[0].pp).toFixed(1)} pp)${b.theirBan ? `, they will likely ban your <b>${esc(hero(b.theirBan))}</b>` : ''}`;
     }
-    el.innerHTML = `<span class="src top">top players</span> Model: <b>${Math.round(wr * 100)}%</b> win chance for you with the board as it stands${extra} <small>(${M.meta.games.toLocaleString()} top-player games, equal skill and gear assumed)</small>`;
+    el.innerHTML = `<span class="src top">top players</span> Model: <b>${Math.round(wr * 100)}%</b> win chance for you with the board as it stands${first}${extra} <small>(${M.meta.games.toLocaleString()} top-player games, equal skill and gear assumed)</small>`;
     el.classList.remove('hidden');
   }
   async function scout(name, force) {

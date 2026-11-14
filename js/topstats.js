@@ -14,6 +14,7 @@
  *   builds(rows, opt)                  -> Map code -> { games, list: [{ artifact, sets[], n, wins, share }] }
  *   trends(rows, opt)                  -> { from, mid, to, gamesNow, gamesBefore, heroes: Map code -> { now, before, delta } } | null
  *   sameBuild(mine, top)               -> { sets, artifact } do my sets / artifact match a top-player build (names)
+ *   turnLists(stats, opt)              -> { fastest: [{ code, fast, cr }], needs: [{ code, wr1, wr0, dep, n1, n0 }] }
  */
 (function (root) {
   'use strict';
@@ -27,6 +28,9 @@
       heroes: Object.values((stats && stats.heroes) || {}).filter((h) => h.n > 0).length,
       latestDay: m.latestDay || '',
       firstPickWr: m.firstPickWr === undefined ? null : m.firstPickWr,
+      firstTurnWr: m.ftWin === undefined ? null : m.ftWin, // how often the side with the first turn wins
+      turnCheck: bt && bt.ftAccuracy ? { accuracy: bt.ftAccuracy, n: bt.ftGames } : null, // first turn called from the draft alone
+      useTurn: !!m.useTurn,
       season: m.season ? m.season.code : '',
       check: bt ? { n: bt.n, accuracy: bt.accuracy, logloss: bt.logloss, coin: bt.coinLogloss, bins: bt.bins || [] } : null,
     };
@@ -56,6 +60,9 @@
         slot: h.slot || [0, 0, 0, 0, 0],
         cr: h.cr === undefined ? null : h.cr,
         fast: h.fast === undefined ? null : h.fast,
+        tf: h.tf === undefined ? null : h.tf,
+        wr1: (h.n1 || 0) >= 15 && (h.n0 || 0) >= 15 ? h.wr1 : null,
+        wr0: (h.n1 || 0) >= 15 && (h.n0 || 0) >= 15 ? h.wr0 : null,
       });
     }
     return out;
@@ -197,7 +204,20 @@
     return { sets: !!norm(mine.sets) && norm(mine.sets) === norm(top.sets), artifact: !!art(mine.artifact) && art(mine.artifact) === art(top.artifact) };
   }
 
-  const api = { overview, heroes, sortRows, partners, matchups, topPairs, topCounters, prebans, openers, builds, trends, sameBuild };
+  /**
+   * Turn order (DEVLOG #51): who is the fastest of all ten most often, and who depends most on its side having the
+   * first turn (win rate with it minus without it; both from at least opt.minGames = 30 games).
+   */
+  function turnLists(stats, opt = {}) {
+    const k = opt.k || 8;
+    const min = opt.minGames || 30;
+    const H = Object.entries((stats && stats.heroes) || {}).filter(([, h]) => h.cr !== undefined);
+    const fastest = H.filter(([, h]) => (h.n1 || 0) + (h.n0 || 0) >= min && h.fast >= 0.05).map(([code, h]) => ({ code, fast: h.fast, cr: h.cr })).sort((x, y) => y.fast - x.fast).slice(0, k);
+    const needs = H.filter(([, h]) => (h.n1 || 0) >= min && (h.n0 || 0) >= min).map(([code, h]) => ({ code, wr1: h.wr1, wr0: h.wr0, dep: h.wr1 - h.wr0, n1: Math.round(h.n1), n0: Math.round(h.n0) })).filter((x) => x.dep > 0.03).sort((x, y) => y.dep - x.dep).slice(0, k);
+    return { fastest, needs };
+  }
+
+  const api = { overview, heroes, sortRows, turnLists, partners, matchups, topPairs, topCounters, prebans, openers, builds, trends, sameBuild };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7TopStats = api;
 })(typeof self !== 'undefined' ? self : this);

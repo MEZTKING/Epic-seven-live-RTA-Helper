@@ -211,6 +211,8 @@
     topPolicy: 3, // x min(1, share of similar top-player drafts with this hero in this slot / 15%)
     topBanned: 3, // x (how often it gets banned when picked − 25%), outside the third pick
     topPreban: 10, // x share of top players who pre-ban it
+    topFirstTurn: 2, // x change of my chance to move first (0.5 when the model's win rate already includes turn order)
+    topTurnDep: 6, // x (win rate with − without the first turn) x how far my chance of it is from 50%
   };
   const MIN_SHOW = 0.3; // hide tiny learned effects from the reason list
 
@@ -317,6 +319,7 @@
       if (row) {
         const M = TMdl.model;
         const parts = [`hero ${sg(M.pp(row.gain.base))}`];
+        if (Math.abs(M.pp(row.gain.turn || 0)) >= 0.5) parts.push(`turn order ${sg(M.pp(row.gain.turn))}`);
         for (const p of [...row.gain.pairs].sort((x, y) => Math.abs(y.v) - Math.abs(x.v)).slice(0, 3)) {
           if (Math.abs(M.pp(p.v)) >= 0.5) parts.push(`${p.kind === 'syn' ? 'with' : 'vs'} ${nm(p.code)} ${sg(M.pp(p.v))}`);
         }
@@ -327,7 +330,18 @@
           push(Math.min(1, row.pol / 0.15) * W.topPolicy, `Top players pick it at this spot in ${pct(row.pol)} of similar drafts`, 'top players');
         }
         if (row.counters.length && row.riskPp >= 0.5) {
-          push(-row.riskPp * W.topModel, `Still open against it: ${row.counters.map((c) => nm(c.code)).join(', ')} (−${row.riskPp.toFixed(1)} pp risk)`, 'top players');
+          push(-row.riskPp * W.topModel, `Still open against it: ${row.counters.map((c) => nm(c.code) + (c.byTurn ? ' (moves before it)' : '')).join(', ')} (−${row.riskPp.toFixed(1)} pp risk)`, 'top players');
+        }
+        // who moves first (DEVLOG #51): this pick's pull on the first turn, and heroes that live or die by it
+        if (row.pf !== null && row.pf0 !== null && row.pf !== undefined) {
+          const who = opts.side === 'opp' ? 'Their' : 'Your';
+          const d = row.pf - row.pf0;
+          if (Math.abs(d) >= 0.08) push(d * (M.useTurn ? 0.5 : W.topFirstTurn), `${who} chance to move first: ${pct(row.pf0)} → ${pct(row.pf)}`, 'top players');
+          const ti = TMdl.turnInfo(hero.code);
+          if (ti && ti.dep !== null && ti.dep >= 0.1 && Math.abs(row.pf - 0.5) >= 0.1) {
+            const v2 = ti.dep * (row.pf - 0.5) * W.topTurnDep * (M.useTurn ? 0.25 : 1);
+            push(v2, row.pf < 0.5 ? `Needs the first turn (wins ${pct(ti.wr1)} with it, ${pct(ti.wr0)} without); ${who.toLowerCase()} side would have it in about ${pct(row.pf)}` : `Gets the first turn it needs (about ${pct(row.pf)}; wins ${pct(ti.wr1)} with it, ${pct(ti.wr0)} without)`, 'top players');
+          }
         }
         if (opts.side === 'me' && slot !== null && slot !== 2 && row.qban >= 0.4) {
           push(-(row.qban - 0.25) * W.topBanned, `Banned in ${pct(row.qban)} of top players' games when picked`, 'top players');

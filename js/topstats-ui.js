@@ -59,7 +59,7 @@
       ${t('Games in use', o.games.toLocaleString(), `both players Legend / Emperor, newest ${esc(o.latestDay)}`)}
       ${t('Players seen', info.players ? info.players.toLocaleString() : '—', `${o.heroes} different heroes played`)}
       ${t('First pick wins', pct(o.firstPickWr, 1), 'of games where the first pick is known')}
-      ${t('Model check', o.check ? pct(o.check.accuracy) : '—', o.check ? `winner named in ${o.check.n.toLocaleString()} games it had not seen (a coin: 50%)` : 'too few games for the self-check yet')}
+      ${t('Model check', o.check ? pct(o.check.accuracy) : '—', o.check ? `winner named in ${o.check.n.toLocaleString()} games it had not seen (a coin: 50%)${o.turnCheck ? `; who moves first: ${pct(o.turnCheck.accuracy)} right` : ''}` : 'too few games for the self-check yet')}
     </div>`;
   }
 
@@ -113,7 +113,7 @@
         <div><h4>Worse with</h4>${effList(P.worst, 'with')}</div>
         <div><h4>Good against</h4>${effList(M.good, 'against')}</div>
         <div><h4>Struggles against</h4>${effList(M.bad, 'against')}</div>
-        <div><h4>When it is picked</h4>${slots}</div>
+        <div><h4>When it is picked</h4>${slots}${row.tf !== null ? `<div class="hint ts-turn">Fastest of all ten in ${pct(row.fast)} of its games; its side moves first in ${pct(row.tf)}.${row.wr1 !== null ? ` With the first turn it wins <b>${pct(row.wr1)}</b>, without it <b>${pct(row.wr0)}</b>.` : ''}</div>` : ''}</div>
         <div><h4>How top players build it</h4>${builds}</div>
         <div><h4>You</h4>${me(row, B)}</div>
       </div>
@@ -173,7 +173,15 @@
     const pairs = TS.topPairs(stats, model);
     const ctr = TS.topCounters(stats, model);
     const duo = (list, sep) => list.map((x) => `<div class="ts-row"><span class="ts-duo">${chip(x.a)}<span class="hint">${sep}</span>${chip(x.b)}</span><span class="ts-eff">${div(x.pp, 8, `${sg(x.pp)} pp · ${x.n} games`)}</span><span class="ts-n">${x.n}</span></div>`).join('') || '<div class="hint">Needs more games.</div>';
-    return `<div class="ts-lists">
+    const TL = TS.turnLists(stats);
+    const o2 = TS.overview(stats);
+    const turnCards = TL.fastest.length
+      ? `<div class="ts-lists two">
+      <div class="card"><h4>Moves first <span class="hint">share of its games it was the fastest of all ten${o2.firstTurnWr ? ` · the side that moves first wins ${pct(o2.firstTurnWr, 1)}` : ''}</span></h4>${TL.fastest.map((x) => `<div class="ts-row">${chip(x.code)}${bar(x.fast, 1, pct(x.fast), `average start readiness ${x.cr}%`)}</div>`).join('')}</div>
+      <div class="card"><h4>Needs the first turn <span class="hint">win rate when its side moves first → when it does not · games</span></h4>${TL.needs.map((x) => `<div class="ts-row">${chip(x.code)}<span class="ts-eff">${div(x.dep * 100, 40, `wins ${pct(x.wr1)} with the first turn (${x.n1} games), ${pct(x.wr0)} without (${x.n0})`)}</span><span class="ts-n ts-was">${pct(x.wr1)} → ${pct(x.wr0)}</span></div>`).join('') || '<div class="hint">Needs more games.</div>'}</div>
+    </div>`
+      : '';
+    return `${turnCards}<div class="ts-lists">
       <div class="card"><h4>Pre-bans with the first pick</h4>${rate(pf, mp)}</div>
       <div class="card"><h4>Pre-bans when picking second</h4>${rate(ps, mp)}</div>
       <div class="card"><h4>Opening picks</h4>${rate(op, Math.max(0.01, ...op.map((x) => x.rate)))}</div>

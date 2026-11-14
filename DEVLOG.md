@@ -7,6 +7,54 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #51 · Turn order: who moves first, heroes that need the first turn (E7DaT's turn model) · this commit (previous: `094ff73`)
+
+**Asked for:** "and do everything else" (item: use the stored start readiness to say who moves first and warn when
+the enemy can out-speed a hero that needs the first turn).
+
+**Findings**
+- Ported from E7DaT `stats.py` (`_turn`, `_turn_model`, the turn terms of `_fit` / `_residual_pass` / `_offsets`,
+  step 4 of `_tune`) and `model.py` (`ft_logit`, `p_first`, `turn_z`, `turn_gain`), `recommend.py` (`turn_info`,
+  `speed_threats`, threats by turn).
+- The first turn = the side with the highest start combat readiness of all ten heroes. The model for it is its own
+  logistic fit: a speed effect per hero, the players' own gear speed in the player terms, plus match-ups between
+  heroes that often move first.
+- **On the real games of #45** (6,734 usable):
+  - who moves first is called right from the draft alone in **89%** of 1,104 unseen games
+  - the two heroes that are the fastest of all ten in 98% and 94% of their games come out on top, and the match-up
+    table says which of the two moves before the other, as E7DaT describes
+  - the side that moves first wins 52.6%
+  - several heroes win about 60% when their side moves first and about 30% when it does not
+  - adding turn order to the win-rate model did **not** improve its predictions on this sample (log-loss 0.6803 with,
+    0.6797 without), so the self-check left it out of the win rates. It decides again at every fit; the owner's
+    collection is 3.5 times bigger. Shown either way.
+- Fit time with the full search: 4.1 s for 6,734 games (was 2.7 s), in the background worker.
+
+**Changed**
+- `js/topmodel.js` (stored format 2: fitted once more after the update): `turnOf`, `turnModel`; turn terms in
+  `fit`, `residualPass`, `step`, `offsets`, `estimate`; the self-check measures how well the first turn is called
+  and whether turn order helps the win rate (`meta.useTurn`, `ftCalib`, `backtest.ftAccuracy`); per hero `sp`,
+  `t1`, `t0`, `fast`, `tf`, `wr1`, `wr0`, `n1`, `n0`; `Model.ftLogit / pFirst / turnZ / turnGain` (inside `gain` and
+  `logit` when in use); `Engine.turnInfo`, `speedThreats`, threats that take the first turn away; candidate rows
+  carry `pf0` / `pf`.
+- `js/logic.js` (source `top players`): "Your chance to move first: 37% → 100%", "Needs the first turn (wins 64%
+  with it, 29% without); your side would have it in about 20%", "Gets the first turn it needs …", "(moves before
+  it)" on open counters, "turn order ±x" inside the model's win-chance reason when it is in use.
+- Draft tab: "… you move first in about X%". Data tab: how well the first turn is called and whether it is counted.
+- Statistics page: lists "Moves first" and "Needs the first turn", a line in the hero details, the model-check tile.
+
+**Tested**
+- `npm test` **150** (+2: `turnOf`, planted fastest heroes found, a planted hero that needs the first turn, chance of
+  the first turn, rows, threats, the reasons for my side and for the opponent's).
+- Browser suite **32/32** clean; `tests/e2e/topmodel.e2e.js`: the planted opener's reason, the draft line, the turn
+  lists, the tile ("who moves first: 87% right").
+- Desktop: `tests/desktop/topmodel.js` (worker, stored, reused).
+- Real games: see Findings.
+- **Not tested:** with the owner's 23,888 games; equal gear is assumed (a much faster or slower account shifts all
+  of this; E7DaT corrects for it with one's own match history, not ported).
+
+---
+
 ## 2026-11-14 · #50 · Guild War: reminder before the next war; enemies marked beaten from the fortress map · this commit (previous: `fd71a7a`)
 
 **Asked for:** "and do everything else" (Guild War part of the list: a reminder shortly before a war begins, targets
