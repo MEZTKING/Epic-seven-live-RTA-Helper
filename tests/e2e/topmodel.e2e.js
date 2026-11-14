@@ -181,6 +181,23 @@ const { autoAsk } = require('./_ask.js');
   const lists = await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-lists .card')].map((c) => `${c.querySelector('h4').childNodes[0].textContent.trim()}: ${(c.querySelector('.ts-row') || { textContent: '—' }).textContent.replace(/\s+/g, ' ').trim()}`));
   console.log('lists (first line of each):', JSON.stringify(lists, null, 1));
   await p.click('#ts-close');
+  // my own numbers and the weekly trend (DEVLOG #49)
+  await p.evaluate((C2) => {
+    const A2 = window.RTAApp;
+    const codes = A2.cache.heroes.slice(20, 30).map((h) => h.code);
+    for (let i = 0; i < 6; i++) A2.store.matches.push({ id: 'me' + i, source: 'manual', date: `2026-11-0${i + 1}T10:00:00Z`, result: i < 4 ? 'win' : 'loss', opponent: 'X', firstPick: 'me', myPrebans: [], oppPrebans: [], myPicks: [C2, ...codes.slice(0, 4)], oppPicks: codes.slice(5, 10), notes: '' });
+    A2.save();
+    window.E7TopStatsUI.render();
+  }, C);
+  await p.click('#top-stats th[data-sort=myGames]');
+  console.log('sorted by my own matches:', JSON.stringify(await p.evaluate(() => { const tr = document.querySelector('#top-stats .ts-table tbody tr'); return [tr.children[0].textContent.trim(), tr.lastElementChild.textContent.trim()]; })));
+  await p.click(`#top-stats .ts-table tr[data-ts="${C}"]`);
+  await p.waitForSelector('#ts-detail');
+  console.log('details, "You":', ((await p.textContent('#ts-detail')).replace(/\s+/g, ' ').match(/You\s*Your matches.{0,150}/) || ['missing'])[0]);
+  await p.click('#ts-close');
+  const mv = await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-lists.two')][0].textContent.replace(/\s+/g, ' ').trim());
+  console.log('trend lists:', mv.slice(0, 200));
+  console.log('trend column filled:', await p.evaluate(() => [...document.querySelectorAll('#top-stats .ts-table tbody tr')].filter((tr) => !/—/.test(tr.children[2].textContent)).length), 'rows');
   // seasons (DEVLOG #48): what the numbers are from, and one season alone
   console.log('season line:', (await p.textContent('#top-stats .ts-season')).replace(/\s+/g, ' ').trim().slice(0, 330));
   await p.selectOption('#ts-season', 'pvp_rta_ss20');

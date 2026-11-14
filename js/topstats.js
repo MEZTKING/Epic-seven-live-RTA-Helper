@@ -12,6 +12,8 @@
  *   prebans(stats, role, k)            -> most pre-banned as 'first' | 'second' | 'any'
  *   openers(stats, k)                  -> what first-pick players open with
  *   builds(rows, opt)                  -> Map code -> { games, list: [{ artifact, sets[], n, wins, share }] }
+ *   trends(rows, opt)                  -> { from, mid, to, gamesNow, gamesBefore, heroes: Map code -> { now, before, delta } } | null
+ *   sameBuild(mine, top)               -> { sets, artifact } do my sets / artifact match a top-player build (names)
  */
 (function (root) {
   'use strict';
@@ -155,7 +157,47 @@
     return out;
   }
 
-  const api = { overview, heroes, sortRows, partners, matchups, topPairs, topCounters, prebans, openers, builds };
+  /**
+   * What changed lately: each hero's pick rate in the newest `days` days against the `days` before them (games between
+   * Legend / Emperor players, plain counts). null when either window has fewer than opt.minGames (default 150) games.
+   * delta is in share of games (0.03 = three points more).
+   */
+  function trends(rows, opt = {}) {
+    const days = opt.days || 7;
+    const grades = opt.grades || ['legend', 'emperor'];
+    const list = (rows || []).filter((r) => r && r.day && r.a && r.b && grades.includes(r.aGrade) && grades.includes(r.bGrade));
+    let to = '';
+    for (const r of list) if (r.day > to) to = r.day;
+    if (!to) return null;
+    const back = (n) => new Date(Date.parse(to + 'T00:00:00Z') - n * 86400000).toISOString().slice(0, 10);
+    const mid = back(days - 1); // first day of the newer window
+    const from = back(2 * days - 1);
+    const cnt = [new Map(), new Map()];
+    const games = [0, 0];
+    for (const r of list) {
+      if (r.day < from) continue;
+      const k = r.day >= mid ? 0 : 1;
+      games[k]++;
+      for (const side of [r.a, r.b]) for (const c of side.picks || []) if (c) cnt[k].set(c, (cnt[k].get(c) || 0) + 1);
+    }
+    if (games[0] < (opt.minGames || 150) || games[1] < (opt.minGames || 150)) return null;
+    const heroesMap = new Map();
+    for (const c of new Set([...cnt[0].keys(), ...cnt[1].keys()])) {
+      const now = (cnt[0].get(c) || 0) / games[0];
+      const before = (cnt[1].get(c) || 0) / games[1];
+      heroesMap.set(c, { now, before, delta: now - before });
+    }
+    return { from, mid, to, days, gamesNow: games[0], gamesBefore: games[1], heroes: heroesMap };
+  }
+
+  /** Does my build (set names, artifact name) match one top-player build (set names, artifact name)? */
+  function sameBuild(mine, top) {
+    const norm = (list) => [...(list || [])].map((x) => String(x).trim().toLowerCase()).filter(Boolean).sort().join('+');
+    const art = (x) => String(x || '').trim().toLowerCase();
+    return { sets: !!norm(mine.sets) && norm(mine.sets) === norm(top.sets), artifact: !!art(mine.artifact) && art(mine.artifact) === art(top.artifact) };
+  }
+
+  const api = { overview, heroes, sortRows, partners, matchups, topPairs, topCounters, prebans, openers, builds, trends, sameBuild };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7TopStats = api;
 })(typeof self !== 'undefined' ? self : this);

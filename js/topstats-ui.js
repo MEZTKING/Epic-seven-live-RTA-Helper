@@ -41,6 +41,7 @@
   const COLS = [
     { key: 'name', label: 'Hero', tip: 'Click a hero for partners, counters, pick order and builds' },
     { key: 'pick', label: 'Picked', tip: 'Share of games in which a player picked it' },
+    { key: 'trend', label: 'Trend', tip: 'Change of its pick rate: the newest 7 days against the 7 days before, in points' },
     { key: 'wr', label: 'Win rate', tip: 'Plain win rate when it played (not banned). Good players inflate it for their favourite heroes' },
     { key: 'pp', label: 'Strength', tip: 'The model\'s hero effect in percentage points of win rate, with the players\' skill taken out. 0 = an average, often picked hero' },
     { key: 'prebanFirst', label: 'Pre-ban · 1st pick', tip: 'Share of players WITH the first pick who pre-ban it' },
@@ -49,6 +50,7 @@
     { key: 'banned', label: 'Banned when picked', tip: 'How often it is the hero the opponent bans at the end (the third pick can never be banned)' },
     { key: 'fast', label: 'Moves first', tip: 'Share of its games in which it had the highest combat readiness of all ten heroes at the start' },
     { key: 'games', label: 'Games', tip: 'Weighted games it played in (recent games count more)' },
+    { key: 'myGames', label: 'Me', tip: 'My own matches with it (History; the season choice there applies) and my win rate with it' },
   ];
 
   function tiles(o, info) {
@@ -66,12 +68,14 @@
     const maxPre = Math.max(0.01, ...rows.map((r) => Math.max(r.prebanFirst || 0, r.prebanSecond || 0)));
     const maxFirst = Math.max(0.01, ...rows.map((r) => r.first));
     const maxPp = Math.max(1, ...rows.map((r) => Math.abs(r.pp || 0)));
+    const maxTrend = Math.max(2, ...rows.map((r) => Math.abs(r.trend || 0)));
     const head = COLS.map((c) => `<th data-sort="${c.key}" title="${esc(c.tip)}" class="${view.sort === c.key ? 'sorted' : ''}">${esc(c.label)}${view.sort === c.key ? (view.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('');
     const body = rows
       .map(
         (r) => `<tr data-ts="${esc(r.code)}" class="${view.hero === r.code ? 'sel' : ''}">
         <td>${chip(r.code)}</td>
         <td>${bar(r.pick, maxPick, pct(r.pick), `${name(r.code)}: picked in ${pct(r.pick, 1)} of games`)}</td>
+        <td>${r.trend === null ? '<span class="ts-none">—</span>' : div(r.trend, maxTrend, `${name(r.code)}: picked in ${pct(r.trendNow, 1)} of the newest week's games, ${pct(r.trendBefore, 1)} the week before`)}</td>
         <td>${r.wr === null ? '<span class="ts-none">—</span>' : div((r.wr - 0.5) * 100, 15, `${name(r.code)}: ${pct(r.wr, 1)} plain win rate`).replace(/<span class="ts-num">[^<]*<\/span>/, `<span class="ts-num">${pct(r.wr)}</span>`)}</td>
         <td>${div(r.pp, maxPp, `${name(r.code)}: ${sg(r.pp)} pp (first-pick side ${sg(r.ppFirst)}, second-pick side ${sg(r.ppSecond)})`)}</td>
         <td>${bar(r.prebanFirst, maxPre, pct(r.prebanFirst), `${pct(r.prebanFirst, 1)} of first-pick players pre-ban ${name(r.code)}`)}</td>
@@ -80,6 +84,7 @@
         <td>${bar(r.banned, 1, pct(r.banned), `Banned at the end in ${pct(r.banned, 1)} of the games it was picked`)}</td>
         <td>${bar(r.fast, 1, pct(r.fast), r.cr === null ? '' : `Fastest of all ten in ${pct(r.fast, 1)} of its games · average start readiness ${r.cr}%`)}</td>
         <td class="ts-n">${Math.round(r.games).toLocaleString()}</td>
+        <td class="ts-me" title="${r.myGames ? esc(`You: ${r.myGames} matches with ${name(r.code)}, ${r.myWins} won · top players win ${pct(r.wr)} with it`) : ''}">${r.myGames ? `${r.myGames} · ${pct(r.myWins / r.myGames)}` : '<span class="ts-none">—</span>'}</td>
       </tr>`,
       )
       .join('');
@@ -110,8 +115,52 @@
         <div><h4>Struggles against</h4>${effList(M.bad, 'against')}</div>
         <div><h4>When it is picked</h4>${slots}</div>
         <div><h4>How top players build it</h4>${builds}</div>
+        <div><h4>You</h4>${me(row, B)}</div>
       </div>
       <p class="hint">“Best with” and “against” show what is left after the heroes' own strength and the players' skill are taken out, in percentage points of win rate; the grey number is games together. Small samples are pulled towards 0.</p>
+    </div>`;
+  }
+
+  /** A hero's detail: my own record with it and my build next to the top players' builds. */
+  function me(row, B) {
+    const A = App();
+    if (!A) return '';
+    const N = RA().names;
+    const out = [];
+    const total = A.cache.stats ? A.cache.stats.games : 0;
+    if (row.myGames) {
+      const mine = row.myWins / row.myGames;
+      out.push(`<div class="ts-row"><span class="ts-lab">Your matches with it <span class="hint">(${row.myGames} of ${total})</span></span>${div((mine - 0.5) * 100, 25, `${row.myWins} of ${row.myGames} won`).replace(/<span class="ts-num">[^<]*<\/span>/, `<span class="ts-num">${pct(mine)}</span>`)}</div>`);
+      if (row.wr !== null && row.myGames >= 5) out.push(`<div class="hint">Top players win ${pct(row.wr)} with it${Math.abs(mine - row.wr) >= 0.08 ? (mine > row.wr ? ': you do better than they do.' : ': you do worse than they do; compare the build and the partners above.') : ', about the same as you.'}</div>`);
+    } else out.push(`<div class="hint">${total ? `Not in any of your ${total} matches.` : 'No matches of your own yet (History).'}</div>`);
+    const b = A.cache.builds && A.cache.builds.get(row.code);
+    if (b && b.itemCount) {
+      const mineB = { sets: b.sets || [], artifact: b.artifact || '' };
+      out.push(`<div class="ts-row"><span class="ts-build">Your build <span class="src fribbels">gear</span>: <b>${esc(mineB.artifact || 'no artifact')}</b> · ${esc(mineB.sets.join(' / ') || 'no full set')}${b.speed ? ` · ${b.speed} speed` : ''}</span></div>`);
+      if (B && B.list.length) {
+        const hit = B.list.map((t) => ({ t, m: TS.sameBuild(mineB, { sets: t.sets.map(N.set), artifact: N.artifact(t.artifact) }) })).find((x) => x.m.sets);
+        const top = B.list[0];
+        out.push(hit
+          ? `<div class="hint">✓ Same sets as ${pct(hit.t.share)} of top players${hit.m.artifact ? ', same artifact' : `; they pair them with <b>${esc(N.artifact(hit.t.artifact))}</b>`}.</div>`
+          : `<div class="hint">≠ Different from what top players use most: <b>${esc(N.artifact(top.artifact))}</b> · ${esc(top.sets.map(N.set).join(' / '))} (${pct(top.share)}).</div>`);
+      }
+    } else if (A.cache.owned && A.cache.owned.has(row.code)) out.push('<div class="hint">You own it; no gear known for it (import gear.txt or read it with the Gear page).</div>');
+    return out.join('');
+  }
+
+  /** What moved: the biggest changes of the pick rate, newest week against the week before. */
+  function movers() {
+    const T = cache.trends;
+    if (!cache.builds) return '';
+    if (!T) return '<p class="hint">Trend: needs at least 150 games in each of the last two weeks.</p>';
+    const all = [...T.heroes.entries()].map(([code, t]) => ({ code, ...t })).filter((x) => Math.max(x.now, x.before) >= 0.02);
+    const up = [...all].sort((x, y) => y.delta - x.delta).filter((x) => x.delta > 0.004).slice(0, 8);
+    const down = [...all].sort((x, y) => x.delta - y.delta).filter((x) => x.delta < -0.004).slice(0, 8);
+    const max = Math.max(2, ...all.map((x) => Math.abs(x.delta * 100)));
+    const row = (x) => `<div class="ts-row">${chip(x.code)}<span class="ts-eff">${div(x.delta * 100, max, `${pct(x.now, 1)} now, ${pct(x.before, 1)} the week before`)}</span><span class="ts-n ts-was">${pct(x.before)} → ${pct(x.now)}</span></div>`;
+    return `<div class="ts-lists two">
+      <div class="card"><h4>Picked more this week <span class="hint">${esc(T.mid)} to ${esc(T.to)} against the 7 days before · points of pick rate</span></h4>${up.map(row).join('') || '<div class="hint">Nothing moved up.</div>'}</div>
+      <div class="card"><h4>Picked less this week <span class="hint">${T.gamesNow.toLocaleString()} games now, ${T.gamesBefore.toLocaleString()} before</span></h4>${down.map(row).join('') || '<div class="hint">Nothing moved down.</div>'}</div>
     </div>`;
   }
 
@@ -164,6 +213,7 @@
     }
     const season = engine.meta.season && engine.meta.season.only ? engine.meta.season.code : '';
     cache = { engine, rows: null, builds: TS.builds(season ? rows.filter((r) => RA().seasonOfRow(r) === season) : rows, { since }), players: players.size };
+    cache.trends = TS.trends(season ? rows.filter((r) => RA().seasonOfRow(r) === season) : rows);
     storedSeasons = await RA().storedSeasons();
   }
 
@@ -203,11 +253,20 @@
       loadExtras(engine).then(render).catch(() => {});
     }
     const o = TS.overview(stats);
-    let rows = TS.heroes(stats, model).map((r) => ({ ...r, name: name(r.code) }));
+    const mineOf = (c) => {
+      const h = App() && App().cache.stats ? App().cache.stats.hero.get(c) : null;
+      return h && h.mine.games ? { myGames: h.mine.games, myWins: h.mine.wins } : { myGames: 0, myWins: 0 };
+    };
+    const withMe = (r) => {
+      const t = cache.trends && cache.trends.heroes.get(r.code);
+      return { ...r, name: name(r.code), ...mineOf(r.code), trend: t ? t.delta * 100 : null, trendNow: t ? t.now : null, trendBefore: t ? t.before : null };
+    };
+    let rows = TS.heroes(stats, model).map(withMe);
     const q = view.q.trim().toLowerCase();
     rows = rows.filter((r) => (q ? r.name.toLowerCase().includes(q) : r.games >= view.min || r.prebanAny >= 0.05));
     rows = TS.sortRows(rows, view.sort, view.sort === 'name' ? -view.dir : view.dir);
-    const sel = view.hero ? TS.heroes(stats, model).find((r) => r.code === view.hero) : null;
+    const selRaw = view.hero ? TS.heroes(stats, model).find((r) => r.code === view.hero) : null;
+    const sel = selRaw ? withMe(selRaw) : null;
     const keep = document.activeElement && document.activeElement.id === 'ts-q' ? document.activeElement.selectionStart : null;
     el.innerHTML = `
       <p class="hint"><span class="src top">top players</span> From the games collected on the official record site (Data tab). Bars show how much; blue / red around the middle line show better / worse than average. Hover a number for details, click a column to sort, click a hero for more.</p>
@@ -218,6 +277,7 @@
         <label class="inline">At least <select id="ts-min">${[10, 50, 150, 400].map((n) => `<option ${view.min === n ? 'selected' : ''}>${n}</option>`).join('')}</select> games</label>
         <span class="hint">${rows.length} heroes</span></div>
       ${table(rows)}
+      ${movers()}
       ${lists(stats, model)}`;
     if (keep !== null) {
       const box = $('#ts-q');

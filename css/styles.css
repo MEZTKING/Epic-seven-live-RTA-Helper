@@ -546,3 +546,8 @@ dialog.ask-dialog input { width: 100%; }
 .ts-season .hint { flex: 1; min-width: 260px; margin: 0; }
 #hist-season table.mini tr.sel td { color: var(--accent); }
 #hist-season select { width: auto; }
+
+/* statistics page: wider than the other tabs (12 columns), my own numbers, trends (DEVLOG #49) */
+#tab-top.active { width: min(1420px, calc(100vw - 32px)); position: relative; left: 50%; transform: translateX(-50%); }
+.ts-me { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ts-row .ts-was { width: 96px; }
