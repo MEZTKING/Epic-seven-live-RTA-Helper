@@ -7,6 +7,63 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #42 · Hero mechanics as a suggestion source: RTA reasons, hero card, Guild War warnings (E7DaT knowledge) · this commit (previous: `202ee25`)
+
+**Asked for:** "Anything work in the meantime, work on that" (while the owner decides about the official record site).
+Chosen: the part of E7DaT that needs no outside lookups, its bundled hero knowledge.
+
+**Findings**
+- E7DaT's `assets/knowledge.json` (MIT, frozen 2026-11-14) holds:
+  - mechanic tags for 272 heroes (38 tags, e.g. "blocks Souls", "revive", "front-line guard", "turn catch")
+  - 23 rules "tag A blocks tag B" with an English sentence for each side
+  - per hero and rule, how much more top players pick the blocker in that spot and how the victim's win rate changes
+    (from 40,300 Legend/Emperor games)
+  - the builds top players use (artifact + sets, share, start CR) for 56 heroes; the 12 usual openers
+- Its build strings are Korean; the file's own tables translate every artifact and set (nothing left untranslated).
+- E7DaT's filters matter:
+  - a caution is dropped when the victim still does well against that mechanic, or when top players don't avoid that
+    opponent
+  - artifact-based rules only count for hero pairs the records single out
+  - Without those the notes would be noisy (81 heroes have "extra turns").
+- The game text in it is derived tags and short paraphrases; the few lines that closely paraphrase in-game effect text
+  (artifact effects, exclusive equipment, `needs.why`) are not shown as text in the app. Artifact names are shown.
+
+**Changed**
+- `tools/make-e7dat-knowledge.py` → `js/sources/e7dat-knowledge.js` (English only, 36 kB).
+- `js/knowledge.js` (new, pure): `mechanics`, `versus`, `notesFor`, `threats`, `builds`, `opener`.
+- RTA:
+  - `scoreCandidate` takes `ctx.knowledge`: reasons (my pick shuts down theirs; "top players pick it N× more here" when
+    the records say so) and cautions (theirs shut mine down, with the pp when it is large), capped at +2 / −2.4
+  - source label **E7DaT knowledge** on each; its own switch in Data → Suggestion sources (`useKnowledge`, on by
+    default) and its own weight group
+- Hero card (all pages): "Mechanics and top-player builds" block with the source and its date.
+- Guild War:
+  - every open defense team shows "Watch for: front-line guard (Boss Arunka) · blocks Souls (Belian) …"
+  - the attack window lists what the defense does to the heroes typed in and what they do to it
+- Docs: SOURCES (row 8 extended), HANDOFF, ROADMAP, E7DAT_NOTES.
+
+**Tested**
+- `npm test` **121**. New `tests/knowledge.test.js`:
+  - each filter on a small made-up set (proven reason, proven caution, victim does well, not avoided, strict pair only,
+    contradicted reason, non-warning rule)
+  - the suggestion engine adds labelled notes; weight 0 switches them off
+  - the real file: Boss Arunka's front line vs Kawerik's single-target skill, and no Korean left in builds
+- New `knowledge.e2e.js`:
+  - RTA with Boss Arunka picked by the opponent: suggestion rows carry "E7DaT knowledge" reasons (e.g. Desert Jewel
+    Basar "Turns barriers into damage (vs Boss Arunka) · top players pick it 6× more here"); switched off → none
+  - hero cards of Boss Arunka (front-line guard; Proof of Valor / Crown of Glory + Immunity + Protection, 32% each) and
+    Zio (opener)
+  - Guild War defense card "Watch for: …"; attack window: "⚠ Kawerik: Boss Arunka: single-target key skill can't
+    reach past the front line", "✓ Ruele of Light: … (vs Zio) · top players pick it 1.5× more here"
+- Browser suite **28/28** clean.
+- **Not tested:** whether the weights (+0.6 / +1.0 per reason, −0.8 / −1.2 per caution) sit well next to the owner's
+  notes in real drafts; they can be scaled with the source's weight.
+
+**Open:** the knowledge is a snapshot of November 2026 (new heroes after that have no tags); E7DaT's "needs an ally"
+table and per-pair counter lists aren't used yet.
+
+---
+
 ## 2026-11-14 · #41 · RTA draft read with no calibration (from E7DaT); newest heroes added to the roster · this commit (previous: `1d192f8`)
 
 **Asked for:** the owner supplied `E7DaT-main.zip`: "Use this to help you create the perfect application. Especially for rta

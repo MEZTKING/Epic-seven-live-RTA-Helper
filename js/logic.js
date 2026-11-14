@@ -169,6 +169,7 @@
    *   speed    { mine: Map code->speed (your gear), player: Map, all: Map code->{speed,n} (scouting) }
    *   deny     false to turn off "also strong for them"
    *   sourceWeights { [group]: multiplier }  see SOURCE_GROUPS
+   *   knowledge     { notesFor(code, allies, enemies) } hero mechanics (js/knowledge.js), or null
    *   gameHelp { live: { phase, player, recs[] } | null, stats: RTALearn.gameHelpStats() | null }
    */
   const TIER_SCORE = { S: 3, A: 2, B: 1, C: 0, '': 0 };
@@ -202,7 +203,7 @@
    * whole group (1 = normal, 0 = off) — e.g. the values "Tune from my matches"
    * finds. Meta sources are named 'meta: <dataset>' and share the 'meta' weight.
    */
-  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny', 'game help'];
+  const SOURCE_GROUPS = ['my notes', 'learned', 'game rule', 'presets', 'player', 'meta', 'speed', 'deny', 'game help', 'E7DaT knowledge'];
   const groupOf = (source) => (source.startsWith('meta') ? 'meta' : source);
 
   function noteOf(ctx, code) {
@@ -335,6 +336,24 @@
           const n = (gh.stats.with.get(a.code) || new Map()).get(hero.code) || 0;
           if (n >= 2) push(W.gameHelpWith * Math.min(n, 5), `Game recommended it with ${a.name} ${n}×`, 'game help');
         }
+      }
+    }
+
+    // hero mechanics (ctx.knowledge = js/knowledge.js, source 'E7DaT knowledge'): what this hero shuts down on their
+    // side, and what on their side shuts this hero down. Reasons and cautions only, capped at about ±2.
+    if (ctx.knowledge && enemies.length) {
+      const n = ctx.knowledge.notesFor(hero.code, allies, enemies);
+      let good = 0;
+      let bad = 0;
+      for (const g of n.good) {
+        const v = Math.max(0, Math.min(g.value, 2 - good));
+        good += v;
+        push(v, g.text, 'E7DaT knowledge');
+      }
+      for (const b of n.bad) {
+        const v = Math.min(0, Math.max(b.value, -2.4 - bad));
+        bad += v;
+        push(v, b.text, 'E7DaT knowledge');
       }
     }
 
