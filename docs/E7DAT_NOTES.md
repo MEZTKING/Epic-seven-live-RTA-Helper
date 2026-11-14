@@ -44,6 +44,8 @@ and the drafts table (`build`), `DraftModel` (without turn order and needs), `Po
 `prebans` / `first_picks` / `bans` (without forecast and bundles).
 **Ported in DEVLOG #51:** `_turn`, `_turn_model`, the turn terms and step 4 of `_tune`, `ft_logit` / `p_first` /
 `turn_z` / `turn_gain`, `turn_info`, `speed_threats`.
+**Ported in DEVLOG #52 (`js/teamplan.js`):** the core of `plan.py` (`search`, `_alt`, `_show`, the plan part of
+`_detail`) and `Policy.pair`; without the ban-aware value (off in E7DaT), bundles, needs, `_follow`, deny.
 **Not ported:** `_ban_model`, bundles, `players` / `users` tables, `Policy.pair`, `Engine.pairs`,
 `enemy_likely` / deny, `build_priority`, `plan.py`, `advisor.py`.
 

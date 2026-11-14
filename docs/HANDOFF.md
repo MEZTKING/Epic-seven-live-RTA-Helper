@@ -233,6 +233,10 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
 
+**Team plans** (DEVLOG #52): `js/teamplan.js` (`E7TeamPlan.search(engine, { own, enemy, taken, meFirst, pool })`,
+pure; uses `Engine.rows` per slot, `Policy.slot / pair`); shown by `renderInsights` in `js/app.js` (`#team-plans`)
+on my pick turns when a model exists.
+
 **Turn order** (DEVLOG #51): `js/topmodel.js` format 2: `turnOf`, `turnModel`, `meta.useTurn / ftCalib`, heroes
 `sp / t1 / t0 / fast / tf / wr1 / wr0`, `stats.ftPair`; `Model.pFirst / turnZ`, `Engine.turnInfo / speedThreats`;
 reasons in `js/logic.js` (`W.topFirstTurn`, `W.topTurnDep`); draft line and statistics lists.

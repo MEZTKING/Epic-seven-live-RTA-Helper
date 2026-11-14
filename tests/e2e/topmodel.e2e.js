@@ -130,6 +130,16 @@ const { autoAsk } = require('./_ask.js');
   console.log(`${names.A} (strong):`, JSON.stringify(await reasonsFor(A)));
   console.log('suggestion list shows the model:', /Top-player model/.test(await p.textContent('#suggest-list')));
   console.log('win chance line:', (await p.textContent('#top-model-line')).replace(/\s+/g, ' ').trim());
+  // whole-team plans (DEVLOG #52): I hold B, two picks now, two later
+  await p.waitForSelector('#team-plans');
+  const plans = await p.evaluate(() => [...document.querySelectorAll('#team-plans .plan-row')].map((r) => r.textContent.replace(/\s+/g, ' ').trim()));
+  console.log('team plans:', JSON.stringify(plans, null, 1));
+  console.log(`  plan A picks ${names.C} now (pairs with my ${names.B}):`, new RegExp('now[^·]*' + names.C).test(plans[0] || ''), '· two plans:', plans.length === 2, '·', (await p.textContent('#team-plans .why')).replace(/\s+/g, ' ').trim().slice(0, 90));
+  await p.click('#team-plans .plan-row button[data-code]');
+  await p.waitForTimeout(300);
+  console.log('  clicking a planned hero picks it:', await p.evaluate(() => window.RTALogic.draftView(window.RTAApp.store.draft).picks.me.length), 'picks on my side');
+  await p.evaluate(([B2, f, f2]) => window.RTAApp.replaceDraft(window.RTALogic.boardToDraft({ prebans: { me: [], opp: [] }, picks: { me: [B2], opp: [f, f2] } }, 'me'), { newMatch: true }), [B, filler, filler2]);
+  await p.waitForTimeout(300);
   // turn order (DEVLOG #51): the planted opener O pulls the first turn to my side
   const oReasons = await reasonsFor(O);
   console.log(`${names.O} (always the fastest):`, JSON.stringify(oReasons && oReasons.reasons.filter((r) => /move first|first turn/.test(r))));

@@ -551,3 +551,9 @@ dialog.ask-dialog input { width: 100%; }
 #tab-top.active { width: min(1420px, calc(100vw - 32px)); position: relative; left: 50%; transform: translateX(-50%); }
 .ts-me { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ts-row .ts-was { width: 96px; }
+
+/* draft tab: whole-team plans (DEVLOG #52) */
+.plan-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 5px 0; }
+.plan-row .hchip { margin: 0; }
+.plan-row .hint { margin: 0; font-size: 12px; }
+.plan-row .score { margin-left: auto; color: var(--accent); font-variant-numeric: tabular-nums; }
