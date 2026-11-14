@@ -103,3 +103,16 @@ test('wintrack: no failure is reported after stop()', () => {
   assert.strictEqual(sp.calls[0].ps.killed, true);
   assert.deepStrictEqual(got, []);
 });
+
+test('desktop build: every local file main.js / preload.js loads is in the package list (DEVLOG #44)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = path.join(__dirname, '..', 'desktop');
+  const files = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).build.files;
+  const need = new Set();
+  for (const f of ['main.js', 'preload.js', 'updater.js', 'wintrack.js', 'records.js']) {
+    need.add(f);
+    for (const m of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/require\('\.\/([\w-]+)'\)/g)) need.add(m[1] + '.js');
+  }
+  assert.deepStrictEqual([...need].filter((f) => !files.includes(f)), [], 'missing from desktop/package.json build.files: the packaged app would not start');
+});

@@ -105,6 +105,10 @@ only receive events.
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | IndexedDB `e7-templates` (store `t`, keys `wide`, `round`) | `js/vision/readers/rta-draft.js` | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
+| `localStorage['e7-records']` | `js/records-app.js` | Official record site settings: `me {world, name, nickNo}`, `autoImport`, `autoScout`, `lastImportAt`, `lastImport`, `top {players, at, season, games, rows}` |
+| `localStorage['e7-records-players']` | `js/records-app.js` | Looked-up players (newest 30, fresh for 12 h): name, server, grade, summary of their last games |
+| IndexedDB `e7-records` (stores `battles` by `seq`, `players` by `k`) | `js/records-app.js` | Top players' games (parsed rows) and the followed players with their newest stored game |
+| `<userData>/records/users_<world>.json` (desktop) | `desktop/records.js` | The record site's player list per server, re-downloaded after 3 days |
 | `localStorage['e7-window-frame']` | `js/game-area.js` (`windowFrame`) → `overlay.html` | Where the game is inside the captured window `{x,y,w,h}` fractions (title bar cut), so the overlay lines up at any window size |
 | `localStorage['e7-gw-forts']` | `js/vision/readers/guild-overview.js` → fortress reader, Guild War page | Fortress names per side `{ ours: [3], enemy: [3], side, ourGuild, enemyGuild (this reading only), at }` (read on the overview; also kept on the war record as `forts`) |
 | `localStorage['e7-gw-dismissed']` | `js/guild-app.js` | `{ enemyGuild: time }`: wars you undid after they were started from the game; not started again by themselves for 5 days |
@@ -127,7 +131,8 @@ only receive events.
 **Source labels used in the app:** `official`, `custom`, `fribbels`, `fribbels-data`, `my notes`, `learned`, `game rule`,
 `presets`, `player`, `meta: <name>`, `speed`, `deny`, `scouting`, `game help`, `ceciliabot`, `guild`, `my speeds`,
 `my corrections` / `auto-learned` (recognition templates), `screen` (screen-read gear), and match sources
-`manual` / `auto` / `import:<name>`.
+`manual` / `auto` / `import:<name>` / `official record`; suggestion sources `E7DaT knowledge`, `top players`,
+`official record`.
 
 ## 5. How the main flows work
 
@@ -205,7 +210,23 @@ only receive events.
 - **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
 - After a change, run both, and add a devlog entry with what was tested and what wasn't.
 
-## 7. Status (end of DEVLOG #43)
+## 7. Status (end of DEVLOG #44)
+
+**Official record site** (DEVLOG #44; desktop app only):
+- Transport `desktop/records.js` in the main process (allowed lookups only, serial, 0.35 s apart, retries; player lists
+  cached 3 days in `<userData>/records/users_<world>.json`), IPC `e7:records` → `E7Desktop.records {game, find, status}`.
+  A new main-process file must be listed in `desktop/package.json` `build.files` (unit test guards this).
+- Pure part `js/records.js` (`E7Records`: `parseBattle`, `toMatch`, `summary`, `crawl`, `toStatsMatches`); page part
+  `js/records-app.js` (`E7RecordsApp`; tests replace the transport with `window.__e7RecordsTest`).
+- Flows: RTA → Data → Official match records (find me, import → match source `official record`, deduped by
+  `recordSeq` / twin of an app-recorded match); draft tab `#records-opp` (opponent looked up 1.5 s after the name is
+  known; my server first); auto import at start and 4 / 12 min after `rta:draft-end`; top players → statistics
+  (`RTALearn.buildStats` over Legend / Emperor games of the last 60 days) → `ctx.topStats`; `ctx.recordProfile` for the
+  opponent's habits; Guild War enemy card "Arena record".
+- Settings `useTopPlayers`, `useRecordProfile`; source groups 'top players', 'official record'.
+- Live check (real site, public data): `tests/desktop/records-live.js` (not in the regular suites).
+- **Not ported:** E7DaT's fitted win-rate model, pick policy and planner (`docs/E7DAT_NOTES.md`).
+
 
 **Faces:** `RTAFaces.isConfident` also accepts score ≥ 0.86 with lead ≥ 0.07 (default call only). With the newest heroes
 in the roster the real Guild War enemy screen reads 6/6. Hero-picture templates are cached in IndexedDB `e7-templates`.
@@ -223,8 +244,6 @@ time (list in `js/sources/wide-portraits.js`, `tools/update-wide-list.py`). **Ro
 + heroes only the Fribbels dataset has (`source: 'fribbels-data'`, `js/sources/all-heroes.js`, `RTARoster.extraHeroes`).
 Draft model: unseen pre-bans are placeholders (`RTALogic.UNSEEN`, skipped by `draftView`). Displayed portraits are plain
 `<img>` (no `crossorigin`); pixel reading uses `PORTRAIT_URL_CORS` / the asset repo.
-**Waiting for the owner:** official record site lookups (own match history, opponent scouting, top-player statistics):
-see `docs/E7DAT_NOTES.md` "Data pipeline".
 
 **Wars start by themselves** (DEVLOG #40): the overview reader also reads both guild names (`gwOurGuild`, `gwEnemyGuild`;
 two readings must agree, ≥ 3 characters) → `guild:forts {…, enemyGuild}` → `GuildApp.warFromGame`: selects the active war

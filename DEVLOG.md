@@ -7,6 +7,88 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-14 · #44 · Official record site: own match history, opponent scouting, Guild War player lookup, top-player statistics · this commit (previous: `580527b`)
+
+**Asked for:** "yes add the record site, all of it and what details did you need i can send them now" (the owner's OK
+for the lookups that waited since #41).
+
+**Findings** (checked against the live site on 2026-11-14, public data only)
+- The site (epic7.onstove.com/gg) reads its data with `POST https://e7api.onstove.com/gameApi/<name>?…&lang=en`; the
+  server wants the site's `Origin` / `Referer` headers. Undocumented. Used: `getSeasonList`,
+  `getWorldUserRankingDetail` (10 rows per page, top 100), `getBattleList` (10 games per page, a player's last 100).
+- A player is addressed by a **number** (`nick_no`) plus server. Name → number comes from one public file per server
+  (`static-pubcomm.onstove.com/gameRecord/epic7/epic7_user_<world>.json`; Global 17 MB, Asia 12 MB, Korea 4.8 MB,
+  Europe 4 MB, Japan 1.5 MB). So a name never has to be sent anywhere: the file is downloaded and searched on the PC.
+- One game holds: both sides' 5 picks in pick order, the banned hero, pre-bans, first pick, result, both grades,
+  every hero's artifact and gear sets, and the combat readiness each hero started with (speed order).
+- The Fall 2026 season ended today: the current (pre-season) ranking is empty, so the top players come from the
+  season before.
+- A new main-process file must be in `desktop/package.json`
+  `build.files` or the installed app does not start. Missed at first, caught by the packaged-app test; now a unit test.
+
+**Changed**
+- `desktop/records.js` (new, main process): the only place that talks to the record site. Fixed list of allowed
+  lookups and parameters, one request at a time 0.35 s apart, retries with growing waits, the server's player list
+  cached for 3 days in the app's data folder. Bridge: `ipcMain` `e7:records` (only for the app's own pages) →
+  `E7Desktop.records { game, find, status }` in `desktop/preload.js`.
+- `js/records.js` (new, pure): `parseBattle`, `toMatch` (a game as one of the app's matches), `summary` (a player's
+  habits), `crawl` (ranking → players → their games, opponents at Legend / Emperor join the queue, only pages newer
+  than what is stored), `toStatsMatches` (one entry per game, both players Legend / Emperor, last 60 days).
+- `js/records-app.js` (new):
+  - **RTA → Data → Official match records**: server + in-game name → "Find me" → "Import my matches now" (last 100
+    games). Stored as match source **`official record`** (switchable like every source). A game the app already
+    recorded itself (within 3 hours, same heroes) is not added twice. Options: import after each match (4 and 12
+    minutes after a draft ends, and at start), look up my opponent during a draft.
+  - **Draft tab**: the opponent's name (read from the screen or typed) is looked up on my server first, then the
+    others → panel `#records-opp`: grade, win rate, most picked, pre-bans, first picks, usually fastest; for every hero
+    they have on the board: artifact + sets they use and the combat readiness it starts with.
+  - **Top players**: "Update now" follows 100–400 players (default 200) and builds statistics from games where both
+    players are Legend / Emperor. Kept in IndexedDB `e7-records`.
+- `js/logic.js`: two new, separately labelled sources in `scoreCandidate`:
+  - **`top players`** (`ctx.topStats`, from 30 games on): hero win rate, win rate against an enemy pick, with an ally,
+    pick rate. Switch: Suggestion sources → "Top players' games".
+  - **`official record`** (`ctx.recordProfile`): "Name picked it in X% of their last N arena games" when predicting the
+    opponent's pick. Switch: "Opponent's official record".
+- `js/guild-app.js`: enemy cards get **Arena record** (desktop only): the player's arena habits, and how the heroes of
+  their defense are built in the arena. Labelled as arena data (a Guild War build can differ).
+- `desktop/package.json`: `records.js` added to the packaged files.
+
+**Bugs found and fixed while building**
+- Packaged app did not start (`Cannot find module './records'`): file list, see above; guarded by
+  `tests/desktop.test.js`.
+- Top-player statistics counted every game twice and the pick rate was halved → one entry per game.
+- Opponent panel did not appear when the name was typed (typing does not redraw the draft) → listens to the field too.
+
+**Tested**
+- `npm test` **128** (new: `tests/records.test.js` ×6: parsing one real page of games, match conversion, summary,
+  seasons, crawl against a fake site, transport against a local server incl. retries and the refused lookup,
+  suggestion reasons; `tests/desktop.test.js` +1 package list).
+- Browser suite **29/29** clean; new `tests/e2e/records.e2e.js` against a stand-in site serving one real page of games
+  (names replaced): import 10 → again 0 new; opponent found on Korea after Global / Europe / Asia; reason "Rival01
+  picked it in 80% of their last 10 arena games (+4)"; build line "A Symbol of Unity + Might / Speed (4 of 8 games) ·
+  starts at ~96% CR"; top-player update; Guild War card.
+- **Live, inside the packaged app** (`tests/desktop/records-live.js`, Linux build, 11 real lookups): seasons, ranking
+  10 rows, a ranked player's page 10 of 10 games parsed (24 heroes, 22 with builds), Japan's player list downloaded
+  and searched in 1.6 s (second search 0 ms), a lookup outside the list refused, a 2-player collection run stored 40
+  games → 20 Legend / Emperor games, 53 heroes; no page errors.
+- Desktop: `newwar`, `overlay-status` still pass.
+- **Not tested:**
+  - on Windows (the owner's PC)
+  - "Find me" with a real account name (no name was typed here on purpose); the 17 MB Global list
+  - a full 200-player run (about 2,000 lookups, 12–15 minutes)
+  - import right after a real match (how quickly the site lists a finished game: 4 / 12 minutes is a guess)
+  - the app's own recording and the site's copy of the same real match being recognised as twins
+
+**Open**
+- The lookups are undocumented and can change or be blocked without notice; the feature then reports the error and
+  everything else keeps working.
+- Top-player statistics reuse the app's own counting (`RTALearn.buildStats`): descriptive win rates. E7DaT's fitted
+  win-rate model, pick policy and team planner are **not** ported yet (ROADMAP).
+- Fixture `tests/fixtures/records/battle-list.json`: one real page of public games with names and player numbers
+  replaced.
+
+---
+
 ## 2026-11-14 · #43 · Guild War defense 6/6 on the real screen; hero pictures cached between starts · this commit (previous: `79506b5`)
 
 **Asked for:** still "anything that works in the meantime".

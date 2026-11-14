@@ -20,7 +20,7 @@ JavaScript. Source comments are Korean.
 Not ported from the tracker: the opening rule (Korean templates only), VICTORY/DEFEAT templates (this app has its own
 result reader), unknown-slot marking, re-verification of the previous turn's cards, weak pre-ban reads for small windows.
 
-## Data pipeline (`update.py`, `api.py`, `store.py`) — NOT ported, needs the owner's decision
+## Data pipeline (`update.py`, `api.py`, `store.py`) — lookups + collection ported in DEVLOG #44 (`desktop/records.js`, `js/records.js`); the model on top is not
 
 - All data comes from the official record site's own lookups: `POST https://e7api.onstove.com/gameApi/<name>` with
   `Origin` / `Referer` set to `epic7.onstove.com` (undocumented; E7DaT spaces requests 0.35 s apart).
@@ -80,8 +80,9 @@ result reader), unknown-slot marking, re-verification of the previous turn's car
 
 ## What a port would look like
 
-1. **Needs the data first.** Everything statistical needs ≥ 10,000 Legend/Emperor games from the record site (see the
-   decision above). Without it only the fixed `knowledge.json` tags could be used.
+1. **Needs the data first.** Everything statistical needs ≥ 10,000 Legend/Emperor games from the record site. Since
+   DEVLOG #44 the app collects them (RTA → Data → Official match records → top players; IndexedDB `e7-records`) and
+   uses plain win rates from them; the steps below are still open.
 2. Cheap pure ports once `stats.json`-like data exists: `DraftModel`, `Policy`, `Bundles`, candidate rows, pre-bans, bans,
    enemy-likely picks, the planner (typed-array loops), advisor sentences.
 3. Moderate: the fit (L-BFGS logistic, ~300 heroes + ~400 players) — or fixed λ / k / calib without the daily grid.

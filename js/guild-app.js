@@ -275,10 +275,12 @@
             <div class="gw-head">${s.cleared ? '<span class="gwdot done" title="Cleared"></span>' : dot(verdicts.get(t.id))}<button class="link" data-history="${esc(t.player)}" title="Show everything known about ${esc(t.player)}">${esc(t.player)}</button>${t.tower ? ` <span class="hint">· ${esc(t.tower)}${t.keep ? ' · keep' : ''}</span>` : ''}
               <span class="spacer"></span>
               <select data-assign="${esc(t.id)}" title="Assigned to"><option value="">Unassigned</option>${state.members.map((m) => `<option ${GW.playerKey(m.name) === GW.playerKey(t.assignedTo) ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+              ${window.E7RecordsApp && window.E7RecordsApp.available() ? `<button class="btn desktop-only" data-record="${esc(t.id)}" title="This player's arena habits and builds from the official record site">Arena record</button>` : ''}
               <button class="btn" data-pin="${esc(t.player)}" title="Show in the pop-out window">⧉</button>
               <button class="btn" data-edit="${esc(t.id)}">Edit</button></div>
             ${teams.join('') || '<div class="hint">Defense not scouted yet: open this player in the game while watching, then "Save as … defense".</div>'}
             ${t.notes ? `<div class="hint">${esc(t.notes)}</div>` : ''}
+            <div class="hint gw-record" data-record-out="${esc(t.id)}">${recordLine(t)}</div>
             <div class="hint">Last edit: ${esc(t.updatedBy || '?')}</div>
           </div>`;
         })
@@ -392,6 +394,10 @@
   $('#war-done').addEventListener('click', async () => {
     const w = state.wars.find((x) => x.id === warId);
     if (w && confirm(`Mark the war vs ${w.enemyGuild} as finished?`)) await put('war', { ...w, status: 'done' });
+  });
+  $('#targets').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-record]');
+    if (b) showRecord(b.dataset.record);
   });
   $('#targets').addEventListener('change', async (e) => {
     const id = e.target.dataset.assign;
@@ -523,6 +529,30 @@
     $$('#atk-heroes .h3').forEach((i) => (i.value = ''));
     showAttackCounters();
     $('#attack-dialog').showModal();
+  }
+  // The official record site (js/records-app.js): an enemy's arena habits, and how the heroes of their defense are built
+  // in their arena games (artifact + sets, start CR). Their Guild War build can differ; it is labelled as arena data.
+  function recordLine(t) {
+    const RA = window.E7RecordsApp;
+    const e = RA && RA.cached(t.player);
+    if (!e) return '';
+    if (e.missing) return '<span class="src record">official record</span> no player with exactly this name was found';
+    const focus = (t.teams || []).flatMap((tm) => tm.heroes || []).filter(Boolean);
+    return RA.playerHTML(e, focus);
+  }
+  async function showRecord(id) {
+    const RA = window.E7RecordsApp;
+    const t = state.targets.find((x) => x.id === id);
+    const out = document.querySelector(`[data-record-out="${CSS.escape(id)}"]`);
+    if (!RA || !t || !out) return;
+    out.innerHTML = '<span class="src record">official record</span> looking up…';
+    try {
+      await RA.lookup(t.player, { force: true, pages: 5, onStep: (s) => (out.innerHTML = `<span class="src record">official record</span> ${esc(s)}`) });
+    } catch (e) {
+      out.innerHTML = `<span class="src record">official record</span> ${esc(e.message)}`;
+      return;
+    }
+    out.innerHTML = recordLine(t);
   }
   // Hero mechanics (js/knowledge.js, source 'E7DaT knowledge'): what a defense brings, and what it does to my team
   const KNOW = () => window.E7Knowledge || null;

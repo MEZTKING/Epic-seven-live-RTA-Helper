@@ -7,6 +7,7 @@
  *   E7Desktop.dev() / onDev(cb) / saveDevShot(png, meta) -> Developer → Collect screenshots automatically
  *   E7Desktop.showSelf(bool)   -> show/hide this window (the hidden game watcher shows itself to ask something)
  *   E7Desktop.zoom() / onZoom(cb) -> { zoom, overlayZoom } (overlay.html scales its items by overlayZoom / zoom)
+ *   E7Desktop.records.game(name, params) / .find(world, name) / .status()  -> the official record site (desktop/records.js)
  *   E7Desktop.overlayStatus()  -> { on, visible, bounds, mode, tracking, gameState, fallback, error, … } (Live page, report)
  * Used by js/game-area.js (no box needed when only the game window is captured) and overlay.html.
  * The picker page (desktop/picker.html) also uses sources() / choose().
@@ -20,6 +21,11 @@ contextBridge.exposeInMainWorld('E7Desktop', {
   zoom: () => ipcRenderer.sendSync('e7:zoom'),
   version: () => ipcRenderer.sendSync('e7:version'),
   overlayStatus: () => ipcRenderer.sendSync('e7:overlay-status'),
+  records: {
+    game: (name, params) => ipcRenderer.invoke('e7:records', { op: 'game', name, params }),
+    find: (world, name) => ipcRenderer.invoke('e7:records', { op: 'find', world, name }),
+    status: () => ipcRenderer.invoke('e7:records', { op: 'status' }),
+  },
   showSelf: (show) => ipcRenderer.send('e7:show-self', !!show),
   onHotkey: (cb) => ipcRenderer.on('e7:hotkey', (_e, name) => cb(name)),
   // developer tool: automatic screenshots (game watcher only)
