@@ -1,22 +1,75 @@
 # Handoff — how Epic 7 Engine works, for whoever continues it
 
 Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), `docs/SOURCES.md` (every outside
-source and where it's used) and `docs/ROADMAP.md` (later plans).
+source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
+`docs/E7DAT_NOTES.md`.
+
+## 0. Where things stand (end of DEVLOG #53, 2026-11-15) — read this before touching anything
+
+**The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
+programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
+them in plain words; say what was tested and what was not.
+
+**How work reaches the owner.** There is ONE branch, `ccr-2c9db930-kqvr1r` (it is the repository's default branch;
+there is no `main`). Every push that touches the app builds a Windows release (`.github/workflows/desktop-build.yml`,
+version `0.1.<run number>`) and the installed app offers it at its next start. So: **never push broken app code**,
+run the suites first (§6), and one DEVLOG entry per commit.
+
+**What exists and how far it is verified**
+
+| Area | State | Verified on the owner's PC? |
+|---|---|---|
+| Desktop app, overlay on the game, updater | Works | Overlay shown over the game (screenshot, #35–#37). Update dialogs: not seen |
+| Official record site: find me, import my matches, top-player update | Works | **Yes** (screenshots #46, #49: 97 games imported, 400 players, 33,953 games) |
+| Top-player model (win rate, pick policy, bans, pre-bans, turn order), statistics tab, team plans | Works on real games here | Model fitted on their PC (58% on 6,006 unseen games). Statistics tab / plans / turn order: **not yet looked at by the owner** |
+| Seasons (History → Seasons, statistics per season) | Works in tests | No |
+| RTA draft read from the screen without calibration | Works on ONE real screenshot (the BAN screen, 10/10 cards) | **No real draft watched yet.** Needs screenshots while picking |
+| Guild War: overview → war starts by itself, fortress maps, enemy defense screen (6/6), standby page | Works on the owner's real screenshots | Auto-war seen working (#46). Standby / reminder / beaten marking: not yet |
+| Gear Sorter, screen gear reader | Built on generated screens only | No |
+| Guild sharing through Firebase | Built; local mode tested | No real Firebase project connected |
+
+**Waiting on the owner (ask for these; they unblock the most):**
+1. Screenshots from a real RTA draft **while picking**: their turn with a hero clicked but not confirmed, the
+   opponent's turn, the pre-ban icons visible. (The draft reader has only seen a ban screen.)
+2. Guild War: the screen right before a war starts and right after one ends; an enemy fortress map with at least one
+   beaten defender.
+3. A report of how #46–#52 behave on their PC (standby banner, reminder notification, statistics tab, team plans,
+   "you move first in about X%").
+4. "Copy report for Claude" (RTA → Auto, Live, Gear, Guild War, or the Developer menu) whenever something misbehaves.
+
+**Good next steps without the owner** (details in `docs/ROADMAP.md`): team plans and standby note on the in-game
+overlay; ban forecast and similar-team records from E7DaT; the correction of turn order from my own matches; the
+statistics tab's "what top players pick at this draft position"; moving the old RTA reader (`js/auto.js`) into
+`js/vision/readers/`.
+
+**Things that bite**
+- `window.prompt()` throws in Electron → use `E7Ask` (`js/ask.js`); `tests/no-prompt.test.js` guards it.
+- A new file in `desktop/` that `main.js` requires must be listed in `desktop/package.json` `build.files`, or the
+  installed app does not start (`tests/desktop.test.js` guards it).
+- Any element with `data-hero` opens the app's hero card on click; use another attribute for own click targets.
+- Displayed portraits are plain `<img>`; pixel reading uses `PORTRAIT_URL_CORS` (mixing both on one URL breaks loading).
+- The repository is public: screenshots and fixtures must not show real player or guild names (replace them), and
+  collected games (`tools/dev/out/`) are never committed.
+- The record site's lookups are undocumented and were approved by the owner on 2026-11-14 (DEVLOG #44). Keep the
+  0.35 s spacing and never send names (only player numbers). A cloud session's safety check may refuse the first
+  outside request until the owner says yes again; do not work around a refusal.
+- Commits: session's default no-reply identity; no model names, no personal details anywhere in the repository.
 
 ## 1. What it is
 
-**Epic 7 Engine** is a fan-made Epic Seven toolkit (the owner's name for it; not "RTA Engine"). It's a static browser
-app with **no build step**: open `index.html`, or serve the folder. There's also an optional Electron desktop app in
-`desktop/` for the overlay on top of the game.
+**Epic 7 Engine** is a fan-made Epic Seven toolkit (the owner's name for it; not "RTA Engine"). Since DEVLOG #37 it is
+a **desktop app** (Electron, `desktop/`) that shows the static pages of this repository (no build step for the
+pages) and puts an overlay on top of the game. The web (GitHub Pages) only hosts the Guild War page for guildmates.
 
 | Page | Module | Main files |
 |---|---|---|
 | `index.html` | Home (module picker + status per module) | `js/home.js` |
-| `rta.html` | RTA draft helper (tabs: Draft, Auto, Speed, Heroes, Teams, Players, History, Data) | `js/app.js` (UI + storage), `js/auto.js` (screen readers), `js/pip.js` (mini window) |
+| `rta.html` | RTA helper (tabs: Draft, Auto, Speed, Heroes, Teams, Players, History, **Top players**, Data) | `js/app.js` (UI + storage), `js/auto.js` (old screen reader, follows the watcher), `js/records-app.js` (official record site), `js/topstats-ui.js` (statistics tab), `js/pip.js` (mini window) |
 | `gear.html` | Gear Sorter + screen gear reader | `js/gear-app.js`, `js/gear-scan.js` |
 | `guild.html` | Guild War (tabs: War, Counters, Members, Enemies, Setup), shared via Firebase | `js/guild-app.js`, `js/guild-pip.js`, `js/guild-watch.js`, `js/sync.js` |
-| `live.html` | Live: screen detector, overlay preview, desktop app info | `js/live.js` |
-| `overlay.html` | The overlay layer (transparent in the desktop app) | inline script |
+| `live.html` | Live: screen detector, overlay preview, teach heroes, desktop app info | `js/live.js` |
+| `vision.html` | The game watcher (hidden window in the desktop app) | `js/vision/hub.js` + readers |
+| `overlay.html` | The overlay layer (transparent, on top of the game) | inline script |
 
 Every page shares the same **app bar**: the brand links to home, then the module switcher (RTA · Gear · Guild War · Live).
 A module's own tabs sit underneath. **A new module needs** a page, a card on `index.html` (+ status in `js/home.js`),
@@ -45,6 +98,10 @@ a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) a
 | File | Global | Does |
 |---|---|---|
 | `js/ask.js` | `E7Ask` | Questions inside the page (`E7Ask(msg, value)`, `.form(title, fields)`, `.show(msg, text)`). **`window.prompt()` does nothing in Electron**: never use it (`tests/no-prompt.test.js` checks) |
+| `js/records.js` | `E7Records` | Official record site, pure part: `parseBattle` (one game → row), `toMatch` (row → one of my matches), `summary` (a player's habits and builds), seasons (`latestSeason`, `seasonTable`, `seasonForDate`, `seasonOfMatch`), `crawl` (ranking → players → games), `toStatsMatches` (DEVLOG #44, #48) |
+| `js/topmodel.js` | `E7TopModel` | The model on top players' games (port of E7DaT's `stats.py` / `model.py` / `policy.py` / `recommend.py`): `build(rows, opts)` → stored statistics (format 2); `Model` (`logit`, `gain`, `winrate`, `pFirst`, `turnZ`), `Policy` (`slot`, `pair`), `Engine` (`rows`, `prebans`, `firstPicks`, `bans`, `turnInfo`, `speedThreats`); `turnOf`, `select`, `seasonPlan` (DEVLOG #45, #48, #51) |
+| `js/teamplan.js` | `E7TeamPlan` | Whole-team plans (port of the core of E7DaT's `plan.py`): `search(engine, { own, enemy, taken, meFirst, pool })` → choices now + two plans (DEVLOG #52) |
+| `js/topstats.js` | `E7TopStats` | Tables of the statistics tab: `overview`, `heroes`, `sortRows`, `partners`, `matchups`, `topPairs`, `topCounters`, `prebans`, `openers`, `builds`, `trends`, `sameBuild`, `turnLists` (DEVLOG #47, #49, #51) |
 | `js/knowledge.js` | `E7Know` (`E7Knowledge` = built from `RTASources.e7datKnowledge`) | Hero mechanics as their own source 'E7DaT knowledge': `mechanics`, `versus`, `notesFor` (reasons / cautions with E7DaT's record-based filters), `threats`, `builds`, `opener` (DEVLOG #42) |
 | `js/wide.js` | `E7Wide` | RTA pick cards from the heroes' wide portraits (`{code}_l.png`, skins; mirrored on my side): `slotBox`, `patchRect`, `template`, `match`, `isConfident` (DEVLOG #41, method from E7DaT) |
 | `js/draftscreen.js` | `E7Draft` | RTA draft stage: text templates (`matchTemplate`, `tint`), confirmed-card check (`lockScore`), `Tracker` (stage, turn, first pick, picks, pre-bans, held), `toBoard` |
@@ -76,7 +133,6 @@ only receive events.
   `vision:warning`, `screen:changed`. One shared tesseract worker for all readers.
 - `js/vision/bus.js` (`E7Bus`, BroadcastChannel `e7-vision`), `js/vision/client.js` (`VisionClient`: status, ensure,
   teach, snapshot for drawing boxes), `js/vision/panel.js` (status/readers/events panel).
-- Readers `js/vision/readers/gear-item.js` → `gear:item`; `guild-name.js` → `guild:name-read`.
 - Consumer `js/vision/consumers/gear.js` (runs next to the watcher) saves items via `js/gearstore.js` (`GearStore`) and
   publishes `gear:added` / `gear:dup`. The Guild War page itself consumes `guild:name-read` (it needs the guild data).
 - **RTA reader:** `js/auto.js` still captures on its own, but in the desktop app it **follows the watcher** (starts/stops with
@@ -84,6 +140,31 @@ only receive events.
 - Developer tool (desktop menu **Developer**): the watcher saves PNG + JSON notes on scene changes (`devTick` in hub.js);
   `E7Desktop.dev()/saveDevShot()`; main writes to `Pictures/Epic 7 Engine/<date>/`.
 - Gear art: `js/gear-icons.js` (`E7GearIcons.slot/set`), original SVG (not game art).
+
+- **All readers** (`js/vision/readers/`, loaded by `vision.html` and `live.html`):
+
+  | Reader | Publishes | Reads |
+  |---|---|---|
+  | `gear-item.js` | `gear:item` | Item panel (boxes drawn once on the Gear page) |
+  | `guild-name.js` | `guild:name-read` | Enemy player's name on a defense / profile screen |
+  | `guild-defense.js` | `guild:defense` | The six hero icons of an enemy's two defense teams (faces, no calibration) |
+  | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
+  | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild }` | The overview: three fortress names, which side, both guild names |
+  | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
+  | `rta-draft.js` | `rta:draft`, `rta:draft-end` | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, first pick) |
+
+**Page parts for the official record site and top players** (not pure; `rta.html`, the first also `guild.html`):
+- `js/records-app.js` (`E7RecordsApp`): settings, find me, import my matches, opponent panel, Guild War "Arena
+  record", top-player update (by hand and at start), seasons cache, model storage and fitting (`loadModel`,
+  `modelFor(season)`), draft-tab model line. Talks to the site only through `E7Desktop.records` (tests replace it with
+  `window.__e7RecordsTest`).
+- `js/topmodel-worker.js`: fits the model off the page's thread.
+- `js/topstats-ui.js` (`E7TopStatsUI`): the Top players tab.
+
+**Desktop app** (`desktop/`, Electron main process; every file here must be in `package.json` `build.files`):
+`main.js` (windows, overlay, menu, IPC), `preload.js` (`window.E7Desktop` bridge), `picker.html` (which window is
+the game), `wintrack.js` (follows the game window, PowerShell, read-only), `updater.js` (GitHub Releases; checks at
+start), `records.js` (the ONLY code that talks to the official record site), `reminder.js` (Guild War reminder).
 
 **Browser-only helpers:** `js/screen-watch.js` (`E7Screens`), `js/overlay-bus.js` (`E7Overlay`), `js/heroinfo.js`
 (`HeroInfo` card, `data-hero` attribute opens it anywhere).
@@ -149,8 +230,26 @@ only receive events.
      (OCR), Victory/Defeat (OCR → match source `auto`), the CR bar (normal or expanded) → `speedsFromCR` → scouting.
   4. Readers are gated by `E7Screens.allowed(screen)` once that screen has been taught. The overlay layer `rta` is
      posted from `postOverlay()`.
-- **Suggestions:** `RTALogic.scoreCandidate` adds signals by source group: my notes, learned, game rule, presets,
-  player, meta, speed, deny, game help. `sourceWeights` scales each group (sliders or `RTATune`).
+- **Suggestions:** `RTALogic.scoreCandidate` adds signals by source group (`SOURCE_GROUPS`): my notes, learned, game
+  rule, presets, player, meta, speed, deny, game help, E7DaT knowledge, top players, official record.
+  `sourceWeights` scales each group (sliders or `RTATune`). The context comes from `suggestionContext()` in
+  `js/app.js` (`ctx.topModel`, `ctx.recordProfile`, `ctx.knowledge`, …).
+- **Official record site and top players** (desktop only; DEVLOG #44, #45, #48, #51, #52):
+  1. `desktop/records.js` does every lookup (allowed names only, one at a time, 0.35 s apart, retries); pages reach
+     it through `E7Desktop.records`. Names are matched on the PC against the site's player list; only numbers are sent.
+  2. My matches: `E7RecordsApp.importMine` → `store.matches` with source `official record` (deduped by `recordSeq`
+     and against app-recorded twins). By itself at start and 4 / 12 minutes after a draft ends.
+  3. Opponent: name known in the draft → `lookup` → panel `#records-opp` and `ctx.recordProfile`.
+  4. Top players: `updateTop` (button, or by itself at start when older than 6 h) → `E7Records.crawl` → IndexedDB
+     `e7-records` → `rebuildTop` → `loadModel` (stored copy, or a fit in `js/topmodel-worker.js`) → `topModel()`
+     (an `E7TopModel.Engine`) → suggestions, draft line `#top-model-line`, team plans `#team-plans`, statistics tab.
+  5. Seasons: list cached in `e7-records-seasons`; `settings.seasonScope` filters my matches in `derive()`.
+- **RTA draft from the screen** (DEVLOG #41): reader `rta-draft` → `rta:draft` → `js/auto.js` `onWatcherDraft` →
+  `applyBoard` → the draft in `js/app.js`. The old slot reader in `js/auto.js` stands back for 20 s after each event.
+- **Guild War from the screen** (DEVLOG #38–#40, #46, #50): overview → `guild:forts` → `GuildApp.warFromGame` (selects
+  or starts the war, Undo banner) and `saveFortNames`; fortress map → `guild:fortress` → the "Seen in game" panel
+  (names checked, then saved as targets) and `markBeaten` (no button); enemy screen → `guild:defense`; standby page →
+  `guild:standby` → `standbyFromGame` (banner, open war finished with Undo, `settings.nextWar`, desktop reminder).
 - **Gear:** `gear.txt` → `RTAGear.extractBuilds` (RTA speeds) and `RTAGearSort.slimInventory` (Gear Sorter). Screen
   reading: the game watcher's `gear-item` reader OCRs the boxed item panel → `RTAStatParse.itemFromReadings` →
   `gear:item` → gear consumer → `GearStore.addScanned` (source `screen`, not linked to heroes) → `gear:added`. The Gear page
@@ -187,7 +286,8 @@ only receive events.
     The script runs from `<userData>/e7-wintrack.ps1` with `-File`; a failure (stderr + exit code) comes back as `{failed}`.
   - **Updater** `desktop/updater.js`: installed app = electron-updater (GitHub provider, asks before download, restart to
     install); portable = GitHub API `releases/latest` → download `*-portable.exe` as `<exe>.update` → `.cmd` swaps it
-    after exit. Checks 10 s after start and from the menu.
+    after exit. Checks 3 s after start (retry after 5 min, again every 6 h) and from the menu; the menu line under
+    "Check for updates…" says when the last check was and what it found (DEVLOG #48).
   - Pop-outs (`js/pip.js`, `js/guild-pip.js`) use `window.open` in Electron: Document PiP's `requestWindow` hangs there.
   - **Zoom is per origin** in Chromium, so all `e7://app` windows share `config.zoom`. The overlay therefore never calls
     `setZoomFactor`; `overlay.html` scales items by `overlayZoom / zoom`.
@@ -200,21 +300,33 @@ only receive events.
 
 ## 6. Testing
 
-- **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`). 74 tests at the time of writing.
-- **Browser end-to-end:** `bash tests/e2e/run-all.sh`. It serves the repo on :8766 and runs `tests/e2e/*.e2e.js` with
-  Playwright. Fixtures are in `tests/e2e/fixtures/`, screenshots go to `tests/e2e/out/` (git-ignored). The tests build
-  **generated** game screens (portraits drawn on canvases, text for OCR) because no real screenshots exist yet.
-  They need internet (portraits, jsDelivr, CeciliaBot).
-  - Each test prints `errors: []` at the end when clean; the runner fails otherwise.
-  - Gotcha: calibration drags must stay inside the viewport. The app now scrolls the calibration image into view and
-    caps it at 62vh.
-- **Real screenshots:** `tests/fixtures/screens/` (Steam client, cropped to the game, names blacked out). Checks that run
-  the current readers on them: `tests/real/ocr-victory.js`, `tests/real/match-portraits.js` (serve the repo on :8766
-  first). They print results; no labelled answers yet.
-- **Desktop app:** `tests/desktop/*.js` drive the packaged Linux build under Xvfb + Openbox (`withwm.sh`).
-- After a change, run both, and add a devlog entry with what was tested and what wasn't.
+Counts at DEVLOG #53: **157 unit tests, 32 browser tests, 14 desktop checks.** All were green at that commit.
 
-## 7. Status (end of DEVLOG #48)
+- **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
+  `tests/_world.js` is a made-up world with planted effects shared by the model and planner tests.
+- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 8 minutes). It serves the repo on :8766 and runs every
+  `tests/e2e/*.e2e.js` with Playwright (pre-installed in cloud sessions). Each test prints what it found and ends with
+  `errors: []`; the runner fails otherwise. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
+  Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
+  - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
+    `gw-fortress`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-real-screens`, `faces-real`, `teach`.
+  - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
+    (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
+    games into the records database and checks the model, team plans, turn order and the statistics tab.
+  - Dialogs: `tests/e2e/_ask.js` (`autoAsk(ctx)`, `ask(page, value)`) answers the in-page questions.
+- **Desktop app:** `tests/desktop/*.js` drive the **packaged Linux build** under Xvfb + Openbox:
+  `cd desktop && npx electron-builder --linux dir --publish never`, then
+  `xvfb-run -a bash tests/desktop/withwm.sh tests/desktop/<name>.js desktop/dist/linux-unpacked/epic7-engine-desktop`.
+  Rebuild after every change to `desktop/` or the pages. `records-live.js` makes about 25 REAL lookups on the record
+  site (not part of routine runs). `E7_TEST_WIN=1` makes the app behave as on Windows.
+- **Real top-player games** (to judge changes to the model, planner or statistics): `node tools/dev/collect-top-games.js 100`
+  (about 12 minutes of spaced lookups, writes the git-ignored `tools/dev/out/top-games.json`), then
+  `node tools/dev/model-report.js`. The reference numbers are in that script's header and in DEVLOG #45 / #51 / #52.
+- **Not possible here:** Windows, the real game, a real Firebase project. Say so in the devlog's "Not tested".
+- After a change: run unit + browser suites (and the desktop checks when `desktop/` or page loading changed), then
+  write the devlog entry with what was tested and what wasn't.
+
+## 7. Status notes per feature (newest first; §0 has the overview)
 
 **Seasons** (DEVLOG #48): season list of the record site cached in `localStorage['e7-records-seasons']`
 (`js/records-app.js`, once a day); `E7Records.seasonTable / seasonForDate / seasonOfMatch`. `js/app.js` `derive()`
@@ -357,39 +469,31 @@ it only reads the screen; calibrate per client. **Fribbels' gear importer does N
 (owner, 2026-11-12). Steam players get gear from the screen gear reader and type key hero speeds (RTA → Heroes → Edit
 → My speed) until the hero-gear-screen reader exists.
 
-Built and tested on generated data:
-- RTA: draft reading, suggestions, learning, scouting, CR speeds, drafting-help capture, overlay layer.
-- Gear Sorter and screen gear reader.
-- Guild War: sync, dots, pop-out, Watch game.
-- Live page, hero card with CeciliaBot skills and automatic tags.
-
-**Never tested on the real game or real accounts:**
-- every screen reader (needs real screenshots: draft, drafting help, postban, battle/CR bar incl. expanded,
-  Victory/Defeat, Guild War enemy screen, item details)
-- the real `gear.txt`
-- a real Firebase project
-- the desktop app (no display in the dev environment)
-
-Next steps (see `docs/ROADMAP.md`):
-- tune the readers on real screenshots and add default box positions per emulator resolution
-- Guild War defense/result reading
-- gear from hero screens
-- the official match-history export bookmarklet
-- the PvE & events module
-- the Android app
+**Never tested on the real game or the owner's PC** (see §0 for what has been): the Gear Sorter's screen reader,
+the old slot-based RTA reader on a live draft, CR-bar speed reading, Victory / Defeat reading on a live match, a real
+`gear.txt`, a real Firebase project, the Windows update dialogs, the Guild War reminder notification.
 
 ## 8. Handy commands
 
 ```
-npm test                               # unit tests
-bash tests/e2e/run-all.sh              # browser tests
-npm run update-heroes                  # refresh js/sources/official-heroes.js
-npm run update-fribbels-data           # refresh js/sources/fribbels-data.js (RexQian fork data)
-python3 -m http.server 8766            # serve locally (needed for service worker / BroadcastChannel tests)
-cd desktop && npm install && npm start # desktop overlay app
-cd desktop && npm run dist             # Windows installer + portable .exe in desktop/dist/ (needs Windows or wine)
-cd desktop && npx electron-builder --linux dir --publish never   # packaged Linux build, for tests here
-xvfb-run -a tests/desktop/withwm.sh tests/desktop/winpick.js   # also popout.js, zoom.js, cancel.js, watcher.js, devshots.js; $PWD/desktop/dist/linux-unpacked/epic7-engine-desktop /tmp  # desktop checks (also popout.js)
+npm test                                   # unit tests (157)
+bash tests/e2e/run-all.sh                  # browser tests (32, ~8 min)
+python3 -m http.server 8766 &              # serve locally, then: node tests/e2e/<name>.e2e.js   (one browser test)
+cd desktop && npm install                  # once per fresh checkout (Electron, electron-builder)
+cd desktop && npx electron-builder --linux dir --publish never      # packaged Linux build for the desktop checks
+xvfb-run -a bash tests/desktop/withwm.sh tests/desktop/<name>.js desktop/dist/linux-unpacked/epic7-engine-desktop
+                                           # names: cancel devshots newwar overlay-status overlay-test popout rta-follow
+                                           #        topmodel update-check war-reminder watcher winpick zoom
+                                           #        records-live (REAL lookups on the record site: only on purpose)
+node tools/dev/collect-top-games.js 100    # real top-player games into tools/dev/out/ (git-ignored; ~12 min of lookups)
+node tools/dev/model-report.js             # what the model, statistics and planner make of them
+npm run update-heroes                      # refresh js/sources/official-heroes.js
+npm run update-fribbels-data               # refresh js/sources/fribbels-data.js (RexQian fork data)
+python3 tools/update-wide-list.py          # refresh js/sources/wide-portraits.js (new heroes' wide portraits / skins)
+python3 tools/make-e7dat-knowledge.py      # rebuild js/sources/e7dat-knowledge.js from a newer E7DaT knowledge.json
+cd desktop && npm start                    # run the desktop app from source (needs a display)
+cd desktop && npm run dist                 # Windows installer + portable .exe (CI does this on every push)
+git push -u origin ccr-2c9db930-kqvr1r     # the only branch; a push that touches the app ships a Windows update
 ```
 
 **CI:**

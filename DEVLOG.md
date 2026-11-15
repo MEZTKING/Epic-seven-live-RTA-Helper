@@ -7,6 +7,51 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-15 · #53 · Handoff: documentation brought up to date, developer check scripts added · this commit (previous: `bdadc24`)
+
+**Asked for:** "Make sure to upload everything and document everything so another AI session can pick it up".
+
+**Findings**
+- Everything was already pushed (local and remote at `bdadc24`), and every Windows build through #52 succeeded.
+- `docs/HANDOFF.md` had stale parts: it still called the project a browser app with an optional desktop app, its
+  code map lacked the modules of #44–#52 and most readers, the testing section said "74 tests" and "no real
+  screenshots exist", the tail listed things as untested that the owner has since used, and there was no single
+  place saying what is verified, what is waiting on the owner and what bites.
+- `README.md` did not mention the official record site, top players, team plans, seasons or that Guild War reads
+  the game.
+- The real games used to judge the model (#45, #51, #52) existed only in the session's scratch folder, with one-off
+  scripts: a next session could not repeat those checks.
+
+**Changed**
+- `docs/HANDOFF.md`:
+  - new **§0 "Where things stand"**: who the owner is and how work reaches them, a table of every area with what is
+    verified on their PC, what is waiting on them, good next steps, and the traps (prompt in Electron, package file
+    list, `data-hero`, portraits, public repository, record-site approval, commit rules)
+  - §1 rewritten (desktop app first; all pages incl. the watcher and the Top players tab)
+  - §3 code map: `js/records.js`, `js/topmodel.js`, `js/teamplan.js`, `js/topstats.js`, a table of all seven readers
+    and their events, the page parts for the record site, the desktop main-process files
+  - §5 flows: suggestions with all source groups, the record site / top players chain, the RTA draft reader, Guild
+    War from the screen, the updater's timing
+  - §6 testing: current counts, how to run one browser test, which tests use real screenshots, the stand-in for the
+    record site, the desktop checks and how to build for them, the real-games check
+  - §7 keeps the per-feature notes; its stale ending is replaced; §8 commands are current and complete
+- `README.md`: sections for official match records / top players and for Guild War reading the game; four more rows
+  in the sources table; the development file list; the roadmap ticks; "start here" pointer for whoever continues.
+- `docs/ROADMAP.md`: new "Next up" block (what needs the owner, what does not).
+- `tools/dev/collect-top-games.js`, `tools/dev/model-report.js` (new): collect public top-player games the way the
+  app does and print what the model, statistics and planner make of them. Output goes to `tools/dev/out/`
+  (git-ignored: the records hold player numbers and are never committed).
+
+**Tested**
+- `node tools/dev/model-report.js` on the 10,615 games of #45: same numbers as recorded there (57% of 1,104 unseen
+  games; who moves first 88.7%; third pick banned 0 of 21,230; a 5-slot plan from 43,142 teams in 91 ms).
+- `npm test` 157; no app code changed in this commit, so the browser and desktop suites were not run again (last
+  full run: #52, all green).
+- **Not tested:** `tools/dev/collect-top-games.js` from its new place (same code as the session's one-off script,
+  which ran once: 110 players, 1,100 lookups).
+
+---
+
 ## 2026-11-14 · #52 · Whole-team plans: what to pick now and what to follow it with (E7DaT's planner) · this commit (previous: `6ac61be`)
 
 **Asked for:** "and do everything else" (last item of the list: plans for the whole team instead of one pick at a
