@@ -80,13 +80,42 @@ linked to heroes yet; for hero speeds use `gear.txt` for now.
 Why not copy Fribbels' importer: it records the game's network traffic and decodes it on Fribbels' private server
 (see DEVLOG #10).
 
+## Official match records and top players (RTA, desktop app)
+
+**RTA → Data → Official match records.** The app reads the official record site (epic7.onstove.com/gg) the way the
+site's own page does: one lookup at a time with a pause. Your name is matched on your PC against the site's player
+list; only player numbers are sent.
+- **Find me → Import my matches now:** your last 100 arena games, exact (picks, bans, pre-bans, first pick, result),
+  as their own source `official record`. Afterwards it imports by itself after each match and at start.
+- **Opponent scouting:** when the opponent's name is known in a draft, a panel shows their grade, most picked
+  heroes, pre-bans, first picks, and how they build the heroes on the board (artifact, sets, starting speed order).
+- **Top players → Update now:** follows 100–400 top players and keeps their games on your PC. From them:
+  - a **win-rate model** (hero strength with player skill taken out, pairs, counters, first pick, who moves first)
+    that checks itself on games it has not seen and says how often it was right
+  - suggestion reasons labelled `top players`: "+2.3 pp win chance (hero +1.1, with A +0.8, vs B +0.4)", "top
+    players pick it at this spot in X% of similar drafts", "your chance to move first: 37% → 100%", "needs the first
+    turn …"
+  - **team plans** on your pick: Plan A (what to pick now and what to follow it with, with stand-ins) and a clearly
+    different Plan B
+  - final-ban and pre-ban advice (the third pick cannot be banned; pre-bans differ for first and second pick)
+  - the **Top players** tab: every hero's pick rate, weekly trend, win rate, strength, pre-bans, bans, speed, your
+    own numbers beside them; per hero the best partners, counters, pick order and builds
+- **Seasons:** History → Seasons shows your record per season and lets you count only one season; the top-player
+  numbers always say which season they are from.
+
 ## Later plans
 
 See [docs/ROADMAP.md](docs/ROADMAP.md): a PvE & events module (Advent, Dimensional Exploration, Hunts, Otherworldly Breach,
-Trial of Constellation, Strategic Archive…), a mobile app, importing official match history, and more.
+Trial of Constellation, Strategic Archive…), a mobile app, and more.
 
 ## Guild War (shared with your guild)
 
+- **Reads the game by itself (desktop app, any window size):**
+  - the overview: both guild names and the three fortress names per side → the war **starts by itself** (with Undo)
+  - a fortress map: which fortress, each defender's name, and who is already **beaten** (marked cleared for the guild)
+  - an enemy's defense screen: the six heroes of their two teams
+  - the standby page: "no war right now, next war in about 29 hours", with a **reminder** 30 minutes before
+- **Arena record** on an enemy card: that player's arena habits and builds from the official record site.
 - **War board:** add each enemy player's defense (2 teams of 3, with speeds, sets and artifacts), see which teams are
   cleared and by whom, assign targets to members, and log every attack with one click.
 - **Counters from guild history:** for any defense, see the attack teams that beat it before. Exact matches come first,
@@ -241,6 +270,10 @@ in the **Data** tab without touching the rest.
 | `meta: <name>` | Season pick, ban and win rates | Meta CSVs you import |
 | `auto` matches | Results read from the Victory/Defeat screen | Auto-detection |
 | `auto-learned` | Screen images saved automatically from confident matches (off by default) | Auto-detection |
+| `official record` | My own arena games; an opponent's habits and builds | The official record site (desktop app) |
+| `top players` | Win-rate model, pick policy, plans and statistics from top players' games | The official record site (desktop app), worked out on this PC |
+| `E7DaT knowledge` | Hero mechanics: what blocks what, top-player builds (fixed data of Nov 2026) | [E7DaT](https://github.com/ohrgon-game/E7DaT)'s knowledge file |
+| `taught by you` | Hero faces you named on Live → Teach heroes | You |
 
 ## How suggestions are scored
 
@@ -274,8 +307,11 @@ You can tune the weights in `js/logic.js` (`W`, `TIER_SCORE`).
 
 ## Development
 
-Documentation for anyone continuing the project:
-- [docs/HANDOFF.md](docs/HANDOFF.md): how everything works (code map, storage, flows, testing, status).
+Documentation for anyone continuing the project (a person or an AI session):
+- [docs/HANDOFF.md](docs/HANDOFF.md): **start here.** Where things stand, what is verified and what is not, what is
+  waiting on the owner, then how everything works (code map, storage, flows, testing, commands).
+- [CLAUDE.md](CLAUDE.md): the owner's standing rules (privacy, separate sources, devlog, read-only).
+- [docs/E7DAT_NOTES.md](docs/E7DAT_NOTES.md): what was ported from E7DaT and what was not.
 - [DEVLOG.md](DEVLOG.md): every change, with research, bugs fixed and what was tested.
 - [docs/SOURCES.md](docs/SOURCES.md): every outside source, where it's used and what's sent to it.
 - [docs/ROADMAP.md](docs/ROADMAP.md): later plans.
@@ -308,6 +344,16 @@ desktop/        Electron desktop app (overlay on top of the game)
 js/app.js       UI and storage
 js/auto.js      screen capture, calibration, detection loop, OCR, postbans, result, CR bar
 js/pip.js       always-on-top mini window
+js/vision/      the game watcher: hub.js + readers/ (gear item, guild name / defense / fortress / overview / standby, rta draft)
+js/frame.js, js/gwmap.js, js/wide.js, js/draftscreen.js, js/faces.js  finding and reading the game picture  (pure, tested)
+js/records.js   official record site: parsing, seasons, collection  (pure, tested)
+js/topmodel.js  model on top players' games: win rate, policy, bans, turn order  (pure, tested)
+js/teamplan.js  whole-team plans                                   (pure, tested)
+js/topstats.js  tables of the Top players tab                      (pure, tested)
+js/records-app.js, js/topstats-ui.js, js/topmodel-worker.js  the page parts for the above
+js/knowledge.js hero mechanics (E7DaT knowledge)                   (pure, tested)
+desktop/records.js, desktop/reminder.js, desktop/updater.js, desktop/wintrack.js  main-process parts of the desktop app
+tools/dev/      developer checks on real top-player games (output is git-ignored)
 sw.js           retired service worker: removes the old offline web app from browsers that installed it
 tools/web/moved.html  what the old web addresses show now (save old RTA data, then Guild War)
 tools/update-official-heroes.js  regenerates the built-in hero list
@@ -334,6 +380,7 @@ npm run update-fribbels-data  # refresh js/sources/fribbels-data.js
 - [x] Your gear: real speeds, sets and artifacts from gear.txt
 - [x] Opponent scouting: speeds, sets and artifacts per player
 - [x] Guild War tracker shared with the guild
-- [ ] Default slot positions for common emulator resolutions (needs real screenshots)
-- [ ] Guild War: read enemy defenses from the screen (needs screenshots)
-- [ ] Optional import of official battle records, if they can be reached from the browser
+- [x] The draft read with no calibration at any window size (checked on one real ban screen; picking screens still needed)
+- [x] Guild War read from the screen: overview, fortress maps, enemy defenses, standby page
+- [x] Official battle records: own matches, opponent scouting, top players' model, team plans, statistics
+- [ ] See [docs/ROADMAP.md](docs/ROADMAP.md) for what is next

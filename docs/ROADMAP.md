@@ -2,6 +2,23 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
+## Next up (as of DEVLOG #53; the overview of what is verified is in docs/HANDOFF.md §0)
+
+Needs the owner first:
+1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
+   turn counting), then the built-in positions at the maximized window. Biggest risk to "everything automatic".
+2. **Guild War screens**: right before a war, right after one, an enemy map with a beaten defender → states for
+   "war starting" / "war over", confirm the grey-ring rule on the enemy side.
+3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
+
+Can be done without the owner:
+1. Team plans and the standby note on the in-game overlay (now only in the app window).
+2. From E7DaT: ban forecast, similar-team records, heroes that need a specific ally, the turn-order correction from
+   my own matches, "had you built this hero" in the plans.
+3. Statistics tab: what top players pick at a given draft position; element / class filters.
+4. Move the old RTA reader (`js/auto.js`) into `js/vision/readers/` (architecture plan, step 1b part 2).
+5. Guild War: look up all enemies of a war on the record site in one go; count attacks left from the game.
+
 ## New module: PvE & events (planned)
 
 A module for everything outside PvP: which heroes and which gear setups to use, per content and per stage/boss.

@@ -5,3 +5,4 @@ desktop/node_modules/
 desktop/dist/
 tests/e2e/out/
 tests/desktop/out/
+tools/dev/out/
