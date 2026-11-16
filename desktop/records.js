@@ -172,13 +172,14 @@ function create(opts = {}) {
    * 5 / s, 0 / O, and misses a character of a Japanese name; the server's own player list knows the real spelling.
    * Nothing is sent: the list is the one find() downloads. -> up to `max` [{ name, nickNo, rank, d }] (d = edits
    * needed; 0 = the same but for letter case), closest first, then the higher account rank.
-   * Allowed edits: 1 for names up to 5 characters, 2 up to 11, 3 beyond.
+   * Allowed edits: none for names of two characters, 1 up to 5 characters, 2 up to 11, 3 beyond.
    */
   async function near(world, text, max = 3) {
     const t = String(text || '').trim().toLowerCase();
     if (t.length < 2 || t.length > 40) return [];
     const m = await users(world);
-    const allow = t.length <= 5 ? 1 : t.length <= 11 ? 2 : 3;
+    // (two characters: only the very same name. A scrap of scenery read as two characters "found" a real player.)
+    const allow = [...t].length <= 2 ? 0 : t.length <= 5 ? 1 : t.length <= 11 ? 2 : 3;
     const out = [];
     const exact = m.get(t);
     if (exact) for (const u of exact) out.push({ ...u, world, d: 0 });

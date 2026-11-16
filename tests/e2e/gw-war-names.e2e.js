@@ -114,7 +114,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
     await opt.click();
     console.log(`  clicking "${v}" fills its box:`, (await gp.inputValue(`#gw-fort-seen [data-fort-i="${i}"]`)) === v);
   }
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
   console.log('saved:', await gp.textContent('#gw-fort-msg'), '· targets', JSON.stringify(await gp.evaluate(() => window.GuildApp.state.targets.map((t) => t.player))));
   console.log('errors:', errs);

@@ -30,6 +30,25 @@
   // screens that are certainly NOT the enemy screen (recognised from real screenshots): don't read names there
   const OTHER = /^(gw-map|gw-overview|gw-battle|rta-)/;
   let shown = false;
+  /** Is a player's page open? The flat slate colour of its name panel (js/gwresult.js pageAt), pixels only. */
+  const pc = document.createElement('canvas');
+  pc.width = 24;
+  pc.height = 15;
+  const pcx = pc.getContext('2d', { willReadFrequently: true });
+  function pageShown(ctx) {
+    const R = window.E7GWResult;
+    const L = window.E7Layouts;
+    const lay = R && L ? L.layoutFor(ctx.w(), ctx.h()) : null;
+    const reg = lay && lay.regions.gwPageBar;
+    if (!reg) return true; // cannot tell: behave as before
+    try {
+      pcx.drawImage(ctx.source, reg.x * ctx.w(), reg.y * ctx.h(), reg.w * ctx.w(), reg.h * ctx.h(), 0, 0, 24, 15);
+      return R.pageAt(pcx.getImageData(0, 0, 24, 15).data, 24, 15, { bar: { x: 0, y: 0, w: 24, h: 15 } });
+    } catch (_) {
+      return true;
+    }
+  }
+  window.E7GWPage = { shown: pageShown };
   // the name box as last read (small grey picture) and what came out: the text reader is not asked again for the same picture
   let lastPic = null;
   let lastOut = null;
@@ -63,7 +82,8 @@
     id: 'guild-name',
     label: 'Guild War enemy name',
     module: 'guild',
-    screen: 'gw-enemy',
+    // (no `screen`: a screen taught long ago at another window size kept this reader from ever running on the
+    // owner's PC; the page is recognised by its own pixels now, pageShown() below. DEVLOG #62)
     every: 2000,
     ready: () => !!box(),
     hasBoxes: () => !!own(),
@@ -75,8 +95,12 @@
     },
     async read(ctx) {
       size = { w: ctx.w(), h: ctx.h() };
-      const cur = window.E7Screens && window.E7Screens.current();
-      if (cur && OTHER.test(cur)) return ctx.note(`Not the enemy screen (${cur})`);
+      if (!pageShown(ctx)) {
+        if (shown) ctx.publish('guild:name-read', { text: '', away: true });
+        shown = false;
+        lastPic = lastOut = null;
+        return ctx.note('Waiting for a player\'s page (their defense / profile)…');
+      }
       const r = box();
       const N = window.E7Names;
       const G = window.E7GWMap;

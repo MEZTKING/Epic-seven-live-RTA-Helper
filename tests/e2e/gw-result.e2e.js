@@ -75,7 +75,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   await gp.waitForTimeout(1200);
   await show('steam-gw-map-mixed-scripts-wide.jpg', ['fortress'], 40);
   await gp.waitForTimeout(500);
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
 
   // 1) our own map
@@ -92,7 +92,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
     const want = WANT.find((w) => w === v) || WANT.find((w) => w.toLowerCase().slice(0, 4) === v.toLowerCase().slice(0, 4));
     if (want && want !== v) await boxes[i].fill(want);
   }
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
   console.log('  saved:', await gp.textContent('#gw-fort-msg'), '· members', JSON.stringify((await state()).members));
 

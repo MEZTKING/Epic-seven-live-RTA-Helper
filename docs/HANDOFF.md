@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #61, 2026-11-16) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #62, 2026-11-16) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -335,7 +335,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 
 ## 6. Testing
 
-Counts at DEVLOG #61: **175 unit tests, 40 browser tests, 14 desktop checks.** Unit and browser suites were green at
+Counts at DEVLOG #62: **177 unit tests, 40 browser tests, 14 desktop checks.** Unit and browser suites were green at
 that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
@@ -383,6 +383,20 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**DEVLOG #62** (what the owner's PC showed after #61):
+- Readers must not depend on screens the user taught (`screen:` in `V.register`): an old example from another
+  window size silently switches the reader off. `guild-name` / `guild-defense` gate themselves with
+  `window.E7GWPage.shown(ctx)` (`E7GWResult.pageAt`, the name panel's flat colour). `guild-fortress` still has
+  `screen: 'gw-map'` (built-in signatures only; nobody can teach it from the UI).
+- "Seen in game" card (`js/guild-watch.js`): `saveFort()` after every reading / change (no Save button);
+  `whoIs(d)` + `fillFromPage(d)` put a page name on its defender; `unsure = E7GWMap.unsureName`; rows in
+  `.gw-fort-rows` (css/styles.css). `GuildApp.saveFortress` identifies a defender by `fortIndex` + `pos` (keep:
+  `fortIndex` + `keep`), renames (`aka`), keeps `nameSure`.
+- Rarely needed buttons live in `<details class="more-tools">` (rta.html Auto tab, guild.html). Browser tests that
+  click one of them open the fold first.
+- The owner's wish, standing: **automate, fewer clicks, easy to read**. Before adding a button, ask whether the app
+  can decide by itself and show the result with an undo or a correction instead.
 
 **DEVLOG #61** (unsure names, shared scans, RTA results):
 - Unsure name = not `known`, not `official`, not `fromPage`: ⚠ on the card (`askFort` = the box that waits),

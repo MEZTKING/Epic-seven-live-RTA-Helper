@@ -562,3 +562,20 @@ dialog.ask-dialog input { width: 100%; }
 .gw-fort-pic { display: block; height: 26px; max-width: 100%; border-radius: 4px; margin-bottom: 3px; object-fit: contain; object-position: left; background: #000; }
 .gw-fort-opts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
 .gw-fort-opts .btn { padding: 1px 6px; font-size: 12px; }
+
+/* tools that are rarely needed, folded away (DEVLOG #62) */
+details.more-tools { margin: 6px 0; }
+details.more-tools > summary { cursor: pointer; color: #a6a9b8; font-size: 13px; padding: 4px 2px; user-select: none; }
+details.more-tools > summary:hover { color: #e6e7ee; }
+details.more-tools[open] > summary { margin-bottom: 6px; }
+/* Guild War "Seen in game": one defender per row (DEVLOG #62) */
+.gw-fort-rows { display: grid; grid-template-columns: 150px minmax(140px, 240px) auto 1fr; gap: 6px 10px; align-items: center; margin: 8px 0; }
+.gw-fort-rows .gw-fort-pic { width: 150px; height: 30px; object-fit: cover; border-radius: 4px; display: block; }
+.gw-fort-rows input { width: 100%; }
+.gw-fort-rows .chip { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #1f2230; color: #a6a9b8; white-space: nowrap; }
+.gw-fort-rows .chip.ok { color: #7fe0a6; }
+.gw-fort-rows .chip.ask { color: #f0d48a; background: #2a2616; }
+.gw-fort-rows .chip.beaten { color: #9a9db0; text-decoration: line-through; }
+.gw-fort-rows .alts { display: flex; gap: 4px; flex-wrap: wrap; }
+.gw-fort-rows .alts .btn { padding: 1px 7px; font-size: 12px; }
+@media (max-width: 760px) { .gw-fort-rows { grid-template-columns: 110px 1fr; } .gw-fort-rows .gw-fort-pic { width: 110px; } }

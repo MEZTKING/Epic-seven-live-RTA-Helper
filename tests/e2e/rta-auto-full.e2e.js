@@ -108,6 +108,7 @@ const log = (...a) => console.log(...a);
   const resultShot = await shot('v4-result.jpg', { kind: 'result' });
 
   await p.click('.tab[data-tab=auto]');
+  await p.evaluate(() => document.querySelectorAll('details.more-tools').forEach((d) => (d.open = true))); // the rarely needed tools are folded away
   await p.setInputFiles('#auto-shot', draftShot);
   // 16:9 pictures use the built-in Steam layout now (nothing pops open); this made-up screen needs its own boxes
   await p.waitForTimeout(300);
@@ -156,6 +157,7 @@ const log = (...a) => console.log(...a);
   await p.screenshot({ path: SP + '/v4-draft-done.png', fullPage: true });
   // result via OCR -> auto record
   await p.click('.tab[data-tab=auto]');
+  await p.evaluate(() => document.querySelectorAll('details.more-tools').forEach((d) => (d.open = true))); // the rarely needed tools are folded away
   await p.click('#auto-shot'.replace('#', '#') ? '#auto-calib-result' : '');
   await p.setInputFiles('#auto-shot', resultShot); await p.waitForTimeout(300);
   await p.click('#auto-calib-result');

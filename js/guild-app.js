@@ -1386,7 +1386,11 @@
       const war = state.wars.find((w) => w.id === warId);
       const list = players.filter((p) => String(p.name || '').trim()).map((p) => ({ name: p.name.trim(), keep: !!p.keep, state: p.state || '', ...place(p) }));
       await put('war', { ...war, ourForts: { ...((war && war.ourForts) || {}), [fort]: list } });
+      // (a name the app is not sure of stays on the fortress list but does not become a member by itself: a misread
+      // name would add a member who does not exist. It becomes one when it is confirmed or typed.)
+      const shaky = new Set(players.filter((p) => window.E7GWMap && window.E7GWMap.unsureName(p)).map((p) => GW.playerKey(String(p.name || '').trim())));
       for (const p of list) {
+        if (shaky.has(GW.playerKey(p.name))) continue;
         const id = 'm-' + GW.playerKey(p.name).replace(/[^a-z0-9]+/g, '-');
         if (!state.members.some((m) => m.id === id || GW.playerKey(m.name) === GW.playerKey(p.name))) {
           await put('member', { id, name: p.name });
@@ -1403,20 +1407,35 @@
         return {};
       }
     })();
+    out.renamed = 0;
     for (const p of players) {
       const name = String(p.name || '').trim();
       if (!name) continue;
       if (p.raw && p.raw.toLowerCase() !== name.toLowerCase()) fixes[p.raw.toLowerCase()] = name;
-      const t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(name));
+      // is this name one to rely on? (the guild had it, the official list, the player's own page, typed by hand)
+      const sure = !!(p.known || p.official || p.fromPage || p.fromGuild || p.typed);
+      let t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(name));
+      // The same PLACE of the same fortress is the same defender, whatever was read there before: a better name
+      // replaces a guess (the record and everything logged on it stay), a guess never replaces a sure name.
+      const pl = place(p);
+      const there = !t && pl.fortIndex !== undefined ? state.targets.find((x) => x.warId === warId && x.fortIndex === pl.fortIndex && (p.keep ? !!x.keep : !x.keep && Array.isArray(x.pos) && Array.isArray(pl.pos) && Math.hypot(x.pos[0] - pl.pos[0], x.pos[1] - pl.pos[1]) < 0.03)) : null;
+      if (there) {
+        if (sure || !there.nameSure) {
+          await put('target', { ...there, player: name, tower: fort, keep: !!p.keep, ...pl, nameSure: sure, aka: [...new Set([there.player, ...(there.aka || [])])].filter((a) => a && a !== name).slice(0, 5) });
+          out.renamed++;
+        } else out.same++;
+        continue;
+      }
+      const mark = t && sure && !t.nameSure ? { nameSure: true } : {};
       if (!t) {
-        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '', ...place(p), ...(p.state === 'beaten' ? { beaten: true, beatenAt: new Date().toISOString(), beatenBy: me() } : {}) });
+        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '', ...place(p), nameSure: sure, ...(p.state === 'beaten' ? { beaten: true, beatenAt: new Date().toISOString(), beatenBy: me() } : {}) });
         out.added++;
       } else if (t.tower !== fort || !!t.keep !== !!p.keep) {
-        await put('target', { ...t, tower: fort, keep: !!p.keep, ...place(p) });
+        await put('target', { ...t, tower: fort, keep: !!p.keep, ...place(p), ...mark });
         out.moved++;
       } else {
         // already there: only its place on the map is added when it was not known yet
-        if (place(p).fortIndex !== undefined && (t.fortIndex !== place(p).fortIndex || (place(p).pos && !t.pos))) await put('target', { ...t, ...place(p) });
+        if (mark.nameSure || (place(p).fortIndex !== undefined && (t.fortIndex !== place(p).fortIndex || (place(p).pos && !t.pos)))) await put('target', { ...t, ...place(p), ...mark });
         out.same++;
       }
     }

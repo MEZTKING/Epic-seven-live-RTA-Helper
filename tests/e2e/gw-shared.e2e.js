@@ -73,55 +73,63 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
     head: (await gp.textContent('#gw-fort-seen b')).replace(/\s+/g, ' ').trim(),
     boxes: await gp.$$eval('#gw-fort-seen [data-fort-i]', (xs) => xs.map((x) => x.value)),
     marked: await gp.$$eval('#gw-fort-seen [data-fort-ask]', (xs) => xs.map((x) => `${x.dataset.fortAsk}:${/waiting/.test(x.textContent) ? 'waiting' : 'not sure'}`)),
-    save: await gp.locator('#gw-fort-save').count(),
+    chips: await gp.$$eval('#gw-fort-seen .chip.ok', (xs) => xs.map((x) => x.textContent.replace('✓ ', ''))),
+    buttons: await gp.$$eval('#gw-fort-seen button', (xs) => xs.filter((x) => !x.dataset.fortOpt && !x.dataset.fortAsk).length),
     msg: ((await gp.locator('#gw-fort-msg').count()) ? await gp.textContent('#gw-fort-msg') : '').trim(),
   });
+  const targets = () => gp.evaluate(() => window.GuildApp.state.targets.map((t) => `${t.player}${t.nameSure ? '' : '?'}${t.keep ? ' (keep)' : ''}`));
 
   await show('steam-gw-overview-war-wide.jpg', ['forts']);
   await gp.waitForTimeout(1200);
-  // 1) the Stinger map: six names are on the player list, the keep's name is not -> one marked name, waiting
+  // 1) the Stinger map: read, shown as rows, saved by itself (no button)
   const m = await show('steam-gw-map-states-wide.jpg', ['fortress'], 40);
-  await gp.waitForTimeout(500);
+  await gp.waitForTimeout(900);
   await ov.waitForTimeout(300);
   let c = await card();
   console.log('map:', m.fortNote);
-  console.log('  card:', c.head, '· marked', JSON.stringify(c.marked), '· "?" on the game:', await marks());
-  console.log('  watcher says:', JSON.stringify(await gp.textContent('#gw-watch-read')));
-  // the player's own page (the stronghold screen of the keep's player)
+  console.log('  card:', c.head, '· boxes', JSON.stringify(c.boxes), '· why sure', JSON.stringify(c.chips), '· marked', JSON.stringify(c.marked), '· "?" on the game:', await marks(), '· buttons to press:', c.buttons);
+  console.log('  saved by itself:', JSON.stringify(c.msg), '· targets', JSON.stringify(await targets()));
+  // the keep's player page: the name read there finds its defender by itself (it resembles the map's reading)
+  const before = await targets();
   const pg = await show('steam-gw-stronghold-cjk-wide.jpg', ['name-read'], 60);
-  await gp.waitForTimeout(600);
+  await gp.waitForTimeout(900);
   await ov.waitForTimeout(300);
   c = await card();
-  console.log('their page:', pg.nameNote, '→ boxes', JSON.stringify(c.boxes), '· marked now', JSON.stringify(c.marked), '·', c.msg, '· "?" on the game after leaving the map:', await marks());
-  console.log('  that box says:', (await gp.textContent('#gw-fort-seen label:last-of-type')).replace(/\s+/g, ' ').trim().slice(0, 60));
+  console.log('their page:', pg.nameNote, '→ last box', JSON.stringify(c.boxes[c.boxes.length - 1]), '· why sure', JSON.stringify(c.chips[c.chips.length - 1]), '·', JSON.stringify(c.msg));
+  console.log('  targets', before.length, '→', (await targets()).length, '(the same number: corrected, not added) · keep now:', JSON.stringify((await targets()).filter((t) => /keep/.test(t))), '· "?" on the game after leaving the map:', await marks());
 
-  // 3) save; the same map again
-  await gp.click('#gw-fort-save');
-  await gp.waitForTimeout(800);
-  console.log('saved:', (await card()).msg, '· places kept:', JSON.stringify(await gp.evaluate(() => window.GuildApp.state.targets.map((t) => (Number.isInteger(t.fortIndex) ? (t.pos ? 'pos' : 'keep') : 'none')))), '· cache for the reader:', JSON.stringify(await gp.evaluate(() => { const k = JSON.parse(localStorage.getItem('e7-gw-fort-cache') || '{}'); return Object.fromEntries(Object.entries(k.enemy || {}).map(([i, l]) => [i, l.length])); })));
-  // (as on a guildmate's PC, or after a restart: the reader has not seen this map yet)
+  // 3) the same map on a fresh reader (a guildmate's PC, or after a restart): nothing is read again
+  console.log('places kept:', JSON.stringify(await gp.evaluate(() => window.GuildApp.state.targets.map((t) => (Number.isInteger(t.fortIndex) ? (t.pos ? 'pos' : 'keep') : 'none')))), '· cache for the reader:', JSON.stringify(await gp.evaluate(() => { const k = JSON.parse(localStorage.getItem('e7-gw-fort-cache') || '{}'); return Object.fromEntries(Object.entries(k.enemy || {}).map(([i, l]) => [i, l.length])); })));
   await lv.evaluate(() => window.E7Vision._readers.find((x) => x.id === 'guild-fortress').idle({ publish() {}, note() {} }));
   const again = await show('steam-gw-map-states-wide.jpg', ['fortress'], 40);
-  await gp.waitForTimeout(500);
+  await gp.waitForTimeout(900);
   c = await card();
   const all = again.got.fortress ? [...again.got.fortress.players, again.got.fortress.keep].filter(Boolean) : [];
-  console.log('the same map again:', again.fortNote, '· taken from the plan:', all.filter((p) => p.fromGuild).length, 'of', all.length, '· names read again:', again.progress, '· first time it took', m.ms, 'ms, now', again.ms, 'ms');
-  console.log('  card:', c.head, '· Save offered:', c.save === 1, '· marked', JSON.stringify(c.marked), '· "?" on the game:', await marks());
+  console.log('the same map again:', again.fortNote, '· taken from the plan:', all.filter((p) => p.fromGuild).length, 'of', all.length, '· names read again:', again.progress);
+  console.log('  card:', c.head, '· why sure', JSON.stringify([...new Set(c.chips)]), '· marked', JSON.stringify(c.marked), '· targets still', (await targets()).length);
 
-  // 2) several unsure names (no player list this time): the user says which box waits
-  await gp.evaluate(() => { window.GuildApp.state.targets.length = 0; localStorage.removeItem('e7-gw-fort-cache'); localStorage.removeItem('e7-gw-known-names'); });
+  // 2) names the app cannot check anywhere and is not sure of: marked; a page name that resembles none of them goes to
+  //    the box the user points at
+  await gp.evaluate(() => { localStorage.removeItem('e7-gw-fort-cache'); localStorage.removeItem('e7-gw-known-names'); });
   await lv.evaluate(() => { window.__e7RecordsTest.near = async () => []; localStorage.removeItem('e7-gw-fort-cache'); localStorage.removeItem('e7-gw-known-names'); });
   await show('steam-gw-map-middle-beaten-wide.jpg', ['fortress'], 40);
-  await gp.waitForTimeout(500);
+  await gp.waitForTimeout(900);
   c = await card();
-  console.log('a map with no list to check against: marked', JSON.stringify(c.marked));
-  await gp.click('[data-fort-ask="3"]');
-  await gp.waitForTimeout(200);
-  console.log('  after pressing ⚠ on the fourth:', JSON.stringify((await card()).marked));
-  await lv.evaluate(() => window.E7Bus.publish('guild:name-read', { text: '夕凪', options: [], rect: { x: 0.1, y: 0.2, w: 0.1, h: 0.03 } }));
-  await gp.waitForTimeout(400);
-  c = await card();
-  console.log('  a name read on a player page -> box 4:', JSON.stringify(c.boxes[3]), '·', c.msg);
+  console.log('a map with no list to check against: boxes', JSON.stringify(c.boxes), '· marked', JSON.stringify(c.marked), '· read clearly', c.chips.filter((x) => x === 'read clearly').length);
+  if (c.marked.length) {
+    const k = c.marked[0].split(':')[0];
+    await gp.click(`[data-fort-ask="${k}"]`);
+    await gp.waitForTimeout(200);
+    await lv.evaluate(() => window.E7Bus.publish('guild:name-read', { text: 'Zephyr99', options: [], rect: { x: 0.1, y: 0.2, w: 0.1, h: 0.03 } }));
+    await gp.waitForTimeout(700);
+    c = await card();
+    console.log(`  ⚠ pressed on box ${+k + 1}, then a page name unlike any reading -> that box:`, JSON.stringify(c.boxes[+k]), '·', JSON.stringify(c.msg));
+  } else console.log('  (nothing marked on this map: every name was read clearly)');
+  // a name typed by hand is saved when the box is left
+  await gp.fill('[data-fort-i="0"]', 'TypedName1');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur());
+  await gp.waitForTimeout(700);
+  console.log('typed by hand:', JSON.stringify((await card()).chips[0]), '· target:', JSON.stringify((await targets()).filter((t) => /TypedName1/.test(t))));
   console.log('errors:', errs);
   await b.close();
 })();

@@ -133,7 +133,10 @@
     if (opts.offerOnly) best = null;
     const name = best ? best.name : clean;
     const options = [...offered, ...picked.all.map((c) => c.name)].filter((o, i, arr) => o !== name && arr.indexOf(o) === i).slice(0, 4);
-    return { name, raw: clean, known: false, official: !!best, options, lang: picked.lang, pic: picture };
+    // how sure the reading itself is: the reader's own confidence, and whether a second reading (another cut or
+    // another language's data) gave the very same name. A name that is not on any list can still be read well.
+    const same = reads.filter((r) => r && r.text && (r.lang === 'eng' ? G.cleanName(r.text) : G.cleanCjk(r.text, { keepLatin: !!opts.clean })) === clean).length;
+    return { name, raw: clean, known: false, official: !!best, options, lang: picked.lang, pic: picture, conf: Math.round(picked.conf || 0), agree: same >= 2 || cuts.length === 1 }; // (one cut = the loose and the tight cut are the same letters)
   }
 
   window.E7Names = { read };

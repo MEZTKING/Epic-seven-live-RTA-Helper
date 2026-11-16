@@ -2,7 +2,7 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
-## Next up (as of DEVLOG #61; the overview of what is verified is in docs/HANDOFF.md §0)
+## Next up (as of DEVLOG #62; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
 1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
@@ -15,6 +15,10 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0g. After DEVLOG #62: the same "automate, fewer buttons" pass over the rest of the app (RTA Draft tab, Gear, Live:
+   fold tools that are rarely needed, replace confirm buttons by "done by itself + undo"); save a player's defense
+   by itself when their page is read and all six heroes are sure (now: "Save as … defense"); drop the old
+   "teach this screen" buttons once no reader needs them.
 0f. After DEVLOG #61: once real draft pictures are there, find out why pre-bans are never read and why the
    opponent's picks are read unevenly (compare the wide-portrait reader's boxes with the pictures at both of the
    owner's window sizes); read the bans; show the watcher's slots in "What each slot saw"; make the Guild War page
