@@ -1314,9 +1314,32 @@
    * Layer 'rta' for the overlay: the top suggestions right next to the slot
    * that is being filled, and scouted speeds under the enemy's heroes.
    */
+  // Is an RTA draft on screen? The overlay must show nothing in the lobby, in Guild War or anywhere else (owner,
+  // DEVLOG #54: "prebans shouldn't appear here until you're in an RTA match").
+  //  1. the watcher's draft reader says so (js/vision/readers/rta-draft.js sends 'rta:stage' every 4 s)
+  //  2. no word from it for 15 s: the screen detector's RTA screens, or the draft board seen in the last 20 s
+  let rtaStage = { stage: 'idle', at: -Infinity };
+  function rtaOnScreen() {
+    if (performance.now() - rtaStage.at < 15000) return rtaStage.stage !== 'idle';
+    const SW = window.E7Screens;
+    const cur = SW ? SW.current() : null;
+    if (cur) return /^rta-(draft|preban-pick|intro|found)$/.test(cur);
+    return performance.now() - draftSeenAt < 20000;
+  }
+  if (window.E7Bus) {
+    window.E7Bus.on('rta:stage', (d) => {
+      const was = rtaOnScreen();
+      rtaStage = { stage: (d && d.stage) || 'idle', at: performance.now() };
+      if (was !== rtaOnScreen()) postOverlay();
+    });
+    window.E7Bus.on('vision:stopped', () => window.E7Overlay && window.E7Overlay.clear('rta'));
+    window.E7Bus.on('screen:changed', () => postOverlay());
+  }
   function postOverlay() {
     const O = window.E7Overlay;
     if (!O || !slots.length) return;
+    // a screenshot file loaded by hand (not live) keeps its preview; live, only during a draft
+    if (live && !rtaOnScreen()) return O.post('rta', []);
     const d = App.store.draft;
     const step = L.currentStep(d);
     const v = L.draftView(d);
@@ -1626,6 +1649,6 @@
     });
   }
 
-  window.RTAAuto = { _renderReview: renderReview, _traceTick: traceTick, _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { _setLive: (v) => ((live = !!v), postOverlay()), _rtaOnScreen: () => rtaOnScreen(), _renderReview: renderReview, _traceTick: traceTick, _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();

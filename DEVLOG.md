@@ -7,6 +7,37 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #54 · RTA overlay only during an RTA draft; overlay cards no longer outlive their page · this commit (previous: `bb60305`)
+
+**Asked for:** (screenshots of the lobby and a Guild War map with "Your preban: …" drawn on them) "prebans shouldn't
+appear here until you're in an RTA match".
+
+**Findings**
+- The RTA page posted its overlay card whenever it had slot positions and a draft step. A fresh draft's first step is
+  "my pre-ban", so the card was up all the time: lobby, Guild War, everywhere.
+- Second cause, visible in the owner's last screenshot (app on the Guild War page, card still on the game): the
+  overlay kept a layer until someone cleared it. A page that was closed or changed never did.
+
+**Changed**
+- `js/vision/readers/rta-draft.js`: publishes `rta:stage { stage, turn }` on every change of stage and every 4 s
+  (`idle` included).
+- `js/auto.js`: `rtaOnScreen()` = the watcher's stage is not `idle` (word from it in the last 15 s), else the screen
+  detector's RTA screens, else the draft board seen in the last 20 s. While watching live, `postOverlay` shows nothing
+  unless that is true (a screenshot file loaded by hand keeps its preview). Re-checked on `rta:stage`,
+  `screen:changed`; cleared on `vision:stopped`.
+- `js/overlay-bus.js` + `overlay.html`: a layer lives only as long as its page: what is shown is repeated every 5 s,
+  the overlay drops a layer not heard from for 15 s, and a page that is left clears its layers at once (`pagehide`).
+
+**Tested**
+- `npm test` 157.
+- New `tests/e2e/overlay-rta-gate.e2e.js`: live with no draft → nothing; match found → card; pre-ban → card; draft
+  over → nothing; card up, RTA page left for the Guild War page → nothing.
+- `rta-auto-full`, `live-gearscan-overlay`, `overlay-test` still pass (their overlay output unchanged).
+- **Not tested:** on the owner's PC. The draft reader has still only seen one real draft screen, so "a draft is on
+  screen" rests on its stage texts (match found, pre-ban, pick, ban, ready).
+
+---
+
 ## 2026-11-15 · #53 · Handoff: documentation brought up to date, developer check scripts added · this commit (previous: `bdadc24`)
 
 **Asked for:** "Make sure to upload everything and document everything so another AI session can pick it up".

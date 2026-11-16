@@ -104,7 +104,25 @@
         }
       }
       const chan = new BroadcastChannel('e7-overlay');
-      chan.onmessage = (e) => { if (e.data && e.data.layer) { layers[e.data.layer] = e.data.items || []; draw(); } };
+      // a layer lives as long as its page keeps repeating it (js/overlay-bus.js, every 5 s): not heard for 15 s -> gone
+      const heard = {};
+      chan.onmessage = (e) => {
+        if (!e.data || !e.data.layer) return;
+        heard[e.data.layer] = Date.now();
+        const same = e.data.keep && JSON.stringify(layers[e.data.layer] || []) === JSON.stringify(e.data.items || []);
+        layers[e.data.layer] = e.data.items || [];
+        if (!same) draw();
+      };
+      setInterval(() => {
+        let gone = false;
+        for (const k of Object.keys(layers)) {
+          if (k !== 'test' && layers[k].length && Date.now() - (heard[k] || 0) > 15000) {
+            layers[k] = [];
+            gone = true;
+          }
+        }
+        if (gone) draw();
+      }, 3000);
       chan.postMessage({ hello: true });
       addEventListener('resize', draw);
       // "is it working?": a small badge for a few seconds when the overlay starts (desktop), and a test card on request
