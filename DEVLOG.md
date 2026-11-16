@@ -7,6 +7,141 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #56 · Guild War: names in any writing (also on the enemy screen), stronghold screens, a "working…" card on the game, defenses that change, three attacks per war · this commit (previous: `2c43471`)
+
+**Asked for** (several messages, with screenshots: guild hall, the daily and the guild check-in windows, a maximized
+fortress map with names in Japanese, Chinese and Latin letters, an enemy stronghold screen with a Chinese name,
+"Successful Attack" / "Failed Defense" windows, a member's tower screen, our own fortress map):
+- "login for new day, a couple of others, keep what you need on the github and map with other language names"
+- "and also a new day for guild, but not always guild war, a day reset is at 10:00"
+- "what other screenshots do you need, here's another one where someone has attacked from my guild" (+ two more, and
+  "images of one of our players who got attacked")
+- "you should have a live loading screen overlay when the app is reading from an image or doing something where it
+  requires more information"
+- "you also need to consider that any players can change their defence at any point as well, so the attacking combos
+  and defending combos may differ after every war"
+- "make sure to document everything so any session can pick it up anytime"
+
+**Findings**
+- **Maximized map, names in five kinds of writing** (hiragana with small kana, katakana with a long-vowel dash,
+  kanji, Simplified Chinese, Latin with digits). The cut of #55 (letter mask → span around the middle) either lost
+  the short last stroke of a kana name or took specks of scenery in. Measured on the real map: a "loose" cut (small
+  strokes on the line may join) and a "tight" cut (only letter-sized patches) each get some names right that the
+  other does not; reading both and letting the readings compete got 6 of 7 right before any correction, the seventh
+  one character off (inside what the server's player list corrects).
+- A **Chinese name on the Japanese server** read as nonsense with the Japanese data and exactly with the Simplified
+  Chinese data (`chi_sim`). An unknown Chinese character is often read as a kana, so "only Chinese characters were
+  read" was too strict a trigger; "a Chinese character was read" is the trigger now.
+- A dark-outline test for specks (letters have a dark ring, snow does not) was measured and rejected: letters over
+  bright snow have no dark ring either.
+- **Enemy screen**: the name reader was English-only (three stray Latin scraps for a Chinese name), and on a **stronghold** screen
+  the defense reader found 0 heroes: a banner ("One of the two Defense Towers must be destroyed first to attack the
+  Stronghold.") pushes the six icons down by 78 px at 1070 height. The name box does not move.
+- A team stands on **three of four places** (a diamond). The built-in positions knew three; on a member's tower
+  screen round 1 used the bottom place instead of the right one.
+- **Game facts** (from the screenshots, for whoever continues):
+  - attack tokens are **3 per member per war** ("3/3" in the top bar; 73 of 87 left on the overview of a 29-member
+    guild). The app counted 2 per UTC day.
+  - the game day turns over at 10:00 UTC on the Global server; the first visit to the guild hall after it shows
+    "Guild Check-In Reward". A new guild day is not a new war.
+  - "Havoc" is the game's word for the war score (overview: "Havoc: 1620" under each guild; on a map: the bar at
+    the top left). It is not a guild name.
+  - a tower's screen shows "Defense 330/450" (hit points of the tower), a stronghold "1280/1280".
+  - the windows "Successful Attack" (their defender left, our attacker right, Victory per round) and "Failed
+    Defense" (our defender left with ✗ on the heroes, their attacker right, Defeat per round) hold both players'
+    names and both sides' two teams of three: everything an attack record needs.
+  - a player can change their defense at any moment, so a saved defense is "as last seen".
+- Pictures sent in the middle of a running reply reached the session as pictures only, not as files, so they could
+  not be used as fixtures (the attack windows, the member's tower screen, our own map).
+
+**Changed**
+- **One name reader for every place** (`js/vision/names.js`, new; `E7Names.read(ctx, picture, box, { lang, world,
+  offerOnly })`):
+  - `E7GWMap.nameLetters` (new, pure): the letters of ONE name from the mask: connected patches, the letter-sized
+    ones around the middle make the line, smaller patches on that line join when close (loose) or only inside the
+    group (tight); tiny patches outside the name are dropped, a dot inside it is kept
+  - both cuts are read in English and the server's language; with a Chinese character in the reading also with
+    `chi_sim`; without a server language and a poor English reading, Japanese / Korean / Traditional Chinese
+  - `pickRead` now also returns `all` (every usable reading, best first) and prefers a clearly longer sure reading
+  - known names and earlier corrections win; then up to four candidates are looked up in the server's player list
+    and the closest clear match is used ("✓ official"); the rest are offered
+  - used by the fortress map reader and, new, by the **enemy-screen name reader** (`guild-name.js`): any writing;
+    whose server that player is on is not known there, so official spellings are only offered (`offerOnly`); the
+    same picture is not read twice; the Guild War page also tries the offered spellings against the names it knows
+- **Stronghold and formations** (`js/vision/readers/guild-defense.js`, `js/layouts.js`): the fourth place of each
+  team (`gwDef7`, `gwDef8`) and the banner shift (`GW_DEF_SHIFTS`); every placement is read and the best one wins;
+  with four readings in a team the weakest is dropped.
+- **"Working…" card on the game** (`js/vision/hub.js`, `overlay.html`, `js/guild-watch.js`): a reader can say
+  `ctx.busy(text)` and `ctx.done(text, { ask })`. The overlay shows a small card at the top middle of the game with a
+  spinner ("Reading the names on this map… 3 of 7"), which becomes a result line ("✓ 7 names read", or "! 7 names
+  read, 2 to check in the app" in gold when the app needs the user) and leaves after 8 / 15 s. A reader that ends
+  without a result takes its card away. The same line shows on the Guild War page; event `vision:busy`.
+- **Defenses change** (`js/guildwar.js`, `js/guild-app.js`, `js/guild-watch.js`, `guild.html`):
+  - every attack now stores the line-up it was made against (`attack.defense`); the counter book uses it, so a
+    win stays a win against that team after the player changed their defense
+  - `GW.defenseChange` (new, pure): the game shows three sure heroes that are not the saved three → "Changed since
+    it was saved: Round 2 was …", the button becomes "Update …'s defense", the edit window explains it, the new
+    line-up goes in (speeds stay for heroes that stayed) and the earlier one is kept on the team (`earlier`, up to 5)
+  - a defense from an earlier war shown on the game's overlay card says "From an earlier war: may have changed"
+    (the pop-out already said so)
+  - nothing else had to change: defenses are stored per war, and counter ideas are looked up by the three heroes of
+    a team, not by the player
+- **Attacks**: 3 per member per **war** (`DEFAULT_RULES.attacksPerMember`, counting no longer per UTC day; labels
+  "this war"). A guild that had changed the rule keeps its own number (Setup → Guild War rules).
+- **Fixtures** (names replaced by `tools/dev/redact-gw-screens.py`, which now finds the names on a map with the
+  app's own code through `tools/dev/name-boxes.js`, new): `steam-gw-map-mixed-scripts-wide.jpg`,
+  `steam-gw-stronghold-cjk-wide.jpg`, `steam-guild-checkin-wide.jpg`, `steam-daily-checkin.jpg`.
+
+**Bugs found and fixed while doing it**
+- The loose cut dropped the dot of an "i" in a Latin name: the size rule now only applies outside the name.
+- The enemy-screen name reader showed a "working" card on every screen it looked at: it shows none now (its read is
+  short, and it does not repeat a read of the same picture).
+- A made-up Chinese name was read with kana in it and the Chinese data was never tried: trigger widened (above).
+- Housekeeping: real player names that earlier entries (#34, #38, #39), one code comment and two tests still
+  carried were replaced by made-up ones or removed (the repository is public; they remain in the git history).
+
+**Tested**
+- `npm test` **164** (+3: `nameLetters`; `pickRead().all`; defense change + the attack's own line-up; attacks per
+  war in the existing summary test).
+- Browser suite **35/35** clean (the runner was cut off by this session's time limit after 31 tests; the last
+  four and `gw-defense`, edited afterwards, were run one by one). The suite now takes about 15 minutes: the
+  Guild War tests read names in several languages. New `tests/e2e/gw-scripts.e2e.js`:
+  - the mixed map: **7 of 7 names** (five kinds of writing), 7 name pictures, 7 progress notes then "✓ 7 names read"
+    on the bus, on the overlay page and on the Guild War page; no card left at the end
+  - the stronghold screen: the Chinese name, **6 of 6 heroes**; the Guild War page recognises the player saved from
+    the map and saves the defense
+  - a changed round 2: notice, "Update", edit window, earlier line-up kept; an attack remembers the new line-up;
+    3 → 2 attacks left this war
+  - the two check-in windows and the guild hall: no Guild War event
+- The older map tests after the change of the cut (`gw-fortress`, `gw-war-names`): Japanese small-window map 5 of 5;
+  English maps 42 of 49 exact against 45 with the old cut. The three lost ones were compared cut by cut: the
+  pictures of the letters are the same, the reader's answer differs on the drawn test font at low confidence
+  ("Yankee12", "NovaKoi", "JadeLynx"). Not seen on real game letters.
+- The owner's real map (not committed): six of the seven names exact from at least one of the two cuts (two
+  hiragana / mixed names, the Latin name with digits, a two-kanji name, a three-hiragana name, the Chinese keep
+  name); one katakana name one character off.
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `overlay-status`, `newwar`, `war-reminder` pass. (The
+  working card itself is checked on the overlay page in the browser test, not inside the packaged app.)
+- **Not tested:**
+  - the fourth formation place with a hero on it (seen only in a chat picture; positions by eye)
+  - a tower (not stronghold) screen of a member, the "Successful Attack" / "Failed Defense" windows, our own map
+    with a damaged tower: no files
+  - Korean names; the real Japanese player list (the test uses a stand-in)
+  - how long the first read takes on the owner's PC while the Japanese and Chinese data download (a few MB each)
+  - on the owner's PC
+
+**Open**
+- **Reading the attack windows** (who attacked whom, with which teams, who won each round → attack logged by
+  itself, with Undo): needs the windows as files. Asked for.
+- Built-in recognition of the check-in windows, the guild hall and the VS screen was not added: a window dims
+  whatever is behind it, so its 32×18 signature depends on the background. They are safe as they are (nothing is
+  read from them; tested).
+- The game day (10:00 UTC on Global) is written down but nothing uses it yet; attacks are per war now.
+- Still to read from screens already in the fixtures: my attacks left ("3/3"), the Havoc score, a tower's hit
+  points, the season log on a player's screen (who attacked them and how it went).
+
+---
+
 ## 2026-11-16 · #55 · Guild War in a running war: no more wars against made-up guilds; names in any script; pick the right spelling by eye · this commit (previous: `dcfb1e1`)
 
 **Asked for** (with screenshots of the guild hall "Guild War in progress", the VS screen, the overview of a running
@@ -941,7 +1076,7 @@ second one would be visible as a duplicate and can be removed with Undo.
     name; together they read all six, wide and 16:9. The name's position gives left / middle / right.
 - **Badge ring = health:**
   - red = enemy, green = ours, all grey = beaten. Domino "2/9": exactly 2 green badges.
-  - A nearly beaten defender keeps a short arc (Ozythral: 21% red), so ≥ 4% colour = standing.
+  - A nearly beaten defender keeps a short arc (one defender: 21% red), so ≥ 4% colour = standing.
   - The #38 rule (needs ≥ 15% red) missed every beaten and every own badge.
   - New rule: dark disc + a bright symbol in the middle (≥ 40% light; all 27 badges 0.44–0.88, snow ≤ 0.33) + an even
     ring (spread ≤ 35: badges ≤ 24, name labels that also looked like a disc 49–64).
@@ -1042,8 +1177,8 @@ maximized window, 2000×1070).
 - **Names:**
   - OCR of the whole map is useless (3 of 10, garbled).
   - Per badge: crop the name box, keep white letters only, cut to the letters around the middle, read one line.
-  - Real Stinger map: 6/10 exact (Ozythral, AkariRen, Reimarion, Miidou, Fri13Kayle, YDI), 2 close (TubuZ for TuDuZ,
-    RyanVo76.x), 2 wrong.
+  - Real Stinger map: 6/10 exact, 2 close (one letter off; a stray ending), 2 wrong. (Player names removed from
+    this entry in DEVLOG #56: the repository is public.)
   - So the names are shown editable, matched to names you already have (small edit distance), and corrections are
     remembered.
 - Screen signatures: the wide map scores 0.978 against the 16:9 one when taken from the middle 16:9 part (0.924 when
@@ -1263,7 +1398,7 @@ fortress maps, an enemy's defense with season log, a defense battle result). Que
 answered in chat.
 
 **Findings (real files, 1228×691)**
-- **Enemy name** with a built-in box (no "Set name box"): OCR read "Ozythral" (88%), exactly right.
+- **Enemy name** with a built-in box (no "Set name box"): OCR read the real name (88%), exactly right.
 - **Defense teams:** six round icons. The top-right badge here is the **level ("60", coloured), not the element**, so only
   the class symbol may narrow candidates.
   - Kawerik (0.89), Frieren (0.88) and Lionheart Cermia right; the other three unsure (skins / other art), never wrong.
@@ -1314,7 +1449,7 @@ answered in chat.
   - the editor is prefilled with Lionheart Cermia, Kawerik, Frieren
   - typing one name → learned 1 → read again: 4/6, that icon sure
 - **Not tested:** the name reader inside the full app on a real screen (the fixture's name is blacked out; checked
-  separately on the original: "Ozythral"), other fortresses, the desktop app on Windows.
+  separately on the original: read exactly), other fortresses, the desktop app on Windows.
 
 **Open:** read the fortress maps (enemy names under the avatars) to list a fortress's defenders; read battle results to
 log attacks.

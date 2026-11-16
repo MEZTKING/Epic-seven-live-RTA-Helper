@@ -39,9 +39,31 @@ test('target status and war summary', () => {
   const w = GW.warSummary(s, 'w1');
   assert.equal(w.cleared, 1);
   assert.equal(w.teamsCleared, 2);
-  assert.deepEqual(w.members.find((m) => m.name === 'Ann'), { name: 'Ann', used: 2, left: 0 });
+  // three attacks per member per WAR (DEVLOG #56; it was two per day)
+  assert.equal(GW.DEFAULT_RULES.attacksPerMember, 3);
+  assert.deepEqual(w.members.find((m) => m.name === 'Ann'), { name: 'Ann', used: 2, left: 1 });
+  assert.equal(w.attacksLeft, 1 + 3 + 2);
   const day1 = GW.warSummary(s, 'w1', GW.DEFAULT_RULES, '2026-01-01');
-  assert.equal(day1.members.find((m) => m.name === 'Ann').left, 1);
+  assert.equal(day1.members.find((m) => m.name === 'Ann').left, 2);
+});
+
+test('a player changes their defense: the change is seen, attacks keep the line-up they were made against (DEVLOG #56)', () => {
+  const s = GW.buildState(sample());
+  const t1 = s.targets.find((t) => t.id === 't1');
+  const seen = (codes) => codes.map((c) => (c ? { code: c, sure: true } : null));
+  // the same heroes in another order: no change
+  assert.deepEqual(GW.defenseChange(t1, [seen(['z', 'x', 'y']), seen(['p', 'q', 'r'])]), []);
+  // round 2 is another team now
+  assert.deepEqual(GW.defenseChange(t1, [seen(['x', 'y', 'z']), seen(['p', 'q', 'k'])]), [{ team: 2, was: ['p', 'q', 'r'], now: ['p', 'q', 'k'] }]);
+  // an icon the app was not sure of: no claim
+  assert.deepEqual(GW.defenseChange(t1, [seen(['x', 'y', 'z']), [{ code: 'p', sure: true }, { code: 'q', sure: true }, { code: 'k', sure: false }]]), []);
+  // nothing saved yet for that team: nothing to compare
+  assert.deepEqual(GW.defenseChange({ teams: [{ heroes: [] }] }, [seen(['x', 'y', 'z'])]), []);
+  // the counter book: an attack logged against the OLD line-up stays with it after the target was updated
+  const recs = sample().map((r) => (r.id === 'a1' ? { ...r, defense: ['x', 'y', 'z'] } : r.id === 't1' ? { ...r, teams: [{ heroes: ['k', 'l', 'm'] }, { heroes: ['p', 'q', 'r'] }] } : r));
+  const book = GW.counterBook(GW.buildState(recs));
+  assert.equal(book.get('x+y+z')[0].wins, 1);
+  assert.equal(book.has('k+l+m'), false);
 });
 
 test('counter book + suggestions: exact match first, similar defenses (2 of 3) too, owners listed', () => {

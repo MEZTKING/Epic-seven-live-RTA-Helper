@@ -87,8 +87,10 @@
 
   /** The game watcher read text in the name box (js/vision/readers/guild-name.js). */
   let lastRaw = '';
+  let lastPicOfName = ''; // the name as the game shows it (for names in a script the user cannot type)
   function onNameRead(d) {
     if (d.text) lastRaw = d.text.replace(/[^\p{L}\p{N}_#.\- ]/gu, '').trim();
+    lastPicOfName = d.pic || '';
     if (d.away) {
       last = { name: null, n: 0 };
       lastRect = null;
@@ -98,7 +100,9 @@
     }
     lastRect = d.rect || box();
     const known = [...new Set(A.state.targets.map((t) => t.player).filter(Boolean))];
-    const name = GW.matchPlayer(d.text, known);
+    // what was read, then the other readings / close official spellings of it (js/vision/names.js)
+    let name = GW.matchPlayer(d.text, known);
+    for (const o of d.options || []) name = name || GW.matchPlayer(o, known);
     // same name twice in a row before switching (avoids flicker while screens change)
     if (name && name === last.name) last.n++;
     else last = { name, n: 1 };
@@ -119,8 +123,13 @@
     if (!seenDefense) return el.classList.add('hidden');
     const player = (A.current && A.current()) || last.name || lastRaw || '';
     const team = (t) => t.map((x) => (x && x.sure ? A.esc(A.nameOf(x.code)) : '<span class="hint">?</span>')).join(', ');
-    el.innerHTML = `<b>Seen in game${player ? ` · ${A.esc(player)}` : ''}:</b> Round 1: ${team(seenDefense.teams[0])} · Round 2: ${team(seenDefense.teams[1])}
-      <button class="btn primary" id="gw-seen-save">Save as ${player ? A.esc(player) + "'s" : 'this enemy\'s'} defense</button>
+    // saved for this player in this war, and not what the game shows now: they changed their defense (DEVLOG #56)
+    const saved = player && A.targetFor ? A.targetFor(player) : null;
+    const changes = saved && saved.warId === A.warId ? GW.defenseChange(saved, seenDefense.teams) : [];
+    const changed = changes.length ? `<div class="ins warn"><b>Changed since it was saved:</b> ${changes.map((c) => `Round ${c.team} was ${A.esc(c.was.map(A.nameOf).join(', '))}`).join(' · ')}</div>` : '';
+    const pic = lastPicOfName && !last.name ? `<img class="gw-fort-pic" style="vertical-align:middle" src="${lastPicOfName}" alt="the name as the game shows it" /> ` : '';
+    el.innerHTML = `${changed}<b>Seen in game${player ? ` · ${pic}${A.esc(player)}` : ''}:</b> Round 1: ${team(seenDefense.teams[0])} · Round 2: ${team(seenDefense.teams[1])}
+      <button class="btn primary" id="gw-seen-save">${changes.length ? 'Update' : 'Save as'} ${player ? A.esc(player) + "'s" : 'this enemy\'s'} defense</button>
       <span class="hint">“?” = not sure: type those heroes in; the app remembers them for next time.</span>`;
     el.classList.remove('hidden');
     $('#gw-seen-save').onclick = () => A.openTargetWith({ player, teams: seenDefense.teams });
@@ -221,6 +230,11 @@
     };
   }
   bus.on('vision:warning', (d) => d.module === 'guild' && ($('#gw-watch-read').textContent = '⚠ ' + d.text));
+  // the watcher is busy with something slow (names in several languages) or needs a look: say so here too (DEVLOG #56)
+  bus.on('vision:busy', (d) => {
+    if (!d || !/^guild/.test(d.reader || '') || !d.text) return;
+    $('#gw-watch-read').textContent = (d.done ? (d.ask ? '! ' : '✓ ') : '⏳ ') + d.text;
+  });
 
   // ----------------------------------------------------- overlay layer 'guild'
   /** Card next to the enemy's name in game: their dot, each team's verdict and your counter. */
@@ -238,6 +252,8 @@
       const c = tv.counter && tv.level !== 'red' ? ` — ${tv.counter.attack.map(A.nameOf).join(' + ')}` : '';
       return `Team ${i + 1}: ${tv.label || '?'}${c}`;
     });
+    // a defense saved in an earlier war: the player may have changed it since (they can at any time)
+    if (t.warId !== A.warId) lines.push('From an earlier war: may have changed');
     O.post('guild', [{ ...r, kind: 'card', side: 'right', level: v.level, title: t.player, lines }]);
   }
   A.onChange(postOverlay);

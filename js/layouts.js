@@ -66,6 +66,10 @@
         gwDef4: A(ring(314, 381), 'l'),
         gwDef5: A(ring(378, 409), 'l'),
         gwDef6: A(ring(259, 439), 'l'),
+        // the FOURTH place of each team's formation (bottom of the diamond): a team stands on three of four places.
+        // By eye from the owner's 2000×1070 screenshot of a member's tower (DEVLOG #56; no file of it): not pixel-checked.
+        gwDef7: A(ring(130, 469), 'l'),
+        gwDef8: A(ring(332, 469), 'l'),
         // Guild War fortress map: the page indicator at the bottom right (white pill = which fortress), pixel-measured
         // (bar 0.42 h … 0.041 h from the right edge at 93.5% height, the same on 2000×1070 and 1228×691)
         gwFortPager: A(g(938, 630, 262, 32), 'r'),
@@ -118,6 +122,9 @@
     return { id: base.id, label: base.label, aspect: ar, measured: base.measured, regions, exact: Math.abs(ar - REF) < 0.03 };
   }
   /** Every placement worth trying for one region in a w×h picture: [{ anchor, rect }] (main anchor first). */
+  // Guild War stronghold (keep) screen: a banner ("One of the two Defense Towers must be destroyed first…") pushes the
+  // teams down by this share of the height (78 px at 1070, measured on the owner's 2000×1070 screenshot, DEVLOG #56)
+  const GW_DEF_SHIFTS = [0, 78 / 1070];
   function alternatives(w, h, key) {
     const r = LAYOUTS[0].regions[key];
     if (!r || !w || !h) return [];
@@ -153,7 +160,7 @@
     return out;
   }
 
-  const api = { LAYOUTS, PARTS, REF, place, layoutFor, alternatives, effective, status, ownOnly };
+  const api = { LAYOUTS, PARTS, REF, GW_DEF_SHIFTS, place, layoutFor, alternatives, effective, status, ownOnly };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7Layouts = api;
 })(typeof self !== 'undefined' ? self : this);

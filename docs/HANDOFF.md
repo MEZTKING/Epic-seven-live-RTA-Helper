@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #53, 2026-11-15) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #56, 2026-11-16) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -24,17 +24,22 @@ run the suites first (§6), and one DEVLOG entry per commit.
 | Top-player model (win rate, pick policy, bans, pre-bans, turn order), statistics tab, team plans | Works on real games here | Model fitted on their PC (58% on 6,006 unseen games). Statistics tab / plans / turn order: **not yet looked at by the owner** |
 | Seasons (History → Seasons, statistics per season) | Works in tests | No |
 | RTA draft read from the screen without calibration | Works on ONE real screenshot (the BAN screen, 10/10 cards) | **No real draft watched yet.** Needs screenshots while picking |
-| Guild War: overview → war starts by itself, fortress maps, enemy defense screen (6/6), standby page | Works on the owner's real screenshots | Auto-war seen working (#46). Standby / reminder / beaten marking: not yet |
+| Guild War: overview → war starts by itself, fortress maps (names in any writing), enemy defense / stronghold screen (name + 6/6), standby page, changed defenses, "working…" card | Works on the owner's real screenshots | Auto-war seen working (#46). Names in a running war were wrong on their PC before #55 / #56; **not yet confirmed fixed there**. Standby / reminder / beaten marking: not yet |
 | Gear Sorter, screen gear reader | Built on generated screens only | No |
 | Guild sharing through Firebase | Built; local mode tested | No real Firebase project connected |
 
 **Waiting on the owner (ask for these; they unblock the most):**
 1. Screenshots from a real RTA draft **while picking**: their turn with a hero clicked but not confirmed, the
    opponent's turn, the pre-ban icons visible. (The draft reader has only seen a ban screen.)
-2. Guild War: the screen right after a war ends; an enemy fortress map with at least one beaten defender; a map
-   with Korean or Chinese names. (Received 2026-11-16: guild hall, VS screen, overview of a running war, maps of a
-   Japanese guild → DEVLOG #55.)
-3. A report of how #46–#52 behave on their PC (standby banner, reminder notification, statistics tab, team plans,
+2. Guild War, **as files** (a picture sent while a reply is still being written reaches the session only as a
+   picture, not as a file, and cannot become a fixture: ask for it again in a normal message):
+   - the "Successful Attack" and "Failed Defense" windows (seen in chat on 2026-11-16, not as files) → the attack
+     reader on the roadmap
+   - a member's TOWER screen ("Defense 330/450") and our own fortress map with a damaged tower
+   - the screen right after a war ends; an enemy map with at least one beaten defender; a map with Korean names
+   (Received as files 2026-11-16: guild hall, VS screen, overview of a running war, maps of a Japanese guild, the
+   check-in windows, an enemy stronghold screen → DEVLOG #55, #56.)
+3. A report of how #46–#56 behave on their PC (names on the map and the "working…" card of #56 first) (standby banner, reminder notification, statistics tab, team plans,
    "you move first in about X%").
 4. "Copy report for Claude" (RTA → Auto, Live, Gear, Guild War, or the Developer menu) whenever something misbehaves.
 
@@ -49,6 +54,10 @@ statistics tab's "what top players pick at this draft position"; moving the old 
   installed app does not start (`tests/desktop.test.js` guards it).
 - Any element with `data-hero` opens the app's hero card on click; use another attribute for own click targets.
 - Displayed portraits are plain `<img>`; pixel reading uses `PORTRAIT_URL_CORS` (mixing both on one URL breaks loading).
+- A reader that takes more than a moment says so: `ctx.busy(text)` / `ctx.done(text, { ask })` (the card on the game,
+  DEVLOG #56). Do not call `busy` from a reader that runs on every screen.
+- A saved Guild War defense is "as last seen": players change them at any time. Never attribute an attack to the
+  target's current team; use `attack.defense` (`GW.defenseOf`).
 - `E7Bus.publish` payloads may hold small pictures (`pic` of a name): keep them small (JPEG, 40 px high).
 - The repository is public: screenshots and fixtures must not show real player or guild names (replace them), and
   collected games (`tools/dev/out/`) are never committed.
@@ -132,7 +141,8 @@ only receive events.
 - `js/vision/hub.js` (`E7Vision`): the watcher. Hosted by `vision.html` (desktop: hidden window started with the app,
   `data-vision-host="always"`) or `live.html` in a browser (`data-vision-host="browser"`); does nothing elsewhere.
   Answers `start`, `stop`, `status`, `snapshot`, `teach`; publishes `vision:status` (3 s), `vision:started`/`stopped`,
-  `vision:warning`, `screen:changed`. One shared tesseract worker for all readers.
+  `vision:warning`, `screen:changed`, `vision:busy` (a reader is working on something slow or needs the user,
+  DEVLOG #56). One tesseract worker per language (English always; others loaded when a name needs them).
 - `js/vision/bus.js` (`E7Bus`, BroadcastChannel `e7-vision`), `js/vision/client.js` (`VisionClient`: status, ensure,
   teach, snapshot for drawing boxes), `js/vision/panel.js` (status/readers/events panel).
 - Consumer `js/vision/consumers/gear.js` (runs next to the watcher) saves items via `js/gearstore.js` (`GearStore`) and
@@ -143,13 +153,16 @@ only receive events.
   `E7Desktop.dev()/saveDevShot()`; main writes to `Pictures/Epic 7 Engine/<date>/`.
 - Gear art: `js/gear-icons.js` (`E7GearIcons.slot/set`), original SVG (not game art).
 
+- **Shared by readers:** `js/vision/names.js` (`E7Names.read`: one player name in any writing, DEVLOG #56; loaded
+  before the readers). A reader's `ctx`: `source, w(), h(), crop, ocr(canvas, { line, lang, full }), ocrWords,
+  publish, note, busy(text), done(text, { ask })`.
 - **All readers** (`js/vision/readers/`, loaded by `vision.html` and `live.html`):
 
   | Reader | Publishes | Reads |
   |---|---|---|
   | `gear-item.js` | `gear:item` | Item panel (boxes drawn once on the Gear page) |
-  | `guild-name.js` | `guild:name-read` | Enemy player's name on a defense / profile screen |
-  | `guild-defense.js` | `guild:defense` | The six hero icons of an enemy's two defense teams (faces, no calibration) |
+  | `guild-name.js` | `guild:name-read { text, rect, options?, pic?, lang? }` | A player's name on a defense / stronghold screen, in any writing (`js/vision/names.js`) |
+  | `guild-defense.js` | `guild:defense` | The six hero icons of a player's two defense teams (faces, no calibration; 3 of 4 places per team, stronghold shift) |
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
   | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild, ourServer, enemyServer, endsIn, endsAt }` | The overview: three fortress names, which side, both guild names and servers, "War Ends in …" |
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
@@ -211,9 +224,9 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 | `localStorage['e7-frame-of']` | `js/game-area.js` | Which picture each module's calibration boxes were drawn on (`{rta, gear, guild}` → `window` / `area:x,y,w,h` / `full`); readers warn once when it changed |
 | `localStorage['e7-game-area']` | `js/game-area.js` | Where the game is inside a whole-screen capture: `{x,y,w,h}` fractions + capture size `fw,fh`, or `{full:true,fw,fh}`. Asked again when the capture size changes; "Reset game area" buttons clear it. `overlay.html` reads it too |
 | `localStorage['e7-cecilia-heroes']`, `['e7-cecilia-hero-<slug>']`, `['e7-use-cecilia']` | `js/ceciliabot.js` | CeciliaBot effect list (weekly), per-hero skills (weekly), on/off |
-| BroadcastChannel `e7-overlay` | `js/overlay-bus.js` → `overlay.html`, `js/live.js` | Overlay layers `{layer, items}`; items use fractions of the game frame |
+| BroadcastChannel `e7-overlay` | `js/overlay-bus.js` → `overlay.html`, `js/live.js` | Overlay layers `{layer, items}`; items use fractions of the game frame. Layers: `rta`, `guild`, `gear`, `busy` (the working card, posted by the watcher) |
 | BroadcastChannel `rta-guild-<code>` | `js/sync.js` | Live sync between tabs in local mode |
-| **Firestore** `guilds/{code}/records/{id}` (shared) | `js/sync.js` | Records `member`, `war` (+`season`), `target`, `attack` (+`speeds`), `defense`, `settings`, `hero`; soft deletes; rules in `firestore.rules` |
+| **Firestore** `guilds/{code}/records/{id}` (shared) | `js/sync.js` | Records `member`, `war` (+`season`), `target` (teams may hold `earlier` line-ups), `attack` (+`speeds`, +`defense` = the line-up attacked), `defense`, `settings`, `hero`; soft deletes; rules in `firestore.rules` |
 
 **Source labels used in the app:** `official`, `custom`, `fribbels`, `fribbels-data`, `my notes`, `learned`, `game rule`,
 `presets`, `player`, `meta: <name>`, `speed`, `deny`, `scouting`, `game help`, `ceciliabot`, `guild`, `my speeds`,
@@ -302,16 +315,19 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 
 ## 6. Testing
 
-Counts at DEVLOG #53: **157 unit tests, 32 browser tests, 14 desktop checks.** All were green at that commit.
+Counts at DEVLOG #56: **164 unit tests, 35 browser tests, 14 desktop checks.** Unit and browser suites were green at
+that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
   `tests/_world.js` is a made-up world with planted effects shared by the model and planner tests.
-- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 8 minutes). It serves the repo on :8766 and runs every
+- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 15 minutes since #56; in a cloud session start it in
+  the background with a 30-minute limit, or it is cut off). It serves the repo on :8766 and runs every
   `tests/e2e/*.e2e.js` with Playwright (pre-installed in cloud sessions). Each test prints what it found and ends with
   `errors: []`; the runner fails otherwise. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-real-screens`, `faces-real`, `teach`.
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
+    `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
     games into the records database and checks the model, team plans, turn order and the statistics tab.
@@ -347,7 +363,32 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
 
-**Guild War names and running wars** (DEVLOG #55):
+**Guild War, DEVLOG #56** (names anywhere, strongholds, the working card, changing defenses):
+- **One name reader:** `js/vision/names.js` `E7Names.read(ctx, picture, box, { lang, world, offerOnly })` →
+  `null | { name, raw, known, official, options, lang, pic }`. Steps: `E7GWMap.nameLetters` loose + tight → each read
+  in English + the server language (+ `chi_sim` when a Chinese character was read; all three other scripts when
+  there is no server language and English is poor) → `pickRead` (`.all` = candidates) → name fixes
+  (`e7-gw-name-fixes`) / known names (`e7-gw-known-names`) → `records.near(world, candidate)` for up to 4
+  candidates. Used by `guild-fortress.js` and `guild-name.js` (there with `offerOnly`: side unknown). The loaded
+  page needs `js/vision/names.js` before the readers (`vision.html`, `live.html`).
+- **Enemy / member screen:** teams stand on 3 of 4 places (`gwDef1..6` + `gwDef7`, `gwDef8`); a stronghold's banner
+  shifts them down (`E7Layouts.GW_DEF_SHIFTS`); `guild-defense.js` reads every placement and keeps the best.
+- **Working card:** `js/vision/hub.js` `setWorking` → overlay layer `busy` (items `{ kind: 'busy', title, done, ask }`,
+  drawn top middle by `overlay.html` `.ov-busy`) and bus event `vision:busy { reader, text, done, ask }`
+  (`js/guild-watch.js` shows it in `#gw-watch-read`). Auto-clear: 8 s after `done`, 15 s with `ask`, at once when
+  the reader's pass ends without `done`, and on stop.
+- **Changing defenses:** `attack.defense` (heroes at the time; `lineupOf` in `js/guild-app.js`), `GW.defenseOf`
+  prefers it; `GW.defenseChange(target, seenTeams)`; a target team may hold `earlier: [{ heroes, speeds, build,
+  until }]`; `#target-changed` in the edit window; `#gw-seen` says "Changed since it was saved".
+- **Attacks:** `DEFAULT_RULES.attacksPerMember` = 3, counted per war (`GW.attacksUsed(attacks, warId)` without a day).
+- **Game facts** worth knowing: 3 attack tokens per member per war; game day turns at 10:00 UTC (Global), the guild
+  hall then shows "Guild Check-In Reward" (a new day is not a new war); "Havoc" = the war score; tower "Defense
+  330/450" = its hit points; the windows "Successful Attack" / "Failed Defense" show both players and both sides'
+  two teams with the result per round.
+- Fixtures: `tools/dev/redact-gw-screens.py <raw dir> <out dir>` (needs `fonts-noto-cjk`; finds map names with
+  `tools/dev/name-boxes.js`); the raw screenshots are never committed.
+
+**Guild War names and running wars** (DEVLOG #55; the name steps were replaced by #56 above):
 - `E7GWMap.barKind` tells a map's page indicator (one third lit) from the overview's side switch (one half lit);
   both readers use it. Never start a war from one guild name alone.
 - Names: `nameMask` → `letterSpan` → 96 px crop → `ctx.ocr(c, { line, full, lang })` in English + the side's server

@@ -155,7 +155,7 @@
         <div class="card">
           <h3>Guild War rules</h3>
           <p class="hint">Shared with the guild. Change them if the game's rules change.</p>
-          <label>Attacks per member per day <input id="rule-attacks" type="number" min="1" max="10" /></label>
+          <label>Attacks per member per war <input id="rule-attacks" type="number" min="1" max="10" /></label>
           <label>Defense teams per player <input id="rule-teams" type="number" min="1" max="3" /></label>
         </div>
         <div class="card">
@@ -176,6 +176,7 @@
         <label>Fortress <input name="tower" list="gw-forts" placeholder="e.g. Stinger Fortress (read from the game's overview)" /></label>
         <datalist id="gw-forts"></datalist>
       </div>
+      <div id="target-changed" class="ins warn hidden"></div>
       <div id="team-editors"></div>
       <label>Notes <textarea name="notes" rows="2"></textarea></label>
       <div class="btn-row"><button type="button" id="target-delete" class="btn danger">Delete</button><span class="spacer"></span><button type="button" id="target-cancel" class="btn">Cancel</button><button type="submit" class="btn primary">Save</button></div>

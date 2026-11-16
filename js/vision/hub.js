@@ -178,13 +178,44 @@
     clearInterval(timer);
     timer = null;
     since = null;
-    if (window.E7Overlay) ['gear', 'guild'].forEach((l) => window.E7Overlay.clear(l));
+    for (const k of Object.keys(working)) {
+      if (working[k].timer) clearTimeout(working[k].timer);
+      delete working[k];
+    }
+    if (window.E7Overlay) ['gear', 'guild', 'busy'].forEach((l) => window.E7Overlay.clear(l));
     if (was) bus.publish('vision:stopped', {});
     return status();
   }
 
+  // ------------------------------------------------------------- "working…" on the game (DEVLOG #56)
+  // A reader that needs a while (reading names in several languages) or needs the user says so: ctx.busy(text) shows a
+  // small card with a spinner at the top of the game, ctx.done(text) turns it into a result line that leaves after 8 s
+  // (ctx.done(text, { ask: true }): the app needs the user, e.g. names to check; stays 15 s). A reader that ends
+  // without saying done just takes its card away. Also on the bus: vision:busy { reader, text, done, ask }.
+  const working = {}; // reader id -> { text, done, ask, timer }
+  function showWorking() {
+    if (!window.E7Overlay) return;
+    window.E7Overlay.post('busy', Object.values(working).map((w) => ({ kind: 'busy', x: 0.5, y: 0.085, title: w.text, done: !!w.done, ask: !!w.ask })));
+  }
+  function setWorking(r, text, opts) {
+    const was = working[r.id];
+    if (was && was.timer) clearTimeout(was.timer);
+    if (!text) {
+      if (!was) return;
+      delete working[r.id];
+    } else {
+      const o = opts || {};
+      working[r.id] = { text: String(text), done: !!o.done, ask: !!o.ask, timer: o.done ? setTimeout(() => setWorking(r, ''), o.ask ? 15000 : 8000) : null };
+      if (was && was.text === working[r.id].text && was.done === working[r.id].done) return;
+    }
+    bus.publish('vision:busy', { reader: r.id, text: text ? String(text) : '', done: !!(opts && opts.done), ask: !!(opts && opts.ask) });
+    showWorking();
+  }
+
   // ------------------------------------------------------------- the loop
   const ctxFor = (r) => ({
+    busy: (text) => setWorking(r, text),
+    done: (text, opts) => setWorking(r, text, { done: true, ask: !!(opts && opts.ask) }),
     get source() {
       return source;
     },
@@ -280,7 +311,10 @@
         Promise.resolve()
           .then(() => r.read(ctx))
           .catch((e) => ctx.note('Error: ' + ((e && e.message) || e)))
-          .finally(() => (r.busy = false)),
+          .finally(() => {
+            r.busy = false;
+            if (working[r.id] && !working[r.id].done) setWorking(r, ''); // ended without a result: no card left behind
+          }),
       );
     }
     await Promise.all(jobs);
