@@ -246,6 +246,7 @@
 
   // ---- the reader ---------------------------------------------------------------------------------------------------
   const tracker = new D.Tracker();
+  let stageSent = { stage: '', at: -Infinity };
   const anchor = { own: null, enemy: null, pre: null }; // the anchor that worked at this window shape
   let shape = '';
   function readSlot(ctx, side, i) {
@@ -345,6 +346,12 @@
         if (F && roundReady() && tracker.prebans.some((c) => !c)) obs.prebans = tracker.prebans.map((c, k) => (c ? c : readPreban(ctx, k)));
       }
       const st = tracker.update(performance.now(), obs);
+      // "is an arena draft on screen right now?" for whoever draws on the game (the RTA overlay shows nothing outside a
+      // draft; DEVLOG #54): on every change of stage and every 4 s
+      if (st.stage !== stageSent.stage || performance.now() - stageSent.at > 4000) {
+        stageSent = { stage: st.stage, at: performance.now() };
+        ctx.publish('rta:stage', { stage: st.stage, turn: st.turn || null });
+      }
       // status line
       const n = (a) => a.filter(Boolean).length;
       let note = STAGE[st.stage];

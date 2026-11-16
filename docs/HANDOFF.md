@@ -151,7 +151,7 @@ only receive events.
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
   | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild }` | The overview: three fortress names, which side, both guild names |
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
-  | `rta-draft.js` | `rta:draft`, `rta:draft-end` | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, first pick) |
+  | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, first pick) |
 
 **Page parts for the official record site and top players** (not pure; `rta.html`, the first also `guild.html`):
 - `js/records-app.js` (`E7RecordsApp`): settings, find me, import my matches, opponent panel, Guild War "Arena
@@ -344,6 +344,10 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**Overlay rules** (DEVLOG #54): the RTA layer is posted only while `rtaOnScreen()` (js/auto.js; fed by the draft
+reader's `rta:stage` heartbeat); every overlay layer is repeated by its page every 5 s and dropped by `overlay.html`
+after 15 s of silence or on the page's `pagehide`.
 
 **Team plans** (DEVLOG #52): `js/teamplan.js` (`E7TeamPlan.search(engine, { own, enemy, taken, meFirst, pool })`,
 pure; uses `Engine.rows` per slot, `Policy.slot / pair`); shown by `renderInsights` in `js/app.js` (`#team-plans`)
