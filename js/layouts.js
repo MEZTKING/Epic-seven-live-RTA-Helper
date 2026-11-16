@@ -78,6 +78,8 @@
         // server tag ("Global"). Pinned left; the same place on both sides' overviews (owner's 2000×1070 and 1228×691).
         gwOurGuild: A(g(32, 240, 181, 24), 'l'),
         gwEnemyGuild: A(g(32, 505, 181, 24), 'l'),
+        // Guild War overview, top left: "War Ends  in 17h" (owner's 2000×1070 overview of a running war, DEVLOG #55)
+        gwWarEnds: A(g(30, 84, 170, 40), 'l'),
       },
     },
   ];

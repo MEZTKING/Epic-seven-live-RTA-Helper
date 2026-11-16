@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('E7Desktop', {
   records: {
     game: (name, params) => ipcRenderer.invoke('e7:records', { op: 'game', name, params }),
     find: (world, name) => ipcRenderer.invoke('e7:records', { op: 'find', world, name }),
+    near: (world, text) => ipcRenderer.invoke('e7:records', { op: 'near', world, text }), // names close to a text read from the screen
+
     status: () => ipcRenderer.invoke('e7:records', { op: 'status' }),
   },
   guildStandby: (d) => ipcRenderer.send('e7:guild-standby', { beginsAt: d && d.beginsAt }),

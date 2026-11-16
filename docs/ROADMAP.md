@@ -7,11 +7,15 @@ Ideas the owner asked to keep for later. When one is started, it moves to `DEVLO
 Needs the owner first:
 1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
    turn counting), then the built-in positions at the maximized window. Biggest risk to "everything automatic".
-2. **Guild War screens**: right before a war, right after one, an enemy map with a beaten defender → states for
-   "war starting" / "war over", confirm the grey-ring rule on the enemy side.
+2. **Guild War screens**: right after a war, an enemy map with a beaten defender, a map with Korean / Chinese
+   names → "war over" state, confirm the grey-ring rule on the enemy side, check those scripts.
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0. Guild War, from the screens of DEVLOG #55 (fixtures are in the repository): read the **VS screen** (both guild
+   names and servers, large and clear: a second, independent source before a war is started) and the guild hall's
+   "Guild War in progress"; on the overview: my attacks left (3/3), both guilds' attack totals, standing defenders
+   per fortress (7/7, 4/5, 5/5) → attacks left from the game instead of from logged attacks.
 1. Team plans and the standby note on the in-game overlay (now only in the app window).
 2. From E7DaT: ban forecast, similar-team records, heroes that need a specific ally, the turn-order correction from
    my own matches, "had you built this hero" in the plans.

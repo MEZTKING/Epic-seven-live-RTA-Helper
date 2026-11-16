@@ -31,6 +31,10 @@
  *   pagerIndex(rgba, W, H, rect)    -> { index: 0|1|2, contrast } (rect in pixels: the indicator bar)
  *   cleanGuild(ocrText)             -> a guild name from the overview's name line ("OldMemory “Global" -> "OldMemory")
  *   DEFAULT_FORTS                   -> names used until the overview has been seen
+ *   barKind(rgba, W, H, rect)       -> { kind: 'map' (+ index) | 'overview' (+ side) | null }: page indicator or side switch
+ *   serverOf(text) / langFor(server) / worldFor(server)  server tag -> text-reader language / record-site code
+ *   nameMask(rgba, W, H, opts)      -> letters of a name crop without white scenery (patches that cannot be letters dropped)
+ *   cleanCjk(text) / pickRead(readings)  names in Japanese / Korean / Chinese script; which reading to believe
  *   isStandbyTitle(ocrText)         -> true for the standby page's title ("Guild War Standby")
  *   standbyMinutes(ocrText)         -> minutes until the next war from "War Begins in 29h" ("in 1d 5h", "in 45m"), or null
  *   greenShare(rgba, W, H, rect)    -> share of clearly green pixels in a rect (the standby page's Team Formation button)
@@ -286,6 +290,148 @@
     return { index: order[0], contrast: mean[order[0]] - mean[order[1]], mean };
   }
 
+  // ---- overview or fortress map? (DEVLOG #55) ------------------------------------------------------------------
+  // Both have a bar at the bottom right, in the same place. On a MAP it is the page indicator: one THIRD is a solid
+  // white pill, the rest is dark. On the OVERVIEW it is the side switch: one HALF is white (with a dark icon in it).
+  // Measured on 12 real screens: map = one third ≥ 0.69 lit, the other two ≤ 0.03; overview = one half 0.55–0.86 lit,
+  // the other ≤ 0.09, and the middle third 0.36–0.64 lit. Before this rule the overview reader took a map's indicator
+  // for the switch, read scenery as fortress and guild names, and a war against a made-up guild was started.
+  function barKind(rgba, W, H, rect) {
+    const y0 = Math.max(0, Math.round(rect.y + rect.h * 0.3));
+    const y1 = Math.min(H, Math.round(rect.y + rect.h * 0.7));
+    const x0 = Math.max(0, Math.round(rect.x));
+    const x1 = Math.min(W, Math.round(rect.x + rect.w));
+    const n = x1 - x0;
+    if (n < 12 || y1 <= y0) return { kind: null };
+    const lit = new Uint8Array(n);
+    for (let x = x0; x < x1; x++) {
+      let s = 0;
+      for (let y = y0; y < y1; y++) {
+        const p = (y * W + x) * 4;
+        s += (rgba[p] + rgba[p + 1] + rgba[p + 2]) / 3;
+      }
+      lit[x - x0] = s / (y1 - y0) > 170 ? 1 : 0;
+    }
+    const share = (a, b) => {
+      let c = 0;
+      for (let i = Math.floor(a * n); i < Math.floor(b * n); i++) c += lit[i];
+      return c / Math.max(1, Math.floor(b * n) - Math.floor(a * n));
+    };
+    const t = [share(0, 1 / 3), share(1 / 3, 2 / 3), share(2 / 3, 1)];
+    const h = [share(0, 0.5), share(0.5, 1)];
+    const top = t.indexOf(Math.max(...t));
+    if (t[top] >= 0.65 && t.every((v, i) => i === top || v <= 0.15)) return { kind: 'map', index: top, thirds: t, halves: h };
+    const side = h[0] > h[1] ? 0 : 1;
+    if (h[side] >= 0.5 && h[1 - side] <= 0.2 && t[1] >= 0.25) return { kind: 'overview', side: side === 0 ? 'ours' : 'enemy', thirds: t, halves: h };
+    return { kind: null, thirds: t, halves: h };
+  }
+
+  // ---- servers and scripts (DEVLOG #55) -------------------------------------------------------------------------
+  /** The server tag next to a guild name on the overview ("TestHome [Global]") -> 'global' | 'japan' | 'korea' | 'asia' | 'europe' | ''. */
+  function serverOf(text) {
+    const m = /\b(global|japan|korea|asia|europe)\b/i.exec(String(text || ''));
+    return m ? m[1].toLowerCase() : '';
+  }
+  /** The text reader's language data for names of a server (besides English, which is always tried). */
+  const langFor = (server) => ({ japan: 'jpn', korea: 'kor', asia: 'chi_tra' }[server] || '');
+  /** The record site's code of a server. */
+  const worldFor = (server) => ({ global: 'world_global', japan: 'world_jpn', korea: 'world_kor', asia: 'world_asia', europe: 'world_eu' }[server] || '');
+  const CJK = /[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯ᄀ-ᇿ]/u;
+  const cjkCount = (text) => [...String(text || '')].filter((ch) => CJK.test(ch)).length;
+  /**
+   * A name read with Japanese / Korean / Chinese data: the reader puts spaces between the characters and sometimes
+   * adds stray Latin letters or symbols at the ends. -> the characters joined ('' when fewer than two of them).
+   */
+  function cleanCjk(text) {
+    let t = String(text || '').replace(/\s+/g, '');
+    t = t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}ー～〜]+$/gu, '');
+    // stray Latin / digits glued to the ends of a name that is otherwise in that script
+    if (cjkCount(t) >= 2 && cjkCount(t) >= t.length * 0.6) t = t.replace(/^[A-Za-z0-9]{1,2}(?=[^A-Za-z0-9])/, '').replace(/(?<=[^A-Za-z0-9])[A-Za-z0-9]{1,2}$/, '');
+    return cjkCount(t) >= 2 ? t : '';
+  }
+  /**
+   * Which reading of one name to believe. readings: [{ lang: 'eng' | 'jpn' | …, text, conf }].
+   * A reading in the other script wins when it holds at least two of its characters, they make up most of it, and the
+   * reader is not clearly less sure than the English one. -> { name, lang, conf } ('' when nothing usable).
+   */
+  function pickRead(readings) {
+    const list = (readings || []).filter((r) => r && r.text);
+    let eng = list.filter((r) => r.lang === 'eng').map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
+    // a Latin name is sometimes read better with the other script's data (it knows Latin letters too): only when the
+    // English reading is poor and the other one is clearly surer
+    const lat = list.filter((r) => r.lang !== 'eng' && cjkCount(r.text) === 0).map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
+    if (lat && (!eng || (eng.conf < 40 && lat.conf >= eng.conf + 20))) eng = { ...lat, lang: 'eng' };
+    const cjk = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
+    if (cjk && (!eng || cjk.conf >= 45 || cjk.conf >= eng.conf - 5)) return { name: cjk.name, lang: cjk.lang, conf: cjk.conf };
+    return eng ? { name: eng.name, lang: 'eng', conf: eng.conf } : { name: '', lang: '', conf: 0 };
+  }
+
+  /**
+   * The letters of a name crop without the scenery (DEVLOG #55). Names are white with a dark outline; snow and roofs
+   * are white too. From the plain white mask, whole connected patches are dropped when they cannot be letters:
+   * touching the top or bottom edge, taller than 0.8 of the crop, more than 0.3 × H² pixels, or thicker than a
+   * stroke (some point farther than 0.12 × H from the patch's edge; bold fonts are thick where strokes cross).
+   * opts.min = how light a letter pixel must be (default 170; thin strokes of a small window need less than 190).
+   */
+  function nameMask(rgba, W, H, opts = {}) {
+    const min = opts.min || 170;
+    const m = new Uint8Array(W * H);
+    for (let i = 0, p = 0; i < W * H; i++, p += 4) {
+      const mn = Math.min(rgba[p], rgba[p + 1], rgba[p + 2]);
+      const mx = Math.max(rgba[p], rgba[p + 1], rgba[p + 2]);
+      m[i] = mn > min && mx - mn < 50 ? 1 : 0;
+    }
+    // distance to the nearest non-letter pixel (two-pass chamfer, city-block)
+    const d = new Uint16Array(W * H);
+    const BIG = 65535;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (!m[i]) continue;
+        const up = y ? d[i - W] : 0;
+        const left = x ? d[i - 1] : 0;
+        d[i] = Math.min(BIG, Math.min(up, left) + 1);
+      }
+    }
+    for (let y = H - 1; y >= 0; y--) {
+      for (let x = W - 1; x >= 0; x--) {
+        const i = y * W + x;
+        if (!m[i]) continue;
+        const dn = y < H - 1 ? d[i + W] : 0;
+        const right = x < W - 1 ? d[i + 1] : 0;
+        d[i] = Math.min(d[i], Math.min(dn, right) + 1);
+      }
+    }
+    const maxStroke = Math.max(3, 0.12 * H);
+    const label = new Int32Array(W * H);
+    const stack = [];
+    let next = 0;
+    for (let s0 = 0; s0 < W * H; s0++) {
+      if (!m[s0] || label[s0]) continue;
+      next++;
+      label[s0] = next;
+      stack.push(s0);
+      const px = [];
+      let top = H, bottom = 0, thick = 0;
+      while (stack.length) {
+        const i = stack.pop();
+        px.push(i);
+        const y = (i / W) | 0;
+        const x = i - y * W;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (d[i] > thick) thick = d[i];
+        if (x && m[i - 1] && !label[i - 1]) (label[i - 1] = next), stack.push(i - 1);
+        if (x < W - 1 && m[i + 1] && !label[i + 1]) (label[i + 1] = next), stack.push(i + 1);
+        if (y && m[i - W] && !label[i - W]) (label[i - W] = next), stack.push(i - W);
+        if (y < H - 1 && m[i + W] && !label[i + W]) (label[i + W] = next), stack.push(i + W);
+      }
+      const drop = top <= 1 || bottom >= H - 2 || bottom - top + 1 > 0.8 * H || px.length > 0.3 * H * H || thick > maxStroke;
+      if (drop) for (const i of px) m[i] = 0;
+    }
+    return m;
+  }
+
   // ---- the standby page (no war running; DEVLOG #46). Middle of the screen, top to bottom: "2026-3 Season",
   // "Guild War Standby", a dark band with a sentence, "War Begins" / "in 29h", then three buttons (the first one green).
   // Fractions of the picture height, x measured from the middle (owner's 2000×1070 screen).
@@ -335,7 +481,7 @@
     return n ? g / n : 0;
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
+  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);

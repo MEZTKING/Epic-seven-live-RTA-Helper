@@ -207,7 +207,8 @@
       ob.innerHTML = rows.length ? `<h4 style="margin:0 0 4px">Our side <span class="src game">read from the game</span></h4>${rows.join('')}<div class="hint">✗ = beaten (grey ring) when it was read</div>` : '';
       ob.classList.toggle('hidden', !rows.length);
     }
-    $('#war-summary').innerHTML = `
+    const ends = war && war.status !== 'done' && war.endsAt && Date.parse(war.endsAt) > Date.now() ? new Date(war.endsAt) : null;
+    $('#war-summary').innerHTML = `${ends ? `<div class="card"><div class="hint">War ends <span class="src game">read from the game</span></div><div class="stat">in about ${span(ends - Date.now())}</div><div class="hint">around ${esc(ends.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}${war.enemyServer ? ` · enemy server: ${esc(war.enemyServer[0].toUpperCase() + war.enemyServer.slice(1))}` : ''}</div></div>` : ''}
       <div class="card"><div class="hint">Defenses cleared</div><div class="stat">${sum.cleared}/${sum.targets.length}</div><div class="hint">${sum.teamsCleared}/${sum.teamsTotal} teams</div></div>
       <div class="card"><div class="hint">Attacks</div><div class="stat">${sum.wins}-${sum.attacks - sum.wins}</div><div class="hint">win rate ${pct(sum.wins, sum.attacks)}</div></div>
       <div class="card"><div class="hint">Attacks left today (guild)</div><div class="stat">${sum.attacksLeft}</div><div class="hint">${me() ? `You: ${myLeft ?? R0.attacksPerMember}` : ''}</div></div>
@@ -451,6 +452,18 @@
     }
     renderWar();
     return 'finished';
+  }
+  /**
+   * "War Ends in 17h" read on the overview (DEVLOG #55): kept on that war (shared), shown on the War tab. The game
+   * shows whole hours, so a new reading only replaces the stored time when it differs by more than 90 minutes.
+   */
+  async function warEndsFromGame(enemyGuild, endsAt, server) {
+    const w = state.wars.find((x) => x.status !== 'done' && sameGuild(x.enemyGuild, enemyGuild));
+    if (!w || !backend || !(Date.parse(endsAt) > Date.now())) return false;
+    const same = w.endsAt && Math.abs(Date.parse(w.endsAt) - Date.parse(endsAt)) < 90 * 60000;
+    if (same && (w.enemyServer || '') === (server || w.enemyServer || '')) return false;
+    await put('war', { ...w, endsAt: same ? w.endsAt : endsAt, enemyServer: server || w.enemyServer || '' });
+    return true;
   }
   function showAutoWar(w) {
     const el = $('#war-auto');
@@ -1100,6 +1113,7 @@
     openTargetWith: (seen) => openTarget(null, seen),
     saveFortress,
     markBeaten,
+    warEndsFromGame,
     warFromGame,
     standbyFromGame,
     standby,

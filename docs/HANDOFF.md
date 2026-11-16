@@ -31,8 +31,9 @@ run the suites first (§6), and one DEVLOG entry per commit.
 **Waiting on the owner (ask for these; they unblock the most):**
 1. Screenshots from a real RTA draft **while picking**: their turn with a hero clicked but not confirmed, the
    opponent's turn, the pre-ban icons visible. (The draft reader has only seen a ban screen.)
-2. Guild War: the screen right before a war starts and right after one ends; an enemy fortress map with at least one
-   beaten defender.
+2. Guild War: the screen right after a war ends; an enemy fortress map with at least one beaten defender; a map
+   with Korean or Chinese names. (Received 2026-11-16: guild hall, VS screen, overview of a running war, maps of a
+   Japanese guild → DEVLOG #55.)
 3. A report of how #46–#52 behave on their PC (standby banner, reminder notification, statistics tab, team plans,
    "you move first in about X%").
 4. "Copy report for Claude" (RTA → Auto, Live, Gear, Guild War, or the Developer menu) whenever something misbehaves.
@@ -48,6 +49,7 @@ statistics tab's "what top players pick at this draft position"; moving the old 
   installed app does not start (`tests/desktop.test.js` guards it).
 - Any element with `data-hero` opens the app's hero card on click; use another attribute for own click targets.
 - Displayed portraits are plain `<img>`; pixel reading uses `PORTRAIT_URL_CORS` (mixing both on one URL breaks loading).
+- `E7Bus.publish` payloads may hold small pictures (`pic` of a name): keep them small (JPEG, 40 px high).
 - The repository is public: screenshots and fixtures must not show real player or guild names (replace them), and
   collected games (`tools/dev/out/`) are never committed.
 - The record site's lookups are undocumented and were approved by the owner on 2026-11-14 (DEVLOG #44). Keep the
@@ -106,7 +108,7 @@ a link in every page's `.modules` nav (mark it `desktop-only` on `guild.html`) a
 | `js/wide.js` | `E7Wide` | RTA pick cards from the heroes' wide portraits (`{code}_l.png`, skins; mirrored on my side): `slotBox`, `patchRect`, `template`, `match`, `isConfident` (DEVLOG #41, method from E7DaT) |
 | `js/draftscreen.js` | `E7Draft` | RTA draft stage: text templates (`matchTemplate`, `tint`), confirmed-card check (`lockScore`), `Tracker` (stage, turn, first pick, picks, pre-bans, held), `toBoard` |
 | `js/frame.js` | `E7Frame` | Where the game is inside a captured window / screenshot: title bar and thin borders found from the pixels (`detect`), any size (DEVLOG #38) |
-| `js/gwmap.js` | `E7GWMap` | Guild War: defender badges with state (enemy / ours / beaten), `sideOf`, name boxes, letter mask, name cleaning/matching, which fortress (pager), overview switch (`toggleSide`) and fortress names (`fortNamesFromWords`); `DEFAULT_FORTS` |
+| `js/gwmap.js` (also: `barKind`, `nameMask`, `pickRead`, `cleanCjk`, `serverOf`, `langFor`, `worldFor`, standby helpers) | `E7GWMap` | Guild War: defender badges with state (enemy / ours / beaten), `sideOf`, name boxes, letter mask, name cleaning/matching, which fortress (pager), overview switch (`toggleSide`) and fortress names (`fortNamesFromWords`); `DEFAULT_FORTS` |
 | `js/teach.js` | `E7Teach` | Hero faces you taught (Live → Teach heroes; UI in `js/teach-ui.js`): add/remove/switch/export/import, `templates(F)` for the face matcher (source 'taught by you') |
 | `js/roster.js` | `RTARoster` | Official list parsing, name matching, Fribbels `gear.txt` roster, CSV match import, `epic7xUrl`, `tagSources` |
 | `js/learn.js` | `RTALearn` | Learning from matches: hero/matchup/pair stats, player profiles, combos, scouting summary, sessions, suggestion follow-through, `gameHelpStats` |
@@ -149,7 +151,7 @@ only receive events.
   | `guild-name.js` | `guild:name-read` | Enemy player's name on a defense / profile screen |
   | `guild-defense.js` | `guild:defense` | The six hero icons of an enemy's two defense teams (faces, no calibration) |
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
-  | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild }` | The overview: three fortress names, which side, both guild names |
+  | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild, ourServer, enemyServer, endsIn, endsAt }` | The overview: three fortress names, which side, both guild names and servers, "War Ends in …" |
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
   | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, first pick) |
 
@@ -344,6 +346,18 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**Guild War names and running wars** (DEVLOG #55):
+- `E7GWMap.barKind` tells a map's page indicator (one third lit) from the overview's side switch (one half lit);
+  both readers use it. Never start a war from one guild name alone.
+- Names: `nameMask` → `letterSpan` → 96 px crop → `ctx.ocr(c, { line, full, lang })` in English + the side's server
+  language (`e7-gw-forts`.`ourServer` / `enemyServer` → `langFor`), else all three when English is poor → `pickRead`
+  → known names / fixes → `E7Desktop.records.near(world, text)` (official spelling; tests: `__e7RecordsTest.near`).
+  Each player in `guild:fortress` may carry `pic` (JPEG of the name), `official`, `options`, `lang`.
+- Overview: `guild:forts` also has `ourServer`, `enemyServer`, `endsIn`, `endsAt`; war records get `endsAt`,
+  `enemyServer` (`GuildApp.warEndsFromGame`).
+- Fixtures with replaced names are built by `tools/dev/redact-gw-screens.py` from raw screenshots (needs
+  `apt-get install fonts-noto-cjk` for the Japanese ones; the raw pictures are not in the repository).
 
 **Overlay rules** (DEVLOG #54): the RTA layer is posted only while `rtaOnScreen()` (js/auto.js; fed by the draft
 reader's `rta:stage` heartbeat); every overlay layer is repeated by its page every 5 s and dropped by `overlay.html`
