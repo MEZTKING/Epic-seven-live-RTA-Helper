@@ -293,3 +293,50 @@ test('gwmap: falling snow — of two looks at one map the darker pixel wins; a m
   assert.equal(G.darkerOfTwo(mk([]), other), null);
   assert.equal(G.darkerOfTwo(mk([]), new Uint8ClampedArray(8)), null, 'different sizes');
 });
+
+test('gwmap: names centred under a badge — the centred cut is believed over a loose one with more in it (DEVLOG #59)', () => {
+  // roof edges next to a katakana name read as extra characters by the loose cut
+  let p = G.pickRead([
+    { lang: 'jpn', text: 'ティ ー ナ アテ ミン', conf: 76, cut: 'loose' },
+    { lang: 'jpn', text: 'ティ ー ナ', conf: 74, cut: 'tight', sym: true },
+  ]);
+  assert.equal(p.name, 'ティーナ');
+  assert.ok(p.all.some((x) => x.name === 'ティーナアテミン'), 'the longer reading is still offered');
+  // the same when the centred reading is not a clean piece of the loose one, but two or more characters shorter
+  p = G.pickRead([
+    { lang: 'jpn', text: 'ティ ー ナ アテ ミン', conf: 76, cut: 'loose' },
+    { lang: 'jpn', text: 'ティ イー ナ', conf: 58, cut: 'tight', sym: true },
+  ]);
+  assert.equal(p.name, 'ティイーナ');
+  // a tight cut that did NOT come out centred gives no such right
+  p = G.pickRead([
+    { lang: 'jpn', text: 'ハナ コ サン', conf: 80, cut: 'loose' },
+    { lang: 'jpn', text: 'ハナ', conf: 85, cut: 'tight', sym: false },
+  ]);
+  assert.equal(p.name, 'ハナコサン');
+  // Latin: any number of characters added at an end
+  p = G.pickRead([{ lang: 'eng', text: 'RocketOwl ZZT', conf: 70, cut: 'loose' }, { lang: 'eng', text: 'RocketOwl', conf: 80, cut: 'tight', sym: true }]);
+  assert.equal(p.name, 'RocketOwl');
+});
+
+test('gwmap: the letters of a centred name — nothing past the reach of the letters, parts of a kanji kept (DEVLOG #59)', () => {
+  const W = 540, H = 96;
+  const a = new Uint8ClampedArray(W * H * 4);
+  const fill = (x0, y0, x1, y1, v) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) a.set([v, v, v, 255], (y * W + x) * 4); };
+  fill(0, 0, W, H, 60);
+  // a name centred at 270: three tall letters 200..246, then a "kanji" of two unjoined parts 262..340 (each too low to be letter-sized)
+  for (const x of [200, 220, 240]) fill(x, 25, x + 6, 75, 250);
+  fill(262, 26, 340, 44, 250); // upper part
+  fill(266, 52, 336, 56, 250); // a flat stroke under it
+  fill(266, 62, 336, 74, 250); // lower part
+  // scenery: a slanted bit right after the name and a blob further right, both on the line
+  fill(352, 66, 372, 76, 250);
+  fill(400, 40, 430, 60, 250);
+  const loose = G.nameLetters(a, W, H, {});
+  assert.ok(loose.span[1] >= 365, `the loose cut takes scenery in: ${loose.span}`);
+  const c = G.nameLetters(a, W, H, { tight: true, centred: true });
+  assert.ok(c.span[0] >= 198 && c.span[0] <= 202 && c.span[1] >= 338 && c.span[1] <= 342, `centred cut: ${c.span}`);
+  assert.equal(c.sym, true);
+  assert.equal(c.mask[54 * W + 300], 1, 'the flat stroke of the kanji is kept');
+  assert.equal(c.mask[70 * W + 360], 0, 'the bit at the foot after the name is not');
+});

@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #58, 2026-11-16) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #59, 2026-11-16) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -36,14 +36,15 @@ run the suites first (§6), and one DEVLOG entry per commit.
    - the END of a Guild War fight (the Victory / Defeat screen after each round) and round 2 of a fight
    - a map with a note bubble (megaphone) on a badge, whole screen, and the window that opens when a note is
      WRITTEN
-   - a result window where one of OURS attacked (open a row with crossed swords in front on a member's Season
+   - a right-hand fortress map during a war (the list of fixed places has only one map of it)
+   - a result window titled "Attack Draw", and one where a single ROUND is a draw (open a row with crossed swords in front on a member's Season
      Log, or a shield row on an enemy's), one with a Draw, one with a round won and a round lost
    - the screen right after a war ends; an enemy map with at least one beaten defender; a map with Korean names
    (Received as files 2026-11-16: guild hall, VS screen, overview of a running war, maps of a Japanese guild, the
    check-in windows, an enemy stronghold screen, two "Successful Attack" and one "Failed Defense" window, a
    member's tower page, our own map, the Offense Team screen, two moments of a fight, a note window → DEVLOG
    #55–#58.)
-3. A report of how #46–#58 behave on their PC: first the names on a map, the "working…" card and the battle
+3. A report of how #46–#59 behave on their PC: first the names on a map, the "working…" card and the battle
    results logged by themselves (#56, #57); then the standby banner, reminder notification, statistics tab, team
    plans, "you move first in about X%".
 4. "Copy report for Claude" (RTA → Auto, Live, Gear, Guild War, or the Developer menu) whenever something misbehaves.
@@ -325,19 +326,19 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 
 ## 6. Testing
 
-Counts at DEVLOG #58: **172 unit tests, 37 browser tests, 14 desktop checks.** Unit and browser suites were green at
+Counts at DEVLOG #59: **174 unit tests, 38 browser tests, 14 desktop checks.** Unit and browser suites were green at
 that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
   `tests/_world.js` is a made-up world with planted effects shared by the model and planner tests.
-- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 20 minutes since #58; in a cloud session start it in
+- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 25 minutes since #59; in a cloud session start it in
   the background with a 30-minute limit, or it is cut off). It serves the repo on :8766 and runs every
   `tests/e2e/*.e2e.js` with Playwright (pre-installed in cloud sessions). Each test prints what it found and ends with
   `errors: []`; the runner fails otherwise. **The tests print, they do not assert:** `errors: []` only says nothing
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -373,6 +374,20 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**Guild War, DEVLOG #59** (a war in progress):
+- `findBadges` returns `{ x, y, r, state, busy?, dim? }`: `busy` = "Battle in Progress" badge; `dim` = a dark
+  destroyed badge on the enemy's side (state `beaten`), kept by the reader only with a name under it.
+  `FORT_PLACES[fort]` = the fixed places ([x from the middle, y], units of the picture's height);
+  `placesToCheck` adds known places with a dark disc the finder missed (`byPlace`, also only with a name).
+  When a new look of a badge turns up: measure it with the numbers in that function's comments, add a rule there.
+- Map names are centred under the badge: `E7Names.read(..., { centred: true })` → `nameLetters({ tight, centred })`
+  → `sym`; `pickRead` believes a centred tight reading over a longer loose one. Only the map reader passes
+  `centred`; names on pages and windows are left- or right-aligned.
+- Result windows: titles "Successful / Failed Attack", "Successful / Failed Defense", "Attack Draw", "Defense
+  Draw"; round icons: swords for an attack (blue won, red lost), shields for a defense (green held, red lost).
+- Players' game states seen on maps and pages, not used yet: "Cannot Battle" (I attacked them already), top bar
+  "2/3" attacks left, tower hit points, note bubble (megaphone = none, sheet = a note exists; notes are per defender).
 
 **Guild War, DEVLOG #58** (Offense Team screen, the fight, notes, snow):
 - Readers in `js/vision/readers/guild-offense.js`; pixel checks `E7GWResult.offenseAt / battleAt / noteAt`; positions

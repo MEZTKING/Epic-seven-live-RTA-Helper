@@ -2,7 +2,7 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
-## Next up (as of DEVLOG #58; the overview of what is verified is in docs/HANDOFF.md §0)
+## Next up (as of DEVLOG #59; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
 1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
@@ -15,6 +15,11 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0d. Guild War, after DEVLOG #59: read the Season Log rows of a player's page directly (shield / swords in front,
+   two round icons, name, "5m ago": colours measured in #59) → attacks and defenses logged without opening each
+   window; the attacks left from the top bar ("2/3"); "Cannot Battle" / "Battle in Progress" under a name → show
+   on the War tab who is being fought right now; keep Latin letters at the end of a kana name when the reader is
+   sure; complete `FORT_PLACES` for the right fortress.
 0c. Guild War, after DEVLOG #58: suggest counters ON the Offense Team screen from what is read there (their two
    teams are known exactly at that moment: compare my chosen teams with the guild's proven counters and say so on
    the overlay); read the speeds shown in that screen's hero list; show my attacks left from "3/3" in the top bar.

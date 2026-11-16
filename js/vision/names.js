@@ -2,7 +2,7 @@
  * Reading ONE player name from the game picture, in any script (DEVLOG #56). Shared by the fortress-map reader and the
  * enemy-screen reader; runs next to the game watcher (needs a reader's ctx for the text reader).
  *
- *   E7Names.read(ctx, canvas, box, { lang, world, offerOnly }) -> null (nothing there) or
+ *   E7Names.read(ctx, canvas, box, { lang, world, offerOnly, centred }) -> null (nothing there) or
  *     { name, raw, known, official, options: [other spellings], lang, pic }
  *   offerOnly: official spellings are only offered (options), never put in place of the reading (when it is not known
  *   whose server the player is on)
@@ -32,7 +32,7 @@
   };
 
   /** Black-on-white picture of the letters (96 px high + margin) for one cut, or null. Also returns the cut. */
-  function cut(src, box, tight) {
+  function cut(src, box, tight, centred) {
     const H = 96;
     const W = Math.max(8, Math.round((box.w * H) / box.h));
     const c = document.createElement('canvas');
@@ -41,7 +41,7 @@
     const x = c.getContext('2d', { willReadFrequently: true });
     x.imageSmoothingQuality = 'high';
     x.drawImage(src, box.x, box.y, box.w, box.h, 0, 0, W, H);
-    const L = G.nameLetters(x.getImageData(0, 0, W, H).data, W, H, { tight });
+    const L = G.nameLetters(x.getImageData(0, 0, W, H).data, W, H, { tight, centred });
     if (!L) return null;
     const pad = 16;
     const out = document.createElement('canvas');
@@ -60,7 +60,7 @@
       }
     }
     o.putImageData(img, 0, 0);
-    return { canvas: out, key: `${L.span[0]}-${L.span[1]}` };
+    return { canvas: out, key: `${L.span[0]}-${L.span[1]}`, sym: !!L.sym };
   }
   function pic(src, box) {
     try {
@@ -85,23 +85,25 @@
   }
 
   async function read(ctx, src, box, opts = {}) {
-    const loose = cut(src, box, false);
+    const loose = cut(src, box, false, false);
     if (!loose) return null;
-    const tight = cut(src, box, true);
+    // opts.centred: the name is centred in its box (names on a fortress map); the tight cut uses that
+    const tight = cut(src, box, true, !!opts.centred);
     const cuts = [loose, ...(tight && tight.key !== loose.key ? [tight] : [])];
     const reads = [];
     for (const c of cuts) {
-      const eng = { ...(await ctx.ocr(c.canvas, { line: true, full: true })), cut: c === loose ? 'loose' : 'tight' };
+      const tag = { cut: c === loose ? 'loose' : 'tight', sym: c !== loose && c.sym };
+      const eng = { ...(await ctx.ocr(c.canvas, { line: true, full: true })), ...tag };
       reads.push(eng);
       if (opts.lang) {
-        const r = await ctx.ocr(c.canvas, { line: true, full: true, lang: opts.lang });
+        const r = { ...(await ctx.ocr(c.canvas, { line: true, full: true, lang: opts.lang })), ...tag };
         reads.push(r);
         // Chinese characters in it: it may be a Chinese name (on any server), and the Simplified data knows characters
         // the others do not. Also when kana were read next to them: an unknown character is often read as a kana.
         const t = G.cleanCjk(r.text);
-        if (opts.lang !== 'chi_sim' && t && /[\u3400-\u9fff\uf900-\ufaff]/u.test(t)) reads.push(await ctx.ocr(c.canvas, { line: true, full: true, lang: 'chi_sim' }));
+        if (opts.lang !== 'chi_sim' && t && /[\u3400-\u9fff\uf900-\ufaff]/u.test(t)) reads.push({ ...(await ctx.ocr(c.canvas, { line: true, full: true, lang: 'chi_sim' })), ...tag });
       } else if (!G.cleanName(eng.text) || eng.conf < 35) {
-        for (const l of OTHER_LANGS) reads.push(await ctx.ocr(c.canvas, { line: true, full: true, lang: l }));
+        for (const l of OTHER_LANGS) reads.push({ ...(await ctx.ocr(c.canvas, { line: true, full: true, lang: l })), ...tag });
       }
     }
     const picked = G.pickRead(reads);

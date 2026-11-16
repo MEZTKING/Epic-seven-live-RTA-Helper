@@ -63,9 +63,12 @@
       if (pager.contrast < 100) return ctx.note('Not a fortress map (no fortress indicator)');
       // the overview has its side switch in the same place: one HALF lit, not one third (DEVLOG #55)
       if (G.barKind(rgba, W, H, bar).kind === 'overview') return ctx.note('Not a fortress map (the overview)');
-      const badges = G.findBadges(rgba, W, H);
+      const found = G.findBadges(rgba, W, H);
       const forts = readJSON('e7-gw-forts', {});
-      const side = G.sideOf(badges) || forts.side || 'enemy';
+      const side = G.sideOf(found) || forts.side || 'enemy';
+      // defenders always stand on the same places of a fortress: a known place with something round and dark on it
+      // that the finder did not take for a badge is looked at too (kept only when a name stands under it, below)
+      const badges = [...found, ...G.placesToCheck(rgba, W, H, pager.index, found).map((b) => ({ ...b, state: side === 'ours' ? 'ours' : 'enemy' }))].sort((a, b) => a.y - b.y || a.x - b.x);
       const fort = (forts[side] && forts[side][pager.index]) || G.DEFAULT_FORTS[pager.index];
       if (badges.length < 2) return ctx.note(`${fort}: no defenders found`);
       // the same map twice in a row before reading names (OCR is slow; the map may still be scrolling in)
@@ -94,12 +97,14 @@
       const players = [];
       for (const b of badges) {
         if (ctx.busy) ctx.busy(`Reading the names on this map… ${players.length + 1} of ${badges.length + 1}`);
-        const n = await N.read(ctx, from, G.nameBox(b, H), { lang, world });
-        players.push({ ...(n || { name: '', raw: '', known: false }), state: b.state, x: b.x / W, y: b.y / H });
+        const n = await N.read(ctx, from, G.nameBox(b, H), { lang, world, centred: true });
+        // a dark (beaten) badge or a badge known only by its place counts only with a name under it
+        if ((b.dim || b.byPlace) && !(n && n.name)) continue;
+        players.push({ ...(n || { name: '', raw: '', known: false }), state: b.state, x: b.x / W, y: b.y / H, ...(b.busy ? { busy: true } : {}) });
       }
       const kr = lay.regions.gwKeepName;
       if (ctx.busy) ctx.busy(`Reading the names on this map… ${badges.length + 1} of ${badges.length + 1}`);
-      const kn0 = await N.read(ctx, from, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world });
+      const kn0 = await N.read(ctx, from, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world, centred: true });
       const kn = kn0 && kn0.name ? kn0 : null;
       if (ctx.done) {
         const all = [...players, ...(kn ? [kn] : [])].filter((p) => p.name);
