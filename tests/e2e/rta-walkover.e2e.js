@@ -47,6 +47,19 @@ const { chromium } = require('playwright');
   await load('steam-rta-victory-opponent-left-wide.jpg', 4, 2200);
   console.log('the same screen still up -> walkovers:', (await state()).walkovers.length, '(1 = not counted twice)');
 
+  // 4) a PLAYED match whose bans were not read (all ten heroes on the board): a normal match, not an early end
+  await load('steam-rta-menu.png'); // the result screen is gone
+  await load('steam-rta-match-start.png');
+  await p.evaluate(() => {
+    const A = window.RTAApp;
+    const codes = [...A.cache.heroes.values()].slice(0, 10).map((h) => h.code);
+    A.replaceDraft(window.RTALogic.boardToDraft({ prebans: { me: [], opp: [] }, picks: { me: codes.slice(0, 5), opp: codes.slice(5, 10) }, postbans: {} }, 'me'), { newMatch: true });
+  });
+  const pre = await state();
+  await load('steam-rta-victory-opponent-left-wide.jpg', 5, 2200);
+  const post = await p.evaluate(() => ({ walkovers: (window.RTAApp.store.walkovers || []).length, matches: window.RTAApp.store.matches.map((m) => ({ result: m.result, source: m.source, bansUnknown: !!m.bansUnknown })), draftActions: window.RTAApp.store.draft.actions.length }));
+  console.log('ten heroes on the board, bans not read -> before', JSON.stringify({ walkovers: pre.walkovers.length, matches: pre.matches }), 'after', JSON.stringify(post));
+
   // 2) History
   await p.click('.tab[data-tab=history]');
   await p.waitForTimeout(300);

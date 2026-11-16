@@ -111,7 +111,7 @@
       const srv = (side) => (side === 'ours' ? f.ourServer || '' : f.enemyServer || '');
       const other = win.side === 'ours' ? 'enemy' : 'ours';
       const nameOf = async (key, side) => {
-        const n = await N.read(ctx, ctx.source, px(key), { lang: G.langFor(srv(side)), world: G.worldFor(srv(side)) });
+        const n = await N.read(ctx, ctx.source, px(key), { lang: G.langFor(srv(side)), world: G.worldFor(srv(side)), clean: true });
         return n && n.name ? { name: n.name, options: n.options || [], pic: n.pic || '', official: !!n.official, known: !!n.known } : { name: '', options: [], pic: (n && n.pic) || '' };
       };
       const left = await nameOf('gwResNameL', win.side);

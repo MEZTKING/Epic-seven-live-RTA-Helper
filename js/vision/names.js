@@ -2,7 +2,7 @@
  * Reading ONE player name from the game picture, in any script (DEVLOG #56). Shared by the fortress-map reader and the
  * enemy-screen reader; runs next to the game watcher (needs a reader's ctx for the text reader).
  *
- *   E7Names.read(ctx, canvas, box, { lang, world, offerOnly, centred }) -> null (nothing there) or
+ *   E7Names.read(ctx, canvas, box, { lang, world, offerOnly, centred, clean }) -> null (nothing there) or
  *     { name, raw, known, official, options: [other spellings], lang, pic }
  *   offerOnly: official spellings are only offered (options), never put in place of the reading (when it is not known
  *   whose server the player is on)
@@ -106,7 +106,9 @@
         for (const l of OTHER_LANGS) reads.push({ ...(await ctx.ocr(c.canvas, { line: true, full: true, lang: l })), ...tag });
       }
     }
-    const picked = G.pickRead(reads);
+    // opts.clean: the name stands on a plain panel (a player's page, a window), not over scenery: Latin letters at
+    // the end of a name in another script belong to it
+    const picked = G.pickRead(reads, { keepLatin: !!opts.clean });
     const picture = pic(src, box);
     if (!picked.name) return { name: '', raw: '', known: false, pic: picture };
     const clean = picked.name;

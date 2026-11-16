@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #60, 2026-11-16) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #61, 2026-11-16) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -23,14 +23,16 @@ run the suites first (§6), and one DEVLOG entry per commit.
 | Official record site: find me, import my matches, top-player update | Works | **Yes** (screenshots #46, #49: 97 games imported, 400 players, 33,953 games) |
 | Top-player model (win rate, pick policy, bans, pre-bans, turn order), statistics tab, team plans | Works on real games here | Model fitted on their PC (58% on 6,006 unseen games). Statistics tab / plans / turn order: **not yet looked at by the owner** |
 | Seasons (History → Seasons, statistics per season) | Works in tests | No |
-| RTA draft read from the screen without calibration | Works on ONE real screenshot (the BAN screen, 10/10 cards) | **No real draft watched yet.** Needs screenshots while picking |
+| RTA draft read from the screen without calibration | Works on ONE real screenshot (the BAN screen, 10/10 cards) | **Watched on the owner's PC (report of 2026-11-16, DEVLOG #61):** stages and first pick followed in every match; heroes 10/10, 6/10 and 0/10 in three matches; pre-bans never; no result recorded before #61. Still no picture of a draft while picking |
 | Guild War: overview → war starts by itself, fortress maps (names in any writing), enemy defense / stronghold screen (name + 6/6), standby page, changed defenses, "working…" card | Works on the owner's real screenshots | Auto-war seen working (#46). Names in a running war were wrong on their PC before #55 / #56; **not yet confirmed fixed there**. Standby / reminder / beaten marking: not yet |
 | Gear Sorter, screen gear reader | Built on generated screens only | No |
 | Guild sharing through Firebase | Built; local mode tested | No real Firebase project connected |
 
 **Waiting on the owner (ask for these; they unblock the most):**
-1. Screenshots from a real RTA draft **while picking**: their turn with a hero clicked but not confirmed, the
-   opponent's turn, the pre-ban icons visible. (The draft reader has only seen a ban screen.)
+1. **Pictures of a real RTA draft while picking** (still none; the single most useful thing). Easiest for the
+   owner: Developer → "Collect screenshots automatically", play one match, Developer → "Open the screenshot folder",
+   send the pictures of the draft. Since #61 Match review also keeps up to 12 pictures of every match (Download).
+   Wanted: pre-ban phase, own turn with a hero clicked but not confirmed, the opponent's turn, the ban phase.
 2. Guild War, **as files** (a picture sent while a reply is still being written reaches the session only as a
    picture, not as a file, and cannot become a fixture: ask for it again in a normal message):
    - the END of a Guild War fight (the Victory / Defeat screen after each round) and round 2 of a fight
@@ -227,6 +229,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | Firestore / local `settings`.`nextWar` (shared) | `js/guild-app.js` (`standbyFromGame`) | `{ at, beginsAt, season, by }`: the next war's time as a member's game showed it |
 | `localStorage['e7-gw-dismissed']` | `js/guild-app.js` | `{ enemyGuild: time }`: wars you undid after they were started from the game; not started again by themselves for 5 days |
 | `localStorage['e7-gw-known-names']` | `js/guild-app.js` → `js/vision/readers/guild-fortress.js` | Enemy player names you already have (for matching what's read on a fortress map) |
+| `localStorage['e7-gw-fort-cache']` | `js/guild-app.js` → `js/vision/readers/guild-fortress.js` | This war's scanned fortresses by place: `{ warId, enemy: { <0..2>: [{ name, pos, keep }] }, ours: {…} }` (built from the shared records) |
 | `localStorage['e7-gw-pending-attack']` | `js/guild-app.js` (`offenseFromGame`, `battleFromGame`) | The attack being prepared / fought: `{ warId, enemy, mine, theirs, at, started, round }` (3 hours) |
 | `localStorage['e7-gw-results']` | `js/vision/readers/guild-result.js` → `js/guild-watch.js` (`takeResults`) | Battle results read from the game that the Guild War page has not logged yet: `[{ id, at, d }]` (newest 12, 12 hours) |
 | `localStorage['e7-gw-result-undone']` | `js/guild-app.js` (`resultFromGame`) | `{ "<war id>|<battle key>": time }`: battle results you undid; not logged again (newest 100) |
@@ -332,7 +335,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 
 ## 6. Testing
 
-Counts at DEVLOG #60: **174 unit tests, 39 browser tests, 14 desktop checks.** Unit and browser suites were green at
+Counts at DEVLOG #61: **175 unit tests, 40 browser tests, 14 desktop checks.** Unit and browser suites were green at
 that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
@@ -344,7 +347,7 @@ that commit; which desktop checks were run is in the devlog entry.
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -380,6 +383,20 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**DEVLOG #61** (unsure names, shared scans, RTA results):
+- Unsure name = not `known`, not `official`, not `fromPage`: ⚠ on the card (`askFort` = the box that waits),
+  overlay layer `guild-fort`; `fillFromPage(d)` in `js/guild-watch.js` puts the next `guild:name-read` into it.
+  The map reader sends `guild:fortress { away: true }` when the map is left.
+- `E7Names.read(..., { clean: true })` for names on plain panels → `pickRead(..., { keepLatin: true })`.
+- Places: players in `guild:fortress` carry `pos`; `saveFortress(fort, players, side, { index })` stores `pos`
+  and `fortIndex`; `e7-gw-fort-cache` (written in the records' subscribe callback of `js/guild-app.js`) lets the
+  reader reuse names (`fromGuild`). Targets saved before #61 have no place: they are read as before.
+- RTA: `maybeReadResult` runs on `confirmShown()`; ten picks without bans → `recordResult(r, 'auto',
+  { bansUnknown: true })`; `boardSummary()` shows the watcher's board; trace pictures per match.
+- When the owner sends a diagnostic report ("Copy report for Claude"): the lines "draft from the game watcher"
+  show what `js/vision/readers/rta-draft.js` saw (own / enemy = recognised heroes); the slot table below it is the
+  PAGE's own old reader and is expected to be empty in the desktop app.
 
 **RTA, DEVLOG #60** (a match that ends during the draft): `js/auto.js` `maybeReadResult` reads a result with an
 unfinished draft only while `confirmShown()` (the result screen's green Confirm button, `rtaConfirm` in

@@ -340,3 +340,16 @@ test('gwmap: the letters of a centred name — nothing past the reach of the let
   assert.equal(c.mask[54 * W + 300], 1, 'the flat stroke of the kanji is kept');
   assert.equal(c.mask[70 * W + 360], 0, 'the bit at the foot after the name is not');
 });
+
+test('gwmap: a kana name ending in a Latin letter — kept on a clean panel, dropped over scenery (DEVLOG #61)', () => {
+  // over scenery (a map): a Latin letter at the end of a kana name is usually a stray mark
+  assert.equal(G.cleanCjk('ナツ メ グ x'), 'ナツメグ');
+  // on a player's page or in a window: it belongs to the name; a letter read two or three times is one letter
+  assert.equal(G.cleanCjk('ナツ メ グ x', { keepLatin: true }), 'ナツメグx');
+  assert.equal(G.cleanCjk('ナツ メ グ xX', { keepLatin: true }), 'ナツメグx');
+  assert.equal(G.cleanCjk('ナツ メ グ xXx', { keepLatin: true }), 'ナツメグx');
+  assert.equal(G.cleanCjk('ナツ メ グ 77', { keepLatin: true }), 'ナツメグ77');
+  assert.equal(G.pickRead([{ lang: 'jpn', text: 'ナツ メ グ xXx', conf: 70 }, { lang: 'eng', text: 'F 1 AX', conf: 67 }], { keepLatin: true }).name, 'ナツメグx');
+  // over scenery: one or two Latin letters at the end are dropped (three are left as they are: unchanged rule)
+  assert.equal(G.pickRead([{ lang: 'jpn', text: 'ナツ メ グ xX', conf: 70 }, { lang: 'eng', text: 'F 1 AX', conf: 67 }]).name, 'ナツメグ');
+});

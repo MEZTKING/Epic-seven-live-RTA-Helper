@@ -432,11 +432,16 @@
    * A name read with Japanese / Korean / Chinese data: the reader puts spaces between the characters and sometimes
    * adds stray Latin letters or symbols at the ends. -> the characters joined ('' when fewer than two of them).
    */
-  function cleanCjk(text) {
+  function cleanCjk(text, opts = {}) {
     let t = String(text || '').replace(/\s+/g, '');
     t = t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}ー～〜]+$/gu, '');
     // stray Latin / digits glued to the ends of a name that is otherwise in that script
-    if (cjkCount(t) >= 2 && cjkCount(t) >= t.length * 0.6) t = t.replace(/^[A-Za-z0-9]{1,2}(?=[^A-Za-z0-9])/, '').replace(/(?<=[^A-Za-z0-9])[A-Za-z0-9]{1,2}$/, '');
+    if (opts.keepLatin) {
+      // …but on a clean panel (a player's page, a window) nothing is stray: a name like kana + "x" is kept
+      // (DEVLOG #61). The reader sometimes gives a lone letter two or three times, in both cases ("xX", "xXx"): once
+      // is meant.
+      t = t.replace(/([A-Za-z])\1+$/i, '$1');
+    } else if (cjkCount(t) >= 2 && cjkCount(t) >= t.length * 0.6) t = t.replace(/^[A-Za-z0-9]{1,2}(?=[^A-Za-z0-9])/, '').replace(/(?<=[^A-Za-z0-9])[A-Za-z0-9]{1,2}$/, '');
     return cjkCount(t) >= 2 ? t : '';
   }
   /**
@@ -467,7 +472,7 @@
     return moved / (a.length / 4) > maxMoved ? null : out;
   }
 
-  function pickRead(readings) {
+  function pickRead(readings, opts = {}) {
     const list = (readings || []).filter((r) => r && r.text);
     const engs = list.filter((r) => r.lang === 'eng').map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name);
     // two cuts of the same name (r.cut: 'loose' | 'tight', js/vision/names.js): a loose reading that is the tight one
@@ -495,7 +500,7 @@
     if (lat && (!eng || (eng.conf < 40 && lat.conf >= eng.conf + 20))) eng = { ...lat, lang: 'eng' };
     // the same for the other scripts, when the tight cut came out centred (r.sym): a loose reading that holds the
     // tight one plus more (roof edges next to the name read as characters) is not believed
-    const cjkRaw = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name);
+    const cjkRaw = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text, { keepLatin: !!opts.keepLatin }) })).filter((r) => r.name);
     const extra = new Set();
     for (const t of cjkRaw) {
       if (t.cut !== 'tight' || !t.sym || [...t.name].length < 2 || t.conf < 40) continue;

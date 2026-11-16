@@ -7,6 +7,92 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #61 · Guild War: names that cannot be read are marked and read from the player's page; scans shared in the guild are not repeated. RTA: results and the draft's status on the owner's PC · this commit (previous: `50ad523`)
+
+**Asked for**
+- (the keep's name on the middle map read as nonsense in the app; its page next to it) "if a guild war player cannot
+  be read it should be marked and show a symbol to open that player. and read it from another angle."
+- "also if our guildmates have already scanned them then everyone should have the same copies shown, so we're not
+  scanning twice (if in a guild sharing session)"
+- "also the rta mini doesn't work" · (a screenshot of the Auto tab after a whole match: "prebans 0+0, picks 0+0", two
+  match-start pictures, every slot empty) "this is all i get from a whole rta match" · a DEFEAT screen · the app's
+  diagnostic report.
+
+**Findings**
+- **The diagnostic report** (version 0.1.44, the game window watched at 1229×691 and maximized):
+  - The game watcher's draft reader DOES follow real drafts: versus → pre-ban → pick (your turn / the opponent's)
+    → ban → ready, with first pick read from the match-start screen. In one match it recognised all ten heroes (you
+    5, opponent 5), in another your 5 and 1 of theirs, in a third (window 1231×693) none. Pre-bans: never (0 of 4 in
+    every match).
+  - What the owner looked at says none of this: the status line and the table "What each slot saw" show this
+    PAGE's own slot boxes, which stay empty while the watcher's reader fills the draft.
+  - **No result was ever recorded from the screen.** Two causes: (a) the result is only read on a screen the
+    detector calls `rta-result`, and the owner taught that screen long ago at another window size (2 examples), so
+    today's result screens are not recognised; (b) a draft counts as complete only with pre-bans and bans, which
+    were never read, so even ten known heroes were "not complete".
+  - Match review kept pictures per DRAFT, at most 6: with a draft that never got a hero the same draft went on for
+    days and its six pictures were used up on 13 November. That is why only match-start pictures were left.
+  - Screens taught: `rta-result` 2, `rta-intro` 1, `rta-draft` 1, `gw-enemy` 1 (all from small windows).
+- **The mini window** opens and works in the packaged app (checked: it follows the draft and its buttons act); with
+  no hero in the draft it has nothing to show, which is what the owner saw.
+- A full result screen has a brown "Battle Results" button next to Confirm; the early-end one does not.
+- **Names**: on the map the keep's name (kana + a Latin "x") came out as nonsense in the owner's app and as kana
+  without the x here; on that player's own page the same name stands on a plain panel and reads cleanly, except
+  that Latin letters at the end of a kana name were thrown away as stray marks and the reader gave the x three
+  times ("xXx").
+- **Sharing**: a scanned fortress was saved as names only. A guildmate's app, seeing the same map, read every name
+  again (and could read some differently). The defenders' places never move, so "this place is already scanned" can
+  be known from the saved place.
+
+**Changed**
+- **Unsure names** (`js/guild-watch.js`, `js/vision/readers/guild-fortress.js`): a name that is neither one the
+  guild has nor confirmed by the official list is marked ⚠ on the card and with "? name not read · tap this player"
+  on the game (overlay layer `guild-fort`, removed when the map is left). The marked box takes the next name read
+  on a player's page ("✓ from their page"; the earlier reading stays as a button). With one marked name it waits by
+  itself; with several the ⚠ button says which one waits. A page of another, sure defender of that map is not
+  taken. The watcher's card on the game says "N not sure: tap that player (marked ?)".
+- **Kana + Latin** (`E7GWMap.cleanCjk(text, { keepLatin })`, `pickRead(readings, { keepLatin })`, `E7Names.read`
+  `clean: true` from the page / window / Offense Team readers): on a plain panel Latin letters at the end of a name
+  are kept, a letter given two or three times in a row counts once.
+- **Shared scans**: the map reader sends each defender's place (`pos`: from the middle of the picture, in units of
+  its height) and the page saves it with the fortress number on the target (`pos`, `fortIndex`; our side: in
+  `war.ourForts`). From the guild's records the page writes `e7-gw-fort-cache` (per side and fortress: name, place,
+  keep); the reader takes a name from there for a badge on a scanned place and reads nothing (`fromGuild`). When
+  everything on a map comes from there the card says "already in the guild's war plan" and offers nothing to save;
+  beaten / standing is still taken from the badges.
+- **RTA** (`js/auto.js`, `js/app.js`, `js/pip.js`):
+  - a result screen is read when its Confirm button is there, whatever the screen detector thinks
+  - all ten heroes known but pre-bans / bans not read → a played match: recorded (source `auto`, `bansUnknown:
+    true`); fewer → the early end of #60. A stage reported by the watcher's reader counts as "the draft is on screen"
+  - the status line says the watcher's board while it is reporting ("from the game watcher: pre-bans 0+0, picks 5+5")
+  - Match review: pictures counted per MATCH (from its start screen), every 12 s, up to 12
+  - mini window: an error is shown in it instead of a blank window; it shows the picks so far and "waiting for
+    their pick"; it redraws every second while open
+
+**Tested**
+- `npm test` **175** (+1: kana + Latin on a clean panel / over scenery).
+- Browser suite **40/40** clean, no code changed during the run. New `tests/e2e/gw-shared.e2e.js`:
+  - a map where one name is not on the player list: that box marked and waiting, one "?" on the game, the
+    watcher's line; the player's page shown → the name goes into the box, "✓ from their page", the marks gone
+  - Save → every target has its place; the reader's cache holds 7; the same map on a fresh reader: 7 of 7 names
+    taken from the plan, card "already in the guild's war plan", no Save button
+  - a map with five unsure names: nothing waits until ⚠ is pressed on one; a page name then fills that box
+  `tests/e2e/rta-walkover.e2e.js` (+1 case): ten heroes on the board, bans not read, result screen → one match with
+  `bansUnknown`, no extra early end.
+- The owner's real pictures (not committed): the keep's page reads the kana name with its Latin x.
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `newwar`, `war-reminder`, `popout`, `update-check` pass; the mini window was opened there and followed a draft.
+- **Not tested:** two PCs sharing through Firebase (the cache is built from the shared records, the test uses one
+  browser); the result of a real match on the owner's PC; DEFEAT (only the word differs).
+
+**Open — the RTA draft itself**
+- Heroes are recognised unevenly (10 of 10, 6 of 10, 0 of 10 in three matches) and pre-bans never. There is still
+  **no picture of a real draft while picking** to find out why. Asked for again; with this build Match review
+  keeps up to 12 pictures of every match, and the Developer menu can collect them in a folder.
+- A played match recorded without bans counts a banned hero as played on both sides.
+- Old taught screens can still keep the Guild War page readers (`gw-enemy`) from running; not changed here.
+
+---
+
 ## 2026-11-16 · #60 · RTA: a match that ends before the draft is finished (the opponent leaves) is noted apart and the draft cleared · this commit (previous: `470905b`)
 
 **Asked for** (three screenshots: "Here comes a new challenger!", the match-start screen, VICTORY with "The opponent's

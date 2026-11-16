@@ -65,6 +65,15 @@
     if (!win || win.closed) return;
     const root = win.document.getElementById('pip-root');
     if (!root) return;
+    try {
+      draw(root);
+    } catch (e) {
+      // never a blank window: say what went wrong (and it is in the report for Claude)
+      root.innerHTML = `<div class="pip-status">The mini window hit a problem</div><div class="pip-line hint">${esc((e && e.message) || String(e))}</div>`;
+      if (window.E7Diag) window.E7Diag.log('rta', 'mini window: ' + ((e && e.message) || e));
+    }
+  }
+  function draw(root) {
     const st = App.store;
     const d = st.draft;
     const step = L.currentStep(d);
@@ -83,6 +92,9 @@
     if (step && step.phase === 'preban' && step.player === 'me') items = L.suggestPrebans(d, App.cache.heroes, ctx, 3);
     else if (step && step.phase === 'pick') items = L.suggestPicks(d, App.cache.heroes, ctx, 3);
     else if (step && step.phase === 'postban') items = L.suggestPostban(d, App.cache.heroes, ctx, step.player).slice(0, 3);
+    if (step && !items.length) parts.push(`<div class="pip-line hint">${step.phase === 'pick' && step.player === 'opp' ? 'Waiting for their pick…' : 'Nothing to suggest yet.'}</div>`);
+    // what is on the board so far (so the window shows that the draft is being followed)
+    if (v.picks.me.length + v.picks.opp.length) parts.push(`<div class="pip-line">You: ${v.picks.me.map((c) => App.portrait(c, 'pt sm')).join('')} · Them: ${v.picks.opp.map((c) => App.portrait(c, 'pt sm')).join('')}</div>`);
     if (items.length) {
       parts.push(
         '<ol class="pip-sug">' +
@@ -124,6 +136,8 @@
   }
 
   App.onDraftRender(render);
+  // the draft can change without the main page redrawing it (it may be hidden behind the game): look again each second
+  setInterval(() => win && !win.closed && render(), 1000);
   document.querySelector('#pip-btn').addEventListener('click', open);
   window.RTAPip = { open, close, toggle: () => (win && !win.closed ? close() : open()), render, isOpen: () => !!(win && !win.closed) };
 })();
