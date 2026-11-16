@@ -257,17 +257,35 @@
   } else applyForts(stored());
   // a fortress map seen in game (js/vision/readers/guild-fortress.js): its defenders, editable, saved into this war
   let seenFort = null;
-  // A name the app is not sure of (not a name the guild has, not confirmed by the official list): marked, on the card
-  // and with a "?" on the game. It can be read "from another angle": the player's own page shows the name on a plain
-  // panel. The marked box that is waiting (askFort) takes the next name read on a player's page (DEVLOG #61).
+  // "Seen in game" (DEVLOG #61, #62). A fortress map read by the game watcher is SAVED BY ITSELF: every defender
+  // becomes a target on its place. A name the app is not sure of is marked ⚠ here and with a "?" on the game; when
+  // that player's page is opened in the game, the name read there is put on the right defender by itself (the one
+  // whose map reading it resembles; else the only marked one; else the one chosen with its ⚠) and saved again.
   let askFort = -1;
   const fortList = () => (seenFort ? [...seenFort.players, ...(seenFort.keep ? [seenFort.keep] : [])] : []);
-  const unsure = (p) => !p.known && !p.official && !p.fromPage;
+  const unsure = (p) => window.E7GWMap.unsureName(p);
   function fortMarks() {
     const O = window.E7Overlay;
     if (!O) return;
-    const items = seenFort && !seenFort.left ? fortList().filter((p) => unsure(p) && typeof p.x === 'number').map((p) => ({ x: p.x, y: p.y, w: 0, h: 0, kind: 'label', level: 'yellow', title: '? name not read · tap this player' })) : [];
+    const items = seenFort && !seenFort.left ? fortList().filter((p) => unsure(p) && typeof p.x === 'number').map((p) => ({ x: p.x, y: p.y, w: 0, h: 0, kind: 'label', level: 'yellow', title: '? tap: name not read' })) : [];
     O.post('guild-fort', items);
+  }
+  let fortSaving = Promise.resolve();
+  /** Save what the card shows (one after the other; called by itself after every reading and every change). */
+  function saveFort(note) {
+    if (!seenFort || !A.saveFortress) return fortSaving;
+    const f = seenFort;
+    const players = fortList().map((p) => ({ ...p }));
+    fortSaving = fortSaving
+      .then(() => A.saveFortress(f.fort, players, f.side, { index: f.index }))
+      .then((r) => {
+        f.saved = true;
+        if ($('#gw-fort-msg') && seenFort === f) $('#gw-fort-msg').textContent = note || (f.side === 'ours' ? `Saved by itself: ${r.added} new members.` : `Saved by itself${r.added ? `: ${r.added} new` : ''}${r.renamed ? `${r.added ? ',' : ':'} ${r.renamed} name${r.renamed > 1 ? 's' : ''} corrected` : ''}.`);
+      })
+      .catch((e) => {
+        if ($('#gw-fort-msg') && seenFort === f) $('#gw-fort-msg').textContent = e.message;
+      });
+    return fortSaving;
   }
   bus.on('guild:fortress', (d) => {
     if (d && d.away) {
@@ -276,45 +294,66 @@
       return fortMarks();
     }
     seenFort = d;
-    const open = fortList().map((p, i) => (unsure(p) ? i : -1)).filter((i) => i >= 0);
-    askFort = open.length === 1 ? open[0] : -1; // one unsure name: no click needed, it waits for that player's page
-    renderFort();
-    fortMarks();
-    // enemy defenders the app already has: beaten / still standing straight from their badges (no button)
-    if (d && d.side !== 'ours' && A.markBeaten) {
-      A.markBeaten([...(d.players || []), ...(d.keep ? [d.keep] : [])])
-        .then((r) => {
-          if ((r.beaten || r.standing) && $('#gw-fort-msg')) $('#gw-fort-msg').textContent = `${r.beaten ? `${r.beaten} marked beaten` : ''}${r.beaten && r.standing ? ', ' : ''}${r.standing ? `${r.standing} back to standing` : ''} (from the map).`;
-        })
-        .catch(() => {});
-    }
-  });
-  /** A name read on a player's page while a marked box is waiting: it goes into that box. */
-  function fillFromPage(d) {
-    if (askFort < 0 || !seenFort || !d || d.away || !d.text) return false;
-    const list = fortList();
-    const p = list[askFort];
-    if (!p) return false;
-    // the page of ANOTHER defender of this map (one the app is sure of) is not the one that is waiting
-    if (list.some((q, k) => k !== askFort && !unsure(q) && q.name && GW.matchPlayer(d.text, [q.name]))) return false;
-    keepBoxes();
-    const old = p.name;
-    Object.assign(p, { name: d.text, fromPage: true, options: [...new Set([...(d.options || []), ...(old ? [old] : []), ...(p.options || [])])].filter((o) => o !== d.text).slice(0, 3), pic: d.pic || p.pic });
-    const next = list.findIndex((q) => unsure(q));
     askFort = -1;
     renderFort();
     fortMarks();
-    if ($('#gw-fort-msg')) $('#gw-fort-msg').textContent = `"${d.text}" read from that player's page.${next >= 0 ? ' Another name is still marked.' : ''}`;
+    saveFort();
+    // enemy defenders the app already has: beaten / still standing straight from their badges (no button)
+    if (d && d.side !== 'ours' && A.markBeaten) {
+      fortSaving = fortSaving.then(() => A.markBeaten([...(d.players || []), ...(d.keep ? [d.keep] : [])])).catch(() => {});
+    }
+  });
+  /** How alike two names are: 0 = the same, 1 = nothing in common (edits over the longer length). */
+  function unlike(a, b) {
+    const n = (x) => [...String(x || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')];
+    const x = n(a);
+    const y = n(b);
+    if (!x.length || !y.length) return 1;
+    return GW.editDistance(x.join(''), y.join('')) / Math.max(x.length, y.length);
+  }
+  /** A name read on a player's page: which defender of the last map is it? -> index or -1. */
+  function whoIs(d) {
+    const list = fortList();
+    const score = (p) => Math.min(...[p.name, p.raw, ...(p.options || [])].filter(Boolean).map((x) => Math.min(unlike(d.text, x), ...(d.options || []).map((o) => unlike(o, x)))), 1);
+    const ranked = list.map((p, i) => ({ i, s: score(p), p })).sort((a, b) => a.s - b.s);
+    const [best, next] = ranked;
+    // it resembles ONE reading on the map clearly more than any other
+    if (best && best.s <= 0.5 && (!next || next.s - best.s >= 0.15)) return best.i;
+    if (askFort >= 0 && list[askFort]) return askFort; // the box that was told to wait
+    const open = list.map((p, i) => (unsure(p) ? i : -1)).filter((i) => i >= 0);
+    return open.length === 1 ? open[0] : -1; // the only marked one
+  }
+  /** A name read on a player's page: put on its defender of the last map, and saved. */
+  function fillFromPage(d) {
+    if (!seenFort || !d || d.away || !d.text) return false;
+    const i = whoIs(d);
+    const p = i >= 0 ? fortList()[i] : null;
+    if (!p) return false;
+    if (p.fromPage && p.name === d.text) return true; // the same page, read again
+    keepBoxes();
+    const old = p.name;
+    Object.assign(p, { name: d.text, fromPage: true, options: [...new Set([...(d.options || []), ...(old ? [old] : []), ...(p.options || [])])].filter((o) => o !== d.text).slice(0, 3), pic: d.pic || p.pic });
+    askFort = -1;
+    renderFort();
+    fortMarks();
+    saveFort(old && old !== d.text ? `"${old}" corrected to "${d.text}" from that player's page, and saved.` : `"${d.text}" confirmed on that player's page.`);
     return true;
   }
-  /** What was typed into the boxes survives a redraw of the card. */
+  /** What was typed into the boxes survives a redraw of the card (and counts as a sure name). */
   function keepBoxes() {
     const el = $('#gw-fort-seen');
-    if (!el || !seenFort) return;
+    if (!el || !seenFort) return false;
+    let changed = false;
     fortList().forEach((p, i) => {
       const box = el.querySelector(`[data-fort-i="${i}"]`);
-      if (box && box.value.trim() !== (p.name || '')) Object.assign(p, { name: box.value.trim(), ...(box.value.trim() ? { fromPage: p.fromPage || false } : {}) });
+      if (!box) return;
+      const v = box.value.trim();
+      if (v !== (p.name || '')) {
+        Object.assign(p, { name: v, typed: !!v });
+        changed = true;
+      }
     });
+    return changed;
   }
   function renderFort() {
     const el = $('#gw-fort-seen');
@@ -324,21 +363,18 @@
     const ours = seenFort.side === 'ours';
     const beaten = list.filter((p) => p.state === 'beaten').length;
     const open = list.filter(unsure).length;
-    // everything on this map is already in the guild's war plan (scanned by you or a guildmate): nothing to do
-    const allShared = list.length > 0 && list.every((p) => p.fromGuild);
-    const head = allShared
-      ? `<b>✓ ${ours ? 'Our' : 'Enemy'} ${A.esc(seenFort.fort)}: already in the guild's war plan</b> <span class="hint">${list.length} defenders${beaten ? `, ${beaten} beaten` : ''} · nothing to scan again</span>`
-      : `<b>Seen in game: ${ours ? 'our' : 'enemy'} ${A.esc(seenFort.fort)}</b> <span class="hint">${list.length} defenders${beaten ? `, ${beaten} beaten` : ''} · ${open ? `<b>${open} name${open > 1 ? 's' : ''} not sure (⚠)</b>: open that player in the game and the name is read from their page · ` : ''}check the names (✓ = a name you already have), then save</span>`;
-    el.innerHTML = `${head}
-      <div class="gw-fort-names">${list
-        .map((p, i) => `<label class="gw-fort-name ${p.state === 'beaten' ? 'beaten' : ''}" title="${p.state === 'beaten' ? 'Beaten (grey ring)' : ''}">
-          ${p.pic ? `<img class="gw-fort-pic" src="${A.esc(p.pic)}" alt="" title="The name as the game shows it" />` : ''}
-          <input data-fort-i="${i}" value="${A.esc(p.name || '')}" placeholder="(not read)" />${p.known ? ' ✓' : ''}${p.fromGuild ? ' <span class="hint" title="Scanned before, by you or a guildmate">in the plan</span>' : ''}${p.official ? ' <span class="hint" title="Spelled as on the official record site">✓ official</span>' : ''}${p.fromPage ? ' <span class="hint" title="Read on this player\'s own page">✓ from their page</span>' : ''}${p.keep ? ' <span class="hint">keep</span>' : ''}${p.state === 'beaten' ? ' <span class="hint">✗</span>' : ''}
-          ${unsure(p) ? `<button type="button" class="btn ${askFort === i ? 'primary' : ''}" data-fort-ask="${i}" title="The app is not sure of this name. Open this player in the game (tap their badge on the map): their page shows the name clearly and it is put into this box.">${askFort === i ? '⏳ waiting: open this player in the game' : '⚠ not sure · read it from their page'}</button>` : ''}
-          ${(p.options || []).length ? `<span class="gw-fort-opts">${p.options.slice(0, 3).map((o) => `<button type="button" class="btn" data-fort-opt="${i}" data-v="${A.esc(o)}" title="Another reading, or a player of that server with a name close to what was read: click to use this spelling">${A.esc(o)}</button>`).join('')}</span>` : ''}</label>`)
-        .join('')}</div>
-      ${allShared ? '' : `<button class="btn primary" id="gw-fort-save">${ours ? `Save as our ${A.esc(seenFort.fort)}` : `Save as this war's ${A.esc(seenFort.fort)}`}</button>`} <span id="gw-fort-msg" class="hint"></span>
-      ${allShared ? '' : '<div class="hint">Each box has the name\'s picture from the game above it. A name in a script you can\'t type: compare the picture with the box (and with the buttons under it, the closest names on that server\'s official list) and click the one that looks the same. A name marked ⚠ is best read from the player\'s own page: open them in the game. If nothing helps, leave it: the app recognises the same player again by the same reading, so the war plan still works.</div>'}`;
+    const chip = (p, i) => {
+      if (unsure(p)) return `<button type="button" class="chip ask" data-fort-ask="${i}" title="The app is not sure of this name. Tap this player in the game: their page shows the name clearly and it is corrected here by itself. (Press this only when several names are marked and the app does not find the right one.)">${askFort === i ? '⏳ waiting for their page' : '⚠ not sure · tap them in the game'}</button>`;
+      const why = p.fromPage ? 'read on their page' : p.typed ? 'typed by you' : p.fromGuild ? 'in the war plan' : p.known ? 'known' : p.official ? 'official spelling' : 'read clearly';
+      return `<span class="chip ok">✓ ${why}</span>`;
+    };
+    el.innerHTML = `<b>${ours ? 'Our' : 'Enemy'} ${A.esc(seenFort.fort)}</b> <span class="hint">${list.length} defenders${beaten ? ` · ${beaten} beaten` : ''} · read from the game and saved by itself${open ? ` · <b>${open} name${open > 1 ? 's' : ''} not sure</b>: tap ${open > 1 ? 'those players' : 'that player'} in the game` : ''}</span> <span id="gw-fort-msg" class="hint"></span>
+      <div class="gw-fort-rows">${list
+        .map((p, i) => `${p.pic ? `<img class="gw-fort-pic" src="${A.esc(p.pic)}" alt="" title="The name as the game shows it" />` : '<span></span>'}
+          <input data-fort-i="${i}" value="${A.esc(p.name || '')}" placeholder="(not read)" title="You can type the name; it is saved when you leave the box" />
+          <span>${chip(p, i)}${p.keep ? ' <span class="chip">keep</span>' : ''}${p.state === 'beaten' ? ' <span class="chip beaten">beaten</span>' : ''}${p.busy ? ' <span class="chip">being fought</span>' : ''}</span>
+          <span class="alts">${(p.options || []).slice(0, 2).map((o) => `<button type="button" class="btn" data-fort-opt="${i}" data-v="${A.esc(o)}" title="Another reading or a close official spelling: click to use it">${A.esc(o)}</button>`).join('')}</span>`)
+        .join('')}</div>`;
     el.classList.remove('hidden');
     el.querySelectorAll('[data-fort-opt]').forEach((b) => (b.onclick = () => {
       // swap: the spelling that was in the box goes onto the button, so a wrong click can be taken back
@@ -349,21 +385,20 @@
         b.dataset.v = old;
         b.textContent = old;
       }
+      if (keepBoxes()) saveFort();
+    }));
+    el.querySelectorAll('[data-fort-i]').forEach((box) => (box.onchange = () => {
+      if (keepBoxes()) {
+        renderFort();
+        fortMarks();
+        saveFort();
+      }
     }));
     el.querySelectorAll('[data-fort-ask]').forEach((b) => (b.onclick = () => {
       keepBoxes();
       askFort = askFort === Number(b.dataset.fortAsk) ? -1 : Number(b.dataset.fortAsk);
       renderFort();
     }));
-    if ($('#gw-fort-save')) $('#gw-fort-save').onclick = async () => {
-      const players = list.map((p, i) => ({ ...p, name: el.querySelector(`[data-fort-i="${i}"]`).value.trim() }));
-      try {
-        const r = await A.saveFortress(seenFort.fort, players, seenFort.side, { index: seenFort.index });
-        $('#gw-fort-msg').textContent = ours ? `Saved our ${seenFort.fort}: ${r.added} new members, ${r.same} known.` : `Saved: ${r.added} new, ${r.moved} moved here, ${r.same} already there.`;
-      } catch (e) {
-        $('#gw-fort-msg').textContent = e.message;
-      }
-    };
   }
   bus.on('vision:warning', (d) => d.module === 'guild' && ($('#gw-watch-read').textContent = '⚠ ' + d.text));
   // the watcher is busy with something slow (names in several languages) or needs a look: say so here too (DEVLOG #56)

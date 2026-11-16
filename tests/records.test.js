@@ -248,8 +248,11 @@ test('records transport: names CLOSE to a text read from the screen, from the se
     assert.deepEqual(await names('starry2B'), ['starry26:1', 'starry27:1'], 'two players equally close: both are returned, the caller must not guess');
     assert.deepEqual(await names('zzzzzzzz'), []);
     assert.deepEqual(await names('A'), [], 'too short to search');
-    // short names allow one edit only; long ones up to three
-    assert.deepEqual(await names('Xb'), ['Ab:1']);
+    // two characters: only the very same name (a scrap of scenery read as two characters "found" a real player,
+    // DEVLOG #62); short names allow one edit; long ones up to three
+    assert.deepEqual(await names('Xb'), []);
+    assert.deepEqual(await names('ab'), ['Ab:0']);
+    assert.deepEqual(await names('Moonpia'), ['Moonpie:1']);
     assert.deepEqual(await names('moonpye53B5x'), ['moonpie5385:3']);
     assert.strictEqual(transport.editDistance([...'kitten'], [...'sitting'], 5), 3);
     assert.strictEqual(transport.editDistance([...'abcdef'], [...'uvwxyz'], 2), 3, 'stops early: "more than the limit"');

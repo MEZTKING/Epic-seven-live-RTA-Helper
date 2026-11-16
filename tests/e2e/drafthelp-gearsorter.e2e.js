@@ -44,6 +44,7 @@ const scene = { mePreban: ['Belian', 'Luna'], oppPreban: ['Krau', 'Aria'], mePic
   }, { W, H, S, LAY, scene });
   fs.writeFileSync(SP + '/v5-help.jpg', Buffer.from(png.split(',')[1], 'base64'));
   await p.click('.tab[data-tab=auto]');
+  await p.evaluate(() => document.querySelectorAll('details.more-tools').forEach((d) => (d.open = true))); // the rarely needed tools are folded away
   await p.setInputFiles('#auto-shot', SP + '/v5-help.jpg');
   // 16:9 pictures use the built-in Steam layout now (nothing pops open); this made-up screen needs its own boxes
   await p.waitForTimeout(300);

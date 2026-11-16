@@ -21,6 +21,7 @@ const { chromium } = require('playwright');
   });
   await p.reload();
   await p.click('.tab[data-tab=auto]');
+  await p.evaluate(() => document.querySelectorAll('details.more-tools').forEach((d) => (d.open = true))); // the rarely needed tools are folded away
   // no pictures yet: the button explains how to get them
   await p.click('#auto-pics');
   // a picture saved "during a match" (here: a drawn draft-like screen)

@@ -91,7 +91,9 @@
       const side = G.sideOf(found) || forts.side || 'enemy';
       // defenders always stand on the same places of a fortress: a known place with something round and dark on it
       // that the finder did not take for a badge is looked at too (kept only when a name stands under it, below)
-      const badges = [...found, ...G.placesToCheck(rgba, W, H, pager.index, found).map((b) => ({ ...b, state: side === 'ours' ? 'ours' : 'enemy' }))].sort((a, b) => a.y - b.y || a.x - b.x);
+      // (a dark "beaten" badge only counts on a known place of this fortress: dark scenery can look like one)
+      const real = found.filter((b) => !b.dim || G.onPlace(pager.index, b.x, b.y, W, H));
+      const badges = [...real, ...G.placesToCheck(rgba, W, H, pager.index, real).map((b) => ({ ...b, state: side === 'ours' ? 'ours' : 'enemy' }))].sort((a, b) => a.y - b.y || a.x - b.x);
       const fort = (forts[side] && forts[side][pager.index]) || G.DEFAULT_FORTS[pager.index];
       if (badges.length < 2) return ctx.note(`${fort}: no defenders found`);
       // the same map twice in a row before reading names (OCR is slow; the map may still be scrolling in)
@@ -142,7 +144,7 @@
       const kn = kn0 && kn0.name ? { ...kn0, x: kr.x + kr.w / 2, y: kr.y - 0.06 } : null;
       if (ctx.done) {
         const all = [...players, ...(kn ? [kn] : [])].filter((p) => p.name);
-        const unsure = all.filter((p) => !p.known && !p.official).length;
+        const unsure = all.filter((p) => G.unsureName(p)).length;
         const reused = all.filter((p) => p.fromGuild).length;
         if (unsure) ctx.done(`${all.length} names, ${unsure} not sure: tap ${unsure === 1 ? 'that player' : 'those players'} (marked ?) and the name is read from their page`, { ask: true });
         else if (reused === all.length) ctx.done(`${all.length} defenders: already in your guild's war plan`);

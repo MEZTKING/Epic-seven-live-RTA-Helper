@@ -105,13 +105,19 @@
       <div class="btn-row">
         <button id="auto-start" class="btn primary">Start reading the game</button>
         <button id="auto-stop" class="btn hidden">Stop</button>
+        <button class="btn" data-diag-copy title="Copies what the reader sees and did, to paste to Claude">Copy report for Claude</button>
+      </div>
+      <!-- Everything below is for when the automatic reading needs help: folded away (the owner: "too many buttons",
+           DEVLOG #62). The reading itself needs none of them. -->
+      <details class="more-tools">
+      <summary>More tools (only when the automatic reading needs help)</summary>
+      <div class="btn-row">
         <button id="auto-calibrate" class="btn">Calibrate slots</button>
         <button id="auto-pics" class="btn" title="Draw the boxes on a picture saved during a match, whenever you have time">Calibrate on a saved picture</button>
         <button id="auto-save-pic" class="btn" title="Desktop app: Ctrl+Shift+S works anywhere">Save a game picture</button>
         <label class="btn file-btn">Use a screenshot<input id="auto-shot" type="file" accept="image/*" hidden /></label>
         <button id="auto-overlay" class="btn">Check alignment</button>
         <button class="btn" data-reset-game-area title="Draw the box around the game window again (after moving or resizing it)">Reset game area</button>
-        <button class="btn" data-diag-copy title="Copies what the reader sees and did, to paste to Claude">Copy report for Claude</button>
       </div>
       <div class="btn-row">
         <button id="auto-calib-cr" class="btn">Calibrate CR bar</button>
@@ -124,6 +130,7 @@
           <select id="auto-cr-end"><option value="auto">auto</option><option value="top">top</option><option value="bottom">bottom</option><option value="right">right</option><option value="left">left</option></select>
         </label>
       </div>
+      </details>
       <div id="auto-cr-out" class="hint"></div>
       <div class="card wide" style="margin-top:10px">
         <h3>Match review: what the app saw</h3>

@@ -17,6 +17,7 @@ const { chromium } = require('playwright');
   await p.evaluate(async () => { localStorage.clear(); await window.E7Pictures.clear(); });
   await p.reload();
   await p.click('.tab[data-tab=auto]');
+  await p.evaluate(() => document.querySelectorAll('details.more-tools').forEach((d) => (d.open = true))); // the rarely needed tools are folded away
   await p.setInputFiles('#auto-shot', __path.join(FX, 'steam-rta-menu.png'));
   await p.waitForFunction(() => window.RTAAuto._officialLoad.total > 0 && window.RTAAuto._officialLoad.done >= window.RTAAuto._officialLoad.total, null, { timeout: 120000 });
 

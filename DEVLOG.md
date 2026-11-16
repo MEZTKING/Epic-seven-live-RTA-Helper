@@ -7,6 +7,93 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #62 · Guild War on the owner's PC: opening a player's page now works, no phantom defenders, the card saves by itself and reads as rows; fewer buttons · this commit (previous: `461a471`)
+
+**Asked for** (screenshots from the build of #61: the right-hand fortress with the marks on the game, the same map
+plain, and the Guild War page showing "7 defenders, 2 beaten · 3 names not sure"; then the RTA Auto tab's buttons):
+- "struggling with these, and even when i open their profile it doesn't seem to work or do anything, remember to
+  try to automate everything so less clicking and of course organise everything so that it's easy to read and
+  understand"
+- "there's too many buttons here, reduce them as much as possible and automate everything"
+
+**Findings** (the map is in the session as a file; everything below was reproduced on it)
+- **Opening a profile did nothing**: the two page readers (name, defense) were registered for the screen
+  `gw-enemy`, and the owner had taught that screen once, long ago, in a small window ("enemy screen taught (1)" at
+  the bottom of the page). With a taught example the readers only run when the detector recognises it, and at the
+  maximized window it does not. So the readers never ran. (The risk was written down as "open" in #61.)
+- **Two defenders too many, both "beaten"**: (1) the page indicator bottom right. On the right-hand fortress its
+  white pill sits at the end of the dark bar and passes for a beaten badge (found at 1800,964 on the file). (2) a
+  dark patch of scenery taken for a destroyed badge (the rule of #59), whose scrap of scenery was read as two
+  characters, and the official player list "confirmed" it: for short names one edit was allowed, so nearly any
+  two-character reading finds some player.
+- **Marked although read correctly**: #61 marked every name that is not on a list. A name read cleanly (both cuts
+  the same letters, the reader sure) but missing from the official list was marked, and so was the next one.
+- **A katakana name ending in two ロ**: the reader gives kanji that look the same (口, 回) for them; the centred
+  cut then lost to nothing better.
+- The card: boxes in a wrapping line with status texts, buttons and alternatives mixed; a Save button; a paragraph
+  of instructions.
+- RTA Auto tab: 17 buttons and a selector; in the desktop app the reading needs none of them.
+
+**Changed**
+- **A player's page is recognised by itself** (`E7GWResult.pageAt`, `js/layouts.js` `gwPageBar`): the empty part of
+  the name panel is one flat slate colour, measured (46–53, 64–70, 85–89) with a spread of 1–3 on five real pages
+  and unlike every other screen (15 compared). `guild-name.js` and `guild-defense.js` no longer depend on a taught
+  screen (`screen: 'gw-enemy'` removed).
+- **Phantoms** (`E7GWMap.findBadges`, `guild-fortress.js`, `desktop/records.js`): the page indicator's corner is not
+  searched; a dark "beaten" badge counts only on a known place of that fortress (`onPlace`) and with a name; the
+  official list accepts a two-character reading only as the very same name.
+- **Unsure** (`E7GWMap.unsureName`, `E7Names.read` returns `conf` and `agree`): a name is marked only when it is
+  neither known / official / read on the page / typed nor read clearly (two readings agree or the two cuts are the
+  same letters, confidence ≥ 70, three characters or more, no odd signs).
+- **Katakana look-alikes** (`cleanCjk`): inside a name that is at least half katakana, 口 回 力 夕 工 二 八 卜 一 千 才
+  又 匕 are read as ロ ロ カ タ エ ニ ハ ト ー チ オ ヌ ヒ.
+- **The card saves by itself** (`js/guild-watch.js`, `GuildApp.saveFortress`):
+  - a map read by the watcher is saved at once, no button; every later change (a name typed, an alternative
+    clicked, a name read on a page) saves again
+  - a defender is the PLACE it stands on: a better name for the same place renames the record (attacks, defense
+    and notes stay on it; the earlier reading is kept as `aka`); a guess never replaces a sure name (`nameSure`)
+  - a name read on a player's page finds its defender by itself: the one whose map reading it resembles (edit
+    distance over length ≤ 0.5 and clearly closer than the next), else the only marked one, else the one pointed at
+    with its ⚠
+  - on our own side a name the app is not sure of stays on the fortress list but does not become a member by itself
+- **The card reads as rows**: picture of the name · the name · why it is sure ("official spelling", "in the war
+  plan", "read on their page", "read clearly", "typed by you") or "⚠ not sure · tap them in the game" · up to two
+  alternatives. One line of explanation in the heading.
+- **Fewer buttons**: RTA → Auto shows Start / Stop and "Copy report for Claude"; the fifteen calibration and
+  reading tools are under "More tools (only when the automatic reading needs help)". Guild War: Pop out and Watch
+  game; "Set name box", "Reset game area", "This is the enemy screen" under "More tools".
+
+**Bugs found and fixed while doing it**
+- With the defense reader waiting for a player's page, nothing fetched the hero portraits any more until the first
+  hero had to be read, and the readers started at 300 of 368: the newest heroes (last in the list) were "not
+  recognised" on the Offense Team screen (my teams 3 of 6 in the test; the suite still ended "clean"). The portraits
+  are now fetched when the watcher starts, and the readers wait for all of them (25 s at most).
+- The two-character rule of the official list broke its own unit test's expectation (updated).
+
+**Tested**
+- `npm test` **177** (+2: the page's colour test; katakana look-alikes and known places; the two-character rule
+  in the existing list test).
+- The owner's real right-hand map: **5 defenders, as in the game** (it was 7 with two phantoms); the other three
+  real maps unchanged (7, 5, 9).
+- Browser suite **40/40** clean; its printed results showed the portrait bug above, after whose fix the six tests
+  that read hero icons (`gw-offense`, `gw-result`, `gw-states`, `gw-defense`, `gw-scripts`, `teach`) and
+  `gw-shared` were run again and read line by line: same numbers as before today's change. `tests/e2e/gw-shared.e2e.js` rewritten for the new
+  card: a map is saved by itself (7 targets, no button to press); the keep's name, the only one marked, is confirmed
+  from that player's page without a click (7 targets before and after: corrected, not added); the same map on a
+  fresh reader comes from the plan; a page name unlike any reading goes to the box pointed at; a typed name is
+  saved when the box is left. The older Guild War tests press no Save button any more and print the same counts.
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `newwar`, `war-reminder`, `popout`, `update-check`, `rta-follow` pass.
+- **Not tested:** the page readers on the owner's PC (the cause is certain from their own status line, the fix is
+  tested on their five page pictures as files); the dark-scenery phantom itself (it did not show on the still
+  picture; it is excluded by rule); two PCs sharing.
+
+**Open**
+- Automatic saving means a wrong reading is saved too, as a guess (`nameSure` false) until a page, the list or the
+  user corrects it. A defender nobody opens keeps the guess.
+- The RTA draft: still waiting for pictures of a draft while picking (see #61).
+
+---
+
 ## 2026-11-16 · #61 · Guild War: names that cannot be read are marked and read from the player's page; scans shared in the guild are not repeated. RTA: results and the draft's status on the owner's PC · this commit (previous: `50ad523`)
 
 **Asked for**

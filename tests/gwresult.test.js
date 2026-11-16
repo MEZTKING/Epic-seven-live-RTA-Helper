@@ -143,3 +143,19 @@ test('gwresult: note title, round label, three heroes on four places (DEVLOG #58
   assert.deepEqual(R.pickTeam([i('a', 0.9), i('x', 0.4, false), i('c', 0.8), i('d', 0.85)]).map((x) => x && x.code), ['a', 'c', 'd']);
   assert.deepEqual(R.pickTeam([null, i('b', 0.9), null, null]).map((x) => x && x.code), ['b', null, null]);
 });
+
+test('gwresult: a player\'s page is known by the flat slate colour of its name panel (DEVLOG #62)', () => {
+  const W = 60, H = 30;
+  const BAR = { bar: { x: 10, y: 5, w: 30, h: 15 } };
+  const page = picture(W, H, [47, 65, 86]);
+  assert.equal(R.pageAt(page.a, W, H, BAR), true);
+  const page2 = picture(W, H, [53, 70, 89]);
+  assert.equal(R.pageAt(page2.a, W, H, BAR), true);
+  // a map (bright scenery), a result window dimming the page behind it, a fight
+  for (const c of [[87, 117, 148], [8, 14, 22], [239, 250, 254], [59, 53, 59], [102, 95, 102]]) assert.equal(R.pageAt(picture(W, H, c).a, W, H, BAR), false, String(c));
+  // the right colour on average but not flat (scenery): no
+  const noisy = picture(W, H, [47, 65, 86]);
+  noisy.paint(10, 5, 25, 20, [10, 20, 30]);
+  noisy.paint(25, 5, 40, 20, [90, 115, 145]);
+  assert.equal(R.pageAt(noisy.a, W, H, BAR), false);
+});

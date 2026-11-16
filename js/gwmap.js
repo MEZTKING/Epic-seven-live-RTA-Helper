@@ -152,9 +152,14 @@
     const x0 = Math.max(m, Math.round(0.16 * H));
     const y0 = Math.max(m, Math.round(0.1 * H));
     const y1 = Math.min(H - m, Math.round(0.97 * H));
+    // …nor is the page indicator bottom right: its white pill in the dark bar looks like a beaten badge (seen on the
+    // right fortress, where the pill is at the bar's end; DEVLOG #62)
+    const pagerX = W - 0.5 * H;
+    const pagerY = 0.89 * H;
     const cands = [];
     for (let cy = y0; cy < y1; cy += step) {
       for (let cx = x0; cx < W - m; cx += step) {
+        if (cy > pagerY && cx > pagerX) continue;
         const usual = score(cx, cy, false) !== null;
         if (!usual && dimScore(cx, cy) === null) continue;
         // refine: the best point nearby that passes the strict rule (or one of the two other looks)
@@ -186,7 +191,8 @@
         const gg = maxFrac(green, p.x, p.y, [0.97, 1.04, 1.1]);
         // any coloured arc = still standing (a nearly beaten defender keeps a short arc; beaten ones measured 0.00)
         const state = rr >= 0.04 && rr >= gg ? 'enemy' : gg >= 0.04 ? 'ours' : 'beaten';
-        // busy: "Battle in Progress" (someone is fighting this defender); dim: a dark beaten badge (keep only with a name)
+        // busy: "Battle in Progress" (someone is fighting this defender); dim: a dark beaten badge (kept by the reader
+        // only on a known place of that fortress and with a name: dark scenery can look like one)
         return { x: p.x, y: p.y, r: R, state, ...(p.kind === 'busy' ? { busy: true } : {}), ...(p.kind === 'dim' ? { dim: true } : {}) };
       })
       .sort((a, b) => a.y - b.y || a.x - b.x);
@@ -207,6 +213,22 @@
    * badge the finder does not know yet). -> [{ x, y, r, state: null, byPlace: true }]. The reader keeps one only when
    * a name stands under it.
    */
+  /**
+   * Is the app unsure of this name? Not when the guild has it, the official list confirms it, it was read on the
+   * player's page or typed. Otherwise the reading must stand on its own: two readings agree, the reader was fairly
+   * sure, at least three characters, no odd signs (DEVLOG #62; before, every name missing from the official list
+   * was marked, also perfectly read ones).
+   */
+  function unsureName(p) {
+    if (!p) return false;
+    if (p.known || p.official || p.fromPage || p.fromGuild || p.typed) return false;
+    if (!p.name) return true;
+    return !(p.agree && (p.conf || 0) >= 70 && [...p.name].length >= 3 && !/[^\p{L}\p{N}_#.\-]/u.test(p.name));
+  }
+  /** Is this point one of the known places of that fortress (within 3% of the picture's height)? */
+  function onPlace(index, x, y, W, H) {
+    return (FORT_PLACES[index] || []).some(([fx, fy]) => Math.hypot((x - W / 2) / H - fx, y / H - fy) < 0.03);
+  }
   function placesToCheck(rgba, W, H, index, badges) {
     const R = R_FRAC * H;
     const out = [];
@@ -432,9 +454,15 @@
    * A name read with Japanese / Korean / Chinese data: the reader puts spaces between the characters and sometimes
    * adds stray Latin letters or symbols at the ends. -> the characters joined ('' when fewer than two of them).
    */
+  // Kanji the reader gives for katakana that look the same. Only applied inside a name that is mostly katakana.
+  const KATA_LOOK = { 口: 'ロ', 回: 'ロ', 囗: 'ロ', 力: 'カ', 夕: 'タ', 工: 'エ', 二: 'ニ', 八: 'ハ', 卜: 'ト', 一: 'ー', 千: 'チ', 才: 'オ', 又: 'ヌ', 匕: 'ヒ' };
+  const isKata = (ch) => /[゠-ヿ]/u.test(ch);
   function cleanCjk(text, opts = {}) {
     let t = String(text || '').replace(/\s+/g, '');
     t = t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}ー～〜]+$/gu, '');
+    const chars = [...t];
+    const kata = chars.filter(isKata).length;
+    if (kata >= 2 && kata >= chars.length * 0.5) t = chars.map((ch) => KATA_LOOK[ch] || ch).join('');
     // stray Latin / digits glued to the ends of a name that is otherwise in that script
     if (opts.keepLatin) {
       // …but on a clean panel (a player's page, a window) nothing is stray: a name like kana + "x" is kept
@@ -798,7 +826,7 @@
     return n ? g / n : 0;
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, darkerOfTwo, FORT_PLACES, placesToCheck, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
+  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, darkerOfTwo, FORT_PLACES, placesToCheck, onPlace, unsureName, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);

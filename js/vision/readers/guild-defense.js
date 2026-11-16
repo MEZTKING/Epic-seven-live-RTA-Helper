@@ -21,8 +21,15 @@
   const tpl = [];
   let loading = null;
   /** Official portraits → face templates (once, in the background). */
+  // All portraits loaded (or tried)? Reading with only part of them makes the heroes that come last in the list,
+  // the newest, unknown (seen in a test: 300 of 368 loaded, three new heroes "not recognised"; DEVLOG #62). After 25 s
+  // the readers go on with what is there (a slow or broken connection must not stop them for good).
+  let allLoaded = false;
+  let loadStarted = 0;
+  const facesReady = () => allLoaded || (loadStarted > 0 && tpl.length >= 300 && Date.now() - loadStarted > 25000);
   function loadTemplates() {
     if (loading) return loading;
+    loadStarted = Date.now();
     loading = Promise.all(
       HEROES.map(
         (h) =>
@@ -39,7 +46,10 @@
             im.src = R.PORTRAIT_URL_CORS(h.code);
           }),
       ),
-    );
+    ).then((r) => {
+      allLoaded = true;
+      return r;
+    });
     return loading;
   }
   // your Guild War corrections (names you gave on the Guild War page): 'e7-gw-face-corrections' [{ code, q }]
@@ -65,7 +75,10 @@
     const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
     return r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null };
   }
-  window.E7GWFaces = { load: loadTemplates, ready: () => tpl.length >= 300, count: () => tpl.length, total: HEROES.length, all: allFaces, readIcon };
+  window.E7GWFaces = { load: loadTemplates, ready: facesReady, count: () => tpl.length, total: HEROES.length, all: allFaces, readIcon };
+  // the portraits are fetched when the watcher starts, not when the first hero has to be read (they come from the
+  // browser's cache after the first time)
+  setTimeout(loadTemplates, 2500);
 
   let lastKey = '';
   // published only when two reads in a row agree: a Steam / Discord notification sliding over an icon for a moment
@@ -76,15 +89,18 @@
     id: 'guild-defense',
     label: 'Guild War enemy defense teams',
     module: 'guild',
-    screen: 'gw-enemy',
+    // (no `screen`: the page is recognised by its own pixels, js/vision/readers/guild-name.js pageShown; DEVLOG #62)
     every: 1500,
     ready: () => true,
     async read(ctx) {
-      const cur = window.E7Screens && window.E7Screens.current();
-      if (cur && OTHER.test(cur)) return ctx.note(`Not the enemy screen (${cur})`);
+      if (window.E7GWPage && !window.E7GWPage.shown(ctx)) {
+        lastKey = '';
+        pendingKey = '';
+        return ctx.note('Waiting for a player\'s page…');
+      }
       const lay = L.layoutFor(ctx.w(), ctx.h());
       if (!lay || !lay.regions.gwDef1) return ctx.note('This window shape is too unusual for the built-in positions');
-      if (tpl.length < 300) {
+      if (!facesReady()) {
         loadTemplates();
         return ctx.note(`Loading hero portraits ${tpl.length}/${HEROES.length}…`);
       }

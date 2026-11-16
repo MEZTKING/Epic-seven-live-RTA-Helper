@@ -27,6 +27,7 @@
  *   noteTitle(text)                  -> "Ann's Record" -> 'Ann' (who wrote the note), or null
  *   roundOf(text)                    -> "Round 2" -> 2, or null
  *   pickTeam(icons)                  -> a team stands on three of four places: [top, left, right, bottom] -> 3 icons
+ *   pageAt(rgba, W, H, R)            -> true on a player's page (name panel + Season Log)   R: { bar }
  */
 (function (root) {
   'use strict';
@@ -167,7 +168,32 @@
     return [...got.filter(Boolean), null, null, null].slice(0, 3);
   }
 
-  const api = { stats, windowAt, roundResult, titleKind, plan, key, offenseAt, battleAt, noteAt, noteTitle, roundOf, pickTeam };
+  /**
+   * A player's page in Guild War (name panel left, Season Log right): the empty part of the name panel is one flat
+   * slate colour, measured (46–53, 64–70, 85–89) with a spread of 1–3 on five real pages and nothing like it on any
+   * other screen (DEVLOG #62). R: { bar } pixel rect of that empty part.
+   */
+  function pageAt(rgba, W, H, R) {
+    const x0 = Math.max(0, Math.round(R.bar.x));
+    const y0 = Math.max(0, Math.round(R.bar.y));
+    const x1 = Math.min(W, Math.round(R.bar.x + R.bar.w));
+    const y1 = Math.min(H, Math.round(R.bar.y + R.bar.h));
+    let r = 0, g = 0, b = 0, n = 0, s1 = 0, s2 = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const p = (y * W + x) * 4;
+        r += rgba[p]; g += rgba[p + 1]; b += rgba[p + 2];
+        const l = (rgba[p] + rgba[p + 1] + rgba[p + 2]) / 3;
+        s1 += l; s2 += l * l; n++;
+      }
+    }
+    if (!n) return false;
+    r /= n; g /= n; b /= n;
+    const sd = Math.sqrt(Math.max(0, s2 / n - (s1 / n) ** 2));
+    return r >= 36 && r <= 64 && g >= 54 && g <= 82 && b >= 72 && b <= 104 && b - r >= 24 && g > r && sd <= 9;
+  }
+
+  const api = { stats, windowAt, roundResult, titleKind, plan, key, offenseAt, battleAt, noteAt, noteTitle, roundOf, pickTeam, pageAt };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWResult = api;
 })(typeof window !== 'undefined' ? window : globalThis);

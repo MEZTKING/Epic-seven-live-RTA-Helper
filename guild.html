@@ -41,9 +41,12 @@
       <div class="btn-row">
         <button id="gw-pip" class="btn" title="Small always-on-top window beside the game">Pop out ⧉</button>
         <button id="gw-watch" class="btn desktop-only" title="Read the enemy's name from the game window">Watch game</button>
-        <button id="gw-watch-box" class="btn desktop-only">Set name box</button>
-        <button class="btn desktop-only" data-reset-game-area title="Draw the box around the game window again">Reset game area</button>
-        <button id="gw-teach" class="btn desktop-only" title="Press while an enemy's defense/profile is showing">This is the enemy screen</button>
+        <details class="more-tools desktop-only" style="display:inline-block">
+          <summary>More tools</summary>
+          <button id="gw-watch-box" class="btn desktop-only" title="Not needed normally: the name is found by itself">Set name box</button>
+          <button class="btn desktop-only" data-reset-game-area title="Draw the box around the game window again">Reset game area</button>
+          <button id="gw-teach" class="btn desktop-only" title="Not needed normally: a player's page is recognised by itself">This is the enemy screen</button>
+        </details>
         <span id="gw-watch-read" class="hint"></span>
         <div id="gw-seen" class="gw-seen hidden"></div>
         <div id="gw-fort-seen" class="gw-seen hidden"></div>

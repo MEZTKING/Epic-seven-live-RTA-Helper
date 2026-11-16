@@ -120,7 +120,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
       break;
     }
   }
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
   console.log('corrected:', fixed || 'nothing needed', '·', await gp.textContent('#gw-fort-msg'));
   const saved = await gp.evaluate(() => window.GuildApp.state.targets.map((t) => [t.player, t.tower, !!t.keep]));
@@ -154,7 +154,7 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
     console.log(`${f}:`, o.side, o.fort, `· beaten ${o.beaten} ·`, `${score(o.names, want)}/${want.length} names exact`, JSON.stringify(o.names));
     if (f.includes('domino')) {
       await gp.waitForTimeout(400);
-      await gp.click('#gw-fort-save');
+      await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
       await gp.waitForTimeout(600);
       console.log('  saved ours:', await gp.textContent('#gw-fort-msg'));
       console.log('  War tab "Our side":', (await gp.textContent('#war-ours')).replace(/\s+/g, ' ').trim().slice(0, 160));

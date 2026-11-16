@@ -353,3 +353,14 @@ test('gwmap: a kana name ending in a Latin letter — kept on a clean panel, dro
   // over scenery: one or two Latin letters at the end are dropped (three are left as they are: unchanged rule)
   assert.equal(G.pickRead([{ lang: 'jpn', text: 'ナツ メ グ xX', conf: 70 }, { lang: 'eng', text: 'F 1 AX', conf: 67 }]).name, 'ナツメグ');
 });
+
+test('gwmap: kanji that look like katakana are read as katakana inside a katakana name; known places (DEVLOG #62)', () => {
+  assert.equal(G.cleanCjk('マ スター ポ 口 回'), 'マスターポロロ');
+  assert.equal(G.cleanCjk('夕 力 ハシ'), 'タカハシ');
+  assert.equal(G.cleanCjk('山田 太郎'), '山田太郎', 'a kanji name is left alone');
+  assert.equal(G.cleanCjk('田中 一郎'), '田中一郎');
+  // the fixed places: a point on one, a point between them
+  assert.equal(G.onPlace(1, 1000 + 0.702 * 1070, 0.751 * 1070, 2000, 1070), true);
+  assert.equal(G.onPlace(1, 1000, 500, 2000, 1070), false);
+  assert.equal(G.onPlace(2, 614 + (0.413 - 0) * 691, 0.305 * 691, 1228, 691), true, 'another window size');
+});

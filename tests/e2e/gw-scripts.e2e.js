@@ -108,7 +108,7 @@ const WANT = ['りょうちゃん', 'ミカちゃま', 'sukiyaki2417', '和也',
   const seenOv = await ov.evaluate(() => window.__busy);
   console.log('  overlay card:', seenOv.filter((t) => t.startsWith('…')).length, 'working states ·', JSON.stringify(seenOv[0]), '→', JSON.stringify(seenOv[seenOv.length - 1]));
   console.log('  Guild War page says:', JSON.stringify((await gp.textContent('#gw-watch-read')).trim()));
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
   console.log('  saved:', await gp.textContent('#gw-fort-msg'));
 

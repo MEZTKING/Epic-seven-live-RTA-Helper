@@ -74,13 +74,13 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   const m1 = await show('steam-gw-map-states-wide.jpg', ['fortress'], 40);
   report('Stinger map', m1, ['りょうちゃん', 'ミカちゃま', 'sukiyaki2417', '和也', 'さくら', 'ティーナ', '龙猫乐乐']);
   await gp.waitForTimeout(500);
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
   // 2) the middle fortress with a beaten defender
   const m2 = await show('steam-gw-map-middle-beaten-wide.jpg', ['fortress'], 40);
   report('middle map', m2, ['Juniper', '白雪姫子', 'WillowSan', '夕凪', 'ナツメグ']);
   await gp.waitForTimeout(500);
-  await gp.click('#gw-fort-save');
+  await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(700);
   console.log('  saved:', await gp.textContent('#gw-fort-msg'), '· marked beaten from the map:', JSON.stringify(await gp.evaluate(() => window.GuildApp.state.targets.filter((t) => t.beaten).map((t) => t.player))), '· targets', await gp.evaluate(() => window.GuildApp.state.targets.length));
 
