@@ -41,10 +41,23 @@ test('target status and war summary', () => {
   assert.equal(w.teamsCleared, 2);
   // three attacks per member per WAR (DEVLOG #56; it was two per day)
   assert.equal(GW.DEFAULT_RULES.attacksPerMember, 3);
-  assert.deepEqual(w.members.find((m) => m.name === 'Ann'), { name: 'Ann', used: 2, left: 1 });
-  assert.equal(w.attacksLeft, 1 + 3 + 2);
+  // one attack in the game is both rounds on one defender: Ann's two records on the same defender are ONE attack (DEVLOG #57)
+  assert.deepEqual(w.members.find((m) => m.name === 'Ann'), { name: 'Ann', used: 1, left: 2 });
+  assert.equal(w.attacksLeft, 2 + 3 + 2);
   const day1 = GW.warSummary(s, 'w1', GW.DEFAULT_RULES, '2026-01-01');
   assert.equal(day1.members.find((m) => m.name === 'Ann').left, 2);
+});
+
+test('attack tokens: both rounds of one attack count once; read-from-game records by their token (DEVLOG #57)', () => {
+  const a = (o) => ({ warId: 'w', by: 'Ann', targetId: 't1', team: 1, ...o });
+  const used = (list) => GW.attacksUsed(list, 'w').get('ann') || 0;
+  assert.equal(used([a({})]), 1, 'one round logged by hand');
+  assert.equal(used([a({}), a({ team: 2 })]), 1, 'both rounds by hand');
+  assert.equal(used([a({}), a({ team: 2 }), a({ team: 2 })]), 2, 'a second go at the same defender');
+  assert.equal(used([a({}), a({ team: 2 }), a({ targetId: 't2' })]), 2, 'two defenders');
+  assert.equal(used([a({ token: 'x' }), a({ team: 2, token: 'x' })]), 1, 'read from the game: one token');
+  assert.equal(used([a({ token: 'x' }), a({ team: 2, token: 'x' }), a({ token: 'x#2' }), a({ team: 2, token: 'x#2' })]), 2);
+  assert.equal(used([a({ token: 'x' }), a({ team: 2, token: 'x' }), a({ by: 'Bob' })]), 1, 'other members are counted apart');
 });
 
 test('a player changes their defense: the change is seen, attacks keep the line-up they were made against (DEVLOG #56)', () => {

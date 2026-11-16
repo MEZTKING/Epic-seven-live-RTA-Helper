@@ -50,6 +50,23 @@
       return [];
     }
   };
+  /** Every face the Guild War readers know: official portraits + your corrections + faces taught on the Live page. */
+  const allFaces = () => [...tpl, ...corrections(), ...(window.E7Teach ? window.E7Teach.templates(F) : [])];
+  /**
+   * One round hero icon (class symbol top left, level top right) -> { code, score, sure, q } or null (empty place).
+   * rect in pixels of `source`. Shared with the battle-result reader (guild-result.js) through window.E7GWFaces.
+   */
+  function readIcon(source, rect, all) {
+    const ct = (window.RTASources && window.RTASources.classTemplates) || [];
+    const role = ct.length ? F.classFromVectors(F.classVectorsAt(source, rect), ct).role : null; // class only (no element badge here)
+    const faces = F.fromRect(source, rect, F.WIDE_VARIANTS);
+    const r = F.classify(faces, all || allFaces(), { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) });
+    // what this icon looked like (compact), so a name you give on the Guild War page teaches it (skins too)
+    const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
+    return r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null };
+  }
+  window.E7GWFaces = { load: loadTemplates, ready: () => tpl.length >= 300, count: () => tpl.length, total: HEROES.length, all: allFaces, readIcon };
+
   let lastKey = '';
   // published only when two reads in a row agree: a Steam / Discord notification sliding over an icon for a moment
   // (they draw inside the game window, so the capture sees them) can't produce a wrong team
@@ -71,8 +88,7 @@
         loadTemplates();
         return ctx.note(`Loading hero portraits ${tpl.length}/${HEROES.length}…`);
       }
-      const all = [...tpl, ...corrections(), ...(window.E7Teach ? window.E7Teach.templates(F) : [])]; // + faces taught on the Live page
-      const ct = (window.RTASources && window.RTASources.classTemplates) || [];
+      const all = allFaces();
       const px = (r) => ({ x: r.x * ctx.w(), y: r.y * ctx.h(), w: r.w * ctx.w(), h: r.h * ctx.h() });
       // any window shape (DEVLOG #38): where the panel sits on a wider window isn't verified yet, so every placement
       // js/layouts.js offers is read and the one that recognises the most heroes wins
@@ -85,12 +101,7 @@
           const rect = px((alts[anchorIdx] || alts[0]).rect);
           rect.y += dy * ctx.h();
           if (rect.y + rect.h > ctx.h()) return null;
-          const role = ct.length ? F.classFromVectors(F.classVectorsAt(ctx.source, rect), ct).role : null; // class only (no element badge here)
-          const faces = F.fromRect(ctx.source, rect, F.WIDE_VARIANTS);
-          const r = F.classify(faces, all, { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) });
-          // what this icon looked like (compact), so a name you give on the Guild War page teaches it (skins too)
-          const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
-          return r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null };
+          return readIcon(ctx.source, rect, all);
         };
         const icons = [];
         for (const team of PLACES) {

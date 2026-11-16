@@ -7,6 +7,108 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #57 · Guild War: battle-result windows are read and logged by themselves (who beat whom, with which heroes) · this commit (previous: `51ccdf7`)
+
+**Asked for:** "anything else you need", then five screenshots as files: two "Successful Attack" windows, a member's
+tower page, a "Failed Defense" window, our own fortress map; and: "The fourth formation place - there's a limit of 3
+heroes max in guild wars."
+
+**Findings**
+- **What the windows mean** (this corrects DEVLOG #56, which had it the wrong way round). The window opens from a
+  row of the Season Log on a player's page and is written from the point of view of **that player (left)**; the
+  opponent is on the right. A ✗ on a hero = it died.
+  - On our member's page: "Failed Defense", our member left with ✗ on all six heroes, the enemy attacker right
+    without any, "Defeat" twice. The row in the log has a shield in front (a defense) and two red shields.
+  - On an enemy's page: "Successful Attack" = **that enemy attacked one of ours and won**: the enemy left, our
+    member right with ✗ on all six, "Victory" twice. The three rows "1h ago" on that enemy's log are the three
+    attack tokens he spent on three of our members.
+  - The same enemy shows the same first team in two of his attacks, so heroes do not seem to be locked after an
+    attack.
+  - The band between the two sides is dark red on an enemy's page and dark green on a page of one of ours
+    (measured: (43,19,26) against (30,47,30)); the title strip is nearly black (10,17,24).
+  - The round icon: Victory 29–31% clearly blue pixels and 25% white; Defeat 14–15% red, 22% white, no blue.
+- **The fourth place** (the owner's remark): agreed, a team is three heroes. "Fourth place" meant the fourth
+  *standing position* of the formation diamond (top, right, left, bottom), of which three are used. On the member's
+  tower page round 1 stands on top / left / bottom: all three were read from the file, so the positions set by eye
+  in #56 hold.
+- A member's tower page: its Victory / Draw / Defeat counters with sword icons are that member's own attacks; an
+  enemy's page shows shields (their defenses). "Defense 330/450" after one lost defense (120 gone for two lost
+  rounds; whether it is 60 a round is a guess).
+- Face matching on the windows: 6, 9 and 9 of 12 heroes sure. Dead heroes are drawn darker and greyer and score
+  lower. The ✗ itself is not the reason: it sits where the matcher already ignores the picture (the star row).
+- Our own map (real file): 8 of 9 names exact. The ninth has a snow speck touching its first letter, read as an
+  extra "A"; both cuts contain it, so only the member list or the player list corrects it.
+- Found on the test copy of that map: for the keep's name the tight cut kept only two letters from the middle of
+  the name, and that short reading won because the reader was surer of it.
+- One attack in the game is both rounds against one defender. The app stores one record per round and counted each
+  as an attack: with 3 attacks per war (#56) one real attack would have used two of three.
+
+**Changed**
+- **`js/gwresult.js`** (new, pure): `windowAt` (is a result window open, and is the page an enemy's or ours),
+  `roundResult` (victory / defeat / draw from the icon's colours), `titleKind`, `plan` (the four cases → an attack
+  of ours or a defense of ours, with the result turned round on an enemy's page), `key`.
+- **`js/vision/readers/guild-result.js`** (new): a cheap pixel check each pass; the same picture twice; then the
+  title (text), both names (`E7Names`, any writing, each side with its own server's language and player list) and
+  the 12 hero icons; publishes `guild:result`. Shows the working card ("Reading this battle result…"). A window
+  that was read is not read again. Positions `gwRes…` in `js/layouts.js` (centred window, measured at 2000×1070).
+- `js/vision/readers/guild-defense.js`: the icon reading is shared (`window.E7GWFaces`: `load`, `ready`, `all`,
+  `readIcon`).
+- **Logging** (`js/guild-app.js` `resultFromGame`, `js/guild-watch.js`, `guild.html` `#war-result`):
+  - an enemy's attack on one of ours → two `defense` records (member, round, held / lost, attacker, the heroes of
+    both sides, `fromGame`, `token`)
+  - an attack of ours → two `attack` records (by, round, win / loss, our heroes, the defender's line-up of that
+    battle, `fromGame`, `token`); the enemy's target is created, filled or, when the line-up changed, updated with
+    the earlier one kept
+  - names are matched to members and to this war's enemies (also through the offered spellings); a known name
+    decides whose page it was, the colour otherwise
+  - heroes: only icons the app is sure of; when the sure ones fit a team already saved for that player, that team
+    is used whole
+  - the same battle is logged once (same players and results, unless round 1's attacking team is a different one);
+    a banner says what was logged, with **Undo**; an undone result is not logged again (`e7-gw-result-undone`)
+  - the Guild War page does not have to be open: the reader keeps each result in `e7-gw-results` (newest 12, 12
+    hours) and the page takes them when it opens, when the guild's records have loaded, and every 5 s while
+    something waits (a result without a running war waits for the war)
+- **Attack tokens** (`GW.attacksUsed`): records read from the game count by `token` (both rounds = one attack);
+  records logged by hand are paired per defender (two rounds = one, a third = a second attack).
+- **Names** (`E7GWMap.pickRead`, readings now carry `cut`): a loose reading that is the tight one plus one or two
+  characters at an end loses (a speck read as a letter); a tight reading that is only a piece of the loose one loses.
+- Fixtures (names replaced; `tools/dev/redact-gw-screens.py` extended): `steam-gw-result-attack-wide.jpg`,
+  `steam-gw-result-attack2-wide.jpg`, `steam-gw-result-defense-wide.jpg`, `steam-gw-member-tower-wide.jpg`,
+  `steam-gw-map-ours-havoc-wide.jpg`. Behind the windows the page owner's name and the log's names are blurred away.
+
+**Tested**
+- `npm test` **169** (+5: `tests/gwresult.test.js` window / icon / title / the four cases and the key; attack
+  tokens; the two rules for the cuts).
+- Browser suite **36/36** clean. New `tests/e2e/gw-result.e2e.js`:
+  - our own map: our side from the green rings, 8 of 9 made-up names exact (the ninth corrected the way a user would)
+  - the member's tower page: name, 5 of 6 heroes, round 1 on top / left / bottom
+  - "Failed Defense": read as a defense of ours, both names (one Japanese), defeat ×2 → two defense records with
+    heroes; the map, overview and defense readers publish nothing while the window is open
+  - two "Successful Attack" windows on the enemy's page → defenses of the two other members (6 records in all)
+  - the same window again: nothing new; Undo removes its two records; shown once more: still not logged
+  - an attack of ours (the reader's event; there is no screenshot of that case): two attack records with the
+    defender's line-up, 3 → 2 attacks left, the enemy's saved defense filled
+  - a result put in the waiting list while the page was closed: logged after the page opens, list empty, 2 → 1
+- The suite's own run of `gw-result` happened while the waiting list was still being written; it ended without
+  errors but printed wrong numbers for the last two steps. It and `gw-scripts` were run again with the final code and
+  read line by line, and `guild-basics`, `guild-popout-watch`, `gw-autowar`, `gw-standby`, `guild-dots` once more.
+  (These tests print what they find; "errors: []" alone only says nothing crashed.)
+- The real, unreplaced windows: names exact in all three (Latin and Japanese, left and right).
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `newwar`, `war-reminder`, `popout` pass.
+- **Not tested:**
+  - a window where one of OURS attacked (title "Successful / Failed Attack" on a member's page, or "… Defense" on
+    an enemy's page), a Draw, a mixed result (one round won, one lost): no screenshots; the logic is unit-tested
+  - other window sizes than 2000×1070 (the window is assumed centred and scaling with the height)
+  - on the owner's PC
+
+**Open**
+- Heroes on these windows: about three quarters are recognised; the rest are left out ("heroes not recognised" in
+  the banner), mostly dead (greyed) ones. Next step: compare dead icons against greyed portraits.
+- A banner cannot be edited: a wrong result can only be undone. Editing a logged attack's heroes is on the roadmap.
+- The Season Log rows themselves (who, when, both rounds) could be read without opening each window.
+
+---
+
 ## 2026-11-16 · #56 · Guild War: names in any writing (also on the enemy screen), stronghold screens, a "working…" card on the game, defenses that change, three attacks per war · this commit (previous: `2c43471`)
 
 **Asked for** (several messages, with screenshots: guild hall, the daily and the guild check-in windows, a maximized
@@ -47,9 +149,9 @@ fortress map with names in Japanese, Chinese and Latin letters, an enemy strongh
   - "Havoc" is the game's word for the war score (overview: "Havoc: 1620" under each guild; on a map: the bar at
     the top left). It is not a guild name.
   - a tower's screen shows "Defense 330/450" (hit points of the tower), a stronghold "1280/1280".
-  - the windows "Successful Attack" (their defender left, our attacker right, Victory per round) and "Failed
-    Defense" (our defender left with ✗ on the heroes, their attacker right, Defeat per round) hold both players'
-    names and both sides' two teams of three: everything an attack record needs.
+  - the windows "Successful Attack" and "Failed Defense" hold both players' names and both sides' two teams of
+    three: everything an attack record needs. (Who is who in them was written down wrongly here at first:
+    the left player is the one whose page is open and the title is from their point of view, see DEVLOG #57.)
   - a player can change their defense at any moment, so a saved defense is "as last seen".
 - Pictures sent in the middle of a running reply reached the session as pictures only, not as files, so they could
   not be used as fixtures (the attack windows, the member's tower screen, our own map).

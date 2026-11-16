@@ -362,6 +362,137 @@
     if (window.E7Diag) window.E7Diag.log('guild', `war vs ${enemyGuild} started from the game`);
     return 'started';
   }
+  // ---- a battle-result window read from the game (js/vision/readers/guild-result.js; DEVLOG #57) -----------------
+  // "Successful Attack" / "Failed Defense" …: both players, both sides' two teams, the result of each round. It becomes
+  // two attack records (one of ours attacked) or two defense records (one of ours was attacked), once, with Undo.
+  let resultUndo = null; // { records: [what was written], restore: [records as they were before], base }
+  const RESULT_UNDONE = 'e7-gw-result-undone'; // { "<war id>|<battle key>": time }: a result you undid is not logged again
+  const undoneResults = () => {
+    try {
+      return JSON.parse(localStorage.getItem(RESULT_UNDONE) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  };
+  async function resultFromGame(d) {
+    const RS = window.E7GWResult;
+    if (!RS || !d || !Array.isArray(d.rounds)) return 'nothing';
+    if (!backend || !loaded) return 'no-guild';
+    if (!warId) {
+      status('The game shows a battle result, but no war is running in the app. Open the Guild War overview in the game (the war starts by itself), or press New war.', 'warn');
+      return 'no-war';
+    }
+    const members = state.members.map((m) => m.name);
+    const enemies = [...new Set(state.targets.filter((t) => t.warId === warId).map((t) => t.player).filter(Boolean))];
+    const match = (p, list) => {
+      let n = GW.matchPlayer(p.name, list);
+      for (const o of p.options || []) n = n || GW.matchPlayer(o, list);
+      return n;
+    };
+    const L = { m: match(d.left, members), e: match(d.left, enemies) };
+    const Rr = { m: match(d.right, members), e: match(d.right, enemies) };
+    // whose page is open (the left player): a name we know decides; else the window's colour (red = enemy, green = ours)
+    let side = d.side;
+    const oursVotes = (L.m ? 1 : 0) + (Rr.e ? 1 : 0);
+    const enemyVotes = (L.e ? 1 : 0) + (Rr.m ? 1 : 0);
+    if (oursVotes > enemyVotes) side = 'ours';
+    else if (enemyVotes > oursVotes) side = 'enemy';
+    if (!d.left.name || !d.right.name) {
+      status('The game shows a battle result, but a player name could not be read. Nothing was logged.', 'warn');
+      return 'no-names';
+    }
+    const p = RS.plan({ type: d.type, side, left: d.left.name, right: d.right.name, rounds: d.rounds });
+    if (!p) return 'nothing';
+    const oursLeft = side === 'ours';
+    const ours = (oursLeft ? L.m : Rr.m) || p.ours;
+    const enemy = (oursLeft ? Rr.e : L.e) || p.enemy;
+    // heroes: the icons the app is sure of; a team saved before for that player fills the rest when it clearly is that team
+    const complete = (icons, savedTeams) => {
+      const sure = (icons || []).filter((x) => x && x.sure).map((x) => x.code);
+      const seen = (icons || []).filter(Boolean).map((x) => x.code);
+      for (const t of savedTeams || []) {
+        const hs = ((t && t.heroes) || []).filter(Boolean);
+        if (hs.length === 3 && sure.every((c) => hs.includes(c)) && seen.filter((c) => hs.includes(c)).length >= 2) return [...hs];
+      }
+      return sure;
+    };
+    let target = state.targets.find((t) => t.warId === warId && GW.playerKey(t.player) === GW.playerKey(enemy)) || null;
+    const member = state.members.find((m) => GW.playerKey(m.name) === GW.playerKey(ours)) || null;
+    const rounds = p.rounds.map((r) => {
+      if (p.kind === 'attack') return { ...r, heroes: complete(r.heroes, []), defense: complete(r.defense, target ? target.teams : []) };
+      return { ...r, heroes: complete(r.heroes, member ? member.defense : []), attack: complete(r.attack, []) };
+    });
+    // the same battle is logged once: same two players, same results, and the attacking team of round 1 not a different one
+    const base = RS.key({ kind: p.kind, ours, enemy, rounds: rounds.map((r) => ({ result: r.result, draw: r.draw })) });
+    if (undoneResults()[`${warId}|${base}`]) return 'undone';
+    const attackers = (r) => (p.kind === 'attack' ? r.heroes : r.attack) || [];
+    const existing = (p.kind === 'attack' ? state.attacks : state.defenses).filter((x) => x.warId === warId && x.token && String(x.token).split('#')[0] === base && Number(x.team) === 1);
+    for (const x of existing) {
+      const was = (p.kind === 'attack' ? x.heroes : x.attackerHeroes) || [];
+      const now = attackers(rounds[0]);
+      if (was.length < 2 || now.length < 2 || was.some((c) => now.includes(c))) return 'known';
+    }
+    const token = existing.length ? `${base}#${existing.length + 1}` : base;
+    const at = new Date().toISOString();
+    const written = [];
+    const restore = [];
+    if (p.kind === 'attack') {
+      // the enemy's defense as it stood in that battle: a new target, an empty one filled, a changed one updated
+      const lineups = rounds.map((r) => (r.defense.length === 3 ? r.defense : null));
+      if (!target) {
+        target = await put('target', { warId, player: enemy, tower: '', teams: rounds.map((r) => ({ heroes: r.defense })), notes: '' });
+        written.push(target);
+      } else {
+        const teams = Array.from({ length: Math.max(2, (target.teams || []).length) }, (_, i) => ({ ...((target.teams || [])[i] || {}) }));
+        let touched = false;
+        lineups.forEach((hs, i) => {
+          if (!hs) return;
+          const was = (teams[i].heroes || []).filter(Boolean);
+          if (was.length === 3 && GW.teamKey(was) === GW.teamKey(hs)) return;
+          if (was.length === 3) teams[i].earlier = [{ heroes: was, speeds: teams[i].speeds || {}, build: teams[i].build || '', until: at }, ...(teams[i].earlier || [])].slice(0, 5);
+          teams[i] = { ...teams[i], heroes: hs, speeds: Object.fromEntries(Object.entries(teams[i].speeds || {}).filter(([c]) => hs.includes(c))) };
+          touched = true;
+        });
+        if (touched) {
+          restore.push(target);
+          target = await put('target', { ...target, teams });
+        }
+      }
+      for (const r of rounds) written.push(await put('attack', { warId, targetId: target.id, team: r.team, defense: r.defense, by: ours, heroes: r.heroes, speeds: {}, result: r.result, ...(r.draw ? { draw: true } : {}), notes: 'read from the game', fromGame: true, token, at }));
+    } else {
+      for (const r of rounds) written.push(await put('defense', { warId, member: ours, team: r.team, attacker: enemy, attackerHeroes: r.attack, heroes: r.heroes, result: r.result, ...(r.draw ? { draw: true } : {}), fromGame: true, token, at }));
+    }
+    resultUndo = { records: written, restore, base: `${warId}|${base}` };
+    const word = (r) => (r.draw ? 'draw' : p.kind === 'attack' ? (r.result === 'win' ? 'won' : 'lost') : r.result === 'held' ? 'held' : 'lost');
+    const team = (hs) => (hs && hs.length ? hs.map(nameOf).join(', ') : 'heroes not recognised');
+    const text =
+      p.kind === 'attack'
+        ? `<b>${esc(ours)}</b> attacked <b>${esc(enemy)}</b>: ${rounds.map((r) => `round ${r.team} ${word(r)} (${esc(team(r.heroes))} against ${esc(team(r.defense))})`).join(' · ')}`
+        : `<b>${esc(enemy)}</b> attacked <b>${esc(ours)}</b>: ${rounds.map((r) => `round ${r.team} ${word(r)} (${esc(team(r.heroes))} against ${esc(team(r.attack))})`).join(' · ')}`;
+    showResultLogged(text);
+    if (window.E7Diag) window.E7Diag.log('guild', `battle result logged from the game (${p.kind})`);
+    return 'logged';
+  }
+  function showResultLogged(html) {
+    const el = $('#war-result');
+    if (!el) return;
+    el.innerHTML = `Logged from the game: ${html}. <button class="btn" id="war-result-undo">Undo</button> <button class="btn" id="war-result-ok">OK</button>`;
+    el.classList.remove('hidden');
+    $('#war-result-ok').onclick = () => el.classList.add('hidden');
+    $('#war-result-undo').onclick = async () => {
+      if (!resultUndo) return;
+      const u = resultUndo;
+      resultUndo = null;
+      for (const r of u.records) await put(r.type, { ...r, deleted: true });
+      for (const r of u.restore) await put(r.type, r);
+      try {
+        const all = Object.entries({ ...undoneResults(), [u.base]: Date.now() }).sort((a, b) => b[1] - a[1]).slice(0, 100);
+        localStorage.setItem(RESULT_UNDONE, JSON.stringify(Object.fromEntries(all)));
+      } catch (_) { /* only a help */ }
+      el.classList.add('hidden');
+    };
+  }
+
   // ---- the game's standby page: no war is running (js/vision/readers/guild-standby.js; DEVLOG #46) ----------------
   const STANDBY = 'e7-gw-standby'; // { at, minutes, beginsAt, season } written by the reader (this device)
   const STANDBY_UNDONE = 'e7-gw-standby-undone'; // time you undid "marked finished": not done again for 12 hours
@@ -1135,6 +1266,7 @@
     saveFortress,
     markBeaten,
     warEndsFromGame,
+    resultFromGame,
     warFromGame,
     standbyFromGame,
     standby,

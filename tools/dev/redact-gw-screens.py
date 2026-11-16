@@ -99,3 +99,50 @@ if os.path.exists(f'{S}/guild-checkin.png'):
     im.save(f'{OUT}/steam-guild-checkin-wide.jpg', quality=88)
     Image.open(f'{S}/checkin.png').convert('RGB').save(f'{OUT}/steam-daily-checkin.jpg', quality=88)
     print('check-ins ok')
+
+# ---------------------------------------------------------------------------------------------- DEVLOG #57
+def log_names(im, names, ys=(246, 381, 516, 650, 784, 918)):
+    """The Season Log on the right of a player's page: one made-up name per row."""
+    for y, s in zip(ys, names):
+        smear(im, (1698, y - 20, 1896, y + 18))
+        text(im, (1706, y), s, 25, font=CJK, ow=0)
+
+def result_window(src, out, left, right, page_owner):
+    """A battle-result window: the two names in the window, and everything readable behind it (the page owner's
+    name twice, the names of the Season Log) blurred away."""
+    im = Image.open(src).convert('RGB')
+    smear(im, (210, 222, 408, 300), pad=0)          # the page owner's name behind the window, left
+    smear(im, (1596, 100, 1996, 150), pad=0)        # … and small above the Season Log
+    for y in (246, 381, 516, 650, 784, 918):        # names in the Season Log behind the window
+        smear(im, (1690, y - 26, 1900, y + 22), pad=0)
+    smear(im, (622, 378, 928, 422)); text(im, (632, 401), left, 29, font=CJK, ow=0)
+    smear(im, (1076, 378, 1378, 422)); text(im, (1364, 401), right, 29, font=CJK, ow=0, anchor='rm')
+    im.save(out, quality=92)
+
+# 8) three battle-result windows (two on an enemy's page: THEIR successful attacks on two of our members; one on a
+#    member's page: a failed defense) and that member's tower page. Made-up names; the enemy is the same made-up
+#    player as on the mixed-writing map (5), our members are names of the own map below (9).
+if os.path.exists(f'{S}/result-attack1.jpg'):
+    result_window(f'{S}/result-attack1.jpg', f'{OUT}/steam-gw-result-attack-wide.jpg', 'りょうちゃん', 'BirchOwl', 'enemy')
+    result_window(f'{S}/result-attack2.jpg', f'{OUT}/steam-gw-result-attack2-wide.jpg', 'りょうちゃん', 'CedarElk9', 'enemy')
+    result_window(f'{S}/result-defense.jpg', f'{OUT}/steam-gw-result-defense-wide.jpg', 'AmberFox', 'りょうちゃん', 'ours')
+    im = Image.open(f'{S}/member-tower.jpg').convert('RGB')
+    smear(im, (216, 228, 430, 268)); text(im, (224, 248), 'AmberFox', 28, font=CJK, ow=0)
+    smear(im, (1350, 110, 1480, 142)); text(im, (1358, 127), 'AmberFox', 21, font=CJK, ow=0, fill=(170, 180, 200))
+    log_names(im, ['りょうちゃん', 'Rowan12', 'Birchwood', 'CedarFox', 'maple777', 'elmtree'])
+    smear(im, (1698, 1030, 1896, 1070))
+    im.save(f'{OUT}/steam-gw-member-tower-wide.jpg', quality=92)
+    print('result windows ok')
+
+# 9) our own fortress map (green rings; one tower damaged): made-up member names, in the order the app finds them
+if os.path.exists(f'{S}/map-ours.jpg'):
+    im = Image.open(f'{S}/map-ours.jpg').convert('RGB')
+    MADE_UP = ['AmberFox', 'BirchOwl', 'CedarElk9', 'DuneHawk', 'FrostBee22', 'GaleWolf', 'HazelRay7', 'Marlow8', 'KeepOne7']
+    boxes = name_boxes(im)
+    assert len(boxes) == len(MADE_UP), (len(boxes), 'names found on the own map')
+    for b in boxes:
+        smear(im, (b['x0'] - 14, b['y0'] - 8, b['x1'] + 14, b['y1'] + 8), dark=0.72)
+    for b, s in zip(boxes, MADE_UP):
+        text(im, ((b['x0'] + b['x1']) // 2, (b['y0'] + b['y1']) // 2), s, 25, font=CJK, anchor='mm', ow=2, outline=(40, 44, 60))
+    im.save(f'{OUT}/steam-gw-map-ours-havoc-wide.jpg', quality=92)
+    print('own map ok')

@@ -357,7 +357,26 @@
    */
   function pickRead(readings) {
     const list = (readings || []).filter((r) => r && r.text);
-    let eng = list.filter((r) => r.lang === 'eng').map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
+    const engs = list.filter((r) => r.lang === 'eng').map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name);
+    // two cuts of the same name (r.cut: 'loose' | 'tight', js/vision/names.js): a loose reading that is the tight one
+    // plus one or two characters at an end (a speck of scenery next to the name read as a letter) loses to it (DEVLOG #57)
+    const stray = new Set();
+    for (const t of engs) {
+      if (t.cut !== 'tight' || t.name.length < 4) continue;
+      for (const l of engs) {
+        if (l.cut === 'loose' && l.name !== t.name && l.name.length - t.name.length <= 2 && (l.name.endsWith(t.name) || l.name.startsWith(t.name)) && t.conf >= l.conf - 15) stray.add(l);
+      }
+    }
+    // …and the other way round: a tight reading that is only a PIECE of the loose one (the tight cut keeps the
+    // letter-sized patches that stand close together; a name with many small letters between its tall ones falls
+    // apart) loses, however sure the reader was of the piece
+    for (const t of engs) {
+      if (t.cut !== 'tight') continue;
+      for (const l of engs) {
+        if (l.cut === 'loose' && !stray.has(l) && l.name !== t.name && l.name.includes(t.name) && l.conf >= 40) stray.add(t);
+      }
+    }
+    let eng = engs.filter((r) => !stray.has(r)).sort((a, b) => b.conf - a.conf)[0] || null;
     // a Latin name is sometimes read better with the other script's data (it knows Latin letters too): only when the
     // English reading is poor and the other one is clearly surer
     const lat = list.filter((r) => r.lang !== 'eng' && cjkCount(r.text) === 0).map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
@@ -384,6 +403,7 @@
     if (cjkWins) for (const r of cjkAll) push(r);
     push(eng);
     if (!cjkWins) for (const r of cjkAll) push(r);
+    for (const r of stray) push(r);
     return first ? { name: first.name, lang: cjkWins ? first.lang : 'eng', conf: first.conf, all } : { name: '', lang: '', conf: 0, all: [] };
   }
 

@@ -91,7 +91,7 @@
     const cuts = [loose, ...(tight && tight.key !== loose.key ? [tight] : [])];
     const reads = [];
     for (const c of cuts) {
-      const eng = await ctx.ocr(c.canvas, { line: true, full: true });
+      const eng = { ...(await ctx.ocr(c.canvas, { line: true, full: true })), cut: c === loose ? 'loose' : 'tight' };
       reads.push(eng);
       if (opts.lang) {
         const r = await ctx.ocr(c.canvas, { line: true, full: true, lang: opts.lang });

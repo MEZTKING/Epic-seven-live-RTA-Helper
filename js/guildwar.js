@@ -62,14 +62,29 @@
     return { cleared: teams.every((x) => x.cleared), fromGame: !!target.beaten, teams, attempts: mine.length };
   }
 
-  /** Attacks used per member in a war (or one day of it, if `day` is given as YYYY-MM-DD). */
+  /**
+   * Attack TOKENS used per member in a war (or one day of it, if `day` is given as YYYY-MM-DD). One attack in the
+   * game is both rounds against one defender, and the records are one per round (DEVLOG #57): records read from the
+   * game carry a `token` (same for both rounds); records logged by hand are paired per defender (two rounds = one
+   * attack, a third record on the same defender = a second attack).
+   */
   function attacksUsed(attacks, warId, day = null) {
-    const m = new Map();
+    const per = new Map(); // member -> defender -> { tokens: Set, loose: n }
     for (const a of attacks) {
       if (a.warId !== warId) continue;
       if (day && String(a.at || '').slice(0, 10) !== day) continue;
       const k = playerKey(a.by);
-      m.set(k, (m.get(k) || 0) + 1);
+      if (!per.has(k)) per.set(k, new Map());
+      const t = per.get(k);
+      if (!t.has(a.targetId)) t.set(a.targetId, { tokens: new Set(), loose: 0 });
+      if (a.token) t.get(a.targetId).tokens.add(a.token);
+      else t.get(a.targetId).loose++;
+    }
+    const m = new Map();
+    for (const [k, t] of per) {
+      let n = 0;
+      for (const x of t.values()) n += x.tokens.size + Math.ceil(x.loose / 2);
+      m.set(k, n);
     }
     return m;
   }
