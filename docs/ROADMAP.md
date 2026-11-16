@@ -2,17 +2,22 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
-## Next up (as of DEVLOG #57; the overview of what is verified is in docs/HANDOFF.md §0)
+## Next up (as of DEVLOG #58; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
 1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
    turn counting), then the built-in positions at the maximized window. Biggest risk to "everything automatic".
-2. **Guild War screens, as files**: a battle-result window where one of OURS attacked, one with a Draw, one with
+2. **Guild War screens, as files**: the END of a fight (Victory / Defeat after each round) → the attack logged
+   without asking; a whole map with a note bubble on a badge → notes attached without asking; a battle-result
+   window where one of OURS attacked, one with a Draw, one with
    a round won and a round lost (the reader of DEVLOG #57 has only seen enemy wins); right after a war; an enemy
    map with a beaten defender; a map with Korean names.
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0c. Guild War, after DEVLOG #58: suggest counters ON the Offense Team screen from what is read there (their two
+   teams are known exactly at that moment: compare my chosen teams with the guild's proven counters and say so on
+   the overlay); read the speeds shown in that screen's hero list; show my attacks left from "3/3" in the top bar.
 0b. Guild War, after DEVLOG #57: recognise DEAD heroes better on result windows (compare against greyed, darkened
    portraits; about a quarter are left out now); let a logged attack / defense be edited (now only Undo); read the
    Season Log rows directly (who, when, both rounds) without opening each window; save a member's defense from

@@ -116,6 +116,9 @@ Trial of Constellation, Strategic Archive…), a mobile app, and more.
   - an enemy's defense screen: their name (in any writing) and the six heroes of their two teams
   - a battle-result window ("Successful Attack", "Failed Defense"): who beat whom, each round, with which heroes →
     logged as attacks / defenses **by itself**, once, with Undo
+  - the Offense Team screen (right before a fight): the defender's two teams are saved as their defense, your two
+    teams are remembered, and after the fight the War tab asks "how did it go?" → logged with all heroes
+  - a note a guildmate left on a defender in the game → shown, and saved on that player
   - while it reads something slow, a small "working…" card shows on the game
   - the standby page: "no war right now, next war in about 29 hours", with a **reminder** 30 minutes before
 - **Arena record** on an enemy card: that player's arena habits and builds from the official record site.

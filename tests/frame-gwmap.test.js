@@ -272,3 +272,24 @@ test('gwmap: pickRead keeps every usable reading as a candidate; a clearly longe
   assert.equal(G.pickRead([{ lang: 'eng', text: 'KeepOne7', conf: 79, cut: 'loose' }, { lang: 'eng', text: 'pO', conf: 84, cut: 'tight' }]).name, 'KeepOne7');
   assert.equal(G.pickRead([{ lang: 'eng', text: 'BigRocketOwl', conf: 80, cut: 'loose' }, { lang: 'eng', text: 'RocketOwl', conf: 85, cut: 'tight' }]).name, 'BigRocketOwl');
 });
+
+test('gwmap: falling snow — of two looks at one map the darker pixel wins; a moved map is refused (DEVLOG #58)', () => {
+  const W = 40, H = 10;
+  const mk = (specks) => {
+    const a = new Uint8ClampedArray(W * H * 4);
+    for (let i = 0; i < W * H; i++) a.set([60, 70, 90, 255], i * 4); // scenery
+    for (let x = 10; x < 14; x++) for (let y = 2; y < 8; y++) a.set([250, 250, 250, 255], (y * W + x) * 4); // a letter
+    for (const [x, y] of specks) a.set([255, 255, 255, 255], (y * W + x) * 4); // snow
+    return a;
+  };
+  const out = G.darkerOfTwo(mk([[9, 3], [20, 5]]), mk([[8, 6], [25, 1]]));
+  const at = (x, y) => out[(y * W + x) * 4];
+  assert.equal(at(11, 4), 250, 'the letter stands');
+  assert.equal(at(9, 3), 60, 'the speck next to the letter is gone');
+  assert.equal(at(20, 5), 60);
+  assert.equal(at(8, 6), 60, 'and the speck of the second look too');
+  // another view: most of the picture differs
+  const other = new Uint8ClampedArray(W * H * 4).fill(255);
+  assert.equal(G.darkerOfTwo(mk([]), other), null);
+  assert.equal(G.darkerOfTwo(mk([]), new Uint8ClampedArray(8)), null, 'different sizes');
+});

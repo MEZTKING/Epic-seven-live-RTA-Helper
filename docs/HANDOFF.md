@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #57, 2026-11-16) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #58, 2026-11-16) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -33,13 +33,17 @@ run the suites first (§6), and one DEVLOG entry per commit.
    opponent's turn, the pre-ban icons visible. (The draft reader has only seen a ban screen.)
 2. Guild War, **as files** (a picture sent while a reply is still being written reaches the session only as a
    picture, not as a file, and cannot become a fixture: ask for it again in a normal message):
+   - the END of a Guild War fight (the Victory / Defeat screen after each round) and round 2 of a fight
+   - a map with a note bubble (megaphone) on a badge, whole screen, and the window that opens when a note is
+     WRITTEN
    - a result window where one of OURS attacked (open a row with crossed swords in front on a member's Season
      Log, or a shield row on an enemy's), one with a Draw, one with a round won and a round lost
    - the screen right after a war ends; an enemy map with at least one beaten defender; a map with Korean names
    (Received as files 2026-11-16: guild hall, VS screen, overview of a running war, maps of a Japanese guild, the
    check-in windows, an enemy stronghold screen, two "Successful Attack" and one "Failed Defense" window, a
-   member's tower page, our own map → DEVLOG #55, #56, #57.)
-3. A report of how #46–#57 behave on their PC: first the names on a map, the "working…" card and the battle
+   member's tower page, our own map, the Offense Team screen, two moments of a fight, a note window → DEVLOG
+   #55–#58.)
+3. A report of how #46–#58 behave on their PC: first the names on a map, the "working…" card and the battle
    results logged by themselves (#56, #57); then the standby banner, reminder notification, statistics tab, team
    plans, "you move first in about X%".
 4. "Copy report for Claude" (RTA → Auto, Live, Gear, Guild War, or the Developer menu) whenever something misbehaves.
@@ -167,6 +171,7 @@ only receive events.
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
   | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild, ourServer, enemyServer, endsIn, endsAt }` | The overview: three fortress names, which side, both guild names and servers, "War Ends in …" |
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
+  | `guild-offense.js` (three readers) | `guild:offense { enemy, rect, mine, theirs }`, `guild:battle { round, left, right }`, `guild:note { author, text }` | The Offense Team screen (their defense, my teams), the fight ("Round 1" pill + names), a note window ("…'s Record") (DEVLOG #58) |
   | `guild-result.js` | `guild:result { type, ok, side, left, right, rounds }` | A battle-result window ("Successful Attack" / "Failed Defense" …): both players, both sides' two teams, each round's result (DEVLOG #57) |
   | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, first pick) |
 
@@ -215,6 +220,7 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 | Firestore / local `settings`.`nextWar` (shared) | `js/guild-app.js` (`standbyFromGame`) | `{ at, beginsAt, season, by }`: the next war's time as a member's game showed it |
 | `localStorage['e7-gw-dismissed']` | `js/guild-app.js` | `{ enemyGuild: time }`: wars you undid after they were started from the game; not started again by themselves for 5 days |
 | `localStorage['e7-gw-known-names']` | `js/guild-app.js` → `js/vision/readers/guild-fortress.js` | Enemy player names you already have (for matching what's read on a fortress map) |
+| `localStorage['e7-gw-pending-attack']` | `js/guild-app.js` (`offenseFromGame`, `battleFromGame`) | The attack being prepared / fought: `{ warId, enemy, mine, theirs, at, started, round }` (3 hours) |
 | `localStorage['e7-gw-results']` | `js/vision/readers/guild-result.js` → `js/guild-watch.js` (`takeResults`) | Battle results read from the game that the Guild War page has not logged yet: `[{ id, at, d }]` (newest 12, 12 hours) |
 | `localStorage['e7-gw-result-undone']` | `js/guild-app.js` (`resultFromGame`) | `{ "<war id>|<battle key>": time }`: battle results you undid; not logged again (newest 100) |
 | `localStorage['e7-gw-name-fixes']` | `js/guild-app.js` (`saveFortress`) → fortress reader | `{ readText(lowercase): name }`: names you corrected after a fortress read, used next time |
@@ -319,19 +325,19 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 
 ## 6. Testing
 
-Counts at DEVLOG #57: **169 unit tests, 36 browser tests, 14 desktop checks.** Unit and browser suites were green at
+Counts at DEVLOG #58: **172 unit tests, 37 browser tests, 14 desktop checks.** Unit and browser suites were green at
 that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
   `tests/_world.js` is a made-up world with planted effects shared by the model and planner tests.
-- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 15 minutes since #56; in a cloud session start it in
+- **Browser end-to-end:** `bash tests/e2e/run-all.sh` (about 20 minutes since #58; in a cloud session start it in
   the background with a 30-minute limit, or it is cut off). It serves the repo on :8766 and runs every
   `tests/e2e/*.e2e.js` with Playwright (pre-installed in cloud sessions). Each test prints what it found and ends with
   `errors: []`; the runner fails otherwise. **The tests print, they do not assert:** `errors: []` only says nothing
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -367,6 +373,20 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**Guild War, DEVLOG #58** (Offense Team screen, the fight, notes, snow):
+- Readers in `js/vision/readers/guild-offense.js`; pixel checks `E7GWResult.offenseAt / battleAt / noteAt`; positions
+  `gwOff…` (pinned left, centred as the alternative; icons read at three box sizes and the best kept), `gwBat…`,
+  `gwNote…`.
+- `GuildApp.offenseFromGame(d)`: `lineupsFromGame(enemy, lineups)` (target new / filled / updated with `earlier`),
+  `setPending({ enemy, mine, theirs })`, current player set → `js/guild-watch.js` posts the overlay card above the
+  name (`lastSide = 'above'`). `battleFromGame` marks the pending attack started → `#war-pending` ("how did it
+  go?") → attack records with `token` = `E7GWResult.key(...)`, so the result window of the same battle is 'known'.
+- `GuildApp.noteFromGame(d, suggest)` → `#war-note` (which enemy?) → a line on `target.notes`.
+- Snow: `guild-fortress.js` keeps the look before (`before`) and reads names from `E7GWMap.darkerOfTwo(before, now)`.
+- Order of a normal attack in the game, for whoever continues: map → tap a defender (their page: name, defense,
+  Season Log) → Ready → **Offense Team** (pick two teams, Start costs 1 of 3) → fight round 1 → round 2 → (end
+  screens not seen yet) → the row appears in both players' Season Logs → result window on tap.
 
 **Guild War, DEVLOG #57** (battle results logged by themselves):
 - **The window:** opens from a Season Log row on a player's page. LEFT = the player whose page it is, the title and

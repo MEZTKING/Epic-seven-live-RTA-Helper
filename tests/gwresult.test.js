@@ -92,3 +92,54 @@ test('gwresult: what a window means for our guild (four cases) and the same batt
   assert.equal(k1, k2);
   assert.notEqual(k1, R.key(R.plan({ type: 'attack', side: 'ours', left: 'Ann', right: 'Rival', rounds: [rounds[0], { ...rounds[1], result: 'victory' }] })));
 });
+
+test('gwresult: the Offense Team screen, a fight and a note window told apart by a few pixels (DEVLOG #58)', () => {
+  const W = 200, H = 100;
+  const START = { x: 160, y: 85, w: 20, h: 8 };
+  const TOP = { x: 40, y: 2, w: 100, h: 6 };
+  const off = picture(W, H, [30, 32, 36]);
+  off.paint(160, 85, 180, 93, [39, 71, 42]);
+  assert.equal(R.offenseAt(off.a, W, H, { start: START, topbar: TOP }), true);
+  const map = picture(W, H, [120, 150, 180]); // bright scenery, no green button
+  assert.equal(R.offenseAt(map.a, W, H, { start: START, topbar: TOP }), false);
+  const dark = picture(W, H, [20, 25, 23]); // a result window: dark, but no green button
+  assert.equal(R.offenseAt(dark.a, W, H, { start: START, topbar: TOP }), false);
+  // the "Round 1" pill: white and neutral; pale blue sky is not it
+  const PILL = { x: 90, y: 14, w: 20, h: 6 };
+  const fight = picture(W, H, [90, 100, 120]);
+  fight.paint(90, 14, 110, 20, [250, 250, 250]);
+  assert.equal(R.battleAt(fight.a, W, H, PILL), true);
+  const sky = picture(W, H, [213, 236, 244]);
+  assert.equal(R.battleAt(sky.a, W, H, PILL), false);
+  // a note window: nearly black title strip over a deep blue body
+  const HEAD = { x: 70, y: 20, w: 60, h: 4 };
+  const BLUE = { x: 70, y: 55, w: 60, h: 20 };
+  const note = picture(W, H, [63, 70, 78]);
+  note.paint(70, 20, 130, 24, [11, 19, 28]);
+  note.paint(70, 55, 130, 75, [24, 58, 101]);
+  assert.equal(R.noteAt(note.a, W, H, { header: HEAD, blue: BLUE }), true);
+  const result = picture(W, H, [63, 70, 78]); // a result window has the dark strip but a red / green body
+  result.paint(70, 20, 130, 24, [10, 17, 24]);
+  result.paint(70, 55, 130, 75, [78, 67, 88]);
+  assert.equal(R.noteAt(result.a, W, H, { header: HEAD, blue: BLUE }), false);
+});
+
+test('gwresult: note title, round label, three heroes on four places (DEVLOG #58)', () => {
+  assert.equal(R.noteTitle('BirchOwl’s Record'), 'BirchOwl');
+  assert.equal(R.noteTitle("Ann's Record"), 'Ann');
+  assert.equal(R.noteTitle('りょうちゃん’s Record'), 'りょうちゃん');
+  assert.equal(R.noteTitle('Season Log'), null);
+  assert.equal(R.noteTitle('Successful Attack'), null);
+  assert.equal(R.roundOf('Round 1'), 1);
+  assert.equal(R.roundOf('| Round 2 .'), 2);
+  assert.equal(R.roundOf('Round l'), 1, 'a 1 read as a small L');
+  assert.equal(R.roundOf('Draw 99 turn(s) remaining'), null);
+  const i = (code, score, sure = true) => ({ code, score, sure });
+  // top, left, right used; the bottom place is empty
+  assert.deepEqual(R.pickTeam([i('a', 0.9), i('b', 0.9), i('c', 0.9), null]).map((x) => x && x.code), ['a', 'b', 'c']);
+  // top, left, bottom used (a member's tower page)
+  assert.deepEqual(R.pickTeam([i('a', 0.9), i('b', 0.9), null, i('d', 0.9)]).map((x) => x && x.code), ['a', 'b', 'd']);
+  // scenery read as a fourth hero: the weakest goes
+  assert.deepEqual(R.pickTeam([i('a', 0.9), i('x', 0.4, false), i('c', 0.8), i('d', 0.85)]).map((x) => x && x.code), ['a', 'c', 'd']);
+  assert.deepEqual(R.pickTeam([null, i('b', 0.9), null, null]).map((x) => x && x.code), ['b', null, null]);
+});

@@ -87,6 +87,8 @@
 
   /** The game watcher read text in the name box (js/vision/readers/guild-name.js). */
   let lastRaw = '';
+  let lastSide = 'right'; // where the overlay card goes next to the name it belongs to
+  let seenPlayer = { name: '', at: 0 }; // the enemy the game showed last (offered when a note window is read right after)
   let lastPicOfName = ''; // the name as the game shows it (for names in a script the user cannot type)
   function onNameRead(d) {
     if (d.text) lastRaw = d.text.replace(/[^\p{L}\p{N}_#.\- ]/gu, '').trim();
@@ -107,6 +109,8 @@
     if (name && name === last.name) last.n++;
     else last = { name, n: 1 };
     if (name && last.n >= 2) A.setCurrent(name);
+    if (name) seenPlayer = { name, at: Date.now() };
+    lastSide = 'right';
     $('#gw-watch-read').textContent = name ? `Seeing: ${name}` : d.text ? `Read "${d.text.slice(0, 24)}" (not a known player)` : 'No name visible';
     postOverlay();
   }
@@ -160,6 +164,26 @@
   // marked finished (with Undo). A stored reading counts when it is newer than the last overview reading.
   bus.on('guild:standby', (d) => A.standbyFromGame && A.standbyFromGame(d).catch(() => {}));
   // a battle-result window (js/vision/readers/guild-result.js): logged as attacks / defenses, once, with Undo (DEVLOG #57)
+  // the Offense Team screen, the fight and a note window (js/vision/readers/guild-offense.js; DEVLOG #58)
+  bus.on('guild:offense', async (d) => {
+    if (!A.offenseFromGame) return;
+    if (d.away) {
+      lastRect = null;
+      lastSide = 'right';
+      if (window.E7Overlay) window.E7Overlay.clear('guild');
+      return;
+    }
+    try {
+      await A.offenseFromGame(d);
+    } catch (_) { /* shown by the page's own status line */ }
+    // the card with what is known about this defender goes above their name on that screen
+    lastRect = d.rect || null;
+    lastSide = 'above';
+    seenPlayer = { name: (A.current && A.current()) || '', at: Date.now() };
+    postOverlay();
+  });
+  bus.on('guild:battle', (d) => A.battleFromGame && A.battleFromGame(d));
+  bus.on('guild:note', (d) => A.noteFromGame && A.noteFromGame(d, Date.now() - seenPlayer.at < 20000 ? seenPlayer.name : '').catch(() => {}));
   // The reader keeps every result in localStorage 'e7-gw-results' (this page may be closed when the window is on
   // screen); they are taken from there: on the event, and when this page has loaded the guild's records.
   const RESULTS = 'e7-gw-results';
@@ -306,7 +330,7 @@
     });
     // a defense saved in an earlier war: the player may have changed it since (they can at any time)
     if (t.warId !== A.warId) lines.push('From an earlier war: may have changed');
-    O.post('guild', [{ ...r, kind: 'card', side: 'right', level: v.level, title: t.player, lines }]);
+    O.post('guild', [{ ...r, kind: 'card', side: lastSide, level: v.level, title: t.player, lines }]);
   }
   A.onChange(postOverlay);
 

@@ -176,6 +176,8 @@
   // -------------------------------------------------------------------- war
   function renderWar() {
     renderStandby();
+    renderPending();
+    renderNote();
     $('#war-select').innerHTML = state.wars.length
       ? state.wars.map((w) => `<option value="${esc(w.id)}" ${w.id === warId ? 'selected' : ''}>vs ${esc(w.enemyGuild)}${w.season ? ' · ' + esc(w.season) : ''} · ${esc(String(w.startedAt || '').slice(0, 10))}${w.status === 'done' ? ' (finished)' : ''}</option>`).join('')
       : '<option value="">No wars yet</option>';
@@ -362,6 +364,140 @@
     if (window.E7Diag) window.E7Diag.log('guild', `war vs ${enemyGuild} started from the game`);
     return 'started';
   }
+  // ---- the Offense Team screen, the fight, a note (js/vision/readers/guild-offense.js; DEVLOG #58) ----------------
+  /**
+   * A defender's teams as the game shows them right now -> this war's target: new, filled, or (when a team is not the
+   * saved one) updated with the earlier line-up kept. lineups: [codes ×3 | null, codes ×3 | null].
+   * -> { target, what: 'new' (nothing was saved before) | 'updated' (they changed it) | 'same' }
+   */
+  async function lineupsFromGame(enemy, lineups) {
+    let target = state.targets.find((t) => t.warId === warId && GW.playerKey(t.player) === GW.playerKey(enemy)) || null;
+    if (!target) return { target: await put('target', { warId, player: enemy, tower: '', teams: lineups.map((hs) => ({ heroes: hs || [] })), notes: '' }), what: 'new' };
+    const at = new Date().toISOString();
+    const teams = Array.from({ length: Math.max(2, (target.teams || []).length) }, (_, i) => ({ ...((target.teams || [])[i] || {}) }));
+    let touched = false;
+    let changed = false; // a full team that was saved is another one now (not just an empty place filled)
+    lineups.forEach((hs, i) => {
+      if (!hs || hs.length !== 3) return;
+      const was = (teams[i].heroes || []).filter(Boolean);
+      if (was.length === 3 && GW.teamKey(was) === GW.teamKey(hs)) return;
+      if (was.length === 3) {
+        teams[i].earlier = [{ heroes: was, speeds: teams[i].speeds || {}, build: teams[i].build || '', until: at }, ...(teams[i].earlier || [])].slice(0, 5);
+        changed = true;
+      }
+      teams[i] = { ...teams[i], heroes: hs, speeds: Object.fromEntries(Object.entries(teams[i].speeds || {}).filter(([c]) => hs.includes(c))) };
+      touched = true;
+    });
+    if (!touched) return { target, what: 'same' };
+    return { target: await put('target', { ...target, teams }), what: changed ? 'updated' : 'new' };
+  }
+  // The attack being prepared / fought: { warId, enemy, mine: [[codes], [codes]], theirs: [[codes], [codes]], at, started }
+  const PENDING = 'e7-gw-pending-attack';
+  const pendingAttack = () => {
+    try {
+      const p = JSON.parse(localStorage.getItem(PENDING) || 'null');
+      return p && p.warId === warId && Date.now() - Date.parse(p.at || 0) < 3 * 3600 * 1000 ? p : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  const setPending = (p) => {
+    try {
+      if (p) localStorage.setItem(PENDING, JSON.stringify(p));
+      else localStorage.removeItem(PENDING);
+    } catch (_) { /* only a help */ }
+    renderPending();
+  };
+  /** The Offense Team screen: their defense is saved as it stands now, and what I am about to attack with is kept. */
+  async function offenseFromGame(d) {
+    if (!d || d.away) return 'away';
+    if (!backend || !loaded) return 'no-guild';
+    if (!warId) return 'no-war';
+    if (!d.enemy || !d.enemy.name) return 'no-name';
+    const enemies = [...new Set(state.targets.filter((t) => t.warId === warId).map((t) => t.player).filter(Boolean))];
+    let known = GW.matchPlayer(d.enemy.name, enemies);
+    for (const o of d.enemy.options || []) known = known || GW.matchPlayer(o, enemies);
+    const enemy = known || d.enemy.name;
+    const sure = (t) => (t || []).filter((x) => x && x.sure).map((x) => x.code);
+    const theirs = (d.theirs || []).map(sure);
+    const r = theirs.some((hs) => hs.length === 3) ? await lineupsFromGame(enemy, theirs.map((hs) => (hs.length === 3 ? hs : null))) : { what: 'same' };
+    const was = pendingAttack();
+    setPending({ warId, enemy, mine: (d.mine || []).map(sure), theirs, at: new Date().toISOString(), started: !!(was && was.started && GW.playerKey(was.enemy) === GW.playerKey(enemy)) });
+    current = enemy;
+    for (const fn of listeners) fn();
+    if (r.what !== 'same') status(`${enemy}'s defense was ${r.what === 'new' ? 'saved' : 'updated (they changed it)'} from the game's Offense Team screen.`);
+    return r.what;
+  }
+  /** The fight is on screen: the attack prepared on the Offense Team screen really started. */
+  function battleFromGame(d) {
+    const p = pendingAttack();
+    if (!p || !d) return 'nothing';
+    if (!p.started && Date.now() - Date.parse(p.at) > 20 * 60 * 1000) return 'old';
+    setPending({ ...p, started: true, round: Math.max(p.round || 0, d.round || 1) });
+    return 'started';
+  }
+  function renderPending() {
+    const el = $('#war-pending');
+    if (!el) return;
+    const p = pendingAttack();
+    if (!p || !p.started) return el.classList.add('hidden');
+    const team = (hs) => (hs && hs.length ? hs.map(nameOf).join(', ') : '?');
+    el.innerHTML = `Your attack on <b>${esc(p.enemy)}</b> (seen in the game). How did it go? ${[0, 1]
+      .map((i) => `<label>Round ${i + 1} <span class="hint">(${esc(team(p.mine[i]))} against ${esc(team(p.theirs[i]))})</span> <select data-pend="${i}"><option value="">not fought yet</option><option value="win">Won</option><option value="loss">Lost</option></select></label>`)
+      .join(' ')} <button class="btn primary" id="war-pending-log">Log</button> <button class="btn" id="war-pending-no">Forget it</button>`;
+    el.classList.remove('hidden');
+    $('#war-pending-no').onclick = () => setPending(null);
+    $('#war-pending-log').onclick = async () => {
+      if (!me()) return alert('Set your name in Setup first.');
+      const results = $$('[data-pend]', el).map((s) => s.value);
+      if (!results.some(Boolean)) return alert('Choose Won or Lost for the rounds you fought.');
+      const { target } = await lineupsFromGame(p.enemy, p.theirs.map((hs) => (hs.length === 3 ? hs : null)));
+      const RS = window.E7GWResult;
+      // the same battle read later from its result window is then known already (same key)
+      const token = RS && results.every(Boolean) ? RS.key({ kind: 'attack', ours: me(), enemy: p.enemy, rounds: results.map((x) => ({ result: x, draw: false })) }) : `hand-${GW.newId(8)}`;
+      const at = new Date().toISOString();
+      for (let i = 0; i < 2; i++) {
+        if (!results[i]) continue;
+        const speeds = {};
+        if (conn.shareSpeeds !== false) for (const h of p.mine[i] || []) if (mySpeeds().get(h)) speeds[h] = mySpeeds().get(h);
+        await put('attack', { warId, targetId: target.id, team: i + 1, defense: p.theirs[i] || [], by: me(), heroes: p.mine[i] || [], speeds, result: results[i], notes: 'teams read from the Offense Team screen', token, at });
+      }
+      setPending(null);
+    };
+  }
+  // A note a guildmate left on a defender in the game: which defender it is about is not on the note window, so it is
+  // asked (the player the game showed just before is offered first).
+  let noteWaiting = null; // { author, text, suggest }
+  async function noteFromGame(d, suggest) {
+    if (!d || !d.text || !backend || !loaded || !warId) return 'nothing';
+    if (state.targets.some((t) => t.warId === warId && String(t.notes || '').includes(d.text))) return 'known';
+    noteWaiting = { author: d.author || '', text: d.text, suggest: suggest || '' };
+    renderNote();
+    return 'ask';
+  }
+  function renderNote() {
+    const el = $('#war-note');
+    if (!el) return;
+    if (!noteWaiting) return el.classList.add('hidden');
+    const n = noteWaiting;
+    const targets = state.targets.filter((t) => t.warId === warId && t.player);
+    el.innerHTML = `A note read from the game, by <b>${esc(n.author)}</b>: “${esc(n.text)}”. Which enemy is it about? <select id="war-note-for"><option value="">choose…</option>${targets
+      .map((t) => `<option value="${esc(t.id)}" ${n.suggest && GW.playerKey(t.player) === GW.playerKey(n.suggest) ? 'selected' : ''}>${esc(t.player)}${t.tower ? ' · ' + esc(t.tower) : ''}</option>`)
+      .join('')}</select> <button class="btn primary" id="war-note-save">Save on that player</button> <button class="btn" id="war-note-no">Dismiss</button>`;
+    el.classList.remove('hidden');
+    $('#war-note-no').onclick = () => {
+      noteWaiting = null;
+      renderNote();
+    };
+    $('#war-note-save').onclick = async () => {
+      const t = state.targets.find((x) => x.id === $('#war-note-for').value);
+      if (!t) return alert('Choose the enemy player this note is about.');
+      await put('target', { ...t, notes: [t.notes, `Note in the game by ${n.author}: ${n.text}`].filter(Boolean).join('\n') });
+      noteWaiting = null;
+      renderNote();
+    };
+  }
+
   // ---- a battle-result window read from the game (js/vision/readers/guild-result.js; DEVLOG #57) -----------------
   // "Successful Attack" / "Failed Defense" …: both players, both sides' two teams, the result of each round. It becomes
   // two attack records (one of ours attacked) or two defense records (one of ours was attacked), once, with Undo.
@@ -463,6 +599,9 @@
       for (const r of rounds) written.push(await put('defense', { warId, member: ours, team: r.team, attacker: enemy, attackerHeroes: r.attack, heroes: r.heroes, result: r.result, ...(r.draw ? { draw: true } : {}), fromGame: true, token, at }));
     }
     resultUndo = { records: written, restore, base: `${warId}|${base}` };
+    // my own attack, now logged from its result window: the question "how did it go?" is answered
+    const pend = pendingAttack();
+    if (p.kind === 'attack' && pend && GW.playerKey(pend.enemy) === GW.playerKey(enemy) && GW.playerKey(ours) === GW.playerKey(me())) setPending(null);
     const word = (r) => (r.draw ? 'draw' : p.kind === 'attack' ? (r.result === 'win' ? 'won' : 'lost') : r.result === 'held' ? 'held' : 'lost');
     const team = (hs) => (hs && hs.length ? hs.map(nameOf).join(', ') : 'heroes not recognised');
     const text =
@@ -1267,6 +1406,10 @@
     markBeaten,
     warEndsFromGame,
     resultFromGame,
+    offenseFromGame,
+    battleFromGame,
+    noteFromGame,
+    pendingAttack,
     warFromGame,
     standbyFromGame,
     standby,
