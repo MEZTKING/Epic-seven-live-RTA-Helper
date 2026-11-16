@@ -24,7 +24,9 @@ for (const b of boxes) {
   const bh = Math.min(H - y0, Math.round(b.h));
   const crop = new Uint8ClampedArray(bw * bh * 4);
   for (let y = 0; y < bh; y++) crop.set(rgba.subarray(((y0 + y) * W + x0) * 4, ((y0 + y) * W + x0 + bw) * 4), y * bw * 4);
-  const n = G.nameLetters(crop, bw, bh, {});
+  // the centred cut when it comes out centred (no roof edges next to the name), else the loose one
+  const c = G.nameLetters(crop, bw, bh, { tight: true, centred: true });
+  const n = c && c.sym ? c : G.nameLetters(crop, bw, bh, {});
   out.push(n ? { x0: x0 + n.span[0], x1: x0 + n.span[1], y0: y0 + n.band[0], y1: y0 + n.band[1], keep: b.keep } : { x0, x1: x0 + bw, y0, y1: y0 + bh, keep: b.keep, none: true });
 }
 console.log(JSON.stringify(out));

@@ -168,3 +168,34 @@ if os.path.exists(f'{S}/offense.jpg'):
     smear(im, (770, 236, 1230, 288)); text(im, (1000, 261), "BirchOwl’s Record", 33, font=CJK, anchor='mm', ow=0)
     im.save(f'{OUT}/steam-gw-note-record-wide.jpg', quality=90)
     print('offense / battle / note ok')
+
+# ---------------------------------------------------------------------------------------------- DEVLOG #59
+def map_names(src, out, names, size=25, dark=0.9):
+    """A fortress map: made-up names where the app finds the real ones (badges top to bottom, then the keep)."""
+    im = Image.open(src).convert('RGB')
+    boxes = name_boxes(im)
+    assert len(boxes) == len(names), (src, len(boxes), 'names found')
+    for b in boxes:
+        smear(im, (b['x0'] - 14, b['y0'] - 8, b['x1'] + 14, b['y1'] + 8), dark=dark)
+    for b, s in zip(boxes, names):
+        text(im, ((b['x0'] + b['x1']) // 2, (b['y0'] + b['y1']) // 2), s, size, font=CJK, anchor='mm', ow=2, outline=(40, 44, 60), index=2 if s == '龙猫乐乐' else 0)
+    im.save(out, quality=92)
+
+def player_page(src, out, name, log):
+    """A player's page: the name left, the small name over the Season Log, the names in the log."""
+    im = Image.open(src).convert('RGB')
+    smear(im, (216, 228, 430, 268)); text(im, (224, 248), name, 28, font=CJK, ow=0)
+    smear(im, (1350, 108, 1520, 142)); text(im, (1358, 126), name, 21, font=CJK, ow=0, fill=(170, 180, 200))
+    log_names(im, log)
+    im.save(out, quality=92)
+
+# 11) the same enemy map during the war: one defender "Cannot Battle" (already attacked, with a note bubble), one with
+#     a "Battle in Progress" badge; the middle fortress with a dark, beaten badge and a note bubble; a result window
+#     that is a DRAW (one round each: our member attacked); two enemy pages with a banner over the teams
+if os.path.exists(f'{S}/map-states.jpg'):
+    map_names(f'{S}/map-states.jpg', f'{OUT}/steam-gw-map-states-wide.jpg', ['りょうちゃん', 'ミカちゃま', 'sukiyaki2417', '和也', 'さくら', 'ティーナ', '龙猫乐乐'])
+    map_names(f'{S}/map-middle.jpg', f'{OUT}/steam-gw-map-middle-beaten-wide.jpg', ['Juniper', '白雪姫子', 'WillowSan', '夕凪', 'ナツメグ'])
+    result_window(f'{S}/result-draw.jpg', f'{OUT}/steam-gw-result-draw-wide.jpg', 'りょうちゃん', 'AmberFox', 'enemy')
+    player_page(f'{S}/enemy-attacked.jpg', f'{OUT}/steam-gw-enemy-attacked-wide.jpg', 'りょうちゃん', ['AmberFox', 'BirchOwl', 'CedarElk9', 'DuneHawk', 'GaleWolf', 'HazelRay7'])
+    player_page(f'{S}/enemy-inbattle.jpg', f'{OUT}/steam-gw-enemy-inbattle-wide.jpg', 'さくら', ['Rowan12', 'Birchwood', 'CedarFox', 'maple777', 'elmtree', 'Oakley9'])
+    print('war states ok')

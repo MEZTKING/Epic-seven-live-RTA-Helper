@@ -13,7 +13,8 @@
  *   stats(rgba, W, H, rect)          -> { r, g, b, lum, blue, white, red, gold } of a pixel rect (shares 0..1)
  *   windowAt(rgba, W, H, R)          -> null | { side: 'enemy' | 'ours' }   R: { header, band } pixel rects
  *   roundResult(rgba, W, H, rect)    -> 'victory' | 'defeat' | 'draw' | null
- *   titleKind(text)                  -> null | { type: 'attack' | 'defense', ok: boolean }
+ *   titleKind(text)                  -> null | { type: 'attack' | 'defense', ok: true | false | null, draw? }
+ *                                       ("Defense Draw" / "Attack Draw": one round each way -> ok null, draw true)
  *   plan(d)                          -> what it means for OUR guild (see below)
  *   key(plan)                        -> text that is the same for the same battle (not logged twice)
  *
@@ -35,7 +36,7 @@
     const y0 = Math.max(0, Math.round(rect.y));
     const x1 = Math.min(W, Math.round(rect.x + rect.w));
     const y1 = Math.min(H, Math.round(rect.y + rect.h));
-    let r = 0, g = 0, b = 0, n = 0, blue = 0, white = 0, red = 0, gold = 0;
+    let r = 0, g = 0, b = 0, n = 0, blue = 0, white = 0, red = 0, gold = 0, green = 0;
     for (let y = y0; y < y1; y++) {
       for (let x = x0; x < x1; x++) {
         const p = (y * W + x) * 4;
@@ -45,10 +46,11 @@
         if (R > 200 && G > 200 && B > 200) white++;
         if (R > 170 && G < 100 && B < 110) red++;
         if (R > 170 && G > 110 && G < 200 && B < 100) gold++;
+        if (G > 140 && G - R > 50 && G - B > 40) green++;
       }
     }
-    if (!n) return { r: 0, g: 0, b: 0, lum: 0, blue: 0, white: 0, red: 0, gold: 0 };
-    return { r: r / n, g: g / n, b: b / n, lum: (r + g + b) / (3 * n), blue: blue / n, white: white / n, red: red / n, gold: gold / n };
+    if (!n) return { r: 0, g: 0, b: 0, lum: 0, blue: 0, white: 0, red: 0, gold: 0, green: 0 };
+    return { r: r / n, g: g / n, b: b / n, lum: (r + g + b) / (3 * n), blue: blue / n, white: white / n, red: red / n, gold: gold / n, green: green / n };
   }
 
   /**
@@ -65,10 +67,15 @@
     return null;
   }
 
-  /** The icon over "Victory" / "Defeat" / "Draw": blue crossed swords, a red-and-white shield, a gold badge. */
+  /**
+   * The icon over "Victory" / "Defeat" / "Draw". An attack's rounds show swords (blue = won, red = lost), a
+   * defense's rounds shields (green = held, red = lost); measured on a "Defense Draw" window: green shield 18%
+   * green + 28% white, red shield 16% red + 22% white (DEVLOG #59). A drawn round would be a gold badge (not seen).
+   */
   function roundResult(rgba, W, H, rect) {
     const s = stats(rgba, W, H, rect);
     if (s.blue >= 0.15 && s.white >= 0.1) return 'victory';
+    if (s.green >= 0.1 && s.white >= 0.1 && s.red < 0.05) return 'victory';
     if (s.red >= 0.07 && s.white >= 0.1 && s.blue < 0.05) return 'defeat';
     if (s.gold >= 0.12 && s.blue < 0.05 && s.red < 0.05) return 'draw';
     return null;
@@ -79,6 +86,8 @@
     const t = String(text || '').toLowerCase().replace(/[^a-z ]+/g, ' ');
     const type = /at+ack/.test(t) ? 'attack' : /de[ft]en[sc]e|defen/.test(t) ? 'defense' : null;
     if (!type) return null;
+    // "Defense Draw" / "Attack Draw": one round won and one lost (DEVLOG #59)
+    if (/\bdraw\b|\bdrew\b/.test(t)) return { type, ok: null, draw: true };
     const ok = /suc+es+ful|succes|ccessful/.test(t) ? true : /fail/.test(t) ? false : null;
     if (ok === null) return null;
     return { type, ok };

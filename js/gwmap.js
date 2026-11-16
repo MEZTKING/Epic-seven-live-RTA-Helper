@@ -36,6 +36,7 @@
  *   nameMask(rgba, W, H, opts)      -> letters of a name crop without white scenery (patches that cannot be letters dropped)
  *   nameLetters(rgba, W, H, opts)   -> { mask, span, band } the letters of ONE name: the line around the middle, specks cleared
  *   cleanCjk(text) / pickRead(readings)  names in Japanese / Korean / Chinese script; which reading to believe
+ *   FORT_PLACES / placesToCheck(rgba, W, H, fortIndex, badges)  the fixed places of each fortress; places with a badge the finder missed
  *   darkerOfTwo(rgbaA, rgbaB)       -> two looks at one map with the falling snow taken out (null: not the same view)
  *   isStandbyTitle(ocrText)         -> true for the standby page's title ("Guild War Standby")
  *   standbyMinutes(ocrText)         -> minutes until the next war from "War Begins in 29h" ("in 1d 5h", "in 45m"), or null
@@ -114,6 +115,37 @@
       if (out > lim.out) return null;
       return d8 + d9 + glyph - out;
     };
+    // Two more looks of a badge (the owner's maps of a running war, DEVLOG #59):
+    // "Battle in Progress": crossed swords, and an orange "1/3" tag lies over part of the ring, so the ring is not
+    // dark all round (measured 0.85 / 0.88 dark, spread 39). Accepted only with a strong glyph AND a coloured ring.
+    const tagScore = (cx, cy) => {
+      const d9 = darkFrac(cx, cy, 0.9);
+      const d8 = darkFrac(cx, cy, 0.8);
+      if (d9 < 0.8 || d8 < 0.8 || meanAt(cx, cy, 0.9) > 70 || stdAt(cx, cy, 0.8) > 46) return null;
+      const glyph = maxFrac(light, cx, cy, [0.15, 0.3]);
+      if (glyph < 0.5) return null;
+      const out = darkFrac(cx, cy, 1.3);
+      if (out > 0.7) return null;
+      if (Math.max(maxFrac(red, cx, cy, [0.97, 1.04, 1.1]), maxFrac(green, cx, cy, [0.97, 1.04, 1.1])) < 0.25) return null;
+      return d8 + d9 + glyph - out - 0.2;
+    };
+    // A BEATEN defender on the enemy's side: the whole badge is dark, glyph included (measured: ring all dark, spread
+    // 13, glyph 84 against 40 on the ring, no colour). Only a dim grey glyph in an even dark disc tells it from
+    // scenery, so these are marked `dim` and the reader keeps one only when a name stands under it.
+    const dimScore = (cx, cy) => {
+      const c = lum[Math.round(cy) * W + Math.round(cx)];
+      if (c < 55 || c > 150) return null;
+      const d9 = darkFrac(cx, cy, 0.9);
+      if (d9 < 0.95) return null;
+      const d8 = darkFrac(cx, cy, 0.8);
+      if (d8 < 0.95 || darkFrac(cx, cy, 0.6) < 0.9 || meanAt(cx, cy, 0.9) > 60 || stdAt(cx, cy, 0.8) > 20) return null;
+      const lift = meanAt(cx, cy, 0.15) - meanAt(cx, cy, 0.8);
+      if (lift < 22 || meanAt(cx, cy, 0.15) > 140) return null;
+      const out = darkFrac(cx, cy, 1.3);
+      if (out > 0.7) return null;
+      if (Math.max(maxFrac(red, cx, cy, [0.97, 1.04, 1.1]), maxFrac(green, cx, cy, [0.97, 1.04, 1.1])) >= 0.04) return null;
+      return d8 + d9 - out - 0.5;
+    };
     const step = Math.max(2, Math.round(R / 10));
     const m = Math.ceil(R * 1.4);
     // the interface around the map (left Havoc bar, top bar, bottom bar) is never a defender
@@ -123,13 +155,23 @@
     const cands = [];
     for (let cy = y0; cy < y1; cy += step) {
       for (let cx = x0; cx < W - m; cx += step) {
-        if (score(cx, cy, false) === null) continue;
-        // refine: the best point nearby that passes the strict rule
+        const usual = score(cx, cy, false) !== null;
+        if (!usual && dimScore(cx, cy) === null) continue;
+        // refine: the best point nearby that passes the strict rule (or one of the two other looks)
         let best = null;
         for (let dy = -step; dy <= step; dy++) {
           for (let dx = -step; dx <= step; dx++) {
-            const s = score(cx + dx, cy + dy, true);
-            if (s !== null && (!best || s > best.s)) best = { s, x: cx + dx, y: cy + dy };
+            let s = usual ? score(cx + dx, cy + dy, true) : null;
+            let kind = '';
+            if (s === null && usual) {
+              s = tagScore(cx + dx, cy + dy);
+              kind = 'busy';
+            }
+            if (s === null) {
+              s = dimScore(cx + dx, cy + dy);
+              kind = 'dim';
+            }
+            if (s !== null && (!best || s > best.s)) best = { s, x: cx + dx, y: cy + dy, kind };
           }
         }
         if (best) cands.push(best);
@@ -144,9 +186,55 @@
         const gg = maxFrac(green, p.x, p.y, [0.97, 1.04, 1.1]);
         // any coloured arc = still standing (a nearly beaten defender keeps a short arc; beaten ones measured 0.00)
         const state = rr >= 0.04 && rr >= gg ? 'enemy' : gg >= 0.04 ? 'ours' : 'beaten';
-        return { x: p.x, y: p.y, r: R, state };
+        // busy: "Battle in Progress" (someone is fighting this defender); dim: a dark beaten badge (keep only with a name)
+        return { x: p.x, y: p.y, r: R, state, ...(p.kind === 'busy' ? { busy: true } : {}), ...(p.kind === 'dim' ? { dim: true } : {}) };
       })
       .sort((a, b) => a.y - b.y || a.x - b.x);
+  }
+  /**
+   * Where defenders can stand on each fortress map (the owner's tip: the places never move, a guild just leaves some
+   * empty; DEVLOG #59). Collected from every map seen so far (9 maps, two window shapes): [x, y] with x from the
+   * middle of the picture and both in units of its height, so they hold for any window size. Fortress 0 = left,
+   * 1 = middle, 2 = right. Not complete: a place nobody stood on yet is not in the list.
+   */
+  const FORT_PLACES = [
+    [[0.302, 0.222], [-0.359, 0.282], [0.547, 0.579], [-0.584, 0.748], [0.7, 0.781], [0.045, 0.863], [0.421, 0.396], [-0.514, 0.521], [-0.372, 0.793], [0.25, 0.664], [-0.172, 0.679], [0.367, 0.851]],
+    [[-0.173, 0.255], [0.27, 0.269], [0.702, 0.751], [-0.592, 0.789], [0.602, 0.267], [0.547, 0.521], [-0.626, 0.54], [-0.111, 0.712], [-0.347, 0.788], [0.367, 0.852], [0.1, 0.852]],
+    [[-0.205, 0.278], [-0.571, 0.279], [0.413, 0.305], [0.723, 0.463], [-0.614, 0.54], [0.442, 0.631], [-0.346, 0.792], [-0.607, 0.793], [0.406, 0.871]],
+  ];
+  /**
+   * Known places of this fortress where findBadges found nothing but a dark round badge seems to be (a look of the
+   * badge the finder does not know yet). -> [{ x, y, r, state: null, byPlace: true }]. The reader keeps one only when
+   * a name stands under it.
+   */
+  function placesToCheck(rgba, W, H, index, badges) {
+    const R = R_FRAC * H;
+    const out = [];
+    const dark = (cx, cy, f) => {
+      let n = 0;
+      for (let k = 0; k < N; k++) {
+        const x = Math.min(W - 1, Math.max(0, Math.round(cx + R * f * COS[k])));
+        const y = Math.min(H - 1, Math.max(0, Math.round(cy + R * f * SIN[k])));
+        const p = (y * W + x) * 4;
+        if ((rgba[p] + rgba[p + 1] + rgba[p + 2]) / 3 < 95) n++;
+      }
+      return n / N;
+    };
+    for (const [fx, fy] of FORT_PLACES[index] || []) {
+      const px = W / 2 + fx * H;
+      const py = fy * H;
+      if (px < R || py < R || px > W - R || py > H - R) continue;
+      if ((badges || []).some((b) => (b.x - px) ** 2 + (b.y - py) ** 2 < (1.5 * R) ** 2)) continue;
+      let best = null;
+      for (let dy = -8; dy <= 8; dy += 2) {
+        for (let dx = -8; dx <= 8; dx += 2) {
+          const d = Math.min(dark(px + dx, py + dy, 0.9), dark(px + dx, py + dy, 0.8));
+          if (!best || d > best.d) best = { d, x: px + dx, y: py + dy };
+        }
+      }
+      if (best && best.d >= 0.75) out.push({ x: best.x, y: best.y, r: R, state: null, byPlace: true });
+    }
+    return out;
   }
   function sideOf(badges) {
     const e = badges.filter((b) => b.state === 'enemy').length;
@@ -405,7 +493,23 @@
     // English reading is poor and the other one is clearly surer
     const lat = list.filter((r) => r.lang !== 'eng' && cjkCount(r.text) === 0).map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
     if (lat && (!eng || (eng.conf < 40 && lat.conf >= eng.conf + 20))) eng = { ...lat, lang: 'eng' };
-    const cjk = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
+    // the same for the other scripts, when the tight cut came out centred (r.sym): a loose reading that holds the
+    // tight one plus more (roof edges next to the name read as characters) is not believed
+    const cjkRaw = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name);
+    const extra = new Set();
+    for (const t of cjkRaw) {
+      if (t.cut !== 'tight' || !t.sym || [...t.name].length < 2 || t.conf < 40) continue;
+      // (also when it is just clearly longer: the centred cut cannot have lost two characters, the loose one can
+      // have gained them)
+      for (const l of cjkRaw) if (l.cut === 'loose' && l.name !== t.name && (l.name.includes(t.name) || (t.conf >= 50 && [...t.name].length >= 3 && [...l.name].length >= [...t.name].length + 2))) extra.add(l);
+    }
+    // (a centred tight cut also beats a loose Latin reading with any number of extra characters at an end)
+    for (const t of engs) {
+      if (t.cut !== 'tight' || !t.sym || t.name.length < 4) continue;
+      for (const l of engs) if (l.cut === 'loose' && l.name !== t.name && (l.name.endsWith(t.name) || l.name.startsWith(t.name)) && t.conf >= l.conf - 15) stray.add(l);
+    }
+    if (eng && stray.has(eng)) eng = engs.filter((r) => !stray.has(r)).sort((a, b) => b.conf - a.conf)[0] || null;
+    const cjk = cjkRaw.filter((r) => !extra.has(r)).sort((a, b) => b.conf - a.conf)[0] || null;
     // every other usable reading, best first: offered as other spellings and tried against the server's player list
     const seen = new Set();
     const all = [];
@@ -416,7 +520,7 @@
       }
     };
     const cjkWins = cjk && (!eng || cjk.conf >= 45 || cjk.conf >= eng.conf - 5);
-    const cjkAll = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf);
+    const cjkAll = cjkRaw.filter((r) => !extra.has(r)).sort((a, b) => b.conf - a.conf);
     let first = cjkWins ? cjk : eng;
     if (cjkWins) {
       // a clearly longer reading that the reader was still fairly sure of: the short one probably lost its end
@@ -428,6 +532,7 @@
     push(eng);
     if (!cjkWins) for (const r of cjkAll) push(r);
     for (const r of stray) push(r);
+    for (const r of extra) push(r);
     return first ? { name: first.name, lang: cjkWins ? first.lang : 'eng', conf: first.conf, all } : { name: '', lang: '', conf: 0, all: [] };
   }
 
@@ -541,7 +646,11 @@
       }
       comps.push(c);
     }
-    const tall = comps.filter((c) => c.y1 - c.y0 + 1 >= 0.28 * H).sort((a, b) => a.x0 - b.x0);
+    // letter-sized: 28% of the crop's height, or, where the letters are small in their box (a keep's name), 62% of the
+    // tallest patch (small letters are about 70% of capitals), never under 20%
+    const maxH = comps.reduce((v, c) => Math.max(v, c.y1 - c.y0 + 1), 0);
+    const tallMin = Math.max(0.2 * H, Math.min(0.28 * H, 0.62 * maxH));
+    const tall = comps.filter((c) => c.y1 - c.y0 + 1 >= tallMin).sort((a, b) => a.x0 - b.x0);
     if (!tall.length) return null;
     const mid = W / 2;
     let k = 0;
@@ -587,7 +696,7 @@
         if (keep.has(c.id) || !onLine(c)) continue;
         const gapTo = c.x1 < left ? left - c.x1 : c.x0 > right ? c.x0 - right : 0;
         if (gapTo > 0 && c.n < minSize) continue; // (inside the name every dot counts: the dot of an i)
-        const isTall = c.y1 - c.y0 + 1 >= 0.28 * H;
+        const isTall = c.y1 - c.y0 + 1 >= tallMin;
         if (gapTo <= (isTall ? gap : reach)) {
           keep.add(c.id);
           if (c.x0 < left || c.x1 > right) grown = !opts.tight;
@@ -596,8 +705,43 @@
         }
       }
     }
+    // A name on a fortress map is CENTRED under its badge (measured: the middle of the name is within 8 px of the
+    // middle of a 96 px high crop). opts.centred + opts.tight: the letter-sized group gives how far the name reaches on
+    // its longer side; everything on the line inside the same reach on the other side belongs to it (a dash, a small
+    // kana, the parts of a kanji), and nothing beyond it does (roof edges next to the name). sym: it came out centred.
+    let sym = false;
+    if (opts.centred && opts.tight) {
+      const slack = 0.2 * H;
+      // the reach is set once, by the letter-sized group (letting admitted patches widen it lets scenery creep in)
+      const half = Math.max(mid - left, right - mid);
+      const inside = comps.filter((c) => !keep.has(c.id) && onLine(c) && c.x0 >= mid - half - slack && c.x1 <= mid + half + slack);
+      // first the letter-sized ones: they say where the letters are
+      for (const c of inside) {
+        if (c.y1 - c.y0 + 1 < tallMin) continue;
+        keep.add(c.id);
+        left = Math.min(left, c.x0);
+        right = Math.max(right, c.x1);
+      }
+      // then the small ones: between the letters anything (a dot, a mark); past the last letter only what can be a
+      // character itself: a small kana (60% of a letter's height) or a long-vowel dash (flat, wide, mid-height).
+      // A thin stroke of roof edge at the foot of the last letter is neither.
+      // (tallest first, and what is admitted widens "between": the flat strokes of a kanji whose parts are not joined
+      // lie over and under its bigger part)
+      for (const c of [...inside].sort((p, q) => q.y1 - q.y0 - (p.y1 - p.y0))) {
+        if (keep.has(c.id)) continue;
+        const h = c.y1 - c.y0 + 1;
+        const w = c.x1 - c.x0 + 1;
+        const between = c.x0 >= left - 2 && c.x1 <= right + 2;
+        const dash = w >= 0.2 * H && h <= 0.5 * w && Math.abs((c.y0 + c.y1) / 2 - (top + bottom) / 2) <= 0.2 * (bottom - top);
+        if (!between && h < 0.6 * tallMin && !dash) continue;
+        keep.add(c.id);
+        left = Math.min(left, c.x0);
+        right = Math.max(right, c.x1);
+      }
+      sym = Math.abs((left + right) / 2 - mid) <= 0.15 * H;
+    }
     for (let i = 0; i < W * H; i++) if (m[i] && !keep.has(label[i])) m[i] = 0;
-    return { mask: m, span: [left, right], band: [top, bottom], letters: group.length };
+    return { mask: m, span: [left, right], band: [top, bottom], letters: group.length, sym };
   }
 
   // ---- the standby page (no war running; DEVLOG #46). Middle of the screen, top to bottom: "2026-3 Season",
@@ -649,7 +793,7 @@
     return n ? g / n : 0;
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, darkerOfTwo, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
+  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, darkerOfTwo, FORT_PLACES, placesToCheck, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);

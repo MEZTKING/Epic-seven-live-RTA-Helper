@@ -124,7 +124,7 @@
       const rounds = [1, 2].map((r) => ({ result: results[r - 1], left: [1, 2, 3].map((k) => icon(`gwResL${r}${k}`)), right: [1, 2, 3].map((k) => icon(`gwResR${r}${k}`)) }));
       readPic = true;
       const sure = rounds.reduce((n, r) => n + [...r.left, ...r.right].filter((x) => x && x.sure).length, 0);
-      const what = `${kind.ok ? 'Successful' : 'Failed'} ${kind.type === 'attack' ? 'attack' : 'defense'}`;
+      const what = kind.draw ? `${kind.type === 'attack' ? 'Attack' : 'Defense'} draw` : `${kind.ok ? 'Successful' : 'Failed'} ${kind.type === 'attack' ? 'attack' : 'defense'}`;
       ctx.note(`${what}: ${left.name || '?'} vs ${right.name || '?'} · ${results.join(', ')} · ${sure}/12 heroes recognised`);
       const result = { type: kind.type, ok: kind.ok, side: win.side, left, right, rounds };
       // kept for the Guild War page, which may not be open right now (it takes them when it is; newest 12, 12 hours)

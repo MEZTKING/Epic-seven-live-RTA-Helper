@@ -7,6 +7,95 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #59 · Guild War in a running war: every defender found (it missed two kinds of badge), draw results, names cut by their centring, the fixed places · this commit (previous: `2bfbbfa`)
+
+**Asked for** (five screenshots: a "Defense Draw" window, an enemy's page that was already attacked, the Stinger map
+with "Cannot Battle" and "Battle in Progress", an enemy's page with "Battle in progress.", the middle fortress):
+- "notes only appear on a per person basis (not important for now)"
+- "results with a draw"
+- "for the stinger fortress it read 5 names, and the middle fortress read 3 names … but the stinger fortress actually
+  has 7 names and the darkwood actually has 5"
+- "the positions of the players do not change so you can look at all the fixed places, and sometimes guilds don't
+  have players in certain spots"
+- "which one is it struggling on … show me a picture of which ones, because one of them is greyed out because their
+  defence is destroyed"
+
+**Findings**
+- **Two looks of a badge the finder did not know** (reproduced on the owner's two maps: 5 of 6 and 3 of 4 badges):
+  - "Battle in Progress": crossed swords, and an orange "1/3" tag lies over part of the ring. Measured: the ring
+    85% / 88% dark instead of all dark, spread 39 (the rule wanted ≥ 90% and ≤ 35).
+  - a **destroyed** defender on the enemy's side: the whole badge is dark, glyph included (ring all dark, spread
+    13, the glyph 84 against 40 on the ring, no colour at all). The finder wanted a light glyph. (Beaten badges on
+    our own maps keep a light glyph; that is why this was not seen before.)
+- **The places are fixed** (the owner's tip). Collected from the nine maps seen so far (two window shapes), measured
+  from the middle of the picture in units of its height: 12 places on the left fortress, 11 on the middle one, 9 on
+  the right one (one map only). A guild's defenders stand on some of them. With the right fortress, no map has a
+  dark round thing on a known place that the finder misses, so as a safety net it changes nothing on today's maps.
+- **Result windows**: "Defense Draw" (and by the same pattern "Attack Draw") when one round goes each way. A
+  defense's rounds show shields: red = lost (16% red, 22% white), **green = held** (18% green, 28% white, no blue).
+  The reader knew only blue swords and red shields, and no title with "Draw". This window is also the first real
+  one of OUR attack: on the enemy's page, the enemy left, our member right.
+- **Names on a map are centred under the badge**: over 20 names the middle of the name was within 8 px of the
+  middle of a 96 px high crop. That tells where a name ends even when a roof edge stands right next to it.
+  - The owner's enemy maps: roof highlights after one katakana name were read as four more characters; a blob after
+    a two-kanji name as a fifth character; with the tight cut the kanji 警 (two unjoined halves, neither
+    "letter-sized") and the long-vowel dash were lost.
+- Enemy pages with a banner over the teams ("You cannot battle a target that has already been attacked.",
+  "Battle in progress."): the same 78 px shift as the stronghold banner; round 1 there uses left / right / bottom.
+- Season Log rows: a shield or crossed swords in front (defense / attack), then the two rounds; the same colours
+  as in the windows (measured on three rows).
+- Other things on these screens, written down for later: the top bar shows the attacks left ("2/3"); a note bubble
+  on a badge is a megaphone when empty and a sheet when a note exists; notes belong to one defender; a destroyed
+  tower still shows on the map (greyed); "Cannot Battle" under a name = already attacked by me; the Ready button
+  shows the cost "1/2".
+
+**Changed**
+- **`E7GWMap.findBadges`**: two more looks. `busy` ("Battle in Progress": ring ≥ 80% dark, a strong light glyph AND
+  a coloured ring) and `dim` (a dark beaten badge: even dark disc, a dim grey glyph, no colour → state `beaten`).
+  A `dim` badge counts only when a name stands under it (`js/vision/readers/guild-fortress.js`).
+- **Fixed places**: `E7GWMap.FORT_PLACES` and `placesToCheck(rgba, W, H, fortIndex, badges)`: a known place with
+  something round and dark on it that is not a found badge is looked at too, and kept only with a name under it.
+- **Results**: `E7GWResult.roundResult` knows the green shield; `titleKind` returns `{ type, ok: null, draw: true }`
+  for "… Draw"; the reader's note says "Defense draw".
+- **Names**: `nameLetters(…, { tight, centred })`: the letter-sized group gives how far the name reaches on its
+  longer side; the same reach on the other side belongs to it (letter-sized patches first, then small ones:
+  anything between the letters, past the last letter only a small kana or a long-vowel dash); `sym` says it came
+  out centred. "Letter-sized" is now relative to the tallest patch (a keep's name is small in its box).
+  `pickRead`: a centred tight reading beats a loose one that holds it plus more, or is two or more characters
+  longer (three characters at least in the centred one); Latin the same for any number of added characters.
+  `E7Names.read(…, { centred: true })` from the map reader only (names elsewhere are not centred).
+- Fixtures (names replaced): `steam-gw-map-states-wide.jpg`, `steam-gw-map-middle-beaten-wide.jpg`,
+  `steam-gw-result-draw-wide.jpg`, `steam-gw-enemy-attacked-wide.jpg`, `steam-gw-enemy-inbattle-wide.jpg`.
+  `tools/dev/name-boxes.js` uses the centred cut, so made-up names are drawn where the real ones are centred.
+
+**Bugs found and fixed while doing it**
+- The first version of the centred cut let admitted patches widen the reach, so scenery crept in again: the reach is
+  set once by the letter-sized group.
+- "Longer loose reading loses" also killed a right loose reading when the centred one had only two characters:
+  three are required.
+
+**Tested**
+- `npm test` **174** (+2: the centred cut on made-up pixels; the centred readings in `pickRead`).
+- The owner's real maps (not committed), before → after: Stinger **5 → 7 of 7 defenders**, middle **3 → 5 of 5**
+  (the destroyed one as beaten), own map 9 of 9. Names exact: **17 of 21** (6 of 7, 4 of 5, 8 of 9). The four:
+  a katakana name with roof edges touching its last letter (two characters off), a small っ read as づ, a keep's
+  name that ends in a Latin x after kana (the x is dropped by the cleaning of stray Latin letters), a speck touching
+  a first letter (an extra "A"). All four are within what the player list or a saved name corrects. A picture
+  marking each name was sent to the owner.
+- The real "Defense Draw" window: both names, defeat / victory, **12 of 12 heroes**.
+- Browser suite **38/38**. New `tests/e2e/gw-states.e2e.js` (replaced names): the Stinger map **7 of 7 defenders** (6 names exact, the "Battle in Progress" one flagged), the middle map **5 of 5** (4 names exact, the dark one marked beaten on the War tab); the draw window → my attack, round 1 won, round 2 lost, 12 of 12 heroes, 3 → 2 attacks left; both enemy pages with a banner: the name and 5 of 6 heroes. The older Guild War tests print the same numbers as before this change.
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `newwar`, `war-reminder`, `popout` pass.
+- **Not tested:** the fixed places finding a defender the badge finder missed (no map has such a case; the pieces
+  are unit-tested); "Attack Draw", a drawn single round; the right fortress during a war; on the owner's PC.
+
+**Open**
+- Mixed names (kana + Latin letters): `cleanCjk` drops Latin letters at the ends as stray; a rule that keeps them
+  when the reader was sure needs more examples.
+- Scenery that touches a letter cannot be cut off by position; the player list / known names correct it.
+- Reading the Season Log rows directly, the attacks left ("2/3"), "Cannot Battle" under a name: on the roadmap.
+
+---
+
 ## 2026-11-16 · #58 · Guild War: the Offense Team screen, the start of the fight, notes left in the game; falling snow taken out of map names · this commit (previous: `fefacf1`)
 
 **Asked for** (five screenshots: a note bubble on a map badge, the note window "<member>'s Record", the "Offense
