@@ -229,3 +229,31 @@ test('records: seasons — table, the season of a date (a pre-season counts to t
   assert.strictEqual(R.seasonOfMatch([], { date: '2026-06-01T10:00:00Z' }), '');
   assert.strictEqual(R.seasonOfMatch(T, {}), '');
 });
+
+test('records transport: names CLOSE to a text read from the screen, from the server\'s own player list (DEVLOG #55)', async () => {
+  const http = require('http');
+  const os = require('os');
+  const users = ['moonpie5385', 'Moonpie', 'OKameko', 'ハナコサクロ', 'ユキダルマ', 'ミドリカワ', 'starry26', 'starry27', '山田太郎', 'Ab'];
+  const srv = http.createServer((req, res) => res.end(JSON.stringify({ users: users.map((n, i) => ({ nick_no: String(100 + i), nick_nm: n, rank: String(70 - i) })) })));
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}/`;
+  const rec = transport.create({ dir: fs.mkdtempSync(path.join(os.tmpdir(), 'e7near-')), base, userUrl: (w) => `${base}users_${w}.json`, interval: 0 });
+  try {
+    const names = async (t) => (await rec.near('world_jpn', t)).map((x) => `${x.name}:${x.d}`);
+    assert.deepEqual(await names('moonpies385'), ['moonpie5385:1'], 'the reader took 5 for s');
+    assert.deepEqual(await names('0Kameko'), ['OKameko:1'], '0 for O');
+    assert.deepEqual(await names('ハナコサク回'), ['ハナコサクロ:1'], 'one character of a Japanese name off');
+    assert.deepEqual(await names('ユキダルマ'), ['ユキダルマ:0']);
+    assert.deepEqual(await names('okameko'), ['OKameko:0'], 'letter case does not count');
+    assert.deepEqual(await names('starry2B'), ['starry26:1', 'starry27:1'], 'two players equally close: both are returned, the caller must not guess');
+    assert.deepEqual(await names('zzzzzzzz'), []);
+    assert.deepEqual(await names('A'), [], 'too short to search');
+    // short names allow one edit only; long ones up to three
+    assert.deepEqual(await names('Xb'), ['Ab:1']);
+    assert.deepEqual(await names('moonpye53B5x'), ['moonpie5385:3']);
+    assert.strictEqual(transport.editDistance([...'kitten'], [...'sitting'], 5), 3);
+    assert.strictEqual(transport.editDistance([...'abcdef'], [...'uvwxyz'], 2), 3, 'stops early: "more than the limit"');
+  } finally {
+    srv.close();
+  }
+});

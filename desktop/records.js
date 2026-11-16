@@ -167,7 +167,51 @@ function create(opts = {}) {
     const m = await users(world);
     return (m.get(n) || []).map((u) => ({ ...u, world })).sort((a, b) => b.rank - a.rank).slice(0, 5);
   }
-  return { game, find, status: () => ({ ...st }), ALLOWED: [...ALLOWED] };
+  /**
+   * Players of that server whose name is CLOSE to a text read from the screen (DEVLOG #55): the text reader mixes up
+   * 5 / s, 0 / O, and misses a character of a Japanese name; the server's own player list knows the real spelling.
+   * Nothing is sent: the list is the one find() downloads. -> up to `max` [{ name, nickNo, rank, d }] (d = edits
+   * needed; 0 = the same but for letter case), closest first, then the higher account rank.
+   * Allowed edits: 1 for names up to 5 characters, 2 up to 11, 3 beyond.
+   */
+  async function near(world, text, max = 3) {
+    const t = String(text || '').trim().toLowerCase();
+    if (t.length < 2 || t.length > 40) return [];
+    const m = await users(world);
+    const allow = t.length <= 5 ? 1 : t.length <= 11 ? 2 : 3;
+    const out = [];
+    const exact = m.get(t);
+    if (exact) for (const u of exact) out.push({ ...u, world, d: 0 });
+    const tc = [...t];
+    for (const [key, list] of m) {
+      if (key === t) continue;
+      const kc = [...key];
+      if (Math.abs(kc.length - tc.length) > allow) continue;
+      const d = editDistance(tc, kc, allow);
+      if (d <= allow) for (const u of list) out.push({ ...u, world, d });
+    }
+    return out.sort((a, b) => a.d - b.d || b.rank - a.rank).slice(0, max);
+  }
+  return { game, find, near, status: () => ({ ...st }), ALLOWED: [...ALLOWED] };
 }
 
-module.exports = { create, request, BASE, USER_URL, INTERVAL };
+/** Edits (insert / delete / replace one character) to turn a into b; stops early once it must exceed `limit`. */
+function editDistance(a, b, limit) {
+  const n = b.length;
+  let prev = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= n; j++) {
+      const v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      cur.push(v);
+      if (v < best) best = v;
+    }
+    if (best > limit) return limit + 1;
+    prev = cur;
+  }
+  return prev[n];
+}
+
+module.exports = { create, request, editDistance, BASE, USER_URL, INTERVAL };

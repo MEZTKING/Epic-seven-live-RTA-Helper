@@ -130,8 +130,10 @@
   async function applyForts(d) {
     if (!d) return;
     try {
-      if (d.enemyGuild && A.warFromGame) await A.warFromGame(d.enemyGuild);
+      // (both guild names must have been read: one name alone is not proof of a real overview; DEVLOG #55)
+      if (d.enemyGuild && d.ourGuild !== '' && A.warFromGame) await A.warFromGame(d.enemyGuild);
       if (d.side && Array.isArray(d.names) && A.saveFortNames) await A.saveFortNames(d.side, d.names, d.enemyGuild);
+      if (d.enemyGuild && d.endsAt && A.warEndsFromGame) await A.warEndsFromGame(d.enemyGuild, d.endsAt, d.enemyServer || '');
     } catch (_) { /* shown by the page's own status line */ }
   }
   bus.on('guild:forts', applyForts);
@@ -140,7 +142,7 @@
     try {
       const v = JSON.parse(localStorage.getItem('e7-gw-forts') || 'null');
       // only a recent reading (a war lasts days; an old reading may be last war's)
-      return v && v.at && v.enemyGuild && Date.now() - Date.parse(v.at) < 12 * 3600 * 1000 ? { side: v.side, names: v[v.side], enemyGuild: v.enemyGuild } : null;
+      return v && v.at && v.enemyGuild && Date.now() - Date.parse(v.at) < 12 * 3600 * 1000 ? { side: v.side, names: v[v.side], enemyGuild: v.enemyGuild, ourGuild: v.ourGuild || '' } : null;
     } catch (_) {
       return null;
     }
@@ -190,10 +192,24 @@
     const beaten = list.filter((p) => p.state === 'beaten').length;
     el.innerHTML = `<b>Seen in game: ${ours ? 'our' : 'enemy'} ${A.esc(seenFort.fort)}</b> <span class="hint">${list.length} defenders${beaten ? `, ${beaten} beaten` : ''} · check the names (✓ = a name you already have), then save</span>
       <div class="gw-fort-names">${list
-        .map((p, i) => `<label class="gw-fort-name ${p.state === 'beaten' ? 'beaten' : ''}" title="${p.state === 'beaten' ? 'Beaten (grey ring)' : ''}"><input data-fort-i="${i}" value="${A.esc(p.name || '')}" placeholder="(not read)" />${p.known ? ' ✓' : ''}${p.keep ? ' <span class="hint">keep</span>' : ''}${p.state === 'beaten' ? ' <span class="hint">✗</span>' : ''}</label>`)
+        .map((p, i) => `<label class="gw-fort-name ${p.state === 'beaten' ? 'beaten' : ''}" title="${p.state === 'beaten' ? 'Beaten (grey ring)' : ''}">
+          ${p.pic ? `<img class="gw-fort-pic" src="${A.esc(p.pic)}" alt="" title="The name as the game shows it" />` : ''}
+          <input data-fort-i="${i}" value="${A.esc(p.name || '')}" placeholder="(not read)" />${p.known ? ' ✓' : ''}${p.official ? ' <span class="hint" title="Spelled as on the official record site">✓ official</span>' : ''}${p.keep ? ' <span class="hint">keep</span>' : ''}${p.state === 'beaten' ? ' <span class="hint">✗</span>' : ''}
+          ${(p.options || []).length ? `<span class="gw-fort-opts">${p.options.slice(0, 3).map((o) => `<button type="button" class="btn" data-fort-opt="${i}" data-v="${A.esc(o)}" title="A player of that server with a name close to what was read: click to use this spelling">${A.esc(o)}</button>`).join('')}</span>` : ''}</label>`)
         .join('')}</div>
-      <button class="btn primary" id="gw-fort-save">${ours ? `Save as our ${A.esc(seenFort.fort)}` : `Save as this war's ${A.esc(seenFort.fort)}`}</button> <span id="gw-fort-msg" class="hint"></span>`;
+      <button class="btn primary" id="gw-fort-save">${ours ? `Save as our ${A.esc(seenFort.fort)}` : `Save as this war's ${A.esc(seenFort.fort)}`}</button> <span id="gw-fort-msg" class="hint"></span>
+      <div class="hint">Each box has the name's picture from the game above it. A name in a script you can't type: compare the picture with the box (and with the buttons under it, the closest names on that server's official list) and click the one that looks the same. If none does, leave it: the app recognises the same player again by the same reading, so the war plan still works.</div>`;
     el.classList.remove('hidden');
+    el.querySelectorAll('[data-fort-opt]').forEach((b) => (b.onclick = () => {
+      // swap: the spelling that was in the box goes onto the button, so a wrong click can be taken back
+      const box = el.querySelector(`[data-fort-i="${b.dataset.fortOpt}"]`);
+      const old = box.value;
+      box.value = b.dataset.v;
+      if (old) {
+        b.dataset.v = old;
+        b.textContent = old;
+      }
+    }));
     $('#gw-fort-save').onclick = async () => {
       const players = list.map((p, i) => ({ ...p, name: el.querySelector(`[data-fort-i="${i}"]`).value.trim() }));
       try {

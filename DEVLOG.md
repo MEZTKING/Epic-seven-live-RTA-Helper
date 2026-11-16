@@ -7,6 +7,86 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #55 · Guild War in a running war: no more wars against made-up guilds; names in any script; pick the right spelling by eye · this commit (previous: `dcfb1e1`)
+
+**Asked for** (with screenshots of the guild hall "Guild War in progress", the VS screen, the overview of a running
+war, and two fortress maps of a Japanese enemy guild next to the app):
+- "when clicking on guild war in progress, those are the pages it opens when going into a new war"
+- "how to deal with non-english characters"
+- "it still gets english names wrong" (moonpie5385 was read as moonpies385)
+- "and if it gets a name wrong, how can i correct it if i dont know any other languages"
+
+**Findings** (the owner's screenshots run through the readers as they were)
+- (Player and guild names in this entry are replaced by made-up ones of the same kind: the repository is public.)
+- The real overview read correctly: both guild names, all three fortress names.
+- **The bug behind "New war vs bit®Hole started by itself" and the fortress names "EES" / "NSE":** on a fortress
+  MAP the overview reader took the page indicator (bottom right, one third lit) for the overview's side switch (same
+  place, one half lit), read scenery as fortress names (stored over the real ones) and as guild names, and when two
+  nonsense readings agreed a war was started. Measured on 12 real screens: map = one third ≥ 0.69 lit and the other
+  two ≤ 0.03; overview = one half 0.55–0.86 lit, the other ≤ 0.09, middle third 0.36–0.64.
+- Names: the white-letter mask also kept white snow and roofs next to a name, and its threshold lost thin strokes in
+  a small window. The readings were of the scenery ("KEEEE", "S24—anag", "Navy").
+- Japanese names are simply not in the English text data. With the Japanese data the real names read
+  (ユキダルマ exact, ミドリカワ exact, one name off by its last character).
+- The overview shows each guild's server (Global / Japan / …) next to its name, and "War Ends in 17h".
+- The record site's player list per server (already used for "Find me") holds the official spelling of every
+  ranked player: a reading that is one or two characters off can be matched to it without sending anything.
+- A CJK font was needed to draw made-up names into the test picture: `apt-get install fonts-noto-cjk` (only to
+  rebuild the fixtures; the tests use the committed pictures).
+
+**Changed**
+- **Map against overview** (`js/gwmap.js` `barKind`): the overview reader needs "one half lit", the map reader refuses
+  it; a war is only started when BOTH guild names were read (`js/guild-watch.js`).
+- **Names** (`js/gwmap.js`, `js/vision/readers/guild-fortress.js`):
+  - `nameMask`: white patches that cannot be letters are dropped (touching the crop's edge, too tall, too big, too
+    thick); threshold 170 instead of 190; crops read at 96 px instead of 64
+  - languages: `js/vision/hub.js` can load other text data (`ctx.ocr(canvas, { lang, full })`); a name is read in
+    English and, by the enemy's (or our) server tag, in Japanese / Korean / Traditional Chinese; without a tag and
+    with a poor English reading the three are tried. `pickRead` decides; `cleanCjk` joins the characters
+  - **official spelling**: `desktop/records.js` `near(world, text)` (+ IPC op `near`, `E7Desktop.records.near`)
+    returns the players of that server whose name is 1–3 edits from the reading; one clearly closest → used and
+    marked "✓ official"; several → offered
+  - **correcting without knowing the script**: every box in "Seen in game" has the name's **picture from the game**
+    above it and the close official spellings as buttons under it (a click swaps, so it can be taken back); a hint
+    says that a name left as read still works, because the same reading is recognised again
+- **Overview of a running war** (`js/vision/readers/guild-overview.js`, `js/layouts.js` `gwWarEnds`): servers of both
+  guilds and "War Ends in 17h" are read; `guild:forts` carries `ourServer`, `enemyServer`, `endsIn`, `endsAt`; kept in
+  `e7-gw-forts`; the war gets `endsAt` / `enemyServer` (`GuildApp.warEndsFromGame`) and the War tab shows "War ends in
+  about 17 hours".
+- New fixtures, names replaced by `tools/dev/redact-gw-screens.py` (new): `steam-gw-overview-war-wide.jpg`,
+  `steam-gw-map-vortex-jp-window.png` (small window with title bar; made-up names in katakana, hiragana, kanji and
+  Latin letters), `steam-gw-versus-wide.jpg`, `steam-gw-hall-wide.jpg`.
+
+**Tested**
+- `npm test` **161** (+4: `barKind`; servers / `cleanCjk` / `pickRead`; `nameMask`; `near` on a local server:
+  moonpies385 → moonpie5385, 0Kameko → OKameko, ハナコサク回 → ハナコサクロ, ties, limits).
+- Browser suite **34/34** clean. New `tests/e2e/gw-war-names.e2e.js`: hall and VS start nothing; overview → war vs
+  the enemy with servers and end time; the small-window map → "Not the overview (a fortress map)", no new war,
+  fortress names untouched; **5 of 5 names exact** (ハナコサン, みどりかわ, 山田太郎, moonpie77, KeepJP1), pictures,
+  offered spellings, click to use one, save.
+- English names on the older real maps (same fixtures as before): **45 of 49 exact, was 36** (Stinger 9/10 from 6,
+  Darkwood 9/10 from 8, Domino 9/9, Crown 8/10 from 6, Log 10/10 from 8).
+- The owner's real map (not committed): ユキダルマ, ミドリカワ, starry26, OKameko exact; ハナコサク回 for ハナコサクロ
+  (the player list would correct it in the desktop app).
+- Desktop (packaged Linux build): `newwar`, `war-reminder` pass.
+- **Not tested:**
+  - Korean and Chinese names (no screenshot; same path with other language data)
+  - the official-spelling lookup against the real Japanese list (unit-tested with a local list; the Japan list is
+    1.5 MB, Global 17 MB on first use)
+  - the maximized map of the owner's last message (it was shown in the chat but not saved as a file here)
+  - on the owner's PC
+
+**Open**
+- The guild hall ("Guild War in progress") and the VS screen are recognised as "not an overview" only; nothing is
+  read from them yet (the VS screen has both guild names and servers large and clear). ROADMAP.
+- Also on the overview and not read yet: my attacks left (3/3), both guilds' attack totals, standing defenders per
+  fortress (7/7, 4/5, 5/5).
+- The war "vs bit®Hole" on the owner's PC was started by the bug: press Undo on its banner, or Mark finished. The
+  wrong fortress names are replaced the next time the overview is on screen.
+- Latin look-alikes the picture cannot settle (O / 0, l / 1 / I) are only fixed by the player list or by hand.
+
+---
+
 ## 2026-11-16 · #54 · RTA overlay only during an RTA draft; overlay cards no longer outlive their page · this commit (previous: `bb60305`)
 
 **Asked for:** (screenshots of the lobby and a Guild War map with "Your preban: …" drawn on them) "prebans shouldn't

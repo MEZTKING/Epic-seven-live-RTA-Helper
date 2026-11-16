@@ -557,3 +557,8 @@ dialog.ask-dialog input { width: 100%; }
 .plan-row .hchip { margin: 0; }
 .plan-row .hint { margin: 0; font-size: 12px; }
 .plan-row .score { margin-left: auto; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* Guild War "Seen in game": the name's picture from the game above its box, close official spellings under it (DEVLOG #55) */
+.gw-fort-pic { display: block; height: 26px; max-width: 100%; border-radius: 4px; margin-bottom: 3px; object-fit: contain; object-position: left; background: #000; }
+.gw-fort-opts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+.gw-fort-opts .btn { padding: 1px 6px; font-size: 12px; }

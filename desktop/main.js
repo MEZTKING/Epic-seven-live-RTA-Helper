@@ -145,6 +145,7 @@ ipcMain.handle('e7:records', async (e, req) => {
   const r = req || {};
   if (r.op === 'game') return records.game(String(r.name || ''), r.params || {});
   if (r.op === 'find') return records.find(String(r.world || ''), String(r.name || ''));
+  if (r.op === 'near') return records.near(String(r.world || ''), String(r.text || ''));
   if (r.op === 'status') return records.status();
   throw new Error('Unknown request.');
 });

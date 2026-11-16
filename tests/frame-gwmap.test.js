@@ -146,3 +146,79 @@ test('gwmap: standby page (DEVLOG #46) — title, countdown, green button, place
   assert.ok(Math.abs(G.greenShare(px, W, H, { x: 0, y: 0, w: W, h: H }) - 0.75) < 1e-9);
   assert.equal(G.greenShare(px, W, H, { x: 30, y: 0, w: 10, h: H }), 0);
 });
+
+test('gwmap: page indicator of a map against the side switch of the overview (DEVLOG #55)', () => {
+  // a bar 300 × 20; lit = white
+  const bar = (lit) => {
+    const W = 300;
+    const H = 20;
+    const a = new Uint8ClampedArray(W * H * 4);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) a.set(lit(x / W) ? [240, 240, 240, 255] : [30, 32, 44, 255], (y * W + x) * 4);
+    return G.barKind(a, W, H, { x: 0, y: 0, w: W, h: H });
+  };
+  // map: one third is a solid pill
+  assert.deepEqual([bar((f) => f < 1 / 3).kind, bar((f) => f < 1 / 3).index], ['map', 0]);
+  assert.deepEqual([bar((f) => f >= 1 / 3 && f < 2 / 3).kind, bar((f) => f >= 1 / 3 && f < 2 / 3).index], ['map', 1]);
+  assert.deepEqual([bar((f) => f >= 2 / 3).kind, bar((f) => f >= 2 / 3).index], ['map', 2]);
+  // overview: one half lit, with a dark icon in its middle
+  const ours = bar((f) => f < 0.5 && !(f > 0.2 && f < 0.3));
+  const enemy = bar((f) => f >= 0.5 && !(f > 0.7 && f < 0.8));
+  assert.deepEqual([ours.kind, ours.side], ['overview', 'ours']);
+  assert.deepEqual([enemy.kind, enemy.side], ['overview', 'enemy']);
+  // neither: nothing lit, everything lit, a small bright spot (a banner in the lobby)
+  assert.equal(bar(() => false).kind, null);
+  assert.equal(bar(() => true).kind, null);
+  assert.equal(bar((f) => f > 0.4 && f < 0.58).kind, null);
+});
+
+test('gwmap: servers, scripts and which reading of a name to believe (DEVLOG #55)', () => {
+  assert.equal(G.serverOf('NightOwls @ Japan'), 'japan');
+  assert.equal(G.serverOf('TestHome Global'), 'global');
+  assert.equal(G.serverOf('Globalists'), '');
+  assert.deepEqual(['japan', 'korea', 'asia', 'global', 'europe', ''].map(G.langFor), ['jpn', 'kor', 'chi_tra', '', '', '']);
+  assert.deepEqual(['japan', 'global', 'europe', 'nowhere'].map(G.worldFor), ['world_jpn', 'world_global', 'world_eu', '']);
+  // the reader puts spaces between the characters and adds stray Latin letters at the ends
+  assert.equal(G.cleanCjk('ユキ ダル マ'), 'ユキダルマ');
+  assert.equal(G.cleanCjk('ハナ コ サク ロ a'), 'ハナコサクロ');
+  assert.equal(G.cleanCjk('山田 太郎'), '山田太郎');
+  assert.equal(G.cleanCjk('김 철수'), '김철수');
+  assert.equal(G.cleanCjk('starry 26'), '', 'no name in that script');
+  assert.equal(G.cleanCjk('コ'), '', 'one character is not a name');
+  const pick = (list) => G.pickRead(list).name;
+  // a Japanese name: English data makes nonsense of it
+  assert.equal(pick([{ lang: 'eng', text: 'FEEEE', conf: 45 }, { lang: 'jpn', text: 'ユキ ダル マ', conf: 93 }]), 'ユキダルマ');
+  // a Latin name: the other script's stray characters do not win
+  assert.equal(pick([{ lang: 'eng', text: 'starry26', conf: 85 }, { lang: 'jpn', text: 'Starry26', conf: 89 }]), 'starry26');
+  assert.equal(pick([{ lang: 'eng', text: 'starry z6 ~', conf: 60 }, { lang: 'jpn', text: 'StarryZ6 人 .', conf: 33 }]), 'starry');
+  // a Latin name the English data read badly and the other data read surely
+  assert.equal(pick([{ lang: 'eng', text: 'Keep)jP1', conf: 21 }, { lang: 'jpn', text: 'KeepJP1', conf: 64 }]), 'KeepJP1');
+  assert.equal(pick([{ lang: 'eng', text: 'OKameko', conf: 88 }, { lang: 'jpn', text: '0Kameko', conf: 92 }]), 'OKameko');
+  assert.equal(pick([]), '');
+  assert.equal(pick([{ lang: 'eng', text: '~', conf: 90 }]), '');
+});
+
+test('gwmap: name mask — letters kept, white scenery next to them dropped (DEVLOG #55)', () => {
+  const W = 300;
+  const H = 96;
+  const a = new Uint8ClampedArray(W * H * 4);
+  const fill = (x0, y0, x1, y1, v) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) a.set([v, v, v, 255], (y * W + x) * 4); };
+  fill(0, 0, W, H, 60); // dark scenery
+  // three "letters": strokes 8 px thick, 50 px tall
+  for (const x of [100, 130, 160]) { fill(x, 25, x + 8, 75, 250); fill(x, 25, x + 20, 33, 250); }
+  fill(200, 20, 290, 90, 245); // a snow patch: big and thick
+  fill(20, 0, 40, 30, 250); // a roof edge touching the top
+  fill(60, 40, 64, 44, 200); // a light speck: kept (small), it is the span that leaves it out
+  const m = G.nameMask(a, W, H);
+  const on = (x, y) => m[y * W + x];
+  assert.equal(on(104, 50), 1, 'letter stroke kept');
+  assert.equal(on(165, 28), 1);
+  assert.equal(on(245, 55), 0, 'snow patch dropped');
+  assert.equal(on(30, 10), 0, 'patch touching the edge dropped');
+  const span = G.letterSpan(m, W, H);
+  assert.ok(span[0] <= 100 && span[1] >= 175 && span[1] < 200, `span ${span}`);
+  // grey (thin strokes of a small window are not pure white): kept from 170 up, not below
+  fill(100, 25, 108, 75, 180);
+  assert.equal(G.nameMask(a, W, H)[50 * W + 104], 1);
+  fill(100, 25, 108, 75, 150);
+  assert.equal(G.nameMask(a, W, H)[50 * W + 104], 0);
+});

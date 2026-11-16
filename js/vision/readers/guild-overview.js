@@ -82,8 +82,11 @@
       if (!lay) return ctx.note('This window shape is too unusual for the built-in positions');
       const rgba = nctx.getImageData(0, 0, W, H).data;
       const pr = lay.regions.gwFortPager;
-      const side = G.toggleSide(rgba, W, H, { x: pr.x * W, y: pr.y * H, w: pr.w * W, h: pr.h * H });
-      if (!side) return ctx.note('Not the overview (no shield / swords switch)');
+      // the side switch: one HALF of the bar lit. A fortress map has its page indicator in the same place (one third
+      // lit); taking that for the switch made this reader read scenery as names and start a war (DEVLOG #55).
+      const kind = G.barKind(rgba, W, H, { x: pr.x * W, y: pr.y * H, w: pr.w * W, h: pr.h * H });
+      if (kind.kind !== 'overview') return ctx.note(kind.kind === 'map' ? 'Not the overview (a fortress map)' : 'Not the overview (no shield / swords switch)');
+      const side = kind.side;
       const st0 = read();
       const have = st0[side] && st0[side].filter(Boolean).length === 3 && st0.enemyGuild;
       if (have && lastRead.side === side && Date.now() - lastRead.at < 60000) {
@@ -134,30 +137,48 @@
           const x = c.getContext('2d');
           x.filter = filter;
           x.drawImage(norm, box.x, box.y, box.w, box.h, 0, 0, c.width, c.height);
-          return G.cleanGuild(await ctx.ocr(c, { line: true }));
+          const raw = await ctx.ocr(c, { line: true });
+          servers[key] = servers[key] || G.serverOf(raw); // the tag after the name: Global / Japan / Korea / Asia / Europe
+          return G.cleanGuild(raw);
         };
         const a = await read1(64, 'grayscale(1) contrast(1.6)');
         const b = await read1(96, 'grayscale(1) contrast(2.2)');
         if (a.length < 3) return '';
         return a === b || G.matchName(a, [b]) ? a : '';
       };
-      const enemyGuild = await guild('gwEnemyGuild');
+      const servers = {};
+      let enemyGuild = await guild('gwEnemyGuild');
       const ourGuild = await guild('gwOurGuild');
+      // a war is only ever started from BOTH names read cleanly on a real overview
+      if (!ourGuild) enemyGuild = '';
+      // "War Ends in 17h" (top left): when this war is over
+      let endsIn = null;
+      if (lay.regions.gwWarEnds) {
+        const r = lay.regions.gwWarEnds;
+        const c = document.createElement('canvas');
+        c.height = 72;
+        c.width = Math.round((r.w * W * 72) / (r.h * H));
+        const x = c.getContext('2d');
+        x.filter = 'grayscale(1) contrast(1.8)';
+        x.drawImage(norm, r.x * W, r.y * H, r.w * W, r.h * H, 0, 0, c.width, c.height);
+        const raw = await ctx.ocr(c, { line: true });
+        if (/end/i.test(raw)) endsIn = G.standbyMinutes(raw);
+      }
       const found = names.filter(Boolean).length;
       if (!found && !enemyGuild) return ctx.note(`${side === 'ours' ? 'Our' : 'Enemy'} side: fortress names not readable`);
       const st = read();
       // names missing in this reading may come from the last one only if it was the same war (same enemy guild)
       const prev = !enemyGuild || !st.enemyGuild || st.enemyGuild === enemyGuild ? st[side] || [] : [];
       const merged = names.map((n, i) => n || prev[i] || null);
-      const key = `${side}|${merged.join('|')}|${enemyGuild}`;
+      const key = `${side}|${merged.join('|')}|${enemyGuild}|${endsIn ? Math.round(endsIn / 60) : ''}`;
       ctx.note(`${enemyGuild ? `vs ${enemyGuild} · ` : ''}${side === 'ours' ? 'Our' : 'Enemy'} side: ${merged.map((n, i) => n || G.DEFAULT_FORTS[i]).join(' · ')}`);
       if (key === lastKey) return;
       lastKey = key;
       try {
         // enemyGuild is ONLY what this pass read (never carried over: a stale name could pick or start the wrong war)
-        localStorage.setItem(KEY, JSON.stringify({ ...st, [side]: merged, side, ourGuild: ourGuild || st.ourGuild || '', enemyGuild, at: new Date().toISOString() }));
+        localStorage.setItem(KEY, JSON.stringify({ ...st, [side]: merged, side, ourGuild: ourGuild || st.ourGuild || '', enemyGuild, ourServer: servers.gwOurGuild || st.ourServer || '', enemyServer: enemyGuild ? servers.gwEnemyGuild || '' : st.enemyServer || '', at: new Date().toISOString() }));
       } catch (_) { /* only a help */ }
-      ctx.publish('guild:forts', { side, names: merged, ourGuild, enemyGuild });
+      ctx.publish('guild:forts', { side, names: merged, ourGuild, enemyGuild, ourServer: servers.gwOurGuild || '', enemyServer: servers.gwEnemyGuild || '', endsIn, endsAt: endsIn ? new Date(Date.now() + endsIn * 60000).toISOString() : null });
     },
   });
 })();

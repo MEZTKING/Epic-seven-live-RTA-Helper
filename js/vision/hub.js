@@ -57,8 +57,12 @@
     cx.drawImage(source, rect.x * w(), rect.y * h(), bw, bh, 0, 0, cv.width, cv.height);
     return cv;
   }
-  async function loadOcr() {
-    if (worker) return worker;
+  // Text readers by language. English is the default; names of players on the Japanese / Korean / Asian servers need
+  // that script's data ('jpn', 'kor', 'chi_tra'; loaded from the same CDN the first time, a few MB each; DEVLOG #55).
+  const workers = {};
+  async function loadOcr(lang = 'eng') {
+    if (lang === 'eng' && worker) return worker;
+    if (workers[lang]) return workers[lang];
     if (!window.Tesseract) {
       await new Promise((res, rej) => {
         const s = document.createElement('script');
@@ -68,16 +72,19 @@
         document.head.appendChild(s);
       });
     }
-    worker = await window.Tesseract.createWorker('eng');
-    return worker;
+    workers[lang] = await window.Tesseract.createWorker(lang);
+    if (lang === 'eng') worker = workers[lang];
+    return workers[lang];
   }
   /** One text reader for every reader, one job at a time. */
   function ocr(canvas, opts = {}) {
     const job = ocrChain.then(async () => {
-      const wk = await loadOcr();
+      const wk = await loadOcr(opts.lang || 'eng');
       await wk.setParameters({ tessedit_pageseg_mode: opts.line ? '7' : '3' });
       const { data } = await wk.recognize(canvas);
-      return ((data && data.text) || '').replace(/\n+/g, ' ').trim();
+      const text = ((data && data.text) || '').replace(/\n+/g, ' ').trim();
+      // opts.full: also how sure the reader is (0–100) and which language data was used
+      return opts.full ? { text, conf: Math.round((data && data.confidence) || 0), lang: opts.lang || 'eng' } : text;
     });
     ocrChain = job.catch(() => {});
     return job;
