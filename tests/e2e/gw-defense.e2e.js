@@ -50,7 +50,7 @@ const { autoAsk, ask } = require('./_ask.js');
   // Save as … defense -> editor prefilled
   await gp.click('#gw-seen-save');
   await gp.waitForSelector('#target-dialog[open]');
-  await gp.fill('#target-form [name=player]', 'Ozythral');
+  await gp.fill('#target-form [name=player]', 'Rival7');
   const filled = await gp.$$eval('#team-editors .h3', (i) => i.map((x) => x.value));
   console.log('editor prefilled:', JSON.stringify(filled));
   // type a hero for the first empty place (as the owner would for a skin), then save -> learned

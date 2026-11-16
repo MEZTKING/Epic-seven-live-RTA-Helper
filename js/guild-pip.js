@@ -92,7 +92,7 @@
     win.document.getElementById('gp-names').innerHTML = names().map((n) => `<option value="${esc(n)}"></option>`).join('');
     const left = A.attacksLeft();
     const watching = window.GuildWatch && window.GuildWatch.isWatching();
-    const head = `<div class="pip-line hint">${left === null ? '' : `Your attacks left today: <b>${left}</b> · `}${watching ? '<span class="live-dot on"></span> reading names from the game' : 'tip: “Watch game” picks the player for you'}</div>`;
+    const head = `<div class="pip-line hint">${left === null ? '' : `Your attacks left this war: <b>${left}</b> · `}${watching ? '<span class="live-dot on"></span> reading names from the game' : 'tip: “Watch game” picks the player for you'}</div>`;
     const name = A.current();
     const t = name ? A.targetFor(name) : null;
     if (!t) {

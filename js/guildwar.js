@@ -18,7 +18,9 @@
  * RTA helper's own data.
  */
 (function (root) {
-  const DEFAULT_RULES = { attacksPerMember: 2, teamsPerDefense: 2, heroesPerTeam: 3 };
+  // attacksPerMember: per WAR (the game gives each member 3 attack tokens for a war: "3/3" on the Guild War screens,
+  // 73 of 87 on the overview of a 29-member guild; DEVLOG #56. It was 2 "per day" before.)
+  const DEFAULT_RULES = { attacksPerMember: 3, teamsPerDefense: 2, heroesPerTeam: 3 };
 
   const teamKey = (heroes) => (heroes || []).filter(Boolean).slice().sort().join('+');
   const playerKey = (name) => String(name || '').trim().toLowerCase();
@@ -93,11 +95,31 @@
     };
   }
 
-  /** The defense team an attack was made against. */
+  /**
+   * The defense team an attack was made against: the line-up stored WITH the attack (a player can change their defense
+   * at any moment, also during a war; DEVLOG #56), else the target's team as it is saved now (older attacks).
+   */
   function defenseOf(attack, targetsById) {
+    if (Array.isArray(attack.defense) && attack.defense.length) return attack.defense;
     const t = targetsById.get(attack.targetId);
     const team = t && t.teams && t.teams[Number(attack.team) - 1];
     return team && team.heroes && team.heroes.length ? team.heroes : null;
+  }
+
+  /**
+   * What the game shows now against what is saved for a player (DEVLOG #56): teams whose three heroes were all
+   * recognised and are not the saved three. seenTeams: [[{ code, sure }|null ×3], …] (js/vision/readers/guild-defense.js)
+   * -> [{ team: 1|2, was: [codes], now: [codes] }]
+   */
+  function defenseChange(target, seenTeams) {
+    const out = [];
+    (seenTeams || []).forEach((seen, i) => {
+      const now = (seen || []).filter((x) => x && x.sure).map((x) => x.code);
+      const was = ((((target || {}).teams || [])[i] || {}).heroes || []).filter(Boolean);
+      if (now.length < 3 || was.length < 3) return;
+      if (teamKey(was) !== teamKey(now)) out.push({ team: i + 1, was, now });
+    });
+    return out;
   }
 
   /**
@@ -450,7 +472,7 @@
     return s;
   }
 
-  const api = { matchPlayer, editDistance, LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
+  const api = { matchPlayer, editDistance, LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, defenseChange, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAGuildWar = api;
 })(typeof window !== 'undefined' ? window : globalThis);

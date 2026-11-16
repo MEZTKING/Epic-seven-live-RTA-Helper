@@ -98,15 +98,15 @@ test('gwmap: which fortress the pager shows; name box under a badge', () => {
 });
 
 test('gwmap: names from OCR text, matched to names you already have', () => {
-  // real OCR outputs from the owner's Stinger map (DEVLOG #38)
-  assert.equal(G.cleanName('= AkariRen -'), 'AkariRen');
-  assert.equal(G.cleanName('RyanVo76.x °|'), 'RyanVo76');
-  assert.equal(G.cleanName('wy Fri13Kayle NA'), 'Fri13Kayle');
-  assert.equal(G.cleanName('epic7#rx71p7'), 'epic7#rx71p7');
+  // the kinds of OCR output seen on the owner's Stinger map (DEVLOG #38), with made-up names
+  assert.equal(G.cleanName('= AmberFox -'), 'AmberFox');
+  assert.equal(G.cleanName('BirchOwl76.x °|'), 'BirchOwl76');
+  assert.equal(G.cleanName('wy Sat14Maple NA'), 'Sat14Maple');
+  assert.equal(G.cleanName('epic7#ab12c3'), 'epic7#ab12c3');
   assert.equal(G.cleanName('| 4 ~'), '');
-  assert.equal(G.matchName('TubuZ', ['TuDuZ', 'Miidou']), 'TuDuZ');
-  assert.equal(G.matchName('Shviingv', ['Shuijingv2']), null, 'too far: not guessed');
-  assert.equal(G.matchName('miidou', ['Miidou']), 'Miidou');
+  assert.equal(G.matchName('TabuX', ['TaDuX', 'Moodie']), 'TaDuX');
+  assert.equal(G.matchName('Crvstalx', ['Crystalix2']), null, 'too far: not guessed');
+  assert.equal(G.matchName('moodie', ['Moodie']), 'Moodie');
 });
 
 test('gwmap: the letters of one name, not the snow next to it', () => {
@@ -221,4 +221,45 @@ test('gwmap: name mask — letters kept, white scenery next to them dropped (DEV
   assert.equal(G.nameMask(a, W, H)[50 * W + 104], 1);
   fill(100, 25, 108, 75, 150);
   assert.equal(G.nameMask(a, W, H)[50 * W + 104], 0);
+});
+
+test('gwmap: the letters of ONE name — small strokes join, specks and far patches do not (DEVLOG #56)', () => {
+  const W = 420;
+  const H = 96;
+  const a = new Uint8ClampedArray(W * H * 4);
+  const fill = (x0, y0, x1, y1, v) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) a.set([v, v, v, 255], (y * W + x) * 4); };
+  fill(0, 0, W, H, 60);
+  // three tall letters around the middle
+  for (const x of [170, 200, 230]) { fill(x, 25, x + 8, 75, 250); fill(x, 25, x + 20, 33, 250); }
+  fill(262, 44, 284, 52, 250); // a long-vowel dash right after them: small, on the line, close
+  fill(214, 12, 220, 18, 250); // the dot of an "i": tiny, inside the name
+  fill(330, 46, 336, 52, 250); // a speck further away on the line
+  fill(40, 30, 48, 80, 250); // a tall light patch far to the left (another label)
+  const loose = G.nameLetters(a, W, H, {});
+  assert.ok(loose, 'letters found');
+  assert.ok(loose.span[0] >= 165 && loose.span[0] <= 172, `left ${loose.span}`);
+  assert.ok(loose.span[1] >= 283 && loose.span[1] < 330, `the dash joins, the far speck does not: ${loose.span}`);
+  assert.equal(loose.mask[15 * W + 216], 1, 'the dot inside the name is kept');
+  assert.equal(loose.mask[50 * W + 44], 0, 'the far patch is not part of the name');
+  const tight = G.nameLetters(a, W, H, { tight: true });
+  assert.ok(tight.span[1] < 262, `tight: only the letter-sized group: ${tight.span}`);
+  // nothing letter-sized: no name
+  const b = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < W * H; i++) b.set([60, 60, 60, 255], i * 4);
+  assert.equal(G.nameLetters(b, W, H, {}), null);
+});
+
+test('gwmap: pickRead keeps every usable reading as a candidate; a clearly longer sure reading wins (DEVLOG #56)', () => {
+  const p = G.pickRead([
+    { lang: 'eng', text: 'FEE', conf: 30 },
+    { lang: 'jpn', text: 'ユキ', conf: 80 },
+    { lang: 'jpn', text: 'ユキ ダル マ', conf: 70 },
+    { lang: 'chi_sim', text: '山田', conf: 50 },
+  ]);
+  assert.equal(p.name, 'ユキダルマ', 'the short reading lost its end');
+  assert.deepEqual(p.all.map((x) => x.name), ['ユキダルマ', 'ユキ', '山田', 'FEE']);
+  const q = G.pickRead([{ lang: 'eng', text: 'moonpie77', conf: 88 }, { lang: 'jpn', text: 'moonpie77', conf: 80 }]);
+  assert.equal(q.name, 'moonpie77');
+  assert.equal(q.lang, 'eng');
+  assert.deepEqual(G.pickRead([]).all, []);
 });

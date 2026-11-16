@@ -122,7 +122,7 @@ Trial of Constellation, Strategic Archive…), a mobile app, and more.
   then teams sharing 2 of 3 heroes, with their record and who used them. The attack form can fill in a known counter.
 - **Who can take what:** for each uncleared team, the members with attacks left who **own** a known counter.
   Members share only which heroes they own, taken from their RTA roster, never their gear.
-- **Members:** attacks left today, win rate, defense held/lost, and each member's current defense.
+- **Members:** attacks left this war (three per member), win rate, defense held/lost, and each member's current defense.
 - **Enemies:** everything seen of an enemy player across all wars (defenses, speeds, builds, who beat them with what).
 - **Counters tab:** enemy heroes your guild loses to most, and your best attack teams overall.
 - **Dots: can *you* beat them?** Every enemy team, and every player (their weakest team still standing), gets a marker
@@ -152,7 +152,7 @@ Trial of Constellation, Strategic Archive…), a mobile app, and more.
   off in Setup). That's how the guild learns what speed it takes to win.
 - **Sharing:** live through Firebase, with anonymous sign-in (no emails). One person sets it up in about 10 minutes and
   everyone else opens an invite link. You can also export or import files (for example, to share in Discord).
-- Rules such as attacks per day and teams per defense are shared guild settings, in case the game changes them.
+- Rules such as attacks per war and teams per defense are shared guild settings, in case the game changes them.
 
 ## RTA features
 

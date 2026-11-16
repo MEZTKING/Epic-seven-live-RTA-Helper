@@ -2,16 +2,23 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
-## Next up (as of DEVLOG #53; the overview of what is verified is in docs/HANDOFF.md §0)
+## Next up (as of DEVLOG #56; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
 1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
    turn counting), then the built-in positions at the maximized window. Biggest risk to "everything automatic".
-2. **Guild War screens**: right after a war, an enemy map with a beaten defender, a map with Korean / Chinese
-   names → "war over" state, confirm the grey-ring rule on the enemy side, check those scripts.
+2. **Guild War screens, as files**: the "Successful Attack" / "Failed Defense" windows → **attack reader**: both
+   players' names (js/vision/names.js), both sides' two teams of three (faces), Victory / Defeat per round → the
+   attack logged by itself with Undo, the defender's line-up stored with it, our member's defense result too. Also:
+   a member's tower screen and our map with a damaged tower; right after a war; an enemy map with a beaten
+   defender; a map with Korean names.
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0a. Guild War, from the fixtures of DEVLOG #56: the **season log** on a player's screen (who attacked them, when,
+   won or lost per round); a tower's hit points ("Defense 330/450") and the **Havoc** score on maps and overview;
+   show a player's earlier line-ups (`team.earlier`) in their history window; a daily note built on the game day
+   (10:00 UTC on Global).
 0. Guild War, from the screens of DEVLOG #55 (fixtures are in the repository): read the **VS screen** (both guild
    names and servers, large and clear: a second, independent source before a war is started) and the guild hall's
    "Guild War in progress"; on the overview: my attacks left (3/3), both guilds' attack totals, standing defenders

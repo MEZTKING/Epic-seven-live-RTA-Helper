@@ -187,7 +187,7 @@
       return;
     }
     const R0 = rules();
-    const sum = GW.warSummary(state, warId, R0, today());
+    const sum = GW.warSummary(state, warId, R0);
     const myLeft = (sum.members.find((m) => GW.playerKey(m.name) === GW.playerKey(me())) || {}).left;
     const war = state.wars.find((w) => w.id === warId);
     const FORTS = fortsOf(war);
@@ -211,9 +211,9 @@
     $('#war-summary').innerHTML = `${ends ? `<div class="card"><div class="hint">War ends <span class="src game">read from the game</span></div><div class="stat">in about ${span(ends - Date.now())}</div><div class="hint">around ${esc(ends.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}${war.enemyServer ? ` · enemy server: ${esc(war.enemyServer[0].toUpperCase() + war.enemyServer.slice(1))}` : ''}</div></div>` : ''}
       <div class="card"><div class="hint">Defenses cleared</div><div class="stat">${sum.cleared}/${sum.targets.length}</div><div class="hint">${sum.teamsCleared}/${sum.teamsTotal} teams</div></div>
       <div class="card"><div class="hint">Attacks</div><div class="stat">${sum.wins}-${sum.attacks - sum.wins}</div><div class="hint">win rate ${pct(sum.wins, sum.attacks)}</div></div>
-      <div class="card"><div class="hint">Attacks left today (guild)</div><div class="stat">${sum.attacksLeft}</div><div class="hint">${me() ? `You: ${myLeft ?? R0.attacksPerMember}` : ''}</div></div>
-      <div class="card"><div class="hint">Members who still have attacks today</div><div class="small">${sum.members.filter((m) => m.left > 0).map((m) => `${esc(m.name)} (${m.left})`).join(', ') || '—'}</div></div>`;
-    const ideas = GW.assignmentIdeas(state, warId, R0, today()).filter((i) => i.members.length);
+      <div class="card"><div class="hint">Attacks left this war (guild)</div><div class="stat">${sum.attacksLeft}</div><div class="hint">${me() ? `You: ${myLeft ?? R0.attacksPerMember}` : ''}</div></div>
+      <div class="card"><div class="hint">Members who still have attacks this war</div><div class="small">${sum.members.filter((m) => m.left > 0).map((m) => `${esc(m.name)} (${m.left})`).join(', ') || '—'}</div></div>`;
+    const ideas = GW.assignmentIdeas(state, warId, R0).filter((i) => i.members.length);
     const ib = $('#war-ideas');
     ib.classList.toggle('hidden', !ideas.length);
     ib.innerHTML = `<h3>Who can take what <span class="src game">guild history</span></h3>${ideas
@@ -560,6 +560,22 @@
         return { ...tm, heroes: hs };
       });
       editingTarget._seen = seen; // what the app saw: names you type for unsure icons teach it (on save)
+      // the player changed their defense since it was saved (they can at any time): the line-up seen now goes in,
+      // the earlier one is kept on the team ("earlier"), speeds stay for the heroes that stayed (DEVLOG #56)
+      const changes = t ? GW.defenseChange(t, seen.teams) : [];
+      for (const c of changes) {
+        const tm = editingTarget.teams[c.team - 1] || {};
+        const speeds = {};
+        for (const h of c.now) if (tm.speeds && tm.speeds[h]) speeds[h] = tm.speeds[h];
+        editingTarget.teams[c.team - 1] = { ...tm, heroes: c.now, speeds, build: '', earlier: [{ heroes: c.was, speeds: tm.speeds || {}, build: tm.build || '', until: new Date().toISOString() }, ...(tm.earlier || [])].slice(0, 5) };
+      }
+      editingTarget._changes = changes;
+    }
+    const ch = $('#target-changed');
+    if (ch) {
+      const list = editingTarget._changes || [];
+      ch.classList.toggle('hidden', !list.length);
+      ch.innerHTML = list.length ? `<b>This player changed their defense.</b> ${list.map((c) => `Round ${c.team} was ${esc(c.was.map(nameOf).join(', '))}`).join(' · ')}. The line-up seen now is filled in; the earlier one is kept in their history. Attacks already logged stay with the line-up they were made against.` : '';
     }
     const f = $('#target-form');
     $('#target-title').textContent = t ? `Edit ${t.player}` : 'Add enemy defense';
@@ -598,12 +614,15 @@
         const s = Number($('.spd', row).value);
         if (s) speeds[c] = s;
       });
-      return { heroes, speeds, build: $('.build', fs).value.trim() };
+      // the earlier line-ups of this team (kept when the player changed their defense) stay with it
+      const earlier = ((editingTarget.teams || [])[Number(fs.dataset.team)] || {}).earlier;
+      return { heroes, speeds, build: $('.build', fs).value.trim(), ...(earlier && earlier.length ? { earlier } : {}) };
     });
     const unknown = $$('.h3', f).filter((i) => i.value.trim() && !codeOf(i.value)).map((i) => i.value);
     if (unknown.length && !confirm(`Unknown hero name(s): ${unknown.join(', ')}. Save without them?`)) return;
     const seen = editingTarget._seen;
     delete editingTarget._seen;
+    delete editingTarget._changes;
     await put('target', { ...editingTarget, player: f.player.value.trim(), tower: f.tower.value.trim(), notes: f.notes.value.trim(), teams });
     // learn from your names: an icon the app wasn't sure of (or got wrong) + the hero you typed = a correction (this device)
     if (seen) {
@@ -630,6 +649,8 @@
   });
 
   // ------------------------------------------------------------ attack form
+  /** The heroes of a target's team right now: stored with every attack, because the player may change them later. */
+  const lineupOf = (target, teamNo) => [...((((target || {}).teams || [])[teamNo - 1] || {}).heroes || [])];
   let attackTarget = null;
   function openAttack(targetId, teamNo) {
     attackTarget = state.targets.find((t) => t.id === targetId);
@@ -721,7 +742,7 @@
     // my own speeds (from my gear.txt) for the heroes I used, if I attack as myself and allow it
     const speeds = {};
     if (conn.shareSpeeds !== false && GW.playerKey(by) === GW.playerKey(me())) for (const h of heroes) if (mySpeeds().get(h)) speeds[h] = mySpeeds().get(h);
-    await put('attack', { warId: attackTarget.warId, targetId: attackTarget.id, team: Number(f.team.value), by, heroes, speeds, result: b.dataset.res, notes: f.notes.value.trim(), at: new Date().toISOString() });
+    await put('attack', { warId: attackTarget.warId, targetId: attackTarget.id, team: Number(f.team.value), defense: lineupOf(attackTarget, Number(f.team.value)), by, heroes, speeds, result: b.dataset.res, notes: f.notes.value.trim(), at: new Date().toISOString() });
     $('#attack-dialog').close();
   });
 
@@ -769,7 +790,7 @@
   }
   function renderMembers() {
     const R0 = rules();
-    const used = warId ? GW.attacksUsed(state.attacks, warId, today()) : new Map();
+    const used = warId ? GW.attacksUsed(state.attacks, warId) : new Map();
     const stats = new Map(GW.memberStats(state).map((s) => [GW.playerKey(s.name), s]));
     $('#member-rows').innerHTML =
       state.members
@@ -1159,7 +1180,7 @@
     },
     attacksLeft() {
       if (!warId || !me()) return null;
-      const used = GW.attacksUsed(state.attacks, warId, today()).get(GW.playerKey(me())) || 0;
+      const used = GW.attacksUsed(state.attacks, warId).get(GW.playerKey(me())) || 0;
       return Math.max(0, rules().attacksPerMember - used);
     },
     /** One-tap result from the pop-out. heroes = the counter you used (may be empty). */
@@ -1167,7 +1188,7 @@
       if (!me()) return alert('Set your name in Setup first.');
       const speeds = {};
       if (conn.shareSpeeds !== false) for (const h of heroes || []) if (mySpeeds().get(h)) speeds[h] = mySpeeds().get(h);
-      await put('attack', { warId: target.warId, targetId: target.id, team, by: me(), heroes: heroes || [], speeds, result, notes: 'logged from pop-out', at: new Date().toISOString() });
+      await put('attack', { warId: target.warId, targetId: target.id, team, defense: lineupOf(target, team), by: me(), heroes: heroes || [], speeds, result, notes: 'logged from pop-out', at: new Date().toISOString() });
     },
     get conn() {
       return conn;

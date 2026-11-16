@@ -34,6 +34,7 @@
  *   barKind(rgba, W, H, rect)       -> { kind: 'map' (+ index) | 'overview' (+ side) | null }: page indicator or side switch
  *   serverOf(text) / langFor(server) / worldFor(server)  server tag -> text-reader language / record-site code
  *   nameMask(rgba, W, H, opts)      -> letters of a name crop without white scenery (patches that cannot be letters dropped)
+ *   nameLetters(rgba, W, H, opts)   -> { mask, span, band } the letters of ONE name: the line around the middle, specks cleared
  *   cleanCjk(text) / pickRead(readings)  names in Japanese / Korean / Chinese script; which reading to believe
  *   isStandbyTitle(ocrText)         -> true for the standby page's title ("Guild War Standby")
  *   standbyMinutes(ocrText)         -> minutes until the next war from "War Begins in 29h" ("in 1d 5h", "in 45m"), or null
@@ -362,8 +363,28 @@
     const lat = list.filter((r) => r.lang !== 'eng' && cjkCount(r.text) === 0).map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
     if (lat && (!eng || (eng.conf < 40 && lat.conf >= eng.conf + 20))) eng = { ...lat, lang: 'eng' };
     const cjk = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf)[0] || null;
-    if (cjk && (!eng || cjk.conf >= 45 || cjk.conf >= eng.conf - 5)) return { name: cjk.name, lang: cjk.lang, conf: cjk.conf };
-    return eng ? { name: eng.name, lang: 'eng', conf: eng.conf } : { name: '', lang: '', conf: 0 };
+    // every other usable reading, best first: offered as other spellings and tried against the server's player list
+    const seen = new Set();
+    const all = [];
+    const push = (r) => {
+      if (r && r.name && !seen.has(r.name)) {
+        seen.add(r.name);
+        all.push({ name: r.name, lang: r.lang, conf: r.conf });
+      }
+    };
+    const cjkWins = cjk && (!eng || cjk.conf >= 45 || cjk.conf >= eng.conf - 5);
+    const cjkAll = list.filter((r) => r.lang !== 'eng').map((r) => ({ ...r, name: cleanCjk(r.text) })).filter((r) => r.name).sort((a, b) => b.conf - a.conf);
+    let first = cjkWins ? cjk : eng;
+    if (cjkWins) {
+      // a clearly longer reading that the reader was still fairly sure of: the short one probably lost its end
+      const longer = cjkAll.find((r) => r.conf >= 60 && [...r.name].length >= [...cjk.name].length + 2);
+      if (longer) first = longer;
+    }
+    push(first);
+    if (cjkWins) for (const r of cjkAll) push(r);
+    push(eng);
+    if (!cjkWins) for (const r of cjkAll) push(r);
+    return first ? { name: first.name, lang: cjkWins ? first.lang : 'eng', conf: first.conf, all } : { name: '', lang: '', conf: 0, all: [] };
   }
 
   /**
@@ -432,6 +453,109 @@
     return m;
   }
 
+  /**
+   * The letters of ONE name and nothing else (DEVLOG #56). After nameMask, small specks of scenery are still left
+   * next to and above a name, and the text reader turns them into extra characters. So:
+   *   1. patches at least 0.28 × H tall are "letters"; starting from the one nearest the middle, neighbours join while
+   *      the gap is at most 0.6 × H and they sit on the same line (their rows overlap);
+   *   2. that group gives the line (top .. bottom) and the name's left .. right;
+   *   3. smaller patches on that line (small kana, a kana's short stroke, dots, the long-vowel dash) join while they
+   *      are within 0.25 × H of the name so far; with opts.tight only those inside it. Everything else is cleared.
+   * -> { mask, span: [left, right], band: [top, bottom], letters } or null when there is no letter-sized patch.
+   */
+  function nameLetters(rgba, W, H, opts = {}) {
+    const m = nameMask(rgba, W, H, opts);
+    const label = new Int32Array(W * H);
+    const comps = [];
+    const stack = [];
+    for (let s0 = 0; s0 < W * H; s0++) {
+      if (!m[s0] || label[s0]) continue;
+      const id = comps.length + 1;
+      const c = { id, x0: W, x1: 0, y0: H, y1: 0, n: 0 };
+      label[s0] = id;
+      stack.push(s0);
+      while (stack.length) {
+        const i = stack.pop();
+        const y = (i / W) | 0;
+        const x = i - y * W;
+        c.n++;
+        if (x < c.x0) c.x0 = x;
+        if (x > c.x1) c.x1 = x;
+        if (y < c.y0) c.y0 = y;
+        if (y > c.y1) c.y1 = y;
+        // 8-connected: a thin diagonal stroke is one patch
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const yy = y + dy;
+            const xx = x + dx;
+            if ((dx || dy) && yy >= 0 && yy < H && xx >= 0 && xx < W && m[yy * W + xx] && !label[yy * W + xx]) {
+              label[yy * W + xx] = id;
+              stack.push(yy * W + xx);
+            }
+          }
+        }
+      }
+      comps.push(c);
+    }
+    const tall = comps.filter((c) => c.y1 - c.y0 + 1 >= 0.28 * H).sort((a, b) => a.x0 - b.x0);
+    if (!tall.length) return null;
+    const mid = W / 2;
+    let k = 0;
+    for (let i = 1; i < tall.length; i++) {
+      const d = (c) => (mid < c.x0 ? c.x0 - mid : mid > c.x1 ? mid - c.x1 : 0);
+      if (d(tall[i]) < d(tall[k])) k = i;
+    }
+    const group = [tall[k]];
+    let top = tall[k].y0;
+    let bottom = tall[k].y1;
+    const sameLine = (c) => Math.min(c.y1, bottom) - Math.max(c.y0, top) >= 0.4 * Math.min(c.y1 - c.y0, bottom - top);
+    const gap = 0.6 * H;
+    for (let i = k - 1, edge = tall[k].x0; i >= 0; i--) {
+      if (edge - tall[i].x1 > gap || !sameLine(tall[i])) break;
+      group.push(tall[i]);
+      edge = Math.min(edge, tall[i].x0);
+      top = Math.min(top, tall[i].y0);
+      bottom = Math.max(bottom, tall[i].y1);
+    }
+    for (let i = k + 1, edge = tall[k].x1; i < tall.length; i++) {
+      if (tall[i].x0 - edge > gap || !sameLine(tall[i])) break;
+      group.push(tall[i]);
+      edge = Math.max(edge, tall[i].x1);
+      top = Math.min(top, tall[i].y0);
+      bottom = Math.max(bottom, tall[i].y1);
+    }
+    let left = Math.min(...group.map((c) => c.x0));
+    let right = Math.max(...group.map((c) => c.x1));
+    const keep = new Set(group.map((c) => c.id));
+    // Smaller patches on the line: the short second stroke of a kana, a small kana, the long-vowel dash. They join
+    // when they are at most `reach` from the name so far (and then the name grows: more letters may follow them).
+    // opts.tight: only what lies inside the letter-sized group (no growing): fewer stray specks, but a name whose
+    // last stroke is a short one loses it. The reader tries both.
+    const reach = (opts.tight ? 0.06 : 0.25) * H;
+    const minSize = opts.tight ? 0 : 0.003 * H * H;
+    const onLine = (c) => {
+      const cy = (c.y0 + c.y1) / 2;
+      return cy >= top - 0.12 * H && cy <= bottom + 0.08 * H;
+    };
+    for (let grown = true; grown; ) {
+      grown = false;
+      for (const c of comps) {
+        if (keep.has(c.id) || !onLine(c)) continue;
+        const gapTo = c.x1 < left ? left - c.x1 : c.x0 > right ? c.x0 - right : 0;
+        if (gapTo > 0 && c.n < minSize) continue; // (inside the name every dot counts: the dot of an i)
+        const isTall = c.y1 - c.y0 + 1 >= 0.28 * H;
+        if (gapTo <= (isTall ? gap : reach)) {
+          keep.add(c.id);
+          if (c.x0 < left || c.x1 > right) grown = !opts.tight;
+          left = Math.min(left, c.x0);
+          right = Math.max(right, c.x1);
+        }
+      }
+    }
+    for (let i = 0; i < W * H; i++) if (m[i] && !keep.has(label[i])) m[i] = 0;
+    return { mask: m, span: [left, right], band: [top, bottom], letters: group.length };
+  }
+
   // ---- the standby page (no war running; DEVLOG #46). Middle of the screen, top to bottom: "2026-3 Season",
   // "Guild War Standby", a dark band with a sentence, "War Begins" / "in 29h", then three buttons (the first one green).
   // Fractions of the picture height, x measured from the middle (owner's 2000×1070 screen).
@@ -481,7 +605,7 @@
     return n ? g / n : 0;
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
+  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);

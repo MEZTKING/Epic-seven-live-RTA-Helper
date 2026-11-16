@@ -48,3 +48,54 @@ for (cx, cy), s in NAMES:
     text(im, (cx, cy), s, 17, font=CJK if any(ord(ch) > 0x2fff for ch in s) else LAT, anchor='mm', ow=1, outline=(40, 44, 60))
 im.save(f'{OUT}/steam-gw-map-vortex-jp-window.png')
 print('map ok')
+
+# ---------------------------------------------------------------------------------------------- DEVLOG #56
+import json, os, subprocess, tempfile
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+def name_boxes(im):
+    """The boxes around the player names of a fortress map, found by the app's own code (tools/dev/name-boxes.js)."""
+    with tempfile.NamedTemporaryFile(suffix='.rgba', delete=False) as f:
+        f.write(im.convert('RGBA').tobytes())
+    try:
+        return json.loads(subprocess.check_output(['node', os.path.join(HERE, 'name-boxes.js'), f.name, str(im.width), str(im.height)]))
+    finally:
+        os.unlink(f.name)
+
+def is_cjk(s):
+    return any(ord(ch) > 0x2fff for ch in s)
+
+# 5) a maximized fortress map of a guild on the Japanese server whose names are in five kinds of writing: made-up
+#    names of the same kinds where the real ones were, in the order the app finds them (badges, then the keep).
+#    Simplified Chinese characters (龙, 乐) need the font's SC face (index 2).
+if os.path.exists(f'{S}/map-wide.png'):
+    im = Image.open(f'{S}/map-wide.png').convert('RGB')
+    MADE_UP = ['りょうちゃん', 'ミカちゃま', 'sukiyaki2417', '和也', 'さくら', 'ティーナ', '龙猫乐乐']
+    boxes = name_boxes(im)
+    assert len(boxes) == len(MADE_UP), (len(boxes), 'names found on the map')
+    for b in boxes:
+        smear(im, (b['x0'] - 12, b['y0'] - 8, b['x1'] + 12, b['y1'] + 8), dark=0.72)
+    for b, s in zip(boxes, MADE_UP):
+        text(im, ((b['x0'] + b['x1']) // 2, (b['y0'] + b['y1']) // 2), s, 25 if is_cjk(s) else 24, font=CJK if is_cjk(s) else LAT, anchor='mm', ow=2, outline=(40, 44, 60), index=2 if s == '龙猫乐乐' else 0)
+    im.save(f'{OUT}/steam-gw-map-mixed-scripts-wide.jpg', quality=92)
+    print('mixed map ok')
+
+# 6) an enemy STRONGHOLD screen (the banner "One of the two Defense Towers must be destroyed first…" pushes the teams
+#    down): the player's name (Chinese characters), the small name over the season log and the six names in the log
+if os.path.exists(f'{S}/enemy-cjk.png'):
+    im = Image.open(f'{S}/enemy-cjk.png').convert('RGB')
+    smear(im, (218, 228, 430, 266)); text(im, (224, 247), '龙猫乐乐', 27, font=CJK, ow=0, index=2)
+    smear(im, (1350, 110, 1470, 140)); text(im, (1357, 126), '龙猫乐乐', 20, font=CJK, ow=0, index=2, fill=(170, 180, 200))
+    for y, s in zip([246, 381, 516, 650, 784, 918], ['Rowan12', 'Birchwood', 'Rowan12', 'CedarFox', 'maple777', 'elm#4kq']):
+        smear(im, (1698, y - 20, 1896, y + 18)); text(im, (1706, y), s, 25, ow=0)
+    im.save(f'{OUT}/steam-gw-stronghold-cjk-wide.jpg', quality=92)
+    print('stronghold ok')
+
+# 7) the two check-in windows of a new day (nothing may be read from them): the guild one has a member's name and
+#    message behind it; the daily one shows no names
+if os.path.exists(f'{S}/guild-checkin.png'):
+    im = Image.open(f'{S}/guild-checkin.png').convert('RGB')
+    smear(im, (1340, 118, 1996, 188))
+    im.save(f'{OUT}/steam-guild-checkin-wide.jpg', quality=88)
+    Image.open(f'{S}/checkin.png').convert('RGB').save(f'{OUT}/steam-daily-checkin.jpg', quality=88)
+    print('check-ins ok')
