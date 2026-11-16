@@ -453,6 +453,9 @@ function buildMenu() {
         { label: 'Check for updates…', click: () => updater.check(true) },
         { label: updater.statusText(), enabled: false },
         { label: `Version ${app.getVersion()} · release notes`, click: () => shell.openExternal(updater.RELEASES) },
+        // everything the app keeps is in this one folder on this PC (matches, notes, settings, Guild War records,
+        // top players' games): shown on request (the owner asked where it all is, DEVLOG #60)
+        { label: 'Open the folder where the app keeps its data', click: () => shell.openPath(app.getPath('userData')) },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },

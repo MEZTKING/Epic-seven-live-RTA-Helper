@@ -63,6 +63,7 @@
       manualOwned: [],
       presets: [],
       matches: [],
+      walkovers: [], // matches that ended before the draft was finished (the opponent left): never used for statistics
       matchSources: { manual: { enabled: true, addedAt: new Date().toISOString() } },
       settings: { ...DEFAULT_SETTINGS },
       draft: freshDraft('me'),
@@ -817,6 +818,20 @@
     save();
     renderDraft();
   }
+  /**
+   * A match that ended before the draft was finished: the opponent left or lost the connection and the game showed
+   * VICTORY at once (or I did, and it showed DEFEAT). The game counts it; there are no full teams to learn from, so
+   * it is kept apart from the matches (store.walkovers, newest 500) and the half-made draft is cleared (DEVLOG #60).
+   */
+  function recordWalkover(result, source = 'manual') {
+    if (!Array.isArray(store.walkovers)) store.walkovers = [];
+    const v = L.draftView(store.draft);
+    store.walkovers.unshift({ id: newId(), date: new Date().toISOString(), result, source, firstPick: store.draft.firstPick, picks: { me: [...v.picks.me], opp: [...v.picks.opp] } });
+    store.walkovers = store.walkovers.slice(0, 500);
+    store.draft = freshDraft(store.draft.firstPick);
+    save();
+    renderDraft();
+  }
   $('#record-win').addEventListener('click', () => recordResult('win'));
   $('#record-loss').addEventListener('click', () => recordResult('loss'));
   $('#save-team-preset').addEventListener('click', async () => {
@@ -1263,7 +1278,11 @@
       <div class="card"><div class="hint">Matches (enabled sources${cache.scopeCode ? `, ${esc((cache.seasons.find((s) => s.code === cache.scopeCode) || { name: cache.scopeCode }).name)}` : ''})</div><div class="stat">${ms.length}</div></div>
       <div class="card"><div class="hint">Win rate</div><div class="stat">${pct(wins, ms.length)}</div></div>
       <div class="card"><div class="hint">When I pick first</div><div class="stat">${wr(fp)}</div><div class="hint">${gm(fp.length)}</div></div>
-      <div class="card"><div class="hint">When they pick first</div><div class="stat">${wr(sp)}</div><div class="hint">${gm(sp.length)}</div></div>`;
+      <div class="card"><div class="hint">When they pick first</div><div class="stat">${wr(sp)}</div><div class="hint">${gm(sp.length)}</div></div>${
+        (store.walkovers || []).length
+          ? `<div class="card" id="hist-walkovers"><div class="hint">Ended before the draft was finished</div><div class="stat">${store.walkovers.length}</div><div class="hint">${store.walkovers.filter((w) => w.result === 'win').length} won (the opponent left), ${store.walkovers.filter((w) => w.result !== 'win').length} lost · not counted above, not used for hero statistics</div></div>`
+          : ''
+      }`;
     const ses = Learn.sessionStats(ms);
     const fol = Learn.suggestionFollow(ms);
     $('#hist-session').innerHTML = `
@@ -1715,6 +1734,7 @@
     /** Replace the draft (auto-detection). A finished, unrecorded draft is kept as pending. */
     selectHero,
     recordResult,
+    recordWalkover,
     suggestionContext,
     scoutedSpeed,
     onDraftRender: (fn) => draftListeners.push(fn),

@@ -2,7 +2,7 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
-## Next up (as of DEVLOG #59; the overview of what is verified is in docs/HANDOFF.md §0)
+## Next up (as of DEVLOG #60; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
 1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
@@ -15,6 +15,9 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0e. RTA, after DEVLOG #60: use "First Pick" from the match-start screen (it is written under the player who picks
+   first) as an early, sure source for who picks first; keep games with fewer than five picks a side out of the
+   statistics when they come from the official record site; count walkovers in the season table as the game does.
 0d. Guild War, after DEVLOG #59: read the Season Log rows of a player's page directly (shield / swords in front,
    two round icons, name, "5m ago": colours measured in #59) → attacks and defenses logged without opening each
    window; the attacks left from the top bar ("2/3"); "Cannot Battle" / "Battle in Progress" under a name → show

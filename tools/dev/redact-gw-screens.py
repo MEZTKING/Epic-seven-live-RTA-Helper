@@ -199,3 +199,12 @@ if os.path.exists(f'{S}/map-states.jpg'):
     player_page(f'{S}/enemy-attacked.jpg', f'{OUT}/steam-gw-enemy-attacked-wide.jpg', 'りょうちゃん', ['AmberFox', 'BirchOwl', 'CedarElk9', 'DuneHawk', 'GaleWolf', 'HazelRay7'])
     player_page(f'{S}/enemy-inbattle.jpg', f'{OUT}/steam-gw-enemy-inbattle-wide.jpg', 'さくら', ['Rowan12', 'Birchwood', 'CedarFox', 'maple777', 'elmtree', 'Oakley9'])
     print('war states ok')
+
+# ---------------------------------------------------------------------------------------------- DEVLOG #60
+# 12) RTA: a match the opponent left before the draft was finished: VICTORY over the dimmed draft screen (the two
+#     players' names, guild and server shine through at the top)
+if os.path.exists(f'{S}/rta-walkover.jpg'):
+    im = Image.open(f'{S}/rta-walkover.jpg').convert('RGB')
+    smear(im, (20, 30, 720, 160), pad=0); smear(im, (940, 30, 1560, 110), pad=0)
+    im.save(f'{OUT}/steam-rta-victory-opponent-left-wide.jpg', quality=90)
+    print('rta walkover ok')

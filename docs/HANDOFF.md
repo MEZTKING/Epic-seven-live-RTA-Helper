@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #59, 2026-11-16) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #60, 2026-11-16) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -197,6 +197,12 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 
 ## 4. Storage (all on the user's device unless noted)
 
+Where "the user's device" is: the desktop app's own data folder (Electron `userData`; by the package name
+`%APPDATA%\epic7-engine-desktop` on Windows, not checked there; menu Epic 7 Engine → "Open the folder where the
+app keeps its data"): the pages' localStorage and IndexedDB, `config.json`, `records/` (player lists and games
+from the official record site). Developer screenshots: `Pictures\Epic 7 Engine\<date>`. Nothing of it is in the
+repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkovers` since DEVLOG #60.
+
 | Key / place | Owner | Content |
 |---|---|---|
 | `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `mySpeeds` (typed speed per hero, source `my speeds`; wins over gear.txt), `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
@@ -326,7 +332,7 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 
 ## 6. Testing
 
-Counts at DEVLOG #59: **174 unit tests, 38 browser tests, 14 desktop checks.** Unit and browser suites were green at
+Counts at DEVLOG #60: **174 unit tests, 39 browser tests, 14 desktop checks.** Unit and browser suites were green at
 that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
@@ -374,6 +380,13 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**RTA, DEVLOG #60** (a match that ends during the draft): `js/auto.js` `maybeReadResult` reads a result with an
+unfinished draft only while `confirmShown()` (the result screen's green Confirm button, `rtaConfirm` in
+`js/layouts.js`) and a match is going on → `RTAApp.recordWalkover(result, source)` → `store.walkovers` (apart from
+`store.matches`; never used for statistics), draft cleared, card `#hist-walkovers` on History. Test hooks:
+`RTAAuto._confirmShown()`, `RTAAuto._resultState()`. Loading a screenshot switches the reader's follow mode off:
+tests call `RTAAuto._setLive(true)` after each load when they need "a match starts".
 
 **Guild War, DEVLOG #59** (a war in progress):
 - `findBadges` returns `{ x, y, r, state, busy?, dim? }`: `busy` = "Battle in Progress" badge; `dim` = a dark

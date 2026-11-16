@@ -96,6 +96,10 @@
             ...[1180, 1326, 1470].map((cx, k) => [`gwResR${r + 1}${k + 1}`, A(midRing(cx, cy), 'c')]),
           ]),
         ),
+        // RTA result screen: the green "Confirm" button, bottom right (owner's 2000×1070 screenshot of a match the
+        // opponent left, DEVLOG #60; the older 16:9 Victory fixture has the same green there). Tells "a result is on
+        // screen" without reading text.
+        rtaConfirm: A(rgt(1740, 960, 190, 45), 'r'),
         // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
         // screenshot (DEVLOG #58). A team stands on three of four places: 1 top, 2 left, 3 right, 4 bottom.
         // gwOffM<team><place> = my teams (left, green), gwOffE<team><place> = the defender's teams (right, red).
