@@ -7,6 +7,91 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #58 · Guild War: the Offense Team screen, the start of the fight, notes left in the game; falling snow taken out of map names · this commit (previous: `fefacf1`)
+
+**Asked for** (five screenshots: a note bubble on a map badge, the note window "<member>'s Record", the "Offense
+Team" screen, two moments of the fight):
+- "1. you can also set notes in game like this 2. i also sent the page after selecting a person to battle, where you
+  get ready for attacking, their AI defense. 3. i also sent the beginning of the first battle"
+- about the stray "A" on one map name (#57): "the snow specks are constantly moving going from the top diagonally so
+  it will clear within milliseconds"
+
+**Findings**
+- **Offense Team screen** (after choosing a defender, before Start): my two teams left (green), the defender's two
+  teams right (red), each on three of four places, as large clear icons of living heroes; the defender's name bottom
+  right; the cost "1/3" on the Start button. This is the best place to read a defense: nothing is greyed or crossed.
+  - The face matcher is touchy about the box size here: with one size 6 of 12 heroes were sure, with the best of
+    three sizes (116 / 128 / 140 px at 1070 height) 12 of 12. Checked against the names the screen itself shows in
+    its hero list.
+  - Whether the teams are pinned to the left edge or centred on a 16:9 window is not known (one screenshot, wider
+    than 16:9): both placements are tried.
+- **The fight**: a white "Round 1" pill under the VS at the top, my name left of it and the defender's right, all
+  through the round. The flame art of the "VS" touches the start of the right name (two extra characters were read
+  before the box was moved 7 px).
+- **Notes**: a speech-bubble with a megaphone above a defender's badge on the map means a guildmate left a note;
+  the window is titled "<member>'s Record" and holds the text. The window does not say which defender it is about.
+- **Snow**: the owner is right, the specks move and the letters do not. Of two looks at the same map a moment
+  apart, the darker value of each pixel keeps the white letters and drops a white speck that moved. The map reader
+  already waits for the same map twice before it reads names, so the first look can be kept at no extra cost.
+- Telling the screens apart with a few pixels (measured on the files): the Start button is dark green (39,71,42)
+  with a dark top bar; the round pill is 79% white and neutral (a pale blue sky is 62% white but blue); a note
+  window has a nearly black title strip (11,19,28) over a deep blue body (24,58,101), a result window red or green.
+
+**Changed**
+- **`js/vision/readers/guild-offense.js`** (new; three readers, each with a cheap pixel check first, reading only a
+  picture that changed and then stood still):
+  - `guild-offense` → `guild:offense { enemy, rect, mine, theirs }` (and `{ away: true }` when the screen is left)
+  - `guild-battle` → `guild:battle { round, left, right }`
+  - `guild-note` → `guild:note { author, text }`
+- `js/gwresult.js`: `offenseAt`, `battleAt`, `noteAt`, `noteTitle`, `roundOf`, `pickTeam`. `js/layouts.js`:
+  `gwOff…`, `gwBat…`, `gwNote…` (helpers `lft`, `rgt` for boxes pinned to an edge).
+- **Guild War page** (`js/guild-app.js`, `js/guild-watch.js`, `guild.html`):
+  - Offense Team screen → the defender's teams are saved as their defense of this war (new, filled, or updated
+    with the earlier line-up kept: "they changed it"); that player becomes the current one, so the card with the
+    known counters shows above their name on the game; my two teams are kept as the attack being prepared
+    (`e7-gw-pending-attack`)
+  - the fight seen → the War tab asks "Your attack on X: how did it go?" with Won / Lost per round; Log writes the
+    attack records with my heroes and the line-up attacked (and my speeds, as before). The same battle read later
+    from its result window is recognised (same key) and not logged again; if the result window comes first, the
+    question goes away
+  - a note → the War tab shows it and asks which enemy it is about (the player the game showed in the 20 s before is
+    offered first); saved as a line on that player's notes; the same note is not asked twice
+- **Snow** (`E7GWMap.darkerOfTwo`, `js/vision/readers/guild-fortress.js`): names are read from the two looks
+  combined; when the map was moved between them (more than 12% of the pixels differ strongly) only the last look is
+  used, as before.
+- Fixtures (names replaced): `steam-gw-offense-wide.jpg`, `steam-gw-battle1-wide.jpg`, `steam-gw-battle2-wide.jpg`,
+  `steam-gw-note-record-wide.jpg`.
+
+**Tested**
+- `npm test` **172** (+3: the three pixel checks; note title / round label / three-of-four places; the snow filter).
+- Browser suite **37/37** clean, with no code changed during the run; the printed results of the Guild War tests
+  (`gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`) were read line by line. New `tests/e2e/gw-offense.e2e.js`:
+  - Offense Team: the defender's name (Japanese), **6 of 6** of their heroes and **6 of 6** of mine; saved as
+    their defense; current player set; no question before the fight
+  - the fight: round 1 and both names; the question appears; Won / Lost → two attack records with heroes and the
+    line-up attacked; 3 → 2 attacks left; a later moment of the same fight does not bring the question back
+  - the same battle from a result window afterwards: still two records
+  - the note: author and text; asked, the right player offered; saved on their notes; not asked again
+  - a map, a result window, a tower page, a check-in window: none of the three readers reports anything
+- The real, unreplaced screenshots: the defender's Japanese name exact on the Offense Team screen; the note's
+  author and text exact; both names exact on the fight (after moving the right name's box).
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `newwar`, `war-reminder`, `popout` pass.
+- **Not tested:**
+  - the snow filter on real moving snow (there is no pair of real frames; unit-tested on made-up pixels, and a still
+    picture is unchanged by it)
+  - the Offense Team screen at 16:9 or in a small window; round 2 of a fight; the end of a fight
+  - the overlay card on the Offense Team screen inside the desktop app
+  - on the owner's PC
+
+**Open**
+- The end of a Guild War fight (the Victory / Defeat screen of each round) has not been seen: with it the result
+  could be logged without asking.
+- The megaphone bubble on a map badge is not detected, so a note read from a map still needs one click to say whom
+  it is about. A sharp crop of one badge is not enough to place it safely next to snow.
+- Notes are read with the English text data only.
+
+---
+
 ## 2026-11-16 · #57 · Guild War: battle-result windows are read and logged by themselves (who beat whom, with which heroes) · this commit (previous: `51ccdf7`)
 
 **Asked for:** "anything else you need", then five screenshots as files: two "Successful Attack" windows, a member's

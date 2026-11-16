@@ -35,6 +35,10 @@
   // 16:9 frame in the middle (1902 px wide there)
   const mid = (x, y, w, h) => ({ x: 0.5 + (x - 1000) / (1070 * REF), y: y / 1070, w: w / (1070 * REF), h: h / 1070 });
   const midRing = (cx, cy) => mid(cx - 48, cy - 48, 96, 96);
+  // …of something pinned to the LEFT / RIGHT edge of the window
+  const lft = (x, y, w, h) => ({ x: x / (1070 * REF), y: y / 1070, w: w / (1070 * REF), h: h / 1070 });
+  const rgt = (x, y, w, h) => ({ x: 1 - (2000 - x) / (1070 * REF), y: y / 1070, w: w / (1070 * REF), h: h / 1070 });
+  const bigRing = (cx, cy) => lft(cx - 68, cy - 68, 136, 136); // a hero on the Offense Team screen
   // anchors: a = 'l' | 'c' | 'r'; alt = other anchors worth trying (not verified on a non-16:9 picture yet)
   const A = (r, a, alt) => ({ ...r, a, ...(alt ? { alt } : {}) });
 
@@ -92,6 +96,29 @@
             ...[1180, 1326, 1470].map((cx, k) => [`gwResR${r + 1}${k + 1}`, A(midRing(cx, cy), 'c')]),
           ]),
         ),
+        // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
+        // screenshot (DEVLOG #58). A team stands on three of four places: 1 top, 2 left, 3 right, 4 bottom.
+        // gwOffM<team><place> = my teams (left, green), gwOffE<team><place> = the defender's teams (right, red).
+        // Whether the teams are pinned to the left edge or centred on a 16:9 window is not known: both are tried.
+        gwOffTitle: A(lft(95, 22, 300, 60), 'l'),
+        gwOffStart: A(rgt(1700, 950, 160, 60), 'r'),
+        gwOffTopbar: A(mid(400, 20, 900, 60), 'c'),
+        gwOffEnemyName: A(lft(1000, 938, 335, 42), 'l', ['c']),
+        ...Object.fromEntries(
+          [0, 387].flatMap((dy, t) => [
+            ...[[396, 230], [257, 330], [553, 317], [409, 405]].map(([cx, cy], k) => [`gwOffM${t + 1}${k + 1}`, A(bigRing(cx, cy + dy), 'l', ['c'])]),
+            ...[[1206, 230], [1049, 317], [1347, 330], [1183, 403]].map(([cx, cy], k) => [`gwOffE${t + 1}${k + 1}`, A(bigRing(cx, cy + dy), 'l', ['c'])]),
+          ]),
+        ),
+        // Guild War battle (the fight itself): "Round 1" pill and the two names at the top, centred
+        gwBatRound: A(mid(925, 142, 150, 42), 'c'),
+        gwBatNameL: A(mid(690, 74, 240, 40), 'c'),
+        gwBatNameR: A(mid(1082, 74, 300, 40), 'c'),
+        // Guild War note window ("<member>'s Record": a note a guildmate left on a defender), centred
+        gwNoteHeader: A(mid(730, 215, 540, 30), 'c'),
+        gwNoteTitle: A(mid(740, 230, 520, 62), 'c'),
+        gwNoteBody: A(mid(740, 340, 520, 440), 'c'),
+        gwNoteBlue: A(mid(740, 600, 520, 180), 'c'),
         // Guild War fortress map: the page indicator at the bottom right (white pill = which fortress), pixel-measured
         // (bar 0.42 h … 0.041 h from the right edge at 93.5% height, the same on 2000×1070 and 1228×691)
         gwFortPager: A(g(938, 630, 262, 32), 'r'),

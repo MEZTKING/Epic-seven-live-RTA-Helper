@@ -28,6 +28,8 @@
   let lastKey = '';
   let pendingKey = '';
   let published = '';
+  let before = null; // the look before this one: { rgba, W, H }
+  const calm = document.createElement('canvas'); // the two looks with the snow taken out
 
   // one name, in any script: js/vision/names.js (shared with the enemy-screen reader)
   const N = window.E7Names;
@@ -41,6 +43,7 @@
     ready: () => true,
     idle() {
       lastKey = pendingKey = published = '';
+      before = null;
     },
     async read(ctx) {
       const cur = window.E7Screens && window.E7Screens.current();
@@ -70,8 +73,20 @@
       if (key === published) return ctx.note(`${fort} (${side === 'ours' ? 'our side' : 'enemy'}): ${badges.length + 1} defenders (read)`);
       if (key !== pendingKey) {
         pendingKey = key;
+        before = { rgba: new Uint8ClampedArray(rgba), W, H }; // this look, to take the falling snow out of the next one
         return ctx.note(`${fort}: ${badges.length} defenders found, reading names…`);
       }
+      // Snow falls across the names and the letters stand still: of this look and the one before, the darker of each
+      // pixel (G.darkerOfTwo; the owner's tip, DEVLOG #58). Not when the map was moved in between.
+      let from = norm;
+      const calmed = before && before.W === W && before.H === H ? G.darkerOfTwo(before.rgba, rgba) : null;
+      if (calmed) {
+        calm.width = W;
+        calm.height = H;
+        calm.getContext('2d').putImageData(new ImageData(calmed, W, H), 0, 0);
+        from = calm;
+      }
+      before = null;
       // which script the names are usually in, and whose player list knows the spelling: that side's server
       const server = side === 'ours' ? forts.ourServer || '' : forts.enemyServer || '';
       const lang = G.langFor(server);
@@ -79,12 +94,12 @@
       const players = [];
       for (const b of badges) {
         if (ctx.busy) ctx.busy(`Reading the names on this map… ${players.length + 1} of ${badges.length + 1}`);
-        const n = await N.read(ctx, norm, G.nameBox(b, H), { lang, world });
+        const n = await N.read(ctx, from, G.nameBox(b, H), { lang, world });
         players.push({ ...(n || { name: '', raw: '', known: false }), state: b.state, x: b.x / W, y: b.y / H });
       }
       const kr = lay.regions.gwKeepName;
       if (ctx.busy) ctx.busy(`Reading the names on this map… ${badges.length + 1} of ${badges.length + 1}`);
-      const kn0 = await N.read(ctx, norm, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world });
+      const kn0 = await N.read(ctx, from, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world });
       const kn = kn0 && kn0.name ? kn0 : null;
       if (ctx.done) {
         const all = [...players, ...(kn ? [kn] : [])].filter((p) => p.name);

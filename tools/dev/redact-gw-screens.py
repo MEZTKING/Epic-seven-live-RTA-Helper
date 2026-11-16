@@ -146,3 +146,25 @@ if os.path.exists(f'{S}/map-ours.jpg'):
         text(im, ((b['x0'] + b['x1']) // 2, (b['y0'] + b['y1']) // 2), s, 25, font=CJK, anchor='mm', ow=2, outline=(40, 44, 60))
     im.save(f'{OUT}/steam-gw-map-ours-havoc-wide.jpg', quality=92)
     print('own map ok')
+
+# ---------------------------------------------------------------------------------------------- DEVLOG #58
+# 10) the Offense Team screen (both names at the bottom; the defender's name shines faintly through behind the
+#     teams), the start of the fight (two names at the top) and a note window (its author in the title; the map's
+#     names behind it)
+if os.path.exists(f'{S}/offense.jpg'):
+    im = Image.open(f'{S}/offense.jpg').convert('RGB')
+    smear(im, (212, 225, 326, 268), pad=0); smear(im, (1340, 105, 1530, 145), pad=0)
+    smear(im, (205, 938, 420, 980)); text(im, (213, 959), 'AmberFox', 27, font=CJK, ow=0)
+    smear(im, (1150, 938, 1335, 980)); text(im, (1326, 959), 'りょうちゃん', 27, font=CJK, ow=0, anchor='rm')
+    im.save(f'{OUT}/steam-gw-offense-wide.jpg', quality=92)
+    for n in ('battle1', 'battle2'):
+        im = Image.open(f'{S}/{n}.jpg').convert('RGB')
+        smear(im, (780, 72, 932, 114), dark=0.8); text(im, (924, 93), 'AmberFox', 26, font=CJK, anchor='rm', ow=2, outline=(30, 30, 40))
+        smear(im, (1076, 72, 1260, 114), dark=0.8); text(im, (1084, 93), 'りょうちゃん', 26, font=CJK, ow=2, outline=(30, 30, 40))
+        im.save(f'{OUT}/steam-gw-{n}-wide.jpg', quality=90)
+    im = Image.open(f'{S}/note-record.jpg').convert('RGB')
+    for (x0, y0, x1, y1) in [(1197, 281, 1350, 303), (479, 344, 630, 364), (1473, 663, 1677, 688), (307, 840, 353, 862), (1671, 877, 1739, 896), (933, 968, 1118, 988)]:
+        smear(im, (x0 - 18, y0 - 12, x1 + 18, y1 + 12), pad=0)
+    smear(im, (770, 236, 1230, 288)); text(im, (1000, 261), "BirchOwl’s Record", 33, font=CJK, anchor='mm', ow=0)
+    im.save(f'{OUT}/steam-gw-note-record-wide.jpg', quality=90)
+    print('offense / battle / note ok')

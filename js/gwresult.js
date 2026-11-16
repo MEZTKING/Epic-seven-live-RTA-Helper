@@ -16,6 +16,16 @@
  *   titleKind(text)                  -> null | { type: 'attack' | 'defense', ok: boolean }
  *   plan(d)                          -> what it means for OUR guild (see below)
  *   key(plan)                        -> text that is the same for the same battle (not logged twice)
+ *
+ * Other Guild War screens told apart by a few pixels (DEVLOG #58; measured on the owner's 2000×1070 screenshots):
+ *   offenseAt(rgba, W, H, R)         -> true on the "Offense Team" screen   R: { start, topbar } (the green Start
+ *                                       button (39,71,42) bottom right, a dark top bar)
+ *   battleAt(rgba, W, H, pill)       -> true while a fight shows its white "Round 1" pill (216,217,217; 79% white)
+ *   noteAt(rgba, W, H, R)            -> true when a note window is open   R: { header, blue } (header (11,19,28),
+ *                                       body (24,58,101))
+ *   noteTitle(text)                  -> "Ann's Record" -> 'Ann' (who wrote the note), or null
+ *   roundOf(text)                    -> "Round 2" -> 2, or null
+ *   pickTeam(icons)                  -> a team stands on three of four places: [top, left, right, bottom] -> 3 icons
  */
 (function (root) {
   'use strict';
@@ -113,7 +123,42 @@
     return [p.kind, norm(p.ours), norm(p.enemy), ...p.rounds.map((r) => `${r.result}${r.draw ? 'd' : ''}:${team(r.heroes)}:${team(r.defense || r.attack)}`)].join('|');
   }
 
-  const api = { stats, windowAt, roundResult, titleKind, plan, key };
+  function offenseAt(rgba, W, H, R) {
+    const s = stats(rgba, W, H, R.start);
+    if (!(s.g - s.r >= 18 && s.g - s.b >= 15 && s.lum < 95)) return false;
+    return stats(rgba, W, H, R.topbar).lum < 75;
+  }
+  function battleAt(rgba, W, H, pill) {
+    const s = stats(rgba, W, H, pill);
+    return s.white >= 0.55 && s.lum > 175 && Math.abs(s.r - s.b) < 12;
+  }
+  function noteAt(rgba, W, H, R) {
+    if (stats(rgba, W, H, R.header).lum > 35) return false;
+    const b = stats(rgba, W, H, R.blue);
+    return b.b - b.r >= 45 && b.b > b.g && b.g > b.r && b.lum < 110;
+  }
+  function noteTitle(text) {
+    const m = String(text || '').replace(/\s+/g, ' ').trim().match(/^(.{2,24}?)\s?['’`´‘]\s?s\s+Rec[o0]rd\b/i);
+    return m ? m[1].trim() : null;
+  }
+  function roundOf(text) {
+    const m = String(text || '').match(/r[o0]und\s*([12lI|])/i);
+    return m ? (m[1] === '2' ? 2 : 1) : null;
+  }
+  /** [top, left, right, bottom] icons ({ code, score, sure } | null) -> the three that are heroes (weakest of four dropped). */
+  function pickTeam(icons) {
+    const got = [...(icons || [])];
+    while (got.filter(Boolean).length > 3) {
+      let weakest = -1;
+      got.forEach((x, k) => {
+        if (x && (weakest < 0 || x.score < got[weakest].score)) weakest = k;
+      });
+      got[weakest] = null;
+    }
+    return [...got.filter(Boolean), null, null, null].slice(0, 3);
+  }
+
+  const api = { stats, windowAt, roundResult, titleKind, plan, key, offenseAt, battleAt, noteAt, noteTitle, roundOf, pickTeam };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWResult = api;
 })(typeof window !== 'undefined' ? window : globalThis);

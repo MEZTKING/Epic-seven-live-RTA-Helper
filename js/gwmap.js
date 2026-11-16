@@ -36,6 +36,7 @@
  *   nameMask(rgba, W, H, opts)      -> letters of a name crop without white scenery (patches that cannot be letters dropped)
  *   nameLetters(rgba, W, H, opts)   -> { mask, span, band } the letters of ONE name: the line around the middle, specks cleared
  *   cleanCjk(text) / pickRead(readings)  names in Japanese / Korean / Chinese script; which reading to believe
+ *   darkerOfTwo(rgbaA, rgbaB)       -> two looks at one map with the falling snow taken out (null: not the same view)
  *   isStandbyTitle(ocrText)         -> true for the standby page's title ("Guild War Standby")
  *   standbyMinutes(ocrText)         -> minutes until the next war from "War Begins in 29h" ("in 1d 5h", "in 45m"), or null
  *   greenShare(rgba, W, H, rect)    -> share of clearly green pixels in a rect (the standby page's Team Formation button)
@@ -355,6 +356,29 @@
    * A reading in the other script wins when it holds at least two of its characters, they make up most of it, and the
    * reader is not clearly less sure than the English one. -> { name, lang, conf } ('' when nothing usable).
    */
+  /**
+   * Snow on a fortress map falls across the names; the letters stand still (the owner's tip, DEVLOG #58). Two looks
+   * at the same map a moment apart -> for every pixel the DARKER of the two: a white speck that moved is gone, a
+   * white letter is still there. a, b: RGBA of the same size. Returns the cleaned RGBA, or null when the two pictures
+   * are not the same view (more than `maxMoved` of the pixels differ strongly: the map was moved in between).
+   */
+  function darkerOfTwo(a, b, maxMoved = 0.12) {
+    if (!a || !b || a.length !== b.length) return null;
+    const out = new Uint8ClampedArray(a.length);
+    let moved = 0;
+    for (let p = 0; p < a.length; p += 4) {
+      const la = a[p] + a[p + 1] + a[p + 2];
+      const lb = b[p] + b[p + 1] + b[p + 2];
+      if (Math.abs(la - lb) > 180) moved++;
+      const src = la <= lb ? a : b;
+      out[p] = src[p];
+      out[p + 1] = src[p + 1];
+      out[p + 2] = src[p + 2];
+      out[p + 3] = 255;
+    }
+    return moved / (a.length / 4) > maxMoved ? null : out;
+  }
+
   function pickRead(readings) {
     const list = (readings || []).filter((r) => r && r.text);
     const engs = list.filter((r) => r.lang === 'eng').map((r) => ({ ...r, name: cleanName(r.text) })).filter((r) => r.name);
@@ -625,7 +649,7 @@
     return n ? g / n : 0;
   }
 
-  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
+  const api = { NORM_H, DEFAULT_FORTS, barKind, serverOf, langFor, worldFor, cjkCount, cleanCjk, pickRead, nameMask, nameLetters, darkerOfTwo, cleanGuild, findBadges, sideOf, toggleSide, fortNamesFromWords, nameBox, letterMask, letterSpan, cleanName, matchName, pagerIndex, STANDBY, standbyRect, isStandbyTitle, standbyMinutes, greenShare };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GWMap = api;
 })(typeof self !== 'undefined' ? self : this);
