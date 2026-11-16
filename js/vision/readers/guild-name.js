@@ -89,7 +89,7 @@
       let out = null;
       if (N && G) {
         const server = forts().enemyServer || '';
-        const n = await N.read(ctx, ctx.source, b, { lang: G.langFor(server), world: G.worldFor(server), offerOnly: true });
+        const n = await N.read(ctx, ctx.source, b, { lang: G.langFor(server), world: G.worldFor(server), offerOnly: true, clean: true });
         if (n && n.name) out = { text: n.name, rect: r, options: n.options || [], pic: n.pic || '', lang: n.lang || '' };
         else if (n) out = { text: '', rect: r };
       }

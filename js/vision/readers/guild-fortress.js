@@ -28,6 +28,14 @@
   let lastKey = '';
   let pendingKey = '';
   let published = '';
+  let shown = false; // a map was published and is still on screen (an "away" is sent once when it is left)
+  // What the guild already has for this war's fortresses (written by the Guild War page, shared between guildmates
+  // through its records): { enemy: { <fortress 0..2>: [{ name, pos: [x from the middle, y], keep }] }, ours: {…} }.
+  // A defender standing on a place somebody already scanned is not read again (DEVLOG #61).
+  const scanned = (side, index) => {
+    const c = readJSON('e7-gw-fort-cache', {});
+    return ((c[side === 'ours' ? 'ours' : 'enemy'] || {})[index] || []).filter((p) => p && p.name);
+  };
   let before = null; // the look before this one: { rgba, W, H }
   const calm = document.createElement('canvas'); // the two looks with the snow taken out
 
@@ -41,13 +49,22 @@
     screen: 'gw-map',
     every: 2500,
     ready: () => true,
-    idle() {
+    idle(ctx) {
       lastKey = pendingKey = published = '';
       before = null;
+      if (shown && ctx && ctx.publish) ctx.publish('guild:fortress', { away: true });
+      shown = false;
     },
     async read(ctx) {
       const cur = window.E7Screens && window.E7Screens.current();
-      if (cur && OTHER.test(cur)) return ctx.note(`Not a fortress map (${cur})`);
+      const gone = () => {
+        if (shown) ctx.publish('guild:fortress', { away: true });
+        shown = false;
+      };
+      if (cur && OTHER.test(cur)) {
+        gone();
+        return ctx.note(`Not a fortress map (${cur})`);
+      }
       const sc = G.NORM_H / ctx.h();
       norm.width = Math.round(ctx.w() * sc);
       norm.height = G.NORM_H;
@@ -60,9 +77,15 @@
       const pr = lay.regions.gwFortPager;
       const bar = { x: pr.x * W, y: pr.y * H, w: pr.w * W, h: pr.h * H };
       const pager = G.pagerIndex(rgba, W, H, bar);
-      if (pager.contrast < 100) return ctx.note('Not a fortress map (no fortress indicator)');
+      if (pager.contrast < 100) {
+        gone();
+        return ctx.note('Not a fortress map (no fortress indicator)');
+      }
       // the overview has its side switch in the same place: one HALF lit, not one third (DEVLOG #55)
-      if (G.barKind(rgba, W, H, bar).kind === 'overview') return ctx.note('Not a fortress map (the overview)');
+      if (G.barKind(rgba, W, H, bar).kind === 'overview') {
+        gone();
+        return ctx.note('Not a fortress map (the overview)');
+      }
       const found = G.findBadges(rgba, W, H);
       const forts = readJSON('e7-gw-forts', {});
       const side = G.sideOf(found) || forts.side || 'enemy';
@@ -95,25 +118,39 @@
       const lang = G.langFor(server);
       const world = G.worldFor(server);
       const players = [];
+      const have = scanned(side, pager.index);
+      const posOf = (x, y) => [+((x - W / 2) / H).toFixed(4), +(y / H).toFixed(4)];
+      const fromGuild = (pos) => have.find((p) => !p.keep && Array.isArray(p.pos) && Math.hypot(p.pos[0] - pos[0], p.pos[1] - pos[1]) < 0.03);
       for (const b of badges) {
+        const pos = posOf(b.x, b.y);
+        const g = fromGuild(pos);
+        if (g) {
+          // somebody in the guild scanned this place already: the same name for everyone, nothing read again
+          players.push({ name: g.name, raw: g.name, known: true, fromGuild: true, state: b.state, x: b.x / W, y: b.y / H, pos, ...(b.busy ? { busy: true } : {}) });
+          continue;
+        }
         if (ctx.busy) ctx.busy(`Reading the names on this map… ${players.length + 1} of ${badges.length + 1}`);
         const n = await N.read(ctx, from, G.nameBox(b, H), { lang, world, centred: true });
         // a dark (beaten) badge or a badge known only by its place counts only with a name under it
         if ((b.dim || b.byPlace) && !(n && n.name)) continue;
-        players.push({ ...(n || { name: '', raw: '', known: false }), state: b.state, x: b.x / W, y: b.y / H, ...(b.busy ? { busy: true } : {}) });
+        players.push({ ...(n || { name: '', raw: '', known: false }), state: b.state, x: b.x / W, y: b.y / H, pos, ...(b.busy ? { busy: true } : {}) });
       }
       const kr = lay.regions.gwKeepName;
-      if (ctx.busy) ctx.busy(`Reading the names on this map… ${badges.length + 1} of ${badges.length + 1}`);
-      const kn0 = await N.read(ctx, from, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world, centred: true });
-      const kn = kn0 && kn0.name ? kn0 : null;
+      const gk = have.find((p) => p.keep);
+      if (!gk && ctx.busy) ctx.busy(`Reading the names on this map… ${badges.length + 1} of ${badges.length + 1}`);
+      const kn0 = gk ? { name: gk.name, raw: gk.name, known: true, fromGuild: true } : await N.read(ctx, from, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world, centred: true });
+      const kn = kn0 && kn0.name ? { ...kn0, x: kr.x + kr.w / 2, y: kr.y - 0.06 } : null;
       if (ctx.done) {
         const all = [...players, ...(kn ? [kn] : [])].filter((p) => p.name);
         const unsure = all.filter((p) => !p.known && !p.official).length;
-        if (unsure) ctx.done(`${all.length} names read, ${unsure} to check in the app (Guild War → Seen in game)`, { ask: true });
-        else ctx.done(`${all.length} names read`);
+        const reused = all.filter((p) => p.fromGuild).length;
+        if (unsure) ctx.done(`${all.length} names, ${unsure} not sure: tap ${unsure === 1 ? 'that player' : 'those players'} (marked ?) and the name is read from their page`, { ask: true });
+        else if (reused === all.length) ctx.done(`${all.length} defenders: already in your guild's war plan`);
+        else ctx.done(`${all.length} names read${reused ? ` (${reused} already in the war plan)` : ''}`);
       }
       lastKey = published = key;
       ctx.note(`${fort} (${side === 'ours' ? 'our side' : 'enemy'}): ${players.length} defenders + keep (${players.filter((p) => p.name).length + (kn ? 1 : 0)} names read, ${players.filter((p) => p.state === 'beaten').length} beaten)`);
+      shown = true;
       ctx.publish('guild:fortress', { side, index: pager.index, fort, players, keep: kn ? { ...kn, keep: true } : null });
     },
   });

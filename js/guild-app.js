@@ -105,6 +105,24 @@
       loaded = true;
       records = list;
       state = GW.buildState(records);
+      // what this war's fortresses hold already, by place: the map reader shows these names without reading them
+      // again, on every guildmate's PC that shares the records (DEVLOG #61)
+      try {
+        const wid = warId || (state.wars.find((w) => w.status !== 'done') || {}).id || null;
+        const cache = { warId: wid, enemy: {}, ours: {} };
+        for (const t of state.targets) {
+          if (t.warId !== wid || !t.player || !Number.isInteger(t.fortIndex)) continue;
+          (cache.enemy[t.fortIndex] = cache.enemy[t.fortIndex] || []).push({ name: t.player, pos: t.pos || null, keep: !!t.keep });
+        }
+        const war = state.wars.find((w) => w.id === wid);
+        for (const list of Object.values((war && war.ourForts) || {})) {
+          for (const p of list || []) {
+            if (!p || !p.name || !Number.isInteger(p.fortIndex)) continue;
+            (cache.ours[p.fortIndex] = cache.ours[p.fortIndex] || []).push({ name: p.name, pos: p.pos || null, keep: !!p.keep });
+          }
+        }
+        localStorage.setItem('e7-gw-fort-cache', JSON.stringify(cache));
+      } catch (_) { /* only a help */ }
       // names the fortress-map reader may match what it reads to (js/vision/readers/guild-fortress.js)
       try {
         localStorage.setItem('e7-gw-known-names', JSON.stringify([...new Set([...state.targets.map((t) => t.player), ...state.members.map((m) => m.name)].filter(Boolean))].slice(-1000)));
@@ -1356,13 +1374,17 @@
     if ((out.beaten || out.standing) && window.E7Diag) window.E7Diag.log('guild', 'beaten state from the fortress map', out);
     return out;
   }
-  async function saveFortress(fort, players, side = 'enemy') {
+  async function saveFortress(fort, players, side = 'enemy', meta = {}) {
     if (!warId) throw new Error('Start a war first (New war).');
     const out = { added: 0, moved: 0, same: 0 };
+    // where each defender stands on the map (the places never move): kept with the record, so a guildmate's app
+    // knows this place is scanned and shows the same name without reading it again (DEVLOG #61)
+    const fortIndex = Number.isInteger(meta.index) ? meta.index : null;
+    const place = (p) => (Array.isArray(p.pos) && fortIndex !== null ? { pos: p.pos, fortIndex } : fortIndex !== null && p.keep ? { fortIndex } : {});
     if (side === 'ours') {
       // our side: who defends where, kept on the war (shared with the guild); members added if new
       const war = state.wars.find((w) => w.id === warId);
-      const list = players.filter((p) => String(p.name || '').trim()).map((p) => ({ name: p.name.trim(), keep: !!p.keep, state: p.state || '' }));
+      const list = players.filter((p) => String(p.name || '').trim()).map((p) => ({ name: p.name.trim(), keep: !!p.keep, state: p.state || '', ...place(p) }));
       await put('war', { ...war, ourForts: { ...((war && war.ourForts) || {}), [fort]: list } });
       for (const p of list) {
         const id = 'm-' + GW.playerKey(p.name).replace(/[^a-z0-9]+/g, '-');
@@ -1387,12 +1409,16 @@
       if (p.raw && p.raw.toLowerCase() !== name.toLowerCase()) fixes[p.raw.toLowerCase()] = name;
       const t = state.targets.find((x) => x.warId === warId && GW.playerKey(x.player) === GW.playerKey(name));
       if (!t) {
-        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '', ...(p.state === 'beaten' ? { beaten: true, beatenAt: new Date().toISOString(), beatenBy: me() } : {}) });
+        await put('target', { warId, player: name, tower: fort, keep: !!p.keep, teams: [], notes: '', ...place(p), ...(p.state === 'beaten' ? { beaten: true, beatenAt: new Date().toISOString(), beatenBy: me() } : {}) });
         out.added++;
       } else if (t.tower !== fort || !!t.keep !== !!p.keep) {
-        await put('target', { ...t, tower: fort, keep: !!p.keep });
+        await put('target', { ...t, tower: fort, keep: !!p.keep, ...place(p) });
         out.moved++;
-      } else out.same++;
+      } else {
+        // already there: only its place on the map is added when it was not known yet
+        if (place(p).fortIndex !== undefined && (t.fortIndex !== place(p).fortIndex || (place(p).pos && !t.pos))) await put('target', { ...t, ...place(p) });
+        out.same++;
+      }
     }
     try {
       localStorage.setItem('e7-gw-name-fixes', JSON.stringify(fixes));

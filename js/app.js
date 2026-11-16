@@ -806,9 +806,9 @@
     for (const e of store.scouting) if (e.draftId === draft.id) Object.assign(e, { matchId, player: (draft.opponent || '').trim() });
     for (const e of store.gameHelp) if (e.draftId === draft.id) Object.assign(e, { matchId, opponent: (draft.opponent || '').trim() });
   }
-  function recordResult(result, source = 'manual') {
+  function recordResult(result, source = 'manual', extra = null) {
     const pts = $('#result-points').value.trim();
-    const m = matchFromDraft(store.draft, result, $('#result-notes').value.trim(), source, pts === '' ? null : Number(pts));
+    const m = { ...matchFromDraft(store.draft, result, $('#result-notes').value.trim(), source, pts === '' ? null : Number(pts)), ...(extra || {}) };
     if (!store.matchSources[source]) store.matchSources[source] = { enabled: true, addedAt: new Date().toISOString() };
     store.matches.unshift(m);
     linkScouting(store.draft, m.id);

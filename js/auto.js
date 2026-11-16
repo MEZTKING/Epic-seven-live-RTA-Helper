@@ -557,7 +557,9 @@
       recordGameHelp();
       maybeReadName();
     }
-    if (on('rta-result')) maybeReadResult();
+    // (a result screen is also known by its green Confirm button: screens the user taught long ago, at another
+    // window size, must not keep results from being read; DEVLOG #61)
+    if (on('rta-result') || confirmShown()) maybeReadResult();
     if (on('rta-battle') || (SW && SW.current() === 'rta-cr-expanded')) maybeAutoReadCR();
     postOverlay();
     fps.n++;
@@ -589,6 +591,12 @@
     };
   }
   function boardSummary() {
+    // while the game watcher's draft reader is reporting, ITS board is what goes into the draft: say that one
+    // (this page's own slot boxes then stay empty, which read as "nothing was seen"; DEVLOG #61)
+    if (Date.now() - watcherDraftAt < 20000 && watcherBoard) {
+      const w = watcherBoard;
+      return `from the game watcher: pre-bans ${w.prebans.me.length}+${w.prebans.opp.length}, picks ${w.picks.me.length}+${w.picks.opp.length}`;
+    }
     const b = board();
     return `prebans ${b.prebans.me.length}+${b.prebans.opp.length}, picks ${b.picks.me.length}+${b.picks.opp.length}`;
   }
@@ -596,9 +604,12 @@
   // The game watcher's draft reader (js/vision/readers/rta-draft.js, DEVLOG #41: stage texts + wide portraits, nothing
   // to calibrate) sends its board here; while it is reporting, this page's own slot reading doesn't touch the draft.
   let watcherDraftAt = 0;
+  let watcherBoard = null;
   function onWatcherDraft(d) {
     if (!d || !d.board) return;
     watcherDraftAt = Date.now();
+    watcherBoard = d.board;
+    if (d.stage && d.stage !== 'idle') draftSeenAt = performance.now(); // the draft is on screen (for the result reader too)
     if (d.board.firstPick) lastFirstPick = d.board.firstPick;
     if (cfg().apply !== false) applyBoard(d.board);
     const n = (a) => a.filter(Boolean).length;
@@ -641,7 +652,8 @@
   const traceState = { snapAt: 0, picAt: 0, pics: 0, draftId: null };
   function traceTick(draftOpen) {
     const id = App.store.draft.id;
-    if (traceState.draftId !== id) Object.assign(traceState, { draftId: id, pics: 0, picAt: 0 });
+    // (a new match with the same, still empty draft gets its pictures too: counted from the match start)
+    if (traceState.draftId !== id || traceState.intro !== introSeenAt) Object.assign(traceState, { draftId: id, intro: introSeenAt, pics: 0, picAt: 0 });
     const now = performance.now();
     if (now - traceState.snapAt > 5000) {
       traceState.snapAt = now;
@@ -660,8 +672,8 @@
       }
       window.E7Trace.slots(id, snap);
     }
-    // while the draft is open: a picture every 20 s (up to 6) so you can check what the app looked at
-    if (draftOpen && window.E7Pictures && traceState.pics < 6 && now - traceState.picAt > 20000) {
+    // while the draft is open: a picture every 12 s (up to 12) so you can check what the app looked at
+    if (draftOpen && window.E7Pictures && traceState.pics < 12 && now - traceState.picAt > 12000) {
       traceState.picAt = now;
       traceState.pics++;
       window.E7Pictures.capture(source, `draft screen ${traceState.pics}`, { draftId: id }).catch(() => {});
@@ -913,7 +925,11 @@
     // (…and only while an RTA match is going on: its start screen or its draft was seen in the last few minutes;
     // other screens have a green button in that corner too, e.g. Guild War's Offense Team)
     const inMatch = performance.now() - introSeenAt < INTRO_HOLD_MS || performance.now() - draftSeenAt < 120000;
-    if (!complete && !(shown && inMatch)) return;
+    // All ten heroes are on the board but the draft is "not complete": the pre-bans or the bans after the draft were
+    // not read (seen on the owner's PC: the game watcher read the picks, never the pre-bans). That is a played match.
+    const view = L.draftView(d);
+    const drafted = view.picks.me.length >= 5 && view.picks.opp.length >= 5;
+    if (!complete && !(shown && (inMatch || drafted))) return;
     if (res.draftId !== d.id) Object.assign(res, { draftId: d.id, last: null, done: false });
     if (res.done || performance.now() - res.at < 2000) return;
     res.at = performance.now();
@@ -922,8 +938,12 @@
     if (r && r === res.last && !res.done && App.store.draft.id === res.draftId) {
       res.done = true;
       res.shown = shown;
-      note(`result read from screen: ${r}${complete ? '' : ' (before the draft was finished)'}`, { text: text.slice(0, 40) });
-      if (!complete) {
+      note(`result read from screen: ${r}${complete ? '' : drafted ? ' (all ten heroes known, bans not read)' : ' (before the draft was finished)'}`, { text: text.slice(0, 40) });
+      if (!complete && drafted) {
+        // a played match: recorded like any other, marked so its unknown bans are not taken for "no bans"
+        if (App.store.settings.autoRecord) App.recordResult(r, 'auto', { bansUnknown: true });
+        setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded; the bans were not read)' : ' — press Win/Loss to record'}`);
+      } else if (!complete) {
         // not a match to learn from: kept apart from the matches, the half-made draft is cleared
         if (App.store.settings.autoRecord) App.recordWalkover(r, 'auto');
         setStatus(`The match ended before the draft was finished (${r.toUpperCase()}): ${App.store.settings.autoRecord ? 'noted apart from your matches, draft cleared' : 'press New draft to clear it'}`);

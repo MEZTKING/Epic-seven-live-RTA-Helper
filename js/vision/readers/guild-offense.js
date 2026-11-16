@@ -160,7 +160,7 @@
       const nameAlts = L.alternatives(ctx.w(), ctx.h(), 'gwOffEnemyName');
       const rect = (nameAlts[best.k] || nameAlts[0]).rect;
       const server = forts().enemyServer || '';
-      const enemy = nameOut(await N.read(ctx, ctx.source, s.px(rect), { lang: G.langFor(server), world: G.worldFor(server) }));
+      const enemy = nameOut(await N.read(ctx, ctx.source, s.px(rect), { lang: G.langFor(server), world: G.worldFor(server), clean: true }));
       offRead = true;
       const sure = (teams) => teams.flat().filter((x) => x && x.sure).length;
       ctx.note(`Offense Team vs ${enemy.name || '?'}: their defense ${sure(best.theirs)}/6, your teams ${sure(best.mine)}/6 heroes recognised`);
