@@ -7,6 +7,72 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-16 · #60 · RTA: a match that ends before the draft is finished (the opponent leaves) is noted apart and the draft cleared · this commit (previous: `470905b`)
+
+**Asked for** (three screenshots: "Here comes a new challenger!", the match-start screen, VICTORY with "The opponent's
+connection to the server has been lost."): "sometimes players will join a rta match but concede or lose connection,
+this is what happens", and "also where are you storing all this".
+
+**Findings**
+- The result reader only looked for VICTORY / DEFEAT once the draft was complete (so that the word is not searched
+  for on every screen). A match that ends during the draft was therefore never noticed: nothing was recorded, and
+  the half-made draft with its suggestions stayed until the next match replaced it.
+- The game counts such a match (the screen shows "Placement in progress 1/10"), but there are no two full teams:
+  it must not go into the hero statistics, the learned counters or the win rate by first pick.
+- Every result screen has a green "Confirm" button bottom right (56,84,59 on this screenshot, 51,81,54 on the older
+  16:9 Victory fixture): a result screen can be told by pixels, without reading text. Guild War's Offense Team
+  screen has a green Start button in the same corner, so the test is only used while an RTA match is going on.
+- The match-start screen shows "First Pick" under the player who picks first, and "Pre-Season" / "Placement in
+  progress" instead of a rank. Written down; not used here.
+- **Where everything is stored** (the owner's question; the full table is docs/HANDOFF.md §4):
+  - on the owner's PC, inside the desktop app's own data folder (Electron's `userData`; the packaged app's name is
+    `epic7-engine-desktop`, so on Windows that should be `%APPDATA%\epic7-engine-desktop`, not checked there; the
+    new menu item opens it): matches,
+    notes, settings, taught faces, Guild War records of this device, the games of top players, the list of official
+    player names per server, `config.json`. Developer screenshots, when switched on: `Pictures\Epic 7 Engine`.
+  - shared with the guild only when a Firebase project was connected in Guild War → Setup (it is not, so far).
+  - sent out: player NUMBERS to the official record site for lookups; downloads of hero portraits, the text reader
+    and its language data, the weekly effect list; the update check on GitHub. No screenshots, no names, no matches.
+  - in this public repository: the program, the documentation and test pictures with every player and guild name
+    replaced. Raw screenshots sent in chat stay in the session's temporary workspace and are never committed.
+
+**Changed**
+- `js/auto.js` `maybeReadResult`: with an unfinished draft a result is looked for only while a result screen is up
+  (`confirmShown()`: the Confirm button's pixels, `js/layouts.js` `rtaConfirm`) and a match is going on (its start
+  screen in the last 5 minutes or its draft in the last 2). VICTORY / DEFEAT read twice → `App.recordWalkover`.
+  One result screen gives one result: after any result is recorded, nothing more is read until that screen is gone.
+- `js/app.js`: `store.walkovers` (newest 500: date, result, source, first pick, the picks made so far) and
+  `recordWalkover(result, source)`: kept apart from `store.matches`, the draft is cleared. History shows a card
+  "Ended before the draft was finished: N (W won, L lost) · not counted above, not used for hero statistics".
+- `desktop/main.js`: menu **Epic 7 Engine → Open the folder where the app keeps its data**.
+- Fixture: `steam-rta-victory-opponent-left-wide.jpg` (the names shining through the dimmed draft blurred away).
+
+**Bugs found and fixed while doing it**
+- The new menu item was first put right under "Check for updates…", where the line with the result of the update
+  check belongs: `tests/desktop/update-check.js` caught it; the item is below the version line now.
+- In the test, loading a screenshot switches the reader's follow mode off, so "a match starts" was never noticed
+  and the early result was (rightly) ignored: the test switches it on again after each picture.
+
+**Tested**
+- `npm test` **174** (no new unit test: the change is in the page code).
+- Browser suite **39/39** clean, no code changed during the run. New `tests/e2e/rta-walkover.e2e.js`:
+  - the result picture with no match going on: nothing happens
+  - match start → draft under way → the VICTORY screen: one entry in `walkovers` (win, auto), no match added, draft
+    cleared; the same screen kept up: still one; History shows the card and "Matches 0"
+  - `rta-auto-full`, `rta-real-screens`, `rta-draft`, `rta-basics` print exactly what they printed before this
+    change; `match-review` differs only in its times of day
+- Desktop (packaged Linux build): `watcher`, `overlay-test`, `newwar`, `war-reminder`, `popout`, `update-check` pass; the menu shows the new item under the version line.
+- **Not tested:** a concede (its wording is not known; only the word VICTORY / DEFEAT and the Confirm button are
+  used, so it should not matter), a DEFEAT of this kind, the live game, the owner's PC.
+
+**Open**
+- Matches imported from the official record site: whether such a game appears there, and with which picks, has
+  not been looked at; an imported game with fewer than five picks a side should probably be kept out of the
+  statistics the same way.
+- The season table (History → Seasons) counts finished matches only; the game's own count includes these.
+
+---
+
 ## 2026-11-16 · #59 · Guild War in a running war: every defender found (it missed two kinds of badge), draw results, names cut by their centring, the fixed places · this commit (previous: `2bfbbfa`)
 
 **Asked for** (five screenshots: a "Defense Draw" window, an enemy's page that was already attacked, the Stinger map

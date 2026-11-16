@@ -870,12 +870,50 @@
   }
 
   // ================================================================== result
-  const res = { draftId: null, last: null, done: false, at: 0 };
+  const res = { draftId: null, last: null, done: false, at: 0, shown: false };
+  const probe = document.createElement('canvas');
+  probe.width = 16;
+  probe.height = 4;
+  /** Is a result screen up? Its green "Confirm" button, bottom right (js/layouts.js rtaConfirm): pixels only. */
+  function confirmShown() {
+    const fs = frameSize();
+    const lay = LAY && fs ? LAY.layoutFor(fs.w, fs.h) : null;
+    const reg = lay && lay.regions.rtaConfirm;
+    if (!source || !reg) return false;
+    try {
+      const r = pxRect(reg);
+      const x = probe.getContext('2d', { willReadFrequently: true });
+      x.drawImage(source, r.x, r.y, r.w, r.h, 0, 0, 16, 4);
+      const d = x.getImageData(0, 0, 16, 4).data;
+      let R = 0, G = 0, B = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        R += d[i];
+        G += d[i + 1];
+        B += d[i + 2];
+      }
+      const n = d.length / 4;
+      return G / n - R / n >= 18 && G / n - B / n >= 15 && (R + G + B) / (3 * n) < 120;
+    } catch (_) {
+      return false;
+    }
+  }
   async function maybeReadResult() {
     const c = cfg();
     const reg = regions().result;
     const d = App.store.draft;
-    if (!c.detectResult || !reg || !L.isComplete(d) || ocr.failed || ocr.busy) return;
+    if (!c.detectResult || !reg || ocr.failed || ocr.busy) return;
+    const shown = confirmShown();
+    // one result screen is one result: after it was recorded the draft is new and empty, and the same screen (still
+    // up until Confirm is pressed) must not be taken for a second match that ended early
+    if (res.shown && !shown) res.shown = false;
+    if (res.shown) return;
+    // A match can end BEFORE the draft is finished: the opponent leaves or loses the connection and the game shows
+    // VICTORY at once (DEVLOG #60). Without a finished draft a result is only looked for while a result screen is up.
+    const complete = L.isComplete(d);
+    // (…and only while an RTA match is going on: its start screen or its draft was seen in the last few minutes;
+    // other screens have a green button in that corner too, e.g. Guild War's Offense Team)
+    const inMatch = performance.now() - introSeenAt < INTRO_HOLD_MS || performance.now() - draftSeenAt < 120000;
+    if (!complete && !(shown && inMatch)) return;
     if (res.draftId !== d.id) Object.assign(res, { draftId: d.id, last: null, done: false });
     if (res.done || performance.now() - res.at < 2000) return;
     res.at = performance.now();
@@ -883,9 +921,16 @@
     const r = V.resultWord(text); // tolerant: the sword crosses the T of VICTORY on the Steam screen
     if (r && r === res.last && !res.done && App.store.draft.id === res.draftId) {
       res.done = true;
-      note(`result read from screen: ${r}`, { text: text.slice(0, 40) });
-      if (App.store.settings.autoRecord) App.recordResult(r, 'auto');
-      setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded)' : ' — press Win/Loss to record'}`);
+      res.shown = shown;
+      note(`result read from screen: ${r}${complete ? '' : ' (before the draft was finished)'}`, { text: text.slice(0, 40) });
+      if (!complete) {
+        // not a match to learn from: kept apart from the matches, the half-made draft is cleared
+        if (App.store.settings.autoRecord) App.recordWalkover(r, 'auto');
+        setStatus(`The match ended before the draft was finished (${r.toUpperCase()}): ${App.store.settings.autoRecord ? 'noted apart from your matches, draft cleared' : 'press New draft to clear it'}`);
+      } else {
+        if (App.store.settings.autoRecord) App.recordResult(r, 'auto');
+        setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded)' : ' — press Win/Loss to record'}`);
+      }
     }
     res.last = r;
   }
@@ -1649,6 +1694,6 @@
     });
   }
 
-  window.RTAAuto = { _setLive: (v) => ((live = !!v), postOverlay()), _rtaOnScreen: () => rtaOnScreen(), _renderReview: renderReview, _traceTick: traceTick, _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
+  window.RTAAuto = { _confirmShown: confirmShown, _resultState: () => ({ ...res, sinceIntro: Math.round(performance.now() - introSeenAt), sinceDraft: Math.round(performance.now() - draftSeenAt), ocrFailed: !!ocr.failed, ocrBusy: !!ocr.busy, hasRegion: !!regions().result }), _setLive: (v) => ((live = !!v), postOverlay()), _rtaOnScreen: () => rtaOnScreen(), _renderReview: renderReview, _traceTick: traceTick, _scanCRTeams: scanCRTeams, _openLabel: openLabel, _onMatchStart: onMatchStart, _readFirstPick: readFirstPick, _pickerPrebans: () => pickerPrebans, render, tick, board, readCR, isWatching: () => !!timer, _track: track, _templates: templates, _officialLoad: officialLoad };
   rebuildSlots();
 })();
