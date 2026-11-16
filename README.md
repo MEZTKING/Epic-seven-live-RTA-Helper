@@ -113,7 +113,10 @@ Trial of Constellation, Strategic Archive…), a mobile app, and more.
 - **Reads the game by itself (desktop app, any window size):**
   - the overview: both guild names and the three fortress names per side → the war **starts by itself** (with Undo)
   - a fortress map: which fortress, each defender's name, and who is already **beaten** (marked cleared for the guild)
-  - an enemy's defense screen: the six heroes of their two teams
+  - an enemy's defense screen: their name (in any writing) and the six heroes of their two teams
+  - a battle-result window ("Successful Attack", "Failed Defense"): who beat whom, each round, with which heroes →
+    logged as attacks / defenses **by itself**, once, with Undo
+  - while it reads something slow, a small "working…" card shows on the game
   - the standby page: "no war right now, next war in about 29 hours", with a **reminder** 30 minutes before
 - **Arena record** on an enemy card: that player's arena habits and builds from the official record site.
 - **War board:** add each enemy player's defense (2 teams of 3, with speeds, sets and artifacts), see which teams are

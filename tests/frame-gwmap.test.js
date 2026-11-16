@@ -262,4 +262,13 @@ test('gwmap: pickRead keeps every usable reading as a candidate; a clearly longe
   assert.equal(q.name, 'moonpie77');
   assert.equal(q.lang, 'eng');
   assert.deepEqual(G.pickRead([]).all, []);
+  // two cuts of one Latin name: the loose one took a speck of scenery in as a letter (DEVLOG #57)
+  const two = G.pickRead([{ lang: 'eng', text: 'ARocketOwl', conf: 88, cut: 'loose' }, { lang: 'eng', text: 'RocketOwl', conf: 86, cut: 'tight' }]);
+  assert.equal(two.name, 'RocketOwl');
+  assert.deepEqual(two.all.map((x) => x.name), ['RocketOwl', 'ARocketOwl'], 'the other reading is still offered');
+  // …but not when the tight cut is the one that lost a letter the reader was sure of, or the difference is larger
+  assert.equal(G.pickRead([{ lang: 'eng', text: 'RocketOwl77', conf: 90, cut: 'loose' }, { lang: 'eng', text: 'RocketOwl', conf: 60, cut: 'tight' }]).name, 'RocketOwl77');
+  // the tight cut kept only a piece of the name (seen on a keep's name: "pO" out of "KeepOne7")
+  assert.equal(G.pickRead([{ lang: 'eng', text: 'KeepOne7', conf: 79, cut: 'loose' }, { lang: 'eng', text: 'pO', conf: 84, cut: 'tight' }]).name, 'KeepOne7');
+  assert.equal(G.pickRead([{ lang: 'eng', text: 'BigRocketOwl', conf: 80, cut: 'loose' }, { lang: 'eng', text: 'RocketOwl', conf: 85, cut: 'tight' }]).name, 'BigRocketOwl');
 });

@@ -159,6 +159,58 @@
   // the standby page (js/vision/readers/guild-standby.js): no war running. Said on the War tab; an open war is
   // marked finished (with Undo). A stored reading counts when it is newer than the last overview reading.
   bus.on('guild:standby', (d) => A.standbyFromGame && A.standbyFromGame(d).catch(() => {}));
+  // a battle-result window (js/vision/readers/guild-result.js): logged as attacks / defenses, once, with Undo (DEVLOG #57)
+  // The reader keeps every result in localStorage 'e7-gw-results' (this page may be closed when the window is on
+  // screen); they are taken from there: on the event, and when this page has loaded the guild's records.
+  const RESULTS = 'e7-gw-results';
+  const waiting = () => {
+    try {
+      return (JSON.parse(localStorage.getItem(RESULTS) || '[]') || []).filter((x) => x && x.d && Date.now() - Date.parse(x.at || 0) < 12 * 3600 * 1000);
+    } catch (_) {
+      return [];
+    }
+  };
+  const keep = (list) => {
+    try {
+      localStorage.setItem(RESULTS, JSON.stringify(list.slice(-12)));
+    } catch (_) { /* storage not available: the event alone still works */ }
+  };
+  let taking = false;
+  /** Log what is waiting (and `now`, a result that just arrived on the bus). One at a time. */
+  async function takeResults(now) {
+    if (!A.resultFromGame) return;
+    if (taking) {
+      // busy with an earlier one: what just arrived is in the waiting list (or is put there) and is taken next time
+      if (now && !now.qid) keep([...waiting(), { id: `event-${Date.now()}`, at: new Date().toISOString(), d: now }]);
+      return;
+    }
+    // a result from the reader is in the waiting list; when it is gone, another Guild War window has taken it
+    if (now && now.qid && !waiting().some((x) => x.id === now.qid)) now = null;
+    taking = true;
+    try {
+      const todo = waiting().filter((x) => !now || x.id !== now.qid);
+      if (now) todo.unshift({ id: now.qid || `event-${Date.now()}`, at: new Date().toISOString(), d: now });
+      for (const x of todo) {
+        // taken out first (another Guild War window must not log it too), put back when it cannot be logged yet
+        keep(waiting().filter((y) => y.id !== x.id));
+        let r = 'error';
+        try {
+          r = await A.resultFromGame(x.d);
+        } catch (_) { /* dropped */ }
+        if (r === 'no-guild' || r === 'no-war') {
+          const slim = (p) => ({ name: (p || {}).name || '', options: (p || {}).options || [] });
+          keep([...waiting(), { ...x, d: { ...x.d, left: slim(x.d.left), right: slim(x.d.right) } }]);
+          break;
+        }
+      }
+    } catch (_) { /* never let this break the page */ }
+    taking = false;
+  }
+  bus.on('guild:result', (d) => takeResults(d));
+  A.onChange(() => waiting().length && takeResults());
+  // this page may have finished loading before the lines above ran, and a war may start later: look again now and then
+  setTimeout(() => waiting().length && takeResults(), 1500);
+  setInterval(() => waiting().length && takeResults(), 5000);
   const storedStandby = () => {
     try {
       const v = JSON.parse(localStorage.getItem('e7-gw-standby') || 'null');

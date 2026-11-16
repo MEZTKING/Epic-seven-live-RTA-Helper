@@ -31,6 +31,10 @@
   const PB = { cx: [0.3146, 0.3585, 0.4169, 0.46], cy: 0.9438, r: 0.0235 };
   const pb = (k) => ({ x: PB.cx[k] - PB.r, y: PB.cy - (PB.r * 16) / 9, w: 2 * PB.r, h: (2 * PB.r * 16) / 9 });
   const REF = 16 / 9;
+  // a box measured on a 2000×1070 picture of something CENTRED in the window (a pop-up window): fractions of the
+  // 16:9 frame in the middle (1902 px wide there)
+  const mid = (x, y, w, h) => ({ x: 0.5 + (x - 1000) / (1070 * REF), y: y / 1070, w: w / (1070 * REF), h: h / 1070 });
+  const midRing = (cx, cy) => mid(cx - 48, cy - 48, 96, 96);
   // anchors: a = 'l' | 'c' | 'r'; alt = other anchors worth trying (not verified on a non-16:9 picture yet)
   const A = (r, a, alt) => ({ ...r, a, ...(alt ? { alt } : {}) });
 
@@ -66,10 +70,28 @@
         gwDef4: A(ring(314, 381), 'l'),
         gwDef5: A(ring(378, 409), 'l'),
         gwDef6: A(ring(259, 439), 'l'),
-        // the FOURTH place of each team's formation (bottom of the diamond): a team stands on three of four places.
-        // By eye from the owner's 2000×1070 screenshot of a member's tower (DEVLOG #56; no file of it): not pixel-checked.
+        // the FOURTH place of each team's formation (bottom of the diamond): a team is three heroes standing on three
+        // of four places. By eye from the owner's 2000×1070 screenshot of a member's tower (DEVLOG #56); checked on
+        // that screenshot as a file in DEVLOG #57 (round 1 on top / left / bottom: all three read).
         gwDef7: A(ring(130, 469), 'l'),
         gwDef8: A(ring(332, 469), 'l'),
+        // Guild War battle-result window ("Successful Attack" / "Failed Defense" …), centred: measured on the owner's
+        // 2000×1070 screenshots (DEVLOG #57). Title, the two names, the band between the sides, the icon over each
+        // round's result, and the 12 hero icons: gwResL<round><n> (left player), gwResR<round><n> (right player).
+        gwResTitle: A(mid(760, 222, 480, 62), 'c'),
+        gwResHeader: A(mid(430, 205, 300, 80), 'c'),
+        gwResBand: A(mid(930, 320, 140, 40), 'c'),
+        gwResNameL: A(mid(622, 379, 300, 42), 'c'),
+        gwResNameR: A(mid(1078, 379, 294, 42), 'c'),
+        gwResRound1: A(mid(965, 548, 70, 68), 'c'),
+        gwResRound2: A(mid(965, 713, 70, 68), 'c'),
+        gwResWindow: A(mid(410, 190, 1180, 690), 'c'),
+        ...Object.fromEntries(
+          [603, 768].flatMap((cy, r) => [
+            ...[525, 670, 815].map((cx, k) => [`gwResL${r + 1}${k + 1}`, A(midRing(cx, cy), 'c')]),
+            ...[1180, 1326, 1470].map((cx, k) => [`gwResR${r + 1}${k + 1}`, A(midRing(cx, cy), 'c')]),
+          ]),
+        ),
         // Guild War fortress map: the page indicator at the bottom right (white pill = which fortress), pixel-measured
         // (bar 0.42 h … 0.041 h from the right edge at 93.5% height, the same on 2000×1070 and 1228×691)
         gwFortPager: A(g(938, 630, 262, 32), 'r'),
@@ -121,10 +143,10 @@
     for (const [k, r] of Object.entries(base.regions)) regions[k] = place(r, w, h, r.a || 'c');
     return { id: base.id, label: base.label, aspect: ar, measured: base.measured, regions, exact: Math.abs(ar - REF) < 0.03 };
   }
-  /** Every placement worth trying for one region in a w×h picture: [{ anchor, rect }] (main anchor first). */
   // Guild War stronghold (keep) screen: a banner ("One of the two Defense Towers must be destroyed first…") pushes the
   // teams down by this share of the height (78 px at 1070, measured on the owner's 2000×1070 screenshot, DEVLOG #56)
   const GW_DEF_SHIFTS = [0, 78 / 1070];
+  /** Every placement worth trying for one region in a w×h picture: [{ anchor, rect }] (main anchor first). */
   function alternatives(w, h, key) {
     const r = LAYOUTS[0].regions[key];
     if (!r || !w || !h) return [];

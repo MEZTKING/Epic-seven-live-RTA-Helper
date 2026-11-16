@@ -1,0 +1,119 @@
+/*
+ * Guild War battle-result window (DEVLOG #57): "Successful Attack" / "Failed Attack" / "Successful Defense" /
+ * "Failed Defense". It opens from a row of a player's Season Log and shows, from the point of view of the player
+ * whose page is open (LEFT): that player, the opponent (RIGHT), both sides' two teams of three and the result of
+ * each round (Victory / Defeat / Draw). Pure pixel + text helpers, no DOM: unit-tested in tests/gwresult.test.js.
+ * The reader is js/vision/readers/guild-result.js; positions are in js/layouts.js (gwRes…).
+ *
+ * Measured on the owner's 2000×1070 screenshots (2026-11-16):
+ *   header (title strip)   mean colour (10,17,24)                    -> very dark
+ *   middle band            (43,19,26) on an ENEMY's page (red), (30,47,30) on a page of OUR member (green)
+ *   round icon             Victory: 29–31% blue, 25% white · Defeat: 14–15% red, 22% white, no blue
+ *
+ *   stats(rgba, W, H, rect)          -> { r, g, b, lum, blue, white, red, gold } of a pixel rect (shares 0..1)
+ *   windowAt(rgba, W, H, R)          -> null | { side: 'enemy' | 'ours' }   R: { header, band } pixel rects
+ *   roundResult(rgba, W, H, rect)    -> 'victory' | 'defeat' | 'draw' | null
+ *   titleKind(text)                  -> null | { type: 'attack' | 'defense', ok: boolean }
+ *   plan(d)                          -> what it means for OUR guild (see below)
+ *   key(plan)                        -> text that is the same for the same battle (not logged twice)
+ */
+(function (root) {
+  'use strict';
+
+  function stats(rgba, W, H, rect) {
+    const x0 = Math.max(0, Math.round(rect.x));
+    const y0 = Math.max(0, Math.round(rect.y));
+    const x1 = Math.min(W, Math.round(rect.x + rect.w));
+    const y1 = Math.min(H, Math.round(rect.y + rect.h));
+    let r = 0, g = 0, b = 0, n = 0, blue = 0, white = 0, red = 0, gold = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const p = (y * W + x) * 4;
+        const R = rgba[p], G = rgba[p + 1], B = rgba[p + 2];
+        r += R; g += G; b += B; n++;
+        if (B > 150 && B - R > 60) blue++;
+        if (R > 200 && G > 200 && B > 200) white++;
+        if (R > 170 && G < 100 && B < 110) red++;
+        if (R > 170 && G > 110 && G < 200 && B < 100) gold++;
+      }
+    }
+    if (!n) return { r: 0, g: 0, b: 0, lum: 0, blue: 0, white: 0, red: 0, gold: 0 };
+    return { r: r / n, g: g / n, b: b / n, lum: (r + g + b) / (3 * n), blue: blue / n, white: white / n, red: red / n, gold: gold / n };
+  }
+
+  /**
+   * Is a battle-result window open? The title strip is nearly black-blue and the band between the two sides is dark
+   * and clearly red (the page of an enemy) or clearly green (the page of one of ours).
+   */
+  function windowAt(rgba, W, H, R) {
+    const h = stats(rgba, W, H, R.header);
+    if (h.lum > 40 || h.white > 0.02) return null;
+    const b = stats(rgba, W, H, R.band);
+    if (b.lum > 80) return null;
+    if (b.r - b.g >= 10 && b.r - b.b >= 6) return { side: 'enemy' };
+    if (b.g - b.r >= 8 && b.g - b.b >= 6) return { side: 'ours' };
+    return null;
+  }
+
+  /** The icon over "Victory" / "Defeat" / "Draw": blue crossed swords, a red-and-white shield, a gold badge. */
+  function roundResult(rgba, W, H, rect) {
+    const s = stats(rgba, W, H, rect);
+    if (s.blue >= 0.15 && s.white >= 0.1) return 'victory';
+    if (s.red >= 0.07 && s.white >= 0.1 && s.blue < 0.05) return 'defeat';
+    if (s.gold >= 0.12 && s.blue < 0.05 && s.red < 0.05) return 'draw';
+    return null;
+  }
+
+  /** "Successful Attack" -> { type: 'attack', ok: true }. Letters may be misread: a few forms of each word. */
+  function titleKind(text) {
+    const t = String(text || '').toLowerCase().replace(/[^a-z ]+/g, ' ');
+    const type = /at+ack/.test(t) ? 'attack' : /de[ft]en[sc]e|defen/.test(t) ? 'defense' : null;
+    if (!type) return null;
+    const ok = /suc+es+ful|succes|ccessful/.test(t) ? true : /fail/.test(t) ? false : null;
+    if (ok === null) return null;
+    return { type, ok };
+  }
+
+  /**
+   * What a result window means for our guild.
+   *   d: { type: 'attack' | 'defense', side: 'enemy' | 'ours' (whose page: the LEFT player), left: name, right: name,
+   *        rounds: [{ result: 'victory' | 'defeat' | 'draw' (for the LEFT player), left: [codes], right: [codes] }] }
+   * ->  { kind: 'attack',  ours: member, enemy: player, rounds: [{ team, result: 'win' | 'loss', draw, heroes, defense }] }
+   *       one of ours attacked an enemy: heroes = our attack team, defense = the enemy team it met
+   *     { kind: 'defense', ours: member, enemy: player, rounds: [{ team, result: 'held' | 'lost', draw, heroes, attack }] }
+   *       an enemy attacked one of ours: heroes = our defense team, attack = the enemy team that came
+   * The four cases:
+   *   our page,  attack   our LEFT attacked the enemy RIGHT            result as shown
+   *   our page,  defense  the enemy RIGHT attacked our LEFT            result as shown
+   *   enemy page, attack  the enemy LEFT attacked our RIGHT            result turned round
+   *   enemy page, defense our RIGHT attacked the enemy LEFT            result turned round
+   */
+  function plan(d) {
+    if (!d || !d.type || !d.side || !Array.isArray(d.rounds)) return null;
+    const oursLeft = d.side === 'ours';
+    const ourAttack = (d.type === 'attack') === oursLeft;
+    const rounds = d.rounds.map((r, i) => {
+      const draw = r.result === 'draw';
+      // did OUR side win this round?
+      const won = draw ? false : (r.result === 'victory') === oursLeft;
+      const mine = (oursLeft ? r.left : r.right) || [];
+      const theirs = (oursLeft ? r.right : r.left) || [];
+      return ourAttack
+        ? { team: i + 1, result: won ? 'win' : 'loss', draw, heroes: mine, defense: theirs }
+        : { team: i + 1, result: won || draw ? 'held' : 'lost', draw, heroes: mine, attack: theirs };
+    });
+    return { kind: ourAttack ? 'attack' : 'defense', ours: oursLeft ? d.left : d.right, enemy: oursLeft ? d.right : d.left, rounds };
+  }
+
+  /** The same battle gives the same text (who, against whom, each round's result and heroes on both sides). */
+  function key(p) {
+    if (!p) return '';
+    const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    const team = (t) => [...(t || [])].filter(Boolean).sort().join('+');
+    return [p.kind, norm(p.ours), norm(p.enemy), ...p.rounds.map((r) => `${r.result}${r.draw ? 'd' : ''}:${team(r.heroes)}:${team(r.defense || r.attack)}`)].join('|');
+  }
+
+  const api = { stats, windowAt, roundResult, titleKind, plan, key };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.E7GWResult = api;
+})(typeof window !== 'undefined' ? window : globalThis);
