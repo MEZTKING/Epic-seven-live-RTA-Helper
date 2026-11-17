@@ -133,6 +133,13 @@ test('draftscreen: the tracker follows a draft (hover vs confirm, turn order, fi
   // the app's board: picks in order, pre-bans split, first pick in the app's words
   const b = D.toBoard(st.last);
   assert.deepEqual(b, { prebans: { me: ['a', 'b'], opp: [] }, picks: { me: ['m2', 'm3'], opp: ['e1'] }, postbans: { me: [], opp: [] }, firstPick: 'opp' });
+  // a card not read BEFORE cards that were read: an unknown hero, the later picks still count (DEVLOG #66)
+  const gap = D.toBoard({ ...st.last, own: [null, 'k1', null, 'k3', 'k4'], enemy: [null, null, null, null, 'z4'], prebans: [null, null, null, null], bans: { own: null, enemy: null } });
+  assert.deepEqual(gap.picks.me.map((c) => (L.isUnseen(c) ? '?' : c)), ['?', 'k1', '?', 'k3', 'k4']);
+  assert.deepEqual(gap.picks.opp.map((c) => (L.isUnseen(c) ? '?' : c)), ['?', '?', '?', '?', 'z4']);
+  const gd = L.boardToDraft(gap, 'me');
+  assert.deepEqual(L.draftView(gd).picks, { me: ['k1', 'k3', 'k4'], opp: ['z4'] }, 'the heroes that were read reach the draft');
+  assert.equal(L.currentStep(gd).phase, 'postban', 'all ten picks taken, the draft is at the bans');
   // ...and the draft model accepts it even though two pre-bans were never seen
   const d = L.boardToDraft(b, b.firstPick);
   assert.deepEqual(L.draftView(d).picks, { me: ['m2', 'm3'], opp: ['e1'] });

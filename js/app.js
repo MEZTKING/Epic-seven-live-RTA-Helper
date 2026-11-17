@@ -443,23 +443,28 @@
       st.textContent = `${who} ${PHASE_LABEL[step.phase]} (${left} left)${extra}`;
     }
 
+    let mine = null; // (my picks' list, for the speed badge)
     const slots = (codes, total, banned, isNextHere) => {
       let html = '';
       for (let i = 0; i < total; i++) {
         const c = codes[i];
-        if (c) {
+        if (c && L.isUnseen(c)) html += `<div class="slot filled unseen" title="The app could not read this card (yet)"><span>?</span></div>`;
+        else if (c) {
           const spd = cache.mySpeeds.get(c);
-          html += `<div class="slot filled${banned && banned.includes(c) ? ' banned' : ''}" data-hero="${esc(c)}" title="Tap for skills and tags">${portrait(c, 'pt sm')}<span>${esc(nameOf(c))}</span>${spd && codes === v.picks.me ? `<small class="spd" title="Your speed (gear.txt)">${spd}</small>` : ''}</div>`;
+          html += `<div class="slot filled${banned && banned.includes(c) ? ' banned' : ''}" data-hero="${esc(c)}" title="Tap for skills and tags">${portrait(c, 'pt sm')}<span>${esc(nameOf(c))}</span>${spd && codes === mine ? `<small class="spd" title="Your speed (gear.txt)">${spd}</small>` : ''}</div>`;
         }
         else html += `<div class="slot${isNextHere && i === codes.length ? ' next' : ''}">—</div>`;
       }
       return html;
     };
     const nextIs = (phase, player) => !!step && step.phase === phase && step.player === player;
-    $('#me-prebans').innerHTML = slots(v.prebans.me, 2, null, nextIs('preban', 'me'));
-    $('#opp-prebans').innerHTML = slots(v.prebans.opp, 2, null, nextIs('preban', 'opp'));
-    $('#me-picks').innerHTML = slots(v.picks.me, 5, v.postbans.opp, nextIs('pick', 'me'));
-    $('#opp-picks').innerHTML = slots(v.picks.opp, 5, v.postbans.me, nextIs('pick', 'opp'));
+    // the boxes show every place in order, also the ones the app could not read ("?"; DEVLOG #66)
+    const placed = (phase, player) => d.actions.filter((a) => a.phase === phase && a.player === player).map((a) => a.heroId);
+    $('#me-prebans').innerHTML = slots(placed('preban', 'me'), 2, null, nextIs('preban', 'me'));
+    $('#opp-prebans').innerHTML = slots(placed('preban', 'opp'), 2, null, nextIs('preban', 'opp'));
+    mine = placed('pick', 'me');
+    $('#me-picks').innerHTML = slots(mine, 5, v.postbans.opp, nextIs('pick', 'me'));
+    $('#opp-picks').innerHTML = slots(placed('pick', 'opp'), 5, v.postbans.me, nextIs('pick', 'opp'));
     $('#me-postban').innerHTML = slots(v.postbans.me, 1, null, nextIs('postban', 'me'));
     $('#opp-postban').innerHTML = slots(v.postbans.opp, 1, null, nextIs('postban', 'opp'));
 

@@ -440,19 +440,22 @@
     return x.length >= 4 && y.startsWith(x) && y.length - x.length <= 3;
   }
 
+  // a card not read (yet) BEFORE one that was read: the same placeholder js/logic.js uses for unseen pre-bans
+  const UNSEEN = '?unseen';
   /** The tracker's picks as the app's "board" (js/logic.js boardToDraft). */
   function toBoard(st) {
-    const cut = (a) => {
-      const out = [];
-      for (const c of a) {
-        if (!c) break; // picks fill in order; stop at the first card not read
-        out.push(c);
-      }
-      return out;
+    // Picks fill the cards in order. A card not read before a card that was read is an unknown hero, not the end of
+    // the list: cutting there hid every later pick (owner's PC, DEVLOG #66: their first card unread -> none of the
+    // opponent's heroes reached the RTA page, and nothing could be suggested). Unread cards after the last read one
+    // are simply not there yet.
+    const cut = (a, side) => {
+      let last = -1;
+      a.forEach((c, i) => c && (last = i));
+      return a.slice(0, last + 1).map((c, i) => c || `${UNSEEN}-${side}${i}`);
     };
     return {
       prebans: { me: st.prebans.slice(0, 2).filter(Boolean), opp: st.prebans.slice(2, 4).filter(Boolean) },
-      picks: { me: cut(st.own), opp: cut(st.enemy) },
+      picks: { me: cut(st.own, 'me'), opp: cut(st.enemy, 'opp') },
       // postbans.me = the enemy hero I banned; postbans.opp = my hero the opponent banned (js/logic.js)
       postbans: { me: st.bans && st.bans.enemy ? [st.bans.enemy] : [], opp: st.bans && st.bans.own ? [st.bans.own] : [] },
       firstPick: st.firstPick === 'enemy' ? 'opp' : st.firstPick === 'me' ? 'me' : null,

@@ -948,7 +948,8 @@
     if (res.shown) return;
     // A match can end BEFORE the draft is finished: the opponent leaves or loses the connection and the game shows
     // VICTORY at once (DEVLOG #60). Without a finished draft a result is only looked for while a result screen is up.
-    const complete = L.isComplete(d);
+    // (a draft with picks nobody saw is not complete: recording it would save half teams; DEVLOG #66)
+    const complete = L.isComplete(d) && !d.actions.some((x) => x.phase === 'pick' && L.isUnseen(x.heroId));
     // (…and only while an RTA match is going on: its start screen or its draft was seen in the last few minutes;
     // other screens have a green button in that corner too, e.g. Guild War's Offense Team)
     const inMatch = performance.now() - introSeenAt < INTRO_HOLD_MS || performance.now() - draftSeenAt < 120000;
@@ -1453,7 +1454,8 @@
       else if (step.phase === 'postban') list = L.suggestPostban(d, App.cache.heroes, ctx, step.player).slice(0, 3);
       const kind = step.phase === 'postban' ? 'pick' : step.phase;
       const side = step.phase === 'postban' ? (step.player === 'me' ? 'opp' : 'me') : step.player;
-      const idx = step.phase === 'preban' ? v.prebans[side].length : step.phase === 'pick' ? v.picks[side].length : 0;
+      // (places counted with the ones nobody could read, so the card lands on the right box; DEVLOG #66)
+      const idx = step.phase === 'postban' ? 0 : d.actions.filter((a) => a.phase === step.phase && a.player === side).length;
       const slot = slots.find((s) => s.side === side && s.kind === kind && s.index === Math.min(idx, kind === 'pick' ? 4 : 1)) || slots.find((s) => s.side === side);
       if (slot && list.length) {
         const who = step.player === 'me' ? 'Your' : 'Their likely';
@@ -1467,7 +1469,8 @@
       }
     }
     // scouted speeds under each enemy pick
-    v.picks.opp.forEach((code, i) => {
+    d.actions.filter((a) => a.phase === 'pick' && a.player === 'opp').map((a) => a.heroId).forEach((code, i) => {
+      if (L.isUnseen(code)) return;
       const slot = slots.find((s) => s.side === 'opp' && s.kind === 'pick' && s.index === i);
       const seen = App.scoutedSpeed(code, d.opponent);
       const e = App.store.scouting.find((x) => x.draftId === d.id && x.code === code);
