@@ -214,7 +214,8 @@
     if (store.settings.useFribbels && store.fribbels) for (const h of store.fribbels.heroes) owned.add(h.code);
     if (store.settings.useManualOwned) for (const c of store.manualOwned) owned.add(c);
     const stars = new Map((store.fribbels ? store.fribbels.heroes : []).map((h) => [h.code, h.stars]));
-    const sourceMatches = store.matches.filter((m) => (store.matchSources[m.source] || {}).enabled !== false);
+    // (a match played for fun, e.g. against a guildmate, is kept in the list but counts for nothing; DEVLOG #63)
+    const sourceMatches = store.matches.filter((m) => !m.fun && (store.matchSources[m.source] || {}).enabled !== false);
     // seasons (js/records.js; the list is cached by js/records-app.js from the official record site)
     const seasons = seasonList();
     const seasonOf = (m) => (window.E7Records ? window.E7Records.seasonOfMatch(seasons, m) : m.season || '');
@@ -402,6 +403,21 @@
   // ===================================================================== draft
   const PHASE_LABEL = { preban: 'preban', pick: 'pick', postban: 'postban' };
 
+  /** The line that says this match is played for fun (set by the game watcher for a guildmate; DEVLOG #63). */
+  function renderFun() {
+    const el = $('#fun-box');
+    if (!el) return;
+    const f = store.draft.fun;
+    el.classList.toggle('hidden', !f);
+    if (!f) return;
+    el.innerHTML = `<span><b>Played for fun</b> (${esc(f)}${store.draft.opponent ? `: ${esc(store.draft.opponent)}` : ''}). The match will be kept in History but not counted in your statistics or in what the app learns.</span> <button class="btn" id="fun-off">Count it after all</button>`;
+    $('#fun-off').onclick = () => {
+      store.draft.fun = null;
+      store.draft.funOff = true; // the watcher must not mark this match again
+      save();
+      renderDraft();
+    };
+  }
   function renderDraft() {
     const d = store.draft;
     const v = L.draftView(d);
@@ -411,6 +427,7 @@
     renderProfileStrip();
     renderPending();
     renderTilt();
+    renderFun();
 
     const st = $('#draft-status');
     st.className = 'status' + (step ? ' ' + step.player : '');
@@ -799,6 +816,7 @@
       points: typeof points === 'number' && !Number.isNaN(points) ? points : undefined,
       draftId: draft.id,
       suggestLog: draft.suggestLog || [],
+      ...(draft.fun ? { fun: true, funWhy: draft.fun } : {}),
     };
   }
   /** Link this draft's scouting entries to the recorded match and opponent. */
@@ -1282,6 +1300,10 @@
         (store.walkovers || []).length
           ? `<div class="card" id="hist-walkovers"><div class="hint">Ended before the draft was finished</div><div class="stat">${store.walkovers.length}</div><div class="hint">${store.walkovers.filter((w) => w.result === 'win').length} won (the opponent left), ${store.walkovers.filter((w) => w.result !== 'win').length} lost · not counted above, not used for hero statistics</div></div>`
           : ''
+      }${
+        store.matches.some((m) => m.fun)
+          ? `<div class="card" id="hist-fun"><div class="hint">Played for fun</div><div class="stat">${store.matches.filter((m) => m.fun).length}</div><div class="hint">kept in the list below, not counted above and not used for hero statistics (a guildmate is noticed by itself; any match: its "For fun" button)</div></div>`
+          : ''
       }`;
     const ses = Learn.sessionStats(ms);
     const fol = Learn.suggestionFollow(ms);
@@ -1314,12 +1336,12 @@
       store.matches
         .slice(0, 300)
         .map((m) => {
-          const off = (store.matchSources[m.source] || {}).enabled === false;
+          const off = m.fun || (store.matchSources[m.source] || {}).enabled === false;
           return `<li class="${off ? 'off' : ''}"><span class="res ${m.result}">${m.result === 'win' ? 'WIN' : 'LOSS'}</span>
           <div><div><b>Me:</b> ${heroList(m.myPicks)}${m.theyBanned ? ` <span class="meta">(lost ${esc(nameOf(m.theyBanned))})</span>` : ''}</div>
           <div><b>${esc(m.opponent || 'Opp')}:</b> ${heroList(m.oppPicks)}${m.iBanned ? ` <span class="meta">(banned ${esc(nameOf(m.iBanned))})</span>` : ''}</div>
-          <div class="meta"><span class="src other">${esc(m.source)}</span>${typeof m.points === 'number' ? ` ${m.points} pts ·` : ''} ${m.date ? new Date(m.date).toLocaleString() : ''} · ${m.firstPick === 'me' ? 'I picked first' : 'They picked first'}${m.notes ? ' · ' + esc(m.notes) : ''}</div></div>
-          <button class="btn" data-del="${esc(m.id)}" title="Delete">✕</button></li>`;
+          <div class="meta"><span class="src other">${esc(m.source)}</span>${m.fun ? ` <span class="src other" title="Kept here, counted nowhere">for fun${m.funWhy ? ` (${esc(m.funWhy)})` : ''} · not counted</span>` : ''}${typeof m.points === 'number' ? ` ${m.points} pts ·` : ''} ${m.date ? new Date(m.date).toLocaleString() : ''} · ${m.firstPick === 'me' ? 'I picked first' : 'They picked first'}${m.notes ? ' · ' + esc(m.notes) : ''}</div></div>
+          <span class="hist-btns"><button class="btn" data-fun="${esc(m.id)}" title="${m.fun ? 'Count this match again in your statistics' : 'Played for fun (a friend, a guildmate, a test): keep it here but do not count it in statistics or learning'}">${m.fun ? 'Count it' : 'For fun'}</button><button class="btn" data-del="${esc(m.id)}" title="Delete">✕</button></span></li>`;
         })
         .join('') || '<li class="hint">Finish a draft and press Win or Loss to log a match.</li>';
   }
@@ -1337,6 +1359,18 @@
     return `<svg class="pts" viewBox="0 0 ${W} ${H}" role="img" aria-label="Rank points over time"><path d="${path}" /> ${dots}<text x="4" y="12">${hi}</text><text x="4" y="${H - 1}">${lo}</text></svg><div class="hint">Now: <b>${ys[ys.length - 1]}</b> (${ys[ys.length - 1] - ys[0] >= 0 ? '+' : ''}${ys[ys.length - 1] - ys[0]} over ${points.length} entries)</div>`;
   }
   $('#hist-list').addEventListener('click', (e) => {
+    const f = e.target.closest('[data-fun]');
+    if (f) {
+      const m = store.matches.find((x) => x.id === f.dataset.fun);
+      if (!m) return;
+      if (m.fun) {
+        delete m.fun;
+        delete m.funWhy;
+      } else Object.assign(m, { fun: true, funWhy: 'marked by you' });
+      save();
+      renderHistory();
+      return;
+    }
     const b = e.target.closest('[data-del]');
     if (!b || !confirm('Delete this match?')) return;
     store.matches = store.matches.filter((m) => m.id !== b.dataset.del);
@@ -1765,7 +1799,7 @@
     },
     replaceDraft(next, { newMatch = false } = {}) {
       if (newMatch && L.isComplete(store.draft)) store.pending = { ...store.draft };
-      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '', ...(store.draft.crTeams ? { crTeams: store.draft.crTeams } : {}) };
+      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '', ...(store.draft.crTeams ? { crTeams: store.draft.crTeams } : {}), ...(store.draft.fun ? { fun: store.draft.fun } : {}), ...(store.draft.funOff ? { funOff: true } : {}) };
       store.draft = { ...keep, ...next };
       save();
       if (activeTab === 'draft') renderDraft();
@@ -1775,6 +1809,14 @@
       store.draft.opponent = name;
       save();
       if (activeTab === 'draft') renderDraft();
+    },
+    /** This match is played for fun (why: e.g. 'same guild as you'): recorded, not counted. Not set again once undone. */
+    markFun(why) {
+      if (store.draft.fun || store.draft.funOff) return false;
+      store.draft.fun = why || 'marked by you';
+      save();
+      if (activeTab === 'draft') renderDraft();
+      return true;
     },
   };
 

@@ -613,9 +613,19 @@
     if (d.board.firstPick) lastFirstPick = d.board.firstPick;
     if (cfg().apply !== false) applyBoard(d.board);
     const n = (a) => a.filter(Boolean).length;
-    note(`draft from the game watcher: ${d.stage}${d.turn ? ` (${d.turn === 'me' ? 'your' : "opponent's"} turn)` : ''}`, { own: n(d.own), enemy: n(d.enemy), prebans: n(d.prebans), first: d.firstPick });
+    note(`draft from the game watcher: ${d.stage}${d.turn ? ` (${d.turn === 'me' ? 'your' : "opponent's"} turn)` : ''}`, { own: n(d.own), enemy: n(d.enemy), prebans: n(d.prebans), first: d.firstPick, bans: d.bans ? n([d.bans.own, d.bans.enemy]) : 0 });
   }
   if (window.E7Bus) window.E7Bus.on('rta:draft', onWatcherDraft);
+  // the battle's top bar, read by the game watcher (js/vision/readers/rta-battle.js, DEVLOG #63): the opponent's name
+  // (hidden during the draft) and whether both players are in the same guild -> a match played for fun
+  function onWatcherBattle(b) {
+    if (!b || !b.opp) return;
+    if (b.opp.name) App.setOpponent(b.opp.name);
+    const fun = b.sameGuild && App.markFun('same guild as you');
+    note(`battle bar from the game watcher: opponent read${b.sameGuild ? ', same guild: played for fun' : ''}`, { sameGuild: !!b.sameGuild });
+    if (fun) setStatus('This opponent is in your guild: the match is kept as "played for fun" and not counted (Draft tab: "Count it after all").');
+  }
+  if (window.E7Bus) window.E7Bus.on('rta:battle', onWatcherBattle);
 
   function applyBoard(fromWatcher) {
     if (!fromWatcher && Date.now() - watcherDraftAt < 20000) return; // the watcher's reader is on it
@@ -639,6 +649,16 @@
     let next = L.boardToDraft({ ...b, postbans: {} }, firstPick);
     // keep postbans already entered (by click) if still valid
     if (!newMatch) for (const a of cur.actions.filter((x) => x.phase === 'postban')) if (!L.canSelect(next, a.heroId)) next = L.select(next, a.heroId);
+    // the bans the game watcher read from the darkened BANNED cards of the formation screen (DEVLOG #63), in draft
+    // order; a ban already entered by click stays
+    const wb = (fromWatcher && fromWatcher.postbans) || {};
+    for (let k = 0; k < 2; k++) {
+      const step = L.currentStep(next);
+      if (!step || step.phase !== 'postban') break;
+      const code = ((step.player === 'me' ? wb.me : wb.opp) || [])[0];
+      if (!code || L.canSelect(next, code)) break;
+      next = L.select(next, code);
+    }
 
     if (newMatch) return App.replaceDraft(next, { newMatch: true });
     // Never shrink the draft (a slot flickering or an animation must not undo picks);

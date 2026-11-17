@@ -17,14 +17,22 @@
  *   tint(rgba, rw, x, y, w, h)             -> { top, tint, rmb } brightness and red-minus-blue of the text
  *   lockScore(rgba, w, h, i)               -> share of "confirmed blue" pixels in my card i's check band
  *   prebanBox(k)                           -> { x, y, w, h } fractions (k 0,1 = mine; 2,3 = the opponent's)
+ *   cardLook(rgba, w, h, side)             -> { bright, dark, lum } of the middle of a pick card (the whole card box)
+ *   isBannedLook(look)                     -> the card is darkened: banned (formation screen), DEVLOG #63
  *   new Tracker()  .update(now, obs) -> state     (see Tracker)
+ * The battle that follows (top bar: both players and their guilds; DEVLOG #63):
+ *   vsFlame(rgba)                          -> share of flame-coloured pixels (the "VS" between the two bars: ~0.20)
+ *   battleLine(text, side)                 -> { name, server } from "Global ⊕ Name" ('l') / "Name ⊕ Global" ('r')
+ *   guildKey(text), sameGuild(a, b)        -> two guild names read from the same picture are the same guild
  */
 (function (root) {
   'use strict';
   const TURN_SLOTS = { 1: ['first', [0]], 2: ['second', [0, 1]], 3: ['first', [1, 2]], 4: ['second', [2, 3]], 5: ['first', [3, 4]], 6: ['second', [4]] };
   const BAN_GUARD_SLOT = 2;
-  // pre-ban icons: centres as fractions of the width, radius as a fraction of the WIDTH (E7DaT layout.py)
-  const PREBAN = { cx: [0.3146, 0.3585, 0.4169, 0.46], cy: 0.9438, r: 0.0235 };
+  // pre-ban icons: centres as fractions of the width (E7DaT layout.py), radius as a fraction of the WIDTH: the gold
+  // ring measured on the owner's real draft picture (36 px of 1902; E7DaT's 0.0235 is a looser box, with which the
+  // face matcher read none of the four; DEVLOG #63)
+  const PREBAN = { cx: [0.3146, 0.3585, 0.4169, 0.46], cy: 0.9438, r: 0.0187 };
   const MATCH_MARGIN = 0.015; // search this far around a box (fraction of the width)
   const LABEL_MIN_BRIGHT = 60;
   const LABEL_MIN_TINT = 0.25;
@@ -145,13 +153,46 @@
   }
 
   /**
+   * rgba: a pick card (w×h, the whole card box; side 'own' | 'enemy'). Brightness of the part every card covers
+   * (the cards are slanted and of different widths): share of bright pixels, share of dark ones, mean brightness.
+   * Measured on the owner's real screens (DEVLOG #63): a BANNED card on the formation screen has no bright pixels
+   * (0.00), 57 % dark ones and a mean of 45–49; a normal card 17–60 % bright; a card that cannot be banned (faded)
+   * 1–8 % bright but only 2–3 % dark.
+   */
+  function cardLook(rgba, w, h, side) {
+    const x0 = Math.round((side === 'own' ? 0.1 : 0.45) * w);
+    const x1 = Math.round((side === 'own' ? 0.55 : 0.9) * w);
+    const y0 = Math.round(0.15 * h);
+    const y1 = Math.round(0.85 * h);
+    let n = 0;
+    let bright = 0;
+    let dark = 0;
+    let lum = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const p = (y * w + x) * 4;
+        const l = 0.299 * rgba[p] + 0.587 * rgba[p + 1] + 0.114 * rgba[p + 2];
+        n++;
+        lum += l;
+        if (l > 150) bright++;
+        else if (l < 50) dark++;
+      }
+    }
+    return n ? { bright: bright / n, dark: dark / n, lum: lum / n } : { bright: 0, dark: 0, lum: 0 };
+  }
+  const isBannedLook = (k) => !!k && k.bright <= 0.02 && k.dark >= 0.45 && k.lum < 65;
+
+  /**
    * Follows one draft. Feed it what was seen on each look:
    *   obs = { label: 'turn_me' | 'turn_enemy' | 'ban' | 'ready' | null,
    *           prebanPopup: bool, firstPickMarker: 'me' | 'enemy' | null,
    *           slots: { own: [r × 5], enemy: [r × 5] } | null      r = null | { code, sure, lock (own only) }
-   *           prebans: [code | null × 4] | null }
+   *           prebans: [code | null × 4] | null,
+   *           prebanPicks: [code | null × 2] | null     the two heroes selected in the pre-ban window (mine, not final)
+   *           banned: { own: [bool × 5], enemy: [bool × 5] } | null     cards that look banned }
    * update() returns { stage: 'idle' | 'versus' | 'preban' | 'pick' | 'ban' | 'ready', turn: 'me' | 'enemy' | null,
    *   turnIndex, firstPick: 'me' | 'enemy' | null, own: [5], enemy: [5], prebans: [4], held: { i: code },
+   *   bans: { own: code | null (my hero the opponent banned), enemy: code | null (their hero I banned) },
    *   changed, ended (the draft just finished: its last state is in .last) }.
    * A hero is taken when it is read the same twice in a row; taken picks are never removed by a bad read.
    */
@@ -175,11 +216,23 @@
       this._lock = {};
       this._miss = {};
       this._pb = {};
+      this.prePick = [null, null]; // selected in the pre-ban window (shown until the draft's own row is read)
+      this._pp = {};
+      this.banIdx = { own: null, enemy: null };
+      this._bn = {};
       this.lastLabel = 0;
       this._key = '';
     }
     snapshot() {
-      return { stage: this.stage, turn: this.turn, turnIndex: this.turnIndex, firstPick: this.firstPick, own: [...this.own], enemy: [...this.enemy], prebans: [...this.prebans], held: { ...this.held } };
+      // my pre-bans: the draft's own row; a hero selected in the pre-ban window fills a place the row has not given yet
+      const pre = [...this.prebans];
+      for (const c of this.prePick) {
+        if (!c || pre.includes(c)) continue;
+        const k = pre[0] ? (pre[1] ? -1 : 1) : 0;
+        if (k >= 0) pre[k] = c;
+      }
+      const bans = { own: this.banIdx.own === null ? null : this.own[this.banIdx.own] || null, enemy: this.banIdx.enemy === null ? null : this.enemy[this.banIdx.enemy] || null };
+      return { stage: this.stage, turn: this.turn, turnIndex: this.turnIndex, firstPick: this.firstPick, own: [...this.own], enemy: [...this.enemy], prebans: pre, held: { ...this.held }, bans };
     }
     _settleHeld() {
       for (const [i, code] of Object.entries(this.held)) if (!this.own[i] && !this._has(code)) this.own[i] = code;
@@ -296,12 +349,82 @@
           else this._pb[k] = code;
         });
       }
+      // the two heroes selected in the pre-ban window: not final (the selection can change until the time is up), so
+      // each look replaces the last; the same answer twice counts, "nothing there" twice clears
+      if (obs.prebanPicks && this.stage === 'preban') {
+        obs.prebanPicks.forEach((code, k) => {
+          if (this._pp[k] === (code || null)) this.prePick[k] = code || null;
+          this._pp[k] = code || null;
+        });
+        if (this.prePick[0] && this.prePick[0] === this.prePick[1]) this.prePick[1] = null;
+      }
+      // banned cards on the formation screen: exactly one darkened card on a side, its hero known, twice in a row.
+      // (During the BAN stage a dark card is only what I have clicked, not final.) The third pick cannot be banned.
+      if (obs.banned && this.stage === 'ready') {
+        for (const side of ['own', 'enemy']) {
+          if (this.banIdx[side] !== null) continue;
+          const hits = [];
+          (obs.banned[side] || []).forEach((b, i) => b && hits.push(i));
+          const i = hits.length === 1 && hits[0] !== BAN_GUARD_SLOT && this[side][hits[0]] ? hits[0] : null;
+          if (i !== null && this._bn[side] === i) this.banIdx[side] = i;
+          this._bn[side] = i;
+        }
+      }
       const snap = this.snapshot();
       const key = JSON.stringify(snap);
       const changed = key !== this._key;
       this._key = key;
       return { ...snap, changed, ended, last: ended ? this.last : null };
     }
+  }
+
+  // ---- the battle's top bar ----------------------------------------------------------------------------------------
+  /** Share of flame-coloured pixels (orange-red, saturated) in an RGBA block: the "VS" sign gives about 0.20. */
+  function vsFlame(rgba) {
+    let hit = 0;
+    const n = rgba.length / 4;
+    for (let p = 0; p < rgba.length; p += 4) {
+      const R = rgba[p];
+      const G = rgba[p + 1];
+      if (R > 200 && G > 50 && G < 200 && rgba[p + 2] < 110 && R - G > 50) hit++;
+    }
+    return n ? hit / n : 0;
+  }
+  const SERVERS = ['global', 'asia', 'europe', 'korea', 'japan'];
+  const isServer = (w) => SERVERS.includes(String(w || '').toLowerCase().replace(/[^a-z]/g, ''));
+  /**
+   * One player's line of the battle's top bar. Left player: "<server> <globe> <name>", right: "<name> <globe> <server>".
+   * The globe is read as some sign; a nickname has no spaces. -> { name, server } ('' when not read).
+   */
+  function battleLine(text, side) {
+    const words = String(text || '').replace(/[|\[\]{}<>]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const si = side === 'l' ? words.findIndex(isServer) : words.map(isServer).lastIndexOf(true);
+    const server = si >= 0 ? words[si].replace(/[^A-Za-z]/g, '') : '';
+    // the name: the word furthest from the server that has at least two letters or digits
+    const rest = (si >= 0 ? (side === 'l' ? words.slice(si + 1) : words.slice(0, si)) : words).filter((w) => (w.match(/[\p{L}\p{N}]/gu) || []).length >= 2);
+    const name = (side === 'l' ? rest[rest.length - 1] : rest[0]) || '';
+    return { name: name.replace(/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu, ''), server };
+  }
+  /** A guild name for comparing: letters and digits only, lower case; words of one sign (the emblem's leftovers) dropped. */
+  const guildKey = (text) =>
+    String(text || '')
+      .split(/\s+/)
+      .filter((w) => (w.match(/[\p{L}\p{N}]/gu) || []).length >= 2)
+      .join('')
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]/gu, '');
+  /**
+   * left = the guild read under my name, right = under the opponent's; both from the same picture in the same
+   * lettering. The same guild when the same text (three signs or more). Something next to a name can be read along
+   * (seen: an open emoji window left of mine added "Rh" in front of the guild name), always on the OUTER side, so a name of four signs
+   * or more also counts when the other reading only has up to three more signs on its outer end.
+   */
+  function sameGuild(left, right) {
+    const x = guildKey(left);
+    const y = guildKey(right);
+    if (x.length >= 3 && x === y) return true;
+    if (y.length >= 4 && x.endsWith(y) && x.length - y.length <= 3) return true;
+    return x.length >= 4 && y.startsWith(x) && y.length - x.length <= 3;
   }
 
   /** The tracker's picks as the app's "board" (js/logic.js boardToDraft). */
@@ -317,12 +440,13 @@
     return {
       prebans: { me: st.prebans.slice(0, 2).filter(Boolean), opp: st.prebans.slice(2, 4).filter(Boolean) },
       picks: { me: cut(st.own), opp: cut(st.enemy) },
-      postbans: {},
+      // postbans.me = the enemy hero I banned; postbans.opp = my hero the opponent banned (js/logic.js)
+      postbans: { me: st.bans && st.bans.enemy ? [st.bans.enemy] : [], opp: st.bans && st.bans.own ? [st.bans.own] : [] },
       firstPick: st.firstPick === 'enemy' ? 'opp' : st.firstPick === 'me' ? 'me' : null,
     };
   }
 
-  const api = { TURN_SLOTS, BAN_GUARD_SLOT, PREBAN, MATCH_MARGIN, LOCK_BAND, LOCK_MIN, LOCK_FRAMES, IDLE_AFTER, VERSUS_KEEP, prebanBox, decode, matchTemplate, tint, acceptLabel, lockScore, Tracker, toBoard };
+  const api = { TURN_SLOTS, BAN_GUARD_SLOT, PREBAN, MATCH_MARGIN, LOCK_BAND, LOCK_MIN, LOCK_FRAMES, IDLE_AFTER, VERSUS_KEEP, prebanBox, decode, matchTemplate, tint, acceptLabel, lockScore, cardLook, isBannedLook, vsFlame, battleLine, guildKey, sameGuild, Tracker, toBoard };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7Draft = api;
 })(typeof self !== 'undefined' ? self : this);

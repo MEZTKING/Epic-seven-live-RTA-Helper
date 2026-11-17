@@ -27,8 +27,10 @@
   const v = px(1343, 758); // victory fixture
   const g = px(1228, 691); // Guild War enemy-defense file (pixel-measured)
   const ring = (cx, cy) => g(cx - 31, cy - 31, 62, 62); // a round hero icon (gold ring box)
-  // a pre-ban icon: circle centre (fractions) and radius (fraction of the WIDTH) -> its box (E7DaT layout.py)
-  const PB = { cx: [0.3146, 0.3585, 0.4169, 0.46], cy: 0.9438, r: 0.0235 };
+  // a pre-ban icon: circle centre (fractions, E7DaT layout.py) and radius (fraction of the WIDTH) -> its box. Radius:
+  // the gold ring on the owner's real draft picture (36 px of 1902, DEVLOG #63); E7DaT's 0.0235 is a looser box and
+  // the face matcher, which expects the ring's own box, read none of the four pre-bans with it.
+  const PB = { cx: [0.3146, 0.3585, 0.4169, 0.46], cy: 0.9438, r: 0.0187 };
   const pb = (k) => ({ x: PB.cx[k] - PB.r, y: PB.cy - (PB.r * 16) / 9, w: 2 * PB.r, h: (2 * PB.r * 16) / 9 });
   const REF = 16 / 9;
   // a box measured on a 2000×1070 picture of something CENTRED in the window (a pop-up window): fractions of the
@@ -49,10 +51,10 @@
       aspect: 16 / 9,
       measured: { draft: 'pre-bans and pick cards: E7DaT (checked on a real screenshot); old pick boxes by eye', result: 'pixel exact from a real screenshot file' },
       regions: {
-        // RTA draft: the four pre-ban icons (left two mine, right two the opponent's). Centres and radius measured by
-        // E7DaT (github.com/ohrgon-game/E7DaT, layout.py; 2600×1460 recordings) and checked against the owner's real
-        // BAN screen (DEVLOG #41). The earlier by-eye boxes were ~5% of the height too high. Anchors: no wider RTA
-        // screenshot yet, so readers try the alternatives.
+        // RTA draft: the four pre-ban icons (left two mine, right two the opponent's). Centres measured by E7DaT
+        // (github.com/ohrgon-game/E7DaT, layout.py; 2600×1460 recordings); centres, radius and the anchor (middle)
+        // checked on the owner's real draft picture, 2000×1070 (DEVLOG #63: Stark, Fern, Rhianna and Luciella,
+        // Lisette all read). The 'l' alternative stays for window shapes not seen yet.
         mePreban1: A(pb(0), 'c', ['l']),
         mePreban2: A(pb(1), 'c', ['l']),
         oppPreban1: A(pb(2), 'c', ['l']),
@@ -100,6 +102,13 @@
         // opponent left, DEVLOG #60; the older 16:9 Victory fixture has the same green there). Tells "a result is on
         // screen" without reading text.
         rtaConfirm: A(rgt(1740, 960, 190, 45), 'r'),
+        // An arena battle's top bar (centred; measured on the owner's 2000×1070 battle pictures, DEVLOG #63): the "VS"
+        // sign, each player's line ("Global ⊕ Name" / "Name ⊕ Global") and each guild's name (without its emblem)
+        rtaBatVs: A(mid(930, 2, 140, 128), 'c'),
+        rtaBatNameL: A(mid(630, 8, 300, 44), 'c'),
+        rtaBatNameR: A(mid(1070, 8, 300, 44), 'c'),
+        rtaBatGuildL: A(mid(640, 100, 248, 40), 'c'),
+        rtaBatGuildR: A(mid(1112, 100, 150, 40), 'c'),
         // A player's page in Guild War: the empty part of the name panel (right of the name), pinned left (DEVLOG #62)
         gwPageBar: A(lft(440, 228, 120, 74), 'l'),
         // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
