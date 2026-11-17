@@ -20,6 +20,7 @@
  *   prebanBox(k)                           -> { x, y, w, h } fractions (k 0,1 = mine; 2,3 = the opponent's)
  *   cardLook(rgba, w, h, side)             -> { bright, dark, lum } of the middle of a pick card (the whole card box)
  *   isBannedLook(look)                     -> the card is darkened: banned (formation screen), DEVLOG #63
+ *   isEmptyLook(look)                      -> no hero on the card (flat, colourless), DEVLOG #64
  *   new Tracker()  .update(now, obs) -> state     (see Tracker)
  * The battle that follows (top bar: both players and their guilds; DEVLOG #63):
  *   vsFlame(rgba)                          -> share of flame-coloured pixels (the "VS" between the two bars: ~0.20)
@@ -169,19 +170,30 @@
     let bright = 0;
     let dark = 0;
     let lum = 0;
+    let lum2 = 0;
+    let sat = 0;
     for (let y = y0; y < y1; y++) {
       for (let x = x0; x < x1; x++) {
         const p = (y * w + x) * 4;
         const l = 0.299 * rgba[p] + 0.587 * rgba[p + 1] + 0.114 * rgba[p + 2];
         n++;
         lum += l;
+        lum2 += l * l;
+        sat += Math.max(rgba[p], rgba[p + 1], rgba[p + 2]) - Math.min(rgba[p], rgba[p + 1], rgba[p + 2]);
         if (l > 150) bright++;
         else if (l < 50) dark++;
       }
     }
-    return n ? { bright: bright / n, dark: dark / n, lum: lum / n } : { bright: 0, dark: 0, lum: 0 };
+    if (!n) return { bright: 0, dark: 0, lum: 0, spread: 0, sat: 0 };
+    const m = lum / n;
+    return { bright: bright / n, dark: dark / n, lum: m, spread: Math.sqrt(Math.max(0, lum2 / n - m * m)), sat: sat / n };
   }
   const isBannedLook = (k) => !!k && k.bright <= 0.02 && k.dark >= 0.45 && k.lum < 65;
+  // An EMPTY card (no hero yet): flat and colourless. Measured on the owner's real screens (DEVLOG #64) as spread /
+  // colour: empty cards 8-14 / 0-14, the empty "Ban Protection" placeholder 25-26 / 0-9, an empty card seen a little
+  // off its place 23 / 7; cards with a hero: a faded hovered one 31 / 13, a banned one 18-20 / 30-64, all others more.
+  // Seen without this: an empty enemy card taken for a hero with a weak score (0.62).
+  const isEmptyLook = (k) => !!k && ((k.spread < 16 && k.sat < 16) || (k.spread < 30 && k.sat < 10));
 
   /**
    * Follows one draft. Feed it what was seen on each look:
@@ -447,7 +459,7 @@
     };
   }
 
-  const api = { TURN_SLOTS, BAN_GUARD_SLOT, PREBAN, MATCH_MARGIN, LOCK_BAND, LOCK_MIN, LOCK_FRAMES, IDLE_AFTER, VERSUS_KEEP, prebanBox, decode, matchTemplate, tint, acceptLabel, lockScore, cardLook, isBannedLook, vsFlame, battleLine, guildKey, sameGuild, Tracker, toBoard };
+  const api = { TURN_SLOTS, BAN_GUARD_SLOT, PREBAN, MATCH_MARGIN, LOCK_BAND, LOCK_MIN, LOCK_FRAMES, IDLE_AFTER, VERSUS_KEEP, prebanBox, decode, matchTemplate, tint, acceptLabel, lockScore, cardLook, isBannedLook, isEmptyLook, vsFlame, battleLine, guildKey, sameGuild, Tracker, toBoard };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7Draft = api;
 })(typeof self !== 'undefined' ? self : this);

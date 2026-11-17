@@ -191,6 +191,14 @@ test('draftscreen: a banned card is dark with nothing bright in it (numbers from
   const faded = D.cardLook(mk(() => 100), w, h, 'own'); // a card that cannot be banned: faded, not dark
   assert.ok(!D.isBannedLook(faded));
   assert.ok(!D.isBannedLook(null));
+  // empty cards (DEVLOG #64): flat and colourless; a banned card is not empty
+  assert.ok(D.isEmptyLook(D.cardLook(mk((x) => (x % 4 ? 30 : 45)), w, h, 'enemy')), 'an empty card');
+  assert.ok(!D.isEmptyLook(normal));
+  assert.ok(D.isEmptyLook({ spread: 23, sat: 7 }), 'an empty card seen a little off its place');
+  assert.ok(D.isEmptyLook({ spread: 26, sat: 9 }), 'the empty "Ban Protection" placeholder');
+  assert.ok(!D.isEmptyLook({ spread: 31, sat: 13 }), 'a faded hovered card has a hero');
+  assert.ok(!D.isEmptyLook({ spread: 19, sat: 30 }), 'a banned card has a hero');
+  assert.ok(!D.isEmptyLook(null));
 });
 
 test('draftscreen: the battle bar (names, servers, the same guild on both sides)', () => {

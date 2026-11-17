@@ -18,7 +18,7 @@
   const L = window.E7Layouts;
   if (!V || !D || !L) return;
   const AFTER_DRAFT_MS = 8 * 60 * 1000;
-  const MAX_TRIES = 6;
+  const MAX_TRIES = 12;
   let doneFor = 0; // the draft (its last-seen time) this was read for
   let tries = 0;
   let triedFor = 0;
@@ -56,6 +56,9 @@
       const me = { ...D.battleLine(await text('rtaBatNameL'), 'l'), guild: (await text('rtaBatGuildL')).trim() };
       const opp = { ...D.battleLine(await text('rtaBatNameR'), 'r'), guild: (await text('rtaBatGuildR')).trim() };
       if (!opp.name) return ctx.note(`Battle bar: the opponent's name was not read (try ${tries}/${MAX_TRIES})`);
+      // Both servers ("Global", "Asia", …) read = the bar is fully shown. Seen on the owner's PC (DEVLOG #64): a look
+      // while the bar was still fading in gave two wrong names and no server, guild or anything else.
+      if (!me.server || !opp.server) return ctx.note(`Battle bar not fully shown yet (try ${tries}/${MAX_TRIES})`);
       // a guildmate: the same guild name on both sides, and not two different servers
       const sameGuild = D.sameGuild(me.guild, opp.guild) && (!me.server || !opp.server || me.server.toLowerCase() === opp.server.toLowerCase());
       doneFor = seen;

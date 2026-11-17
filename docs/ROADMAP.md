@@ -15,6 +15,9 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0i. After DEVLOG #65: the report's "This match" section from the watcher's cards (`rta:draft.seen`) instead of the
+   old slot reader; then retire the old slot reader in `js/auto.js` once the watcher's draft is confirmed on the
+   owner's PC.
 0h. After DEVLOG #63: if the owner agrees, DeepSeek's vision model as a second reader for Guild War names the app is
    not sure of (key entered in the desktop app, only the small name picture sent, label `DeepSeek`); a friend
    outside the guild marked "for fun" by name (a list of friends).
