@@ -7,6 +7,57 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-17 · #65 · RTA on the owner's PC: one wrong "sure" card blinded a whole side; a played match filed as "ended early"; the battle bar read too early · this commit (previous: `88627ea`)
+
+**Asked for:** the owner sent three pictures of their own turn while hovering a hero (before Confirm) and a
+diagnostic report of a match played with #63 (app 0.1.49).
+
+**Findings**
+- On the three pictures the hover rule works: the hovered hero is "held", the card turns solid blue (lock band
+  0.47–0.54) once confirmed, and only then is it a pick. Also right at the small window size (693 high).
+- **The live match** read 3 of my 5 heroes and **1 of theirs**, no pre-bans. The one enemy hero read was
+  `c2128` (Bystander Hwayoung) on the LAST card, and the same false hero appeared on the owner's third picture,
+  where that card is empty: on a window that is not exactly 16:9 the reader tries several places for the cards and
+  KEEPS the first that gives a sure answer; an empty card read at the wrong place passed the weak rule of the
+  wide-portrait matcher (0.62, kept for greyed-out cards), fixed the enemy side at the wrong place, and the other
+  four enemy cards could never be read again in that match.
+- That half-read match then reached the result screen and was filed as **"ended before the draft was finished"**,
+  although it was played (the watcher had seen the final ban and the formation screen).
+- The battle bar gave two wrong names and no server or guild: it was read one second after the draft, while the bar
+  was still fading in.
+- The report's "This match" section showed an old match (it follows the old slot reader, not the watcher).
+
+**Changed**
+- `js/vision/readers/rta-draft.js`: only a strong read (score ≥ 0.80; right cards score 0.79–0.98) fixes where a
+  side's cards are. An EMPTY card is never a hero: `E7Draft.isEmptyLook` (flat and colourless; measured on the
+  owner's screens: empty 8–14 spread / 0–14 colour, the empty "Ban Protection" placeholder 25–26 / 0–9, an empty card
+  seen off its place 23 / 7; cards with a hero: faded hovered 31 / 13, banned 18–20 / 30–64, the rest higher).
+  `cardLook` now also gives `spread` and `sat`.
+- The `rta:draft` event carries `seen` (what each card looked like at its last read: hero + score, "empty", "-");
+  the RTA page logs it at the final ban and the formation screen, so a report shows why a card was not taken.
+- `js/auto.js`: a match whose draft reached the final ban or formation is a PLAYED match. If its draft was only
+  partly read, it is no longer filed as an early end and not recorded half empty: the draft is cleared and the
+  status says the whole match comes from the official record site's import (on for the owner), or to record it with
+  Win / Loss when that import is off.
+- `js/vision/readers/rta-battle.js`: names count only when a server ("Global" …) is read on both sides (the bar is
+  fully shown); up to 12 looks per match.
+
+**Tested**
+- `npm test` 180 (the empty / banned / faded card rules added to the card-look test).
+- `tests/e2e/rta-match.e2e.js`: + the owner's three "my turn" pictures (owner's name and guild blacked out): the
+  hovered hero is held, not a pick, in all three; the empty enemy card is no longer a hero (theirs 4, was 5 with
+  the false one); the whole match of #63 reads as before (pre-bans 4/4, 10/10, both bans).
+- `tests/e2e/rta-walkover.e2e.js`: + a played match with 3 + 1 heroes read: no walkover, no half-empty match, draft
+  cleared.
+- `tests/e2e/rta-draft.e2e.js`: the BAN screen 10/10, also as a 2000-wide window and from the cache (unchanged).
+- Browser suite 41/41 clean (the other RTA, face and Guild War tests print the same as at #63).
+- **Not tested:** on the owner's PC; why my own first and third cards were missed in the live match (no picture of
+  it; possibly the same wrong-place effect on my side, which the strong-read rule also covers).
+
+**Open:** the report's "This match" section should show the watcher's cards instead of the old reader's.
+
+---
+
 ## 2026-11-17 · #64 · RTA: "hovered", not "clicked" · this commit (previous: `3bca3cf`)
 
 **Asked for:** the owner corrected the request at the end of #63: "you can't actually click any here, it's whatever

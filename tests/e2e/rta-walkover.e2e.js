@@ -60,6 +60,22 @@ const { chromium } = require('playwright');
   const post = await p.evaluate(() => ({ walkovers: (window.RTAApp.store.walkovers || []).length, matches: window.RTAApp.store.matches.map((m) => ({ result: m.result, source: m.source, bansUnknown: !!m.bansUnknown })), draftActions: window.RTAApp.store.draft.actions.length }));
   console.log('ten heroes on the board, bans not read -> before', JSON.stringify({ walkovers: pre.walkovers.length, matches: pre.matches }), 'after', JSON.stringify(post));
 
+  // 5) DEVLOG #64: a PLAYED match whose draft the watcher read only partly (it reached the final ban / formation):
+  //    not an early end, not recorded half empty (the official record import brings the whole match)
+  await load('steam-rta-menu.png');
+  await load('steam-rta-match-start.png');
+  const before5 = await state();
+  await p.evaluate(() => {
+    const A = window.RTAApp;
+    const codes = [...A.cache.heroes.values()].slice(20, 24).map((h) => h.code);
+    const board = { prebans: { me: [], opp: [] }, picks: { me: codes.slice(0, 3), opp: codes.slice(3, 4) }, postbans: { me: [], opp: [] }, firstPick: 'me' };
+    for (const stage of ['ban', 'ready']) window.E7Bus.publish('rta:draft', { stage, turn: null, own: [], enemy: [], prebans: [], board, seen: { own: ['-'], enemy: ['empty'] } });
+  });
+  await load('steam-rta-victory-opponent-left-wide.jpg', 5, 2200);
+  const after5 = await state();
+  console.log('played match, 3 + 1 heroes read -> walkovers', before5.walkovers.length, '→', after5.walkovers.length, '· matches', before5.matches, '→', after5.matches, '(both unchanged) · draft cleared:', after5.draftActions === 0);
+  console.log('  status:', (await p.textContent('#auto-status')).replace(/\s+/g, ' ').trim().slice(0, 150));
+
   // 2) History
   await p.click('.tab[data-tab=history]');
   await p.waitForTimeout(300);

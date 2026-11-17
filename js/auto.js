@@ -605,14 +605,21 @@
   // to calibrate) sends its board here; while it is reporting, this page's own slot reading doesn't touch the draft.
   let watcherDraftAt = 0;
   let watcherBoard = null;
+  let playedAt = -Infinity;
+  let lastSeenStage = '';
   function onWatcherDraft(d) {
     if (!d || !d.board) return;
     watcherDraftAt = Date.now();
     watcherBoard = d.board;
     if (d.stage && d.stage !== 'idle') draftSeenAt = performance.now(); // the draft is on screen (for the result reader too)
+    // the draft reached the final ban / formation: whatever ends this match, it was PLAYED (DEVLOG #64)
+    if (d.stage === 'ban' || d.stage === 'ready') playedAt = performance.now();
     if (d.board.firstPick) lastFirstPick = d.board.firstPick;
     if (cfg().apply !== false) applyBoard(d.board);
     const n = (a) => a.filter(Boolean).length;
+    // what the watcher saw on each card, at the end of the draft (why a card was not taken, for the report)
+    if ((d.stage === 'ready' || d.stage === 'ban') && d.seen && d.stage !== lastSeenStage) note(`watcher cards at ${d.stage}`, d.seen);
+    lastSeenStage = d.stage;
     note(`draft from the game watcher: ${d.stage}${d.turn ? ` (${d.turn === 'me' ? 'your' : "opponent's"} turn)` : ''}`, { own: n(d.own), enemy: n(d.enemy), prebans: n(d.prebans), first: d.firstPick, bans: d.bans ? n([d.bans.own, d.bans.enemy]) : 0 });
   }
   if (window.E7Bus) window.E7Bus.on('rta:draft', onWatcherDraft);
@@ -963,6 +970,15 @@
         // a played match: recorded like any other, marked so its unknown bans are not taken for "no bans"
         if (App.store.settings.autoRecord) App.recordResult(r, 'auto', { bansUnknown: true });
         setStatus(`Result read from screen: ${r.toUpperCase()}${App.store.settings.autoRecord ? ' (recorded; the bans were not read)' : ' — press Win/Loss to record'}`);
+      } else if (!complete && performance.now() - playedAt < 30 * 60000) {
+        // The draft reached the final ban / formation, so the match was PLAYED, but the app missed some heroes
+        // (seen on the owner's PC, DEVLOG #64: 3 + 1 heroes read). Not an early end, and not worth recording half
+        // empty: the official record site has the whole match and the automatic import brings it in a few minutes.
+        const RA = window.E7RecordsApp;
+        const willImport = !!(RA && RA.available() && RA.cfg().me && RA.cfg().autoImport);
+        App.replaceDraft(L.newDraft(App.store.draft.firstPick), { newMatch: true });
+        note(`played match, draft only partly read: left to the official record import (${willImport ? 'on' : 'off'})`);
+        setStatus(`Match played (${r.toUpperCase()}), but the app missed some of the heroes${willImport ? ': it comes in complete from the official record site in a few minutes' : ': record it with Win / Loss, or turn on the import from the official record site (Data tab)'}.`);
       } else if (!complete) {
         // not a match to learn from: kept apart from the matches, the half-made draft is cleared
         if (App.store.settings.autoRecord) App.recordWalkover(r, 'auto');

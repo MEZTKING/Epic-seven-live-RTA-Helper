@@ -209,13 +209,18 @@
       const pr = W.patchRect(slot, side, ctx.h());
       const r = W.match(W.patchFromRGBA(grab(ctx, pr, W.BIG_W, W.BIG_H)), wide[side]);
       const sure = W.isConfident(r);
-      if (sure) anchor[side] = a;
+      // Only a STRONG read fixes where this side's cards are: a weak "sure" (an empty card read at the wrong place gave
+      // 0.62) once fixed the enemy side at the wrong place, and their other four cards were never read (owner's PC,
+      // DEVLOG #64). A right card scores 0.79-0.98.
+      if (sure && r.best.score >= 0.8) anchor[side] = a;
       if (!out || (r.best && r.best.score > out.score)) {
         out = { code: r.best ? r.best.code : null, score: r.best ? r.best.score : 0, lead: r.lead, sure, slot };
       }
       if (sure) break;
     }
+    if (out && out.code && D.isEmptyLook(D.cardLook(grab(ctx, out.slot, 160, 48), 160, 48, side))) Object.assign(out, { code: null, sure: false, empty: true });
     if (out && side === 'own') out.lock = D.lockScore(grab(ctx, out.slot, 160, 64), 160, 64, i) >= D.LOCK_MIN;
+    if (out) lastSeen[side][i] = out.empty ? 'empty' : out.code ? `${out.code} ${out.score.toFixed(2)}${out.sure ? ' sure' : ''}` : '-';
     return out;
   }
   function readPreban(ctx, k) {
@@ -252,6 +257,8 @@
     }
     return out;
   }
+  // what each card looked like at the last read of it (for the diagnostic report: why a card was not taken)
+  const lastSeen = { own: ['-', '-', '-', '-', '-'], enemy: ['-', '-', '-', '-', '-'] };
   let lastCtx = null;
   /** Test / report hook: the lock score of each of my cards on the picture last read. */
   const locks = () => (lastCtx ? [0, 1, 2, 3, 4].map((i) => +D.lockScore(grab(lastCtx, px(lastCtx, W.slotBox('own', i), anchor.own || 'l'), 160, 64), 160, 64, i).toFixed(2)) : null);
@@ -322,6 +329,7 @@
         obs.prebanPicks = readPrebanPicks(ctx); // what I have selected in the pre-ban window so far
       }
       const st = tracker.update(performance.now(), obs);
+      if (st.stage === 'idle') for (const k of ['own', 'enemy']) lastSeen[k].fill('-');
       if (st.stage !== 'idle') api.seenAt = performance.now(); // (the battle reader, rta-battle.js, follows a draft)
       // "is an arena draft on screen right now?" for whoever draws on the game (the RTA overlay shows nothing outside a
       // draft; DEVLOG #54): on every change of stage and every 4 s
@@ -344,7 +352,7 @@
       if (st.changed) {
         ctx.publish('rta:draft', {
           stage: st.stage, turn: st.turn, turnIndex: st.turnIndex, firstPick: st.firstPick, own: st.own, enemy: st.enemy, prebans: st.prebans, held: st.held, bans: st.bans,
-          board: D.toBoard(st), lang: curLang, names: { own: names(st.own), enemy: names(st.enemy), prebans: names(st.prebans), bans: { own: NAME.get(st.bans.own) || null, enemy: NAME.get(st.bans.enemy) || null } },
+          board: D.toBoard(st), lang: curLang, seen: { own: [...lastSeen.own], enemy: [...lastSeen.enemy] }, names: { own: names(st.own), enemy: names(st.enemy), prebans: names(st.prebans), bans: { own: NAME.get(st.bans.own) || null, enemy: NAME.get(st.bans.enemy) || null } },
         });
       }
     },

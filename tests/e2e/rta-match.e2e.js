@@ -53,6 +53,23 @@ const PRE = ['Stark', 'Fern', 'Rhianna and Luciella', 'Lisette'];
   const hits = (got, want) => (got || []).filter((n, i) => n === want[i]).length;
   const same = (got, want) => (got || []).filter(Boolean).length === want.length && want.every((n) => (got || []).includes(n));
 
+  // 0) another match (DEVLOG #64): MY turn, hovering a hero (shown on my card, not confirmed) -> held, not a pick;
+  //    an empty enemy card is not a hero
+  for (const [f, want] of [['steam-rta-myturn1-wide.jpg', 'Westwind Executioner Schuri'], ['steam-rta-myturn2-wide.jpg', 'Renoa'], ['steam-rta-myturn3-wide.jpg', 'Shepherd of the Dark Diene']]) {
+    const r = await lv.evaluate(async (url) => {
+      const im = new Image();
+      await new Promise((r) => { im.onload = r; im.src = url; });
+      window.E7Vision._useSource(im);
+      const T = window.E7RtaDraft.tracker;
+      T.reset(); T.vsFirst = null;
+      for (let i = 0; i < 3; i++) await window.E7Vision.tick(true);
+      const N = (c) => (c ? window.RTAApp ? c : c : null);
+      const NAME = new Map(window.RTASources.allHeroes.map((h) => [h.code, h.name]));
+      return { own: T.own.map((c) => NAME.get(c) || null), enemy: T.enemy.map((c) => NAME.get(c) || null), held: Object.values(T.held).map((c) => NAME.get(c)) };
+    }, dataUrl(f));
+    console.log(`0) my turn ${f.match(/\d/)[0]}: hovered ${JSON.stringify(r.held)} (right: ${r.held.length === 1 && r.held[0] === want}, not a pick: ${!r.own.includes(want)}) · picks mine ${r.own.filter(Boolean).length} theirs ${r.enemy.filter(Boolean).length} ${JSON.stringify(r.enemy)}`);
+  }
+  await lv.evaluate(() => { const T = window.E7RtaDraft.tracker; T.reset(); T.vsFirst = null; });
   console.log('1) versus:', (await show('steam-rta-versus-wide.jpg')).note);
   const pb = await show('steam-rta-preban-chosen-wide.jpg');
   console.log('2) pre-ban window:', pb.note, '· my pre-bans so far:', JSON.stringify(pb.names && pb.names.prebans));
