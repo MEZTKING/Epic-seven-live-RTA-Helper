@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #62, 2026-11-16) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #63, 2026-11-17) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -23,16 +23,15 @@ run the suites first (§6), and one DEVLOG entry per commit.
 | Official record site: find me, import my matches, top-player update | Works | **Yes** (screenshots #46, #49: 97 games imported, 400 players, 33,953 games) |
 | Top-player model (win rate, pick policy, bans, pre-bans, turn order), statistics tab, team plans | Works on real games here | Model fitted on their PC (58% on 6,006 unseen games). Statistics tab / plans / turn order: **not yet looked at by the owner** |
 | Seasons (History → Seasons, statistics per season) | Works in tests | No |
-| RTA draft read from the screen without calibration | Works on ONE real screenshot (the BAN screen, 10/10 cards) | **Watched on the owner's PC (report of 2026-11-16, DEVLOG #61):** stages and first pick followed in every match; heroes 10/10, 6/10 and 0/10 in three matches; pre-bans never; no result recorded before #61. Still no picture of a draft while picking |
+| RTA draft read from the screen without calibration | **Whole real match since #63** (owner's pictures, 2000×1070): pre-bans 4/4, picks 10/10, both bans, first pick, opponent's name from the battle, guildmate → for fun | Before #63 on the owner's PC: heroes 10/10, 6/10, 0/10, pre-bans never. #63 itself not yet seen on their PC |
 | Guild War: overview → war starts by itself, fortress maps (names in any writing), enemy defense / stronghold screen (name + 6/6), standby page, changed defenses, "working…" card | Works on the owner's real screenshots | Auto-war seen working (#46). Names in a running war were wrong on their PC before #55 / #56; **not yet confirmed fixed there**. Standby / reminder / beaten marking: not yet |
 | Gear Sorter, screen gear reader | Built on generated screens only | No |
 | Guild sharing through Firebase | Built; local mode tested | No real Firebase project connected |
 
 **Waiting on the owner (ask for these; they unblock the most):**
-1. **Pictures of a real RTA draft while picking** (still none; the single most useful thing). Easiest for the
-   owner: Developer → "Collect screenshots automatically", play one match, Developer → "Open the screenshot folder",
-   send the pictures of the draft. Since #61 Match review also keeps up to 12 pictures of every match (Download).
-   Wanted: pre-ban phase, own turn with a hero clicked but not confirmed, the opponent's turn, the ban phase.
+1. **A diagnostic report after a few RTA matches with #63** (pre-bans, bans, opponent name, "for fun"); pictures
+   of MY turn with a hero clicked but not confirmed are still missing (the owner's match had only the opponent's turn).
+   Whether DeepSeek may be used inside the app for unsure names (DEVLOG #63, Open).
 2. Guild War, **as files** (a picture sent while a reply is still being written reaches the session only as a
    picture, not as a file, and cannot become a fixture: ask for it again in a normal message):
    - the END of a Guild War fight (the Victory / Defeat screen after each round) and round 2 of a fight
@@ -176,7 +175,8 @@ only receive events.
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
   | `guild-offense.js` (three readers) | `guild:offense { enemy, rect, mine, theirs }`, `guild:battle { round, left, right }`, `guild:note { author, text }` | The Offense Team screen (their defense, my teams), the fight ("Round 1" pill + names), a note window ("…'s Record") (DEVLOG #58) |
   | `guild-result.js` | `guild:result { type, ok, side, left, right, rounds }` | A battle-result window ("Successful Attack" / "Failed Defense" …): both players, both sides' two teams, each round's result (DEVLOG #57) |
-  | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, first pick) |
+  | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, my pre-bans in the pre-ban window, both bans from the formation screen, first pick) |
+  | `rta-battle.js` | `rta:battle { me, opp, sameGuild }` | The battle's top bar after an arena draft: both names, servers, guilds (DEVLOG #63) |
 
 **Page parts for the official record site and top players** (not pure; `rta.html`, the first also `guild.html`):
 - `js/records-app.js` (`E7RecordsApp`): settings, find me, import my matches, opponent panel, Guild War "Arena
@@ -216,7 +216,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
-| IndexedDB `e7-templates` (store `t`, keys `wide`, `round`) | `js/vision/readers/rta-draft.js` | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
+| IndexedDB `e7-templates` (store `t`, keys `wide`, `icons`; `round` is no longer written since #63) | `js/vision/readers/rta-draft.js` (wide), `js/vision/icons.js` (round icons + skins) | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
 | `localStorage['e7-records']` | `js/records-app.js` | Official record site settings: `me {world, name, nickNo}`, `autoImport`, `autoScout`, `lastImportAt`, `lastImport`, `top {players, at, season, games, rows}` |
 | `localStorage['e7-records-seasons']` | `js/records-app.js` → `js/app.js` | The record site's season list `{ at, list: [{ code, name, start, end }] }` (oldest first), refreshed once a day |
 | `localStorage['e7-records-players']` | `js/records-app.js` | Looked-up players (newest 30, fresh for 12 h): name, server, grade, summary of their last games |
@@ -335,7 +335,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 
 ## 6. Testing
 
-Counts at DEVLOG #62: **177 unit tests, 40 browser tests, 14 desktop checks.** Unit and browser suites were green at
+Counts at DEVLOG #63: **180 unit tests, 41 browser tests, 14 desktop checks.** Unit and browser suites were green at
 that commit; which desktop checks were run is in the devlog entry.
 
 - **Unit:** `npm test` (Node 18+; `node --test tests/*.test.js`), a few seconds. One file per pure module;
@@ -347,7 +347,7 @@ that commit; which desktop checks were run is in the devlog entry.
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -383,6 +383,16 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 `E7RecordsApp.onTop`). Rows use `data-ts` (not `data-hero`, which opens the app's hero card). Since #49: `TS.trends`
 (week against week), column "Me" and block "You" from `RTAApp.cache.stats` / `cache.builds`; `#tab-top` is wider.
 
+
+**DEVLOG #63** (the owner's real arena match):
+- Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from
+  the community repository (source `game icon`), the official site only as a fallback; skins flagged `skin: true`
+  (`base()` without them, `all()` with them; `guild-defense.js` `readIcon` tries without skins first). The official
+  site's icons are older artwork for about half of the heroes: never go back to them for reading the game.
+- Draft tracker (`js/draftscreen.js`): `prePick` (pre-ban window), `banIdx` / `bans` (darkened cards on the formation
+  screen, `cardLook` / `isBannedLook`), `toBoard` gives `postbans`; `js/auto.js` `applyBoard` applies them.
+- RTA store: a match / draft may carry `fun` (+ `funWhy`); `derive()` leaves fun matches out of everything counted.
+  `App.markFun(why)` (not again after "Count it after all": `draft.funOff`). `js/auto.js` `onWatcherBattle`.
 
 **DEVLOG #62** (what the owner's PC showed after #61):
 - Readers must not depend on screens the user taught (`screen:` in `V.register`): an old example from another

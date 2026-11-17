@@ -1,6 +1,6 @@
 /*
  * Reader: the enemy's DEFENSE TEAMS on the Guild War enemy screen (DEVLOG #34). The 6 heroes (round 1, round 2) are
- * round icons, read with the face matcher (js/faces.js) against the official portraits + your corrections, narrowed by
+ * round icons, read with the face matcher (js/faces.js) against the game's icons (js/vision/icons.js) + your corrections, narrowed by
  * the CLASS symbol only: on this screen the top-right badge is the hero's level ("60"), not the element.
  *   guild:defense { teams: [[{ code, score, sure }|null ×3], […]], sure }   only when ≥ 2 heroes are sure,
  *                                                                            and again when what's seen changes
@@ -15,43 +15,17 @@
   const F = window.RTAFaces;
   const L = window.E7Layouts;
   const R = window.RTARoster;
-  if (!V || !F || !L || !R) return;
+  if (!V || !F || !L || !R || !window.E7Icons) return;
   const HEROES = window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes; // official + newest heroes (fribbels-data)
   const OTHER = /^(gw-map|gw-overview|gw-battle|rta-)/;
-  const tpl = [];
-  let loading = null;
-  /** Official portraits → face templates (once, in the background). */
-  // All portraits loaded (or tried)? Reading with only part of them makes the heroes that come last in the list,
+  // The heroes' round icons come from the shared loader (js/vision/icons.js, DEVLOG #63): the game's own icon files,
+  // skins included, loaded once for every reader and kept between app starts.
+  // All of them loaded (or tried)? Reading with only part of them makes the heroes that come last in the list,
   // the newest, unknown (seen in a test: 300 of 368 loaded, three new heroes "not recognised"; DEVLOG #62). After 25 s
   // the readers go on with what is there (a slow or broken connection must not stop them for good).
-  let allLoaded = false;
-  let loadStarted = 0;
-  const facesReady = () => allLoaded || (loadStarted > 0 && tpl.length >= 300 && Date.now() - loadStarted > 25000);
-  function loadTemplates() {
-    if (loading) return loading;
-    loadStarted = Date.now();
-    loading = Promise.all(
-      HEROES.map(
-        (h) =>
-          new Promise((res) => {
-            const im = new Image();
-            im.crossOrigin = 'anonymous';
-            im.onload = () => {
-              try {
-                tpl.push({ code: h.code, vec: F.fromPortrait(im), source: 'official' });
-              } catch (_) { /* skip */ }
-              res();
-            };
-            im.onerror = res;
-            im.src = R.PORTRAIT_URL_CORS(h.code);
-          }),
-      ),
-    ).then((r) => {
-      allLoaded = true;
-      return r;
-    });
-    return loading;
-  }
+  const I = window.E7Icons;
+  const loadTemplates = () => I.load();
+  const facesReady = () => I.ready() || (I.started > 0 && I.count() >= 300 && Date.now() - I.started > 25000);
   // your Guild War corrections (names you gave on the Guild War page): 'e7-gw-face-corrections' [{ code, q }]
   const corrections = () => {
     try {
@@ -61,7 +35,7 @@
     }
   };
   /** Every face the Guild War readers know: official portraits + your corrections + faces taught on the Live page. */
-  const allFaces = () => [...tpl, ...corrections(), ...(window.E7Teach ? window.E7Teach.templates(F) : [])];
+  const allFaces = () => [...I.all(), ...corrections(), ...(window.E7Teach ? window.E7Teach.templates(F) : [])];
   /**
    * One round hero icon (class symbol top left, level top right) -> { code, score, sure, q } or null (empty place).
    * rect in pixels of `source`. Shared with the battle-result reader (guild-result.js) through window.E7GWFaces.
@@ -70,12 +44,21 @@
     const ct = (window.RTASources && window.RTASources.classTemplates) || [];
     const role = ct.length ? F.classFromVectors(F.classVectorsAt(source, rect), ct).role : null; // class only (no element badge here)
     const faces = F.fromRect(source, rect, F.WIDE_VARIANTS);
-    const r = F.classify(faces, all || allFaces(), { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) });
+    const opts = { preferSource: ['my corrections', 'taught by you'], allow: F.badgeAllow(null, role, HEROES) };
+    const list = all || allFaces();
+    // First without the skins' icons: a skin of ANOTHER hero that happens to look alike must not make a clear answer
+    // unsure (seen: Monarch of the Sword Iseria 0.86, a skin of Judge Kise second -> lead just under the bar). Only
+    // when that gives no sure answer do the skins join in (a player wearing a skin).
+    let r = F.classify(faces, list.filter((t) => !t.skin), opts);
+    if (!F.isConfident(r)) {
+      const withSkins = F.classify(faces, list, opts);
+      if (F.isConfident(withSkins)) r = withSkins;
+    }
     // what this icon looked like (compact), so a name you give on the Guild War page teaches it (skins too)
     const base = faces[F.WIDE_VARIANTS.findIndex((v) => Math.abs(v.k - 1.04) < 0.01 && v.dx === 0 && v.dy === 0)];
     return r.empty || !r.best ? null : { code: r.best.code, score: +r.best.score.toFixed(3), sure: F.isConfident(r), q: base ? F.quantize(base.vec) : null };
   }
-  window.E7GWFaces = { load: loadTemplates, ready: facesReady, count: () => tpl.length, total: HEROES.length, all: allFaces, readIcon };
+  window.E7GWFaces = { load: loadTemplates, ready: facesReady, count: () => I.count(), total: I.total, all: allFaces, readIcon };
   // the portraits are fetched when the watcher starts, not when the first hero has to be read (they come from the
   // browser's cache after the first time)
   setTimeout(loadTemplates, 2500);
@@ -102,7 +85,7 @@
       if (!lay || !lay.regions.gwDef1) return ctx.note('This window shape is too unusual for the built-in positions');
       if (!facesReady()) {
         loadTemplates();
-        return ctx.note(`Loading hero portraits ${tpl.length}/${HEROES.length}…`);
+        return ctx.note(`Loading hero portraits ${I.count()}/${I.total}…`);
       }
       const all = allFaces();
       const px = (r) => ({ x: r.x * ctx.w(), y: r.y * ctx.h(), w: r.w * ctx.w(), h: r.h * ctx.h() });

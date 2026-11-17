@@ -2,11 +2,11 @@
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 
-## Next up (as of DEVLOG #62; the overview of what is verified is in docs/HANDOFF.md §0)
+## Next up (as of DEVLOG #63; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
-1. **Real RTA picking screens** → verify / fix the draft reader (hover against confirmed cards, pre-ban icons,
-   turn counting), then the built-in positions at the maximized window. Biggest risk to "everything automatic".
+1. **RTA on the owner's PC after #63** (report after a few matches); a picture of MY turn with a hero clicked but
+   not confirmed (hover against confirmed is still checked only on #41's BAN screen).
 2. **Guild War screens, as files**: the END of a fight (Victory / Defeat after each round) → the attack logged
    without asking; a whole map with a note bubble on a badge → notes attached without asking; a battle-result
    window where one of OURS attacked, one with a Draw, one with
@@ -15,6 +15,9 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0h. After DEVLOG #63: if the owner agrees, DeepSeek's vision model as a second reader for Guild War names the app is
+   not sure of (key entered in the desktop app, only the small name picture sent, label `DeepSeek`); a friend
+   outside the guild marked "for fun" by name (a list of friends).
 0g. After DEVLOG #62: the same "automate, fewer buttons" pass over the rest of the app (RTA Draft tab, Gear, Live:
    fold tools that are rarely needed, replace confirm buttons by "done by itself + undo"); save a player's defense
    by itself when their page is read and all six heroes are sure (now: "Save as … defense"); drop the old

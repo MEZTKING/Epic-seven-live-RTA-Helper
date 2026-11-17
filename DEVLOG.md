@@ -7,6 +7,95 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-17 · #63 · RTA: the whole draft read on the owner's real match (pre-bans, picks, both bans), the opponent's name from the battle, matches against a guildmate kept "for fun" · this commit (previous: `cb7b325`)
+
+**Asked for** (twelve real pictures of one whole arena match, 2560×1369 window, with the app's own note for each:
+lobby, versus, pre-ban window empty and with two heroes, picking, BAN, formation, battle ×3, DEFEAT, pause menu):
+- the pictures of a real draft that #61 / #62 asked for
+- "use the deepseek api to help"
+- "some matches are done for fun and the losses don't mean anything like the one where i banned fern and stark,
+  because i actually ended up playing against my guildmate"
+
+**Findings** (the reader run on the owner's pictures as files)
+- **Picks were fine**: 7 of 7 while picking, 9 of 10 on the BAN screen (the tenth is darkened there: it is the
+  card the owner had clicked to ban), all ten on the formation screen.
+- **Pre-bans: never read, for two reasons.**
+  1. The box was too big: E7DaT's radius (0.0235 of the width) is a loose box; the face matcher expects the gold
+     ring's own box (measured 36 px of 1902 = 0.0187). With the right box Stark scored 0.95 instead of 0.82.
+  2. **The official site's round icons are old artwork** for many heroes. Compared one by one with the game's own
+     icon files (community asset repository, the same one the wide portraits come from): **195 of 367 differ**
+     (similarity under 0.97; Fern, Lisette, Rhianna and Luciella among them). On 51 real icons (the pre-ban row, the
+     pre-ban window's grid and its "recently selected" column): official icons 10 sure, the game's icons **36 sure**.
+     This also explains the uneven Guild War icon reading.
+- **The bans** were never read: the formation screen shows both as darkened cards stamped BANNED; on the BAN
+  screen the darkened card is only the one being chosen.
+- **The opponent's name is hidden during the draft** ("Unknown Opponent"); the battle's top bar shows both names,
+  servers and guilds. On the owner's match both sides showed the same guild: a guildmate.
+- The hero pictures were downloaded only when the first draft appeared ("loading hero pictures 0/458" in the
+  owner's notes on the pre-ban screen).
+- **DeepSeek** (the owner's API key in this cloud session): its vision model was given 20 name strips cut from four
+  real fortress maps (only the small picture of one name, nothing else). It read **18 exactly**, including the
+  kanji and kana names; it missed a repeated katakana letter (5 モ read as 6) and dropped one コ. About 260 tokens
+  per name (≈ $0.00005), 1–2 s each. Not built into the app in this change (see Open).
+
+**Changed**
+- **Round icons from the game's own files** (`js/vision/icons.js`, new, `E7Icons`): one loader for every reader
+  (RTA pre-bans, Guild War defense, result and Offense Team screens): per hero the game's icon from the community
+  repository (`{code}_s.png`, source label `game icon`), the official one only where the repository has none, plus
+  the 67 skin icons (Guild War shows the skin a player wears; the pre-ban row never does). Kept between app starts
+  (IndexedDB `e7-templates`, key `icons`). `js/roster.js` `GAME_ICON_URL`; `tools/update-wide-list.py` now also lists
+  the round icons (`icons`, `iconSkins` in `js/sources/wide-portraits.js`, listing of 2026-11-16).
+- **Pre-bans** (`js/layouts.js` `PB`, `js/draftscreen.js` `PREBAN`): radius 0.0187. **My two pre-bans are read
+  already in the pre-ban window** ("Selected Heroes (2/2)", `myPrebanPick1/2`): each look replaces the last (the
+  choice can change until the time is up); the draft's own row wins once it is read.
+- **Both bans** (`E7Draft.cardLook`, `isBannedLook`, tracker `bans`): on the formation screen a card with no bright
+  pixels, ≥ 45 % dark ones and a mean under 65 is banned (measured: banned 0.00 bright / 57 % dark / 45–49; normal
+  17–60 % bright; faded "cannot be banned" 1–8 % bright but 2–3 % dark). Exactly one per side, its hero known, not
+  the third pick, twice in a row. `toBoard` gives them as postbans; the RTA page puts them into the draft
+  (`js/auto.js` `applyBoard`), so a match is complete with no click.
+- **The battle's top bar** (`js/vision/readers/rta-battle.js`, new; `E7Draft.vsFlame`, `battleLine`, `sameGuild`;
+  `js/layouts.js` `rtaBat*`): for 8 minutes after an arena draft, when the flame-coloured "VS" is there, both names
+  and guilds are read once per match → `rta:battle`. The opponent's name goes into the draft (`App.setOpponent`).
+  Guild War battles have the same bar: without an arena draft just before, nothing is read.
+- **Matches for fun** (`js/app.js`): a match against a player of my own guild is marked `fun` by itself ("Played
+  for fun (same guild as you: …)" on the Draft tab, with "Count it after all"). A fun match is recorded and listed
+  in History (greyed, "for fun · not counted") but left out of every statistic and of what the app learns
+  (`derive` filters it like a switched-off source). Any match can be marked or unmarked with its "For fun" / "Count
+  it" button in History; a card counts them.
+- The hero pictures are fetched 3 s after the desktop app's watcher starts, not when the first draft appears.
+
+**Bugs found and fixed while doing it**
+- With the skin icons in the list a skin of another hero came second to Monarch of the Sword Iseria (lead just
+  under the bar), and a sure hero became unsure. Icons are now compared without skins first; skins only when that
+  gives no sure answer.
+- The unit test of `toBoard` expected empty postbans as `{}` (now `{ me: [], opp: [] }`).
+
+**Tested**
+- `npm test` **180** (+3: pre-bans from the pre-ban window and bans from darkened cards in the tracker; the
+  banned-card look; the battle bar's lines, guild comparison and the "VS" colour).
+- New browser test `tests/e2e/rta-match.e2e.js` on the owner's match (owner's name and guild blacked out, the two
+  names on the battle bar replaced by made-up ones): versus → opponent first; pre-ban window → my two pre-bans;
+  picking → **pre-bans 4/4**, picks 4/4 and 3/3; BAN → 5/5 and 4/5; formation → 5/5 + 5/5 and **both bans right**;
+  the RTA page has the complete draft with no click; the battle → opponent's name and "same guild" → for fun; the
+  result screen → recorded, not counted; "Count it" / "For fun" in History switch it.
+- Guild War icon tests with the game's icons, read line by line against #62: battle-result windows 33 → **44 of
+  48** heroes; Offense Team my teams 3/6 → 6/6 (#62's figure before its own fix); enemy page with a battle banner
+  5/6 (unchanged); stronghold 6/6, Defense Draw 12/12, defense page 6/6 (unchanged); the BAN screen of #41 still
+  10/10 from the cache.
+- Browser suite **41/41 clean**; the other RTA and face tests print the same as at #62.
+- Desktop (packaged Linux build): watcher, rta-follow, overlay-test clean.
+- **Not tested:** on the owner's PC; another window size than 2000×1070 / 1340×754; a draft in Korean or Japanese
+  with the new pre-ban box; a match against a guildmate whose guild name is long or in another script; a skin on the
+  pre-ban row (the game seems not to show one there).
+
+**Open**
+- **DeepSeek in the app:** for Guild War names the app is not sure of, the small name picture could be sent to
+  DeepSeek's vision model (18 of 20 exact here). It needs the owner's own API key in the desktop app and sends a
+  picture of another player's name to an outside service; only on the owner's say-so (asked in the reply).
+- A match for fun is only noticed by the same guild; a friend in another guild: the History button.
+
+---
+
 ## 2026-11-16 · #62 · Guild War on the owner's PC: opening a player's page now works, no phantom defenders, the card saves by itself and reads as rows; fewer buttons · this commit (previous: `461a471`)
 
 **Asked for** (screenshots from the build of #61: the right-hand fortress with the marks on the game, the same map

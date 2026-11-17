@@ -1,11 +1,14 @@
 /*
  * World Arena draft reader (DEVLOG #41): stage, whose turn, first pick, the four pre-bans and both players' picks,
  * with nothing to draw or teach. Publishes
- *   'rta:draft'      { stage, turn, turnIndex, firstPick, own[5], enemy[5], prebans[4], held, board, lang }
+ *   'rta:draft'      { stage, turn, turnIndex, firstPick, own[5], enemy[5], prebans[4], held, bans, board, lang }
  *   'rta:draft-end'  { last: <the finished draft's last state>, board }
  * Method and layout follow E7DaT (github.com/ohrgon-game/E7DaT, MIT): stage texts by template (js/draftscreen.js,
  * js/sources/draft-labels.js), pick cards against the heroes' wide portraits (js/wide.js; downloaded from the community
- * repository CeciliaBot/E7Assets-Temp, listed in js/sources/wide-portraits.js), pre-ban icons with the face matcher.
+ * repository CeciliaBot/E7Assets-Temp, listed in js/sources/wide-portraits.js), pre-ban icons with the face matcher
+ * against the game's round icons (js/vision/icons.js).
+ * Since DEVLOG #63 (the owner's first real pictures of a whole draft): my two pre-bans are already read in the pre-ban
+ * window ("Selected Heroes"), and both bans from the darkened BANNED cards of the formation screen.
  * Game language: English, Korean or Japanese, found by itself. Any window shape: where a position's anchor isn't
  * verified, every alternative is tried and the one that reads something is kept.
  * Only looks at the picture; nothing is sent to the game.
@@ -19,7 +22,8 @@
   const F = window.RTAFaces;
   const R = window.RTARoster;
   const S = window.RTASources || {};
-  if (!V || !D || !W || !L || !R || !S.draftLabels) return;
+  const I = window.E7Icons;
+  if (!V || !D || !W || !L || !R || !I || !S.draftLabels) return;
   const HEROES = S.allHeroes || (S.officialSnapshot && S.officialSnapshot.heroes) || [];
   const NAME = new Map(HEROES.map((h) => [h.code, h.name]));
   const LANGS = S.draftLabels.langs;
@@ -48,41 +52,7 @@
   // Computed templates are kept between app starts (DEVLOG #43): IndexedDB 'e7-templates', one record per set, valid for
   // the same picture list and month. Without it every session downloads ~850 small pictures before its first draft.
   const MONTH = new Date().toISOString().slice(0, 7);
-  const tcache = (() => {
-    const open = () =>
-      new Promise((res) => {
-        try {
-          const r = indexedDB.open('e7-templates', 1);
-          r.onupgradeneeded = () => r.result.createObjectStore('t');
-          r.onsuccess = () => res(r.result);
-          r.onerror = () => res(null);
-        } catch (_) {
-          res(null);
-        }
-      });
-    return {
-      async get(key) {
-        const db = await open();
-        if (!db) return null;
-        return new Promise((res) => {
-          try {
-            const q = db.transaction('t').objectStore('t').get(key);
-            q.onsuccess = () => res(q.result || null);
-            q.onerror = () => res(null);
-          } catch (_) {
-            res(null);
-          }
-        });
-      },
-      async set(key, val) {
-        const db = await open();
-        if (!db) return;
-        try {
-          db.transaction('t', 'readwrite').objectStore('t').put(val, key);
-        } catch (_) { /* no room: it is only a cache */ }
-      },
-    };
-  })();
+  const tcache = I.store; // IndexedDB 'e7-templates' (js/vision/icons.js)
 
   // wide portraits (pick cards): once, in the background, 12 at a time
   const wide = { own: [], enemy: [], total: 0, done: 0, started: false, fromCache: false };
@@ -144,45 +114,27 @@
   }
   const wideReady = () => wide.started && wide.total > 0 && wide.done >= wide.total; // all of them: the newest heroes load last
 
-  // round icons (pre-bans)
-  const round = { tpl: [], started: false, done: 0, fromCache: false };
-  function loadRound() {
-    if (round.started || !F) return;
-    round.started = true;
-    const sig = `${HEROES.length}|${MONTH}|v1`;
-    let i = 0;
-    const next = () => {
-      if (i >= HEROES.length) {
-        if (round.done >= HEROES.length && !round.fromCache && round.tpl.length >= HEROES.length * 0.9) tcache.set('round', { sig, items: round.tpl.map((x) => ({ code: x.code, vec: x.vec })) });
-        return;
-      }
-      const h = HEROES[i++];
-      const im = new Image();
-      im.crossOrigin = 'anonymous';
-      im.onload = () => {
-        try {
-          round.tpl.push({ code: h.code, vec: F.fromPortrait(im), source: 'official' });
-        } catch (_) { /* skipped */ }
-        round.done++;
-        next();
-      };
-      im.onerror = () => {
-        round.done++;
-        next();
-      };
-      im.src = R.PORTRAIT_URL_CORS(h.code);
-    };
-    tcache.get('round').then((c) => {
-      if (c && c.sig === sig && Array.isArray(c.items) && c.items.length) {
-        for (const x of c.items) round.tpl.push({ code: x.code, vec: x.vec, source: 'official' });
-        round.fromCache = true;
-        round.done = HEROES.length;
-        return;
-      }
-      for (let k = 0; k < 12; k++) next();
-    });
+  // round icons (pre-bans): the shared loader (js/vision/icons.js); the pre-ban row never shows a skin
+  const round = {
+    get tpl() {
+      return I.base();
+    },
+    get fromCache() {
+      return I.fromCache;
+    },
+  };
+  const loadRound = () => I.load();
+  const roundReady = () => I.ready();
+  // Both sets are fetched as soon as the watcher runs, not when the first draft appears: at the first match after the
+  // month's templates ran out the pictures arrived during the picks (seen in the owner's notes: "loading hero pictures
+  // 0/458" on the pre-ban screen) and the first cards were missed.
+  // (In the desktop app, where the watcher always runs. A browser page loads them when a draft shows up, as before.)
+  if (window.E7Desktop) {
+    setTimeout(() => {
+      loadWide();
+      loadRound();
+    }, 3000);
   }
-  const roundReady = () => round.started && round.done >= HEROES.length;
 
   // ---- picture helpers ---------------------------------------------------------------------------------------------
   const cv = document.createElement('canvas');
@@ -280,6 +232,26 @@
     }
     return null;
   }
+  /** The two heroes selected in the pre-ban window ("Selected Heroes (2/2)", bottom middle): [code | null, code | null]. */
+  function readPrebanPicks(ctx) {
+    return ['myPrebanPick1', 'myPrebanPick2'].map((key) => {
+      for (const a of L.alternatives(ctx.w(), ctx.h(), key)) {
+        const rect = { x: a.rect.x * ctx.w(), y: a.rect.y * ctx.h(), w: a.rect.w * ctx.w(), h: a.rect.h * ctx.h() };
+        const r = F.classify(F.fromRect(ctx.source, rect, F.WIDE_VARIANTS), round.tpl);
+        if (!r.empty && r.best && F.isConfident(r)) return r.best.code;
+      }
+      return null;
+    });
+  }
+  /** Which cards look banned (darkened): { own: [bool × 5], enemy: [bool × 5] }. */
+  function readBanned(ctx) {
+    const out = { own: [], enemy: [] };
+    for (const side of ['own', 'enemy']) {
+      const a = anchor[side] || (side === 'own' ? 'l' : 'c');
+      for (let i = 0; i < 5; i++) out[side].push(D.isBannedLook(D.cardLook(grab(ctx, px(ctx, W.slotBox(side, i), a), 160, 48), 160, 48, side)));
+    }
+    return out;
+  }
   let lastCtx = null;
   /** Test / report hook: the lock score of each of my cards on the picture last read. */
   const locks = () => (lastCtx ? [0, 1, 2, 3, 4].map((i) => +D.lockScore(grab(lastCtx, px(lastCtx, W.slotBox('own', i), anchor.own || 'l'), 160, 64), 160, 64, i).toFixed(2)) : null);
@@ -315,7 +287,7 @@
           } catch (_) { /* only a preference */ }
         }
       }
-      const obs = { label: lab.name, prebanPopup: false, firstPickMarker: null, slots: null, prebans: null };
+      const obs = { label: lab.name, prebanPopup: false, firstPickMarker: null, slots: null, prebans: null, prebanPicks: null, banned: null };
       const l = lang(curLang);
       // 2) versus screen: FIRST PICK under my card (left) or the opponent's (right)
       if (!lab.name && (tracker.stage === 'idle' || tracker.stage === 'versus')) {
@@ -331,7 +303,7 @@
         }
       }
       if (lab.name) {
-        loadWide();
+        loadWide(); // (normally started already, 3 s after the watcher)
         loadRound();
       }
       // 3) the pre-ban window covers the cards
@@ -344,8 +316,13 @@
           for (const side of ['own', 'enemy']) for (let i = 0; i < 5; i++) obs.slots[side].push(tracker[side][i] ? null : readSlot(ctx, side, i));
         }
         if (F && roundReady() && tracker.prebans.some((c) => !c)) obs.prebans = tracker.prebans.map((c, k) => (c ? c : readPreban(ctx, k)));
+        // formation screen: the two banned cards
+        if (lab.name === 'ready' && (tracker.banIdx.own === null || tracker.banIdx.enemy === null) && tracker.own.some(Boolean) && tracker.enemy.some(Boolean)) obs.banned = readBanned(ctx);
+      } else if (obs.prebanPopup && F && roundReady()) {
+        obs.prebanPicks = readPrebanPicks(ctx); // what I have selected in the pre-ban window so far
       }
       const st = tracker.update(performance.now(), obs);
+      if (st.stage !== 'idle') api.seenAt = performance.now(); // (the battle reader, rta-battle.js, follows a draft)
       // "is an arena draft on screen right now?" for whoever draws on the game (the RTA overlay shows nothing outside a
       // draft; DEVLOG #54): on every change of stage and every 4 s
       if (st.stage !== stageSent.stage || performance.now() - stageSent.at > 4000) {
@@ -359,17 +336,19 @@
       if (st.stage !== 'idle') {
         note = `Draft: ${note} · you ${n(st.own)}/5 · opponent ${n(st.enemy)}/5 · pre-bans ${n(st.prebans)}/4`;
         if (st.firstPick) note += ` · ${st.firstPick === 'me' ? 'you pick' : 'opponent picks'} first`;
+        if (st.bans.own || st.bans.enemy) note += ` · banned: yours ${NAME.get(st.bans.own) || '?'}, theirs ${NAME.get(st.bans.enemy) || '?'}`;
         if (lab.name && !wideReady()) note += ` · loading hero pictures ${wide.done}/${wide.total}`;
       } else note = 'Waiting for an arena draft…';
       ctx.note(note);
       if (st.ended && st.last) ctx.publish('rta:draft-end', { last: st.last, board: D.toBoard(st.last), names: { own: names(st.last.own), enemy: names(st.last.enemy) } });
       if (st.changed) {
         ctx.publish('rta:draft', {
-          stage: st.stage, turn: st.turn, turnIndex: st.turnIndex, firstPick: st.firstPick, own: st.own, enemy: st.enemy, prebans: st.prebans, held: st.held,
-          board: D.toBoard(st), lang: curLang, names: { own: names(st.own), enemy: names(st.enemy), prebans: names(st.prebans) },
+          stage: st.stage, turn: st.turn, turnIndex: st.turnIndex, firstPick: st.firstPick, own: st.own, enemy: st.enemy, prebans: st.prebans, held: st.held, bans: st.bans,
+          board: D.toBoard(st), lang: curLang, names: { own: names(st.own), enemy: names(st.enemy), prebans: names(st.prebans), bans: { own: NAME.get(st.bans.own) || null, enemy: NAME.get(st.bans.enemy) || null } },
         });
       }
     },
   });
-  window.E7RtaDraft = { tracker, wide, round, loadWide, loadRound, wideReady, roundReady, _readSlot: readSlot, _readLabel: readLabel, _locks: locks };
+  const api = { tracker, wide, round, loadWide, loadRound, wideReady, roundReady, seenAt: 0, _readSlot: readSlot, _readLabel: readLabel, _locks: locks };
+  window.E7RtaDraft = api;
 })();

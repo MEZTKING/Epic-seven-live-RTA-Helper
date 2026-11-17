@@ -13,6 +13,10 @@
   // registers their codes.
   const ASSET_REPO = 'https://raw.githubusercontent.com/CeciliaBot/E7Assets-Temp/main/assets/face/';
   const WIDE_PORTRAIT_URL = (name) => `${ASSET_REPO}${name}.png`; // name = c1234_l or c1234_s01_l (pick cards)
+  // The game's own round icon (DEVLOG #63): c1234 or, for a skin, c1234_s01. For READING the game picture these are
+  // used before the official site's icons, which show older artwork for about half of the heroes (measured: 195 of
+  // 367 differ). Which names exist: js/sources/wide-portraits.js (`icons`, `iconSkins`).
+  const GAME_ICON_URL = (name) => `${ASSET_REPO}${name}_s.png`;
   const repoIcons = new Set();
   const useAssetRepoFor = (codes) => {
     for (const c of codes || []) repoIcons.add(c);
@@ -252,6 +256,7 @@
     allHeroes,
     useAssetRepoFor,
     WIDE_PORTRAIT_URL,
+    GAME_ICON_URL,
     ASSET_REPO,
     ELEMENT_LABEL,
     ROLE_LABEL,

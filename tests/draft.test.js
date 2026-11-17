@@ -132,11 +132,86 @@ test('draftscreen: the tracker follows a draft (hover vs confirm, turn order, fi
   assert.deepEqual(st.last.own.slice(0, 2), ['m2', 'm3']);
   // the app's board: picks in order, pre-bans split, first pick in the app's words
   const b = D.toBoard(st.last);
-  assert.deepEqual(b, { prebans: { me: ['a', 'b'], opp: [] }, picks: { me: ['m2', 'm3'], opp: ['e1'] }, postbans: {}, firstPick: 'opp' });
+  assert.deepEqual(b, { prebans: { me: ['a', 'b'], opp: [] }, picks: { me: ['m2', 'm3'], opp: ['e1'] }, postbans: { me: [], opp: [] }, firstPick: 'opp' });
   // ...and the draft model accepts it even though two pre-bans were never seen
   const d = L.boardToDraft(b, b.firstPick);
   assert.deepEqual(L.draftView(d).picks, { me: ['m2', 'm3'], opp: ['e1'] });
   assert.deepEqual(L.draftView(d).prebans, { me: ['a', 'b'], opp: [] });
+});
+
+test('draftscreen: my pre-bans from the pre-ban window, both bans from the darkened cards (DEVLOG #63)', () => {
+  const T = new D.Tracker();
+  let t = 0;
+  const look = (obs) => T.update((t += 700), { label: null, prebanPopup: false, firstPickMarker: null, slots: null, prebans: null, ...obs });
+  const sl = (own, enemy) => ({ own: own.map((c) => c && { code: c, sure: true, lock: true }), enemy: enemy.map((c) => c && { code: c, sure: true }) });
+  // the pre-ban window: one hero selected, then changed, then two (each needs two looks; not final)
+  look({ label: 'ready', prebanPopup: true, prebanPicks: ['a', null] });
+  assert.deepEqual(look({ label: 'ready', prebanPopup: true, prebanPicks: ['a', null] }).prebans, ['a', null, null, null]);
+  look({ label: 'ready', prebanPopup: true, prebanPicks: ['c', 'b'] });
+  assert.deepEqual(look({ label: 'ready', prebanPopup: true, prebanPicks: ['c', 'b'] }).prebans, ['c', 'b', null, null], 'the selection replaced the earlier one');
+  // the draft's own row shows them in another order, plus the opponent's: the row wins, nothing is doubled
+  look({ label: 'turn_me', prebans: ['b', null, 'x', 'y'] });
+  assert.deepEqual(look({ label: 'turn_me', prebans: ['b', null, 'x', 'y'] }).prebans, ['b', 'c', 'x', 'y']);
+  assert.deepEqual(look({ label: 'turn_me', prebans: ['b', 'c', 'x', 'y'] }).prebans, ['b', 'c', 'x', 'y']);
+  // ten picks
+  const own = ['m1', 'm2', 'm3', 'm4', 'm5'];
+  const enemy = ['e1', 'e2', 'e3', 'e4', 'e5'];
+  look({ label: 'ban', slots: sl(own, enemy) });
+  let st = look({ label: 'ban', slots: sl(own, enemy) });
+  assert.deepEqual([st.own, st.enemy], [own, enemy]);
+  // BAN stage: a dark card is only what I clicked -> no ban yet
+  const dark = (o, e) => ({ own: [0, 1, 2, 3, 4].map((i) => i === o), enemy: [0, 1, 2, 3, 4].map((i) => i === e) });
+  look({ label: 'ban', banned: dark(-1, 3) });
+  assert.deepEqual(look({ label: 'ban', banned: dark(-1, 3) }).bans, { own: null, enemy: null });
+  // formation: one darkened card on each side, twice
+  look({ label: 'ready', banned: dark(4, 0) });
+  st = look({ label: 'ready', banned: dark(4, 0) });
+  assert.deepEqual(st.bans, { own: 'm5', enemy: 'e1' });
+  assert.deepEqual(D.toBoard(st).postbans, { me: ['e1'], opp: ['m5'] }, 'postbans.me = their hero I banned');
+  // the third pick cannot be banned, and two dark cards on a side are no answer
+  const T2 = new D.Tracker();
+  const look2 = (obs) => T2.update((t += 700), { label: null, prebanPopup: false, firstPickMarker: null, slots: null, prebans: null, ...obs });
+  look2({ label: 'ban', slots: sl(own, enemy) });
+  look2({ label: 'ban', slots: sl(own, enemy) });
+  look2({ label: 'ready', banned: { own: [false, false, true, false, false], enemy: [true, true, false, false, false] } });
+  assert.deepEqual(look2({ label: 'ready', banned: { own: [false, false, true, false, false], enemy: [true, true, false, false, false] } }).bans, { own: null, enemy: null });
+});
+
+test('draftscreen: a banned card is dark with nothing bright in it (numbers from the real formation screen)', () => {
+  const w = 160, h = 48;
+  const mk = (f) => {
+    const a = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = f(x, y); const p = (y * w + x) * 4; a[p] = a[p + 1] = a[p + 2] = v; a[p + 3] = 255; }
+    return a;
+  };
+  const banned = D.cardLook(mk((x) => (x % 5 < 3 ? 35 : 70)), w, h, 'enemy'); // dark, some mid-grey, nothing bright
+  assert.ok(D.isBannedLook(banned), JSON.stringify(banned));
+  const normal = D.cardLook(mk((x) => (x % 5 < 1 ? 40 : x % 5 < 3 ? 110 : 200)), w, h, 'own');
+  assert.ok(!D.isBannedLook(normal) && normal.bright > 0.3);
+  const faded = D.cardLook(mk(() => 100), w, h, 'own'); // a card that cannot be banned: faded, not dark
+  assert.ok(!D.isBannedLook(faded));
+  assert.ok(!D.isBannedLook(null));
+});
+
+test('draftscreen: the battle bar (names, servers, the same guild on both sides)', () => {
+  assert.deepEqual(D.battleLine('Global @ Tester', 'l'), { name: 'Tester', server: 'Global' });
+  assert.deepEqual(D.battleLine('Rival_77 ® Global', 'r'), { name: 'Rival_77', server: 'Global' });
+  assert.deepEqual(D.battleLine('Asia (@) Tester |', 'l'), { name: 'Tester', server: 'Asia' });
+  assert.deepEqual(D.battleLine('Tester', 'l'), { name: 'Tester', server: '' }, 'the server faded out: the name alone');
+  assert.deepEqual(D.battleLine('', 'r'), { name: '', server: '' });
+  assert.equal(D.guildKey('Moon Fall @'), 'moonfall');
+  assert.ok(D.sameGuild('Moonfall', 'moonfall'));
+  assert.ok(D.sameGuild('Rh Moonfall', 'Moonfall'), 'something read along on the outer side of mine');
+  assert.ok(D.sameGuild('Moonfall', 'Moonfall ..x'), '...or of theirs');
+  assert.ok(!D.sameGuild('Moonfall', 'Sunrise'));
+  assert.ok(!D.sameGuild('Moonfall', 'fall'), 'a piece on the wrong side is not the same guild');
+  assert.ok(!D.sameGuild('', ''), 'no guild on either side');
+  assert.ok(!D.sameGuild('AB', 'AB'), 'too short to be sure');
+  // the "VS" sign: flame-coloured
+  const px = (r, g, b, n) => { const a = new Uint8ClampedArray(n * 4); for (let i = 0; i < n; i++) a.set([r, g, b, 255], i * 4); return a; };
+  assert.ok(D.vsFlame(px(240, 120, 30, 100)) > 0.9);
+  assert.ok(D.vsFlame(px(200, 30, 30, 100)) < 0.01, 'plain red (an enemy card) is not the flame');
+  assert.ok(D.vsFlame(px(20, 20, 20, 100)) < 0.01);
 });
 
 test('draftscreen: turn order and pre-ban icon boxes (E7DaT layout)', () => {

@@ -200,6 +200,8 @@ input.full { width: 100%; }
 .clickable { cursor: pointer; }
 .hcell { display: flex; align-items: center; gap: 8px; }
 .hist-list li.off { opacity: .45; }
+.hist-list .hist-btns { display: flex; gap: 6px; }
+.hist-list .hist-btns .btn { padding: 3px 8px; font-size: 12px; }
 .suggest-list button { display: inline-flex; align-items: center; gap: 6px; }
 .suggest-list .why { line-height: 1.9; }
 #pl-detail .cards { margin: 8px 0 0; }
