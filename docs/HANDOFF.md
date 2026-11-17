@@ -30,7 +30,7 @@ run the suites first (§6), and one DEVLOG entry per commit.
 
 **Waiting on the owner (ask for these; they unblock the most):**
 1. **A diagnostic report after a few RTA matches with #63** (pre-bans, bans, opponent name, "for fun"); pictures
-   of MY turn with a hero clicked but not confirmed are still missing (the owner's match had only the opponent's turn).
+   of MY turn with a hero hovered (shown on my card) before Confirm are still missing (the owner's match had only the opponent's turn).
    Whether DeepSeek may be used inside the app for unsure names (DEVLOG #63, Open).
 2. Guild War, **as files** (a picture sent while a reply is still being written reaches the session only as a
    picture, not as a file, and cannot become a fixture: ask for it again in a normal message):
