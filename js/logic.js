@@ -55,7 +55,7 @@
       postbans: { me: [], opp: [] }, // postbans.me = enemy hero that *I* banned
     };
     for (const a of draft.actions) {
-      if (isUnseen(a.heroId)) continue; // a pre-ban nobody saw: it took its step, but it is no hero
+      if (isUnseen(a.heroId)) continue; // a pre-ban or pick nobody saw: it took its step, but it is no hero
       const bucket = a.phase === 'preban' ? v.prebans : a.phase === 'pick' ? v.picks : v.postbans;
       bucket[a.player].push(a.heroId);
     }

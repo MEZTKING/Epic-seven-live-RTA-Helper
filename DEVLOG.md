@@ -7,6 +7,46 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-17 · #66 · RTA: picks the watcher read now always reach the RTA page (an unread first card hid them all) · this commit (previous: `9aee26d`)
+
+**Asked for:** "for the rta i don't see any of the characters picked show up in app or any recommendations anywhere
+so what is the point". Also two phone pictures of the Guild War end (DEFEAT with both guilds, and the "War Result"
+window: guild names, levels, servers, Havoc 3,400 vs 4,740, attack and defense record, rewards).
+
+**Findings**
+- In the owner's report of #65 the watcher HAD read heroes (mine on cards 2, 4, 5; theirs on card 5), but the RTA
+  page's draft stayed empty ("board: picks 0+0", "current draft: 0 actions"). Cause: `E7Draft.toBoard` handed over
+  only the heroes BEFORE the first card it had not read, and the draft is rebuilt in pick order. Their first card
+  unread → none of their heroes; my first card unread → none of mine. With an empty draft the app had nothing to
+  suggest from beyond the first pre-ban, and the overlay card sat on the pre-ban box. One missed card (here caused by
+  the wrong-place effect fixed in #65) emptied the whole page.
+
+**Changed**
+- `js/draftscreen.js` `toBoard`: a card not read before a card that was read becomes an unknown hero
+  (`?unseen-…`, the placeholder unseen pre-bans already use); cards after the last read one are not there yet.
+  `js/logic.js` already replays such placeholders (they take their step, `draftView` leaves them out).
+- `js/app.js`: the Draft tab's boxes show every place in order, an unread one as "?" ("The app could not read this
+  card"), so read heroes stay on their own box and the next box is right.
+- `js/auto.js`: the overlay's suggestion card and the enemy speed labels count places the same way; a draft with an
+  unknown pick is never recorded as a complete match (it would save half teams): it goes the way of #65 (the official
+  record import brings the whole match).
+- Guild War end screens: not read yet: the pictures are from the phone, whose window shape differs from the PC game;
+  asked for the same two screens from the PC (DEVLOG Open).
+
+**Tested**
+- `npm test` 180 (the `toBoard` test: cards read at 2, 4, 5 and only at 5 → the draft has those heroes and is at
+  the bans).
+- In the browser: a watcher draft with my card 1 and their card 1 unread → Draft tab "? · Kayron" and "? · Zio",
+  "Your pick (1 left)", three suggestions listed.
+- Browser suite 41/41 clean (the RTA, overlay, face and Guild War tests print the same as at #65).
+- **Not tested:** on the owner's PC.
+
+**Open**
+- Guild War end screens (DEFEAT + "War Result"): read them on the PC to close the war with its result and the final
+  Havoc of both guilds. Needs the two screens as the PC shows them.
+
+---
+
 ## 2026-11-17 · #65 · RTA on the owner's PC: one wrong "sure" card blinded a whole side; a played match filed as "ended early"; the battle bar read too early · this commit (previous: `88627ea`)
 
 **Asked for:** the owner sent three pictures of their own turn while hovering a hero (before Confirm) and a

@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #65, 2026-11-17) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #66, 2026-11-17) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -391,6 +391,9 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
   (`E7Draft.isEmptyLook`) are never heroes; `rta:draft.seen` = each card's last read (logged at ban / formation).
 - `js/auto.js` `playedAt`: a draft that reached ban / formation is a played match; half-read ones are left to the
   official record import, never filed as walkovers.
+- (#66) `E7Draft.toBoard` keeps an unread card BEFORE a read one as `?unseen-<side><i>`: never cut a pick list at
+  the first gap (that emptied the whole RTA page). The Draft tab shows such places as "?"; count places with
+  `draft.actions`, not `draftView` (which leaves placeholders out).
 
 **DEVLOG #63** (the owner's real arena match):
 - Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from
