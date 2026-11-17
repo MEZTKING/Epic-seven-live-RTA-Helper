@@ -7,6 +7,24 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-17 · #64 · RTA: "hovered", not "clicked" · this commit (previous: `3bca3cf`)
+
+**Asked for:** the owner corrected the request at the end of #63: "you can't actually click any here, it's whatever
+hero ... on the right side get picked once you hover over it and press confirm".
+
+**Findings:** the draft tracker already works that way: the hero hovered in the list is shown on my card and kept
+as `held` (not a pick) until the card turns solid blue after Confirm (`lockScore`), or until my turn ends (then it was
+the pick). Only the wording said "clicked".
+
+**Changed:** comments in `js/draftscreen.js`; the wanted picture in `docs/HANDOFF.md` and `docs/ROADMAP.md` ("a hero
+hovered, shown on my card, before Confirm"). No behaviour change.
+
+**Tested:** `npm test` (comments only).
+
+**Open:** a picture of my own turn with a hovered hero, to check the blue-band rule on the owner's window size.
+
+---
+
 ## 2026-11-17 · #63 · RTA: the whole draft read on the owner's real match (pre-bans, picks, both bans), the opponent's name from the battle, matches against a guildmate kept "for fun" · this commit (previous: `cb7b325`)
 
 **Asked for** (twelve real pictures of one whole arena match, 2560×1369 window, with the app's own note for each:

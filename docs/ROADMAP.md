@@ -5,7 +5,7 @@ Ideas the owner asked to keep for later. When one is started, it moves to `DEVLO
 ## Next up (as of DEVLOG #63; the overview of what is verified is in docs/HANDOFF.md §0)
 
 Needs the owner first:
-1. **RTA on the owner's PC after #63** (report after a few matches); a picture of MY turn with a hero clicked but
+1. **RTA on the owner's PC after #63** (report after a few matches); a picture of MY turn with a hero hovered (shown on my card) but
    not confirmed (hover against confirmed is still checked only on #41's BAN screen).
 2. **Guild War screens, as files**: the END of a fight (Victory / Defeat after each round) → the attack logged
    without asking; a whole map with a note bubble on a badge → notes attached without asking; a battle-result

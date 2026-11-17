@@ -9,7 +9,8 @@
  *   "Ready"                                       -> pre-ban (no picks yet / the pre-ban window is open) or formation
  *   no text, "First Pick" under a player card     -> the versus screen: who picks first
  * Picks go 1-2-2-2-2-1 (TURN_SLOTS); the third pick of each side can't be banned (BAN_GUARD_SLOT).
- * My own card being chosen: a hero only clicked (hovered) is NOT a pick yet. A confirmed card has a solid blue
+ * My own card being chosen: in the game a hero is not clicked; the one hovered in the list on the right is shown on
+ * my card and becomes the pick with Confirm (or when the time is up). Hovered is NOT a pick yet. A confirmed card has a solid blue
  * background (lockScore ≥ LOCK_MIN on two reads); until then it is reported as `held`.
  *
  *   decode(t)                              template from draft-labels.js -> { w, h, v (zero-mean), norm }
@@ -296,7 +297,7 @@
         } else {
           const turn = label === 'turn_me' ? 'me' : 'enemy';
           if (this.stage !== 'pick' || turn !== this.turn) {
-            this._settleHeld(); // what I had clicked when my turn ended was my pick
+            this._settleHeld(); // what I was hovering when my turn ended was my pick
             this.turnIndex += 1;
             if (this.turnIndex === 1) {
               if (this.vsFirst && this.vsFirst !== turn) this.turnIndex = 2; // the first turn was missed
@@ -321,7 +322,7 @@
               delete this._pend[key];
               if (side === 'own' && this.held[i]) {
                 this._miss[i] = (this._miss[i] || 0) + 1;
-                if (this._miss[i] >= 3) delete this.held[i]; // I un-clicked it
+                if (this._miss[i] >= 3) delete this.held[i]; // I moved off it
               }
               continue;
             }
@@ -333,7 +334,7 @@
             if (this._has(r.code)) continue; // already on another card: a misread
             if (choosing && (this._lock[i] || 0) < LOCK_FRAMES) {
               for (const k of Object.keys(this.held)) if (this.held[k] === r.code && +k !== i) delete this.held[k];
-              this.held[i] = r.code; // clicked, not confirmed yet
+              this.held[i] = r.code; // hovered, not confirmed yet
             } else {
               this[side][i] = r.code;
               if (side === 'own') delete this.held[i];
@@ -359,7 +360,7 @@
         if (this.prePick[0] && this.prePick[0] === this.prePick[1]) this.prePick[1] = null;
       }
       // banned cards on the formation screen: exactly one darkened card on a side, its hero known, twice in a row.
-      // (During the BAN stage a dark card is only what I have clicked, not final.) The third pick cannot be banned.
+      // (During the BAN stage a dark card is only the one I am choosing, not final.) The third pick cannot be banned.
       if (obs.banned && this.stage === 'ready') {
         for (const side of ['own', 'enemy']) {
           if (this.banIdx[side] !== null) continue;
