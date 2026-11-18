@@ -15,6 +15,8 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0k. After DEVLOG #69: artifacts read from the game (picture of where an opponent's artifact shows needed); the
+   first hero to act read by its name (one more yardstick for the speeds); retire the old drawn-box CR reader.
 0j. After DEVLOG #66: Guild War end screens from the PC (DEFEAT / VICTORY with both guilds, the "War Result"
    window with Havoc) → close the war with its result by itself. Phone pictures exist; PC pictures needed.
 0i. After DEVLOG #65: the report's "This match" section from the watcher's cards (`rta:draft.seen`) instead of the

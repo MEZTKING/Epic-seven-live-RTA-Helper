@@ -26,6 +26,10 @@
  *   vsFlame(rgba)                          -> share of flame-coloured pixels (the "VS" between the two bars: ~0.20)
  *   battleLine(text, side)                 -> { name, server } from "Global ⊕ Name" ('l') / "Name ⊕ Global" ('r')
  *   guildKey(text), sameGuild(a, b)        -> two guild names read from the same picture are the same guild
+ * The battle's CR (turn order) bar (DEVLOG #69):
+ *   CR_BAR                                 where it is (units of the picture's height, pinned to the left)
+ *   crFromY(y, H)                          -> CR % of a portrait centred at y on a picture H high
+ *   barPeaks(rows, H)                      -> one hero per place on the bar: [{ code, y, score, cr }]
  */
 (function (root) {
   'use strict';
@@ -442,6 +446,32 @@
 
   // a card not read (yet) BEFORE one that was read: the same placeholder js/logic.js uses for unseen pre-bans
   const UNSEEN = '?unseen';
+  // ---- the battle's CR bar -----------------------------------------------------------------------------------------
+  // Measured on the owner's two pictures of the SAME moment of a battle (2000×1070): the normal bar (round portraits on
+  // a vertical line at the left) and the expanded list with the game's own numbers. Peira 16 %, Tywin 34 %, Jenua 50 %,
+  // Politis 74 % sit at y = 318, 432, 540, 693: a straight line, 0 % at y = 209 and 100 % at y = 859 (6.5 px per %).
+  // The hero acting now (100 %) is not on the bar (it is the big picture bottom left).
+  const CR_BAR = { x: 48 / 1070, y0: 209 / 1070, y100: 859 / 1070, r: 38 / 1070, top: 0.14, bottom: 0.86 };
+  const crFromY = (y, H) => Math.max(0, Math.min(100, Math.round(((y / H - CR_BAR.y0) / (CR_BAR.y100 - CR_BAR.y0)) * 1000) / 10));
+  /**
+   * rows: [{ y, code, score, lead }] the best hero at each place along the bar (pixels of a picture H high).
+   * -> each hero's best place, kept only when sure enough (score ≥ 0.64, lead ≥ 0.08) and not on top of a better one
+   * (two portraits can't be closer than 0.7 of a portrait: there the weaker reading is the same icon read as another
+   * hero; seen: Mort 0.62 on Peira's 0.81).
+   */
+  function barPeaks(rows, H) {
+    const best = new Map();
+    for (const p of rows) {
+      const c = best.get(p.code);
+      if (!c || p.score > c.score) best.set(p.code, p);
+    }
+    const sure = [...best.values()].filter((p) => p.score >= 0.64 && p.lead >= 0.08).sort((a, b) => b.score - a.score);
+    const kept = [];
+    const minGap = 0.7 * 2 * CR_BAR.r * H;
+    for (const p of sure) if (!kept.some((k) => Math.abs(k.y - p.y) < minGap)) kept.push(p);
+    return kept.sort((a, b) => a.y - b.y).map((p) => ({ code: p.code, y: p.y, score: Math.round(p.score * 100) / 100, cr: crFromY(p.y, H) }));
+  }
+
   /** The tracker's picks as the app's "board" (js/logic.js boardToDraft). */
   function toBoard(st) {
     // Picks fill the cards in order. A card not read before a card that was read is an unknown hero, not the end of
@@ -462,7 +492,7 @@
     };
   }
 
-  const api = { TURN_SLOTS, BAN_GUARD_SLOT, PREBAN, MATCH_MARGIN, LOCK_BAND, LOCK_MIN, LOCK_FRAMES, IDLE_AFTER, VERSUS_KEEP, prebanBox, decode, matchTemplate, tint, acceptLabel, lockScore, cardLook, isBannedLook, isEmptyLook, vsFlame, battleLine, guildKey, sameGuild, Tracker, toBoard };
+  const api = { TURN_SLOTS, BAN_GUARD_SLOT, PREBAN, MATCH_MARGIN, LOCK_BAND, LOCK_MIN, LOCK_FRAMES, IDLE_AFTER, VERSUS_KEEP, prebanBox, decode, matchTemplate, tint, acceptLabel, lockScore, cardLook, isBannedLook, isEmptyLook, vsFlame, battleLine, guildKey, sameGuild, CR_BAR, crFromY, barPeaks, Tracker, toBoard };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7Draft = api;
 })(typeof self !== 'undefined' ? self : this);

@@ -7,6 +7,49 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #69 · The CR bar read by itself at the start of every arena battle → the opponent's speeds · this commit (previous: `e6aae06`)
+
+**Asked for:** "also scouting for cr bar and artifact doesn't seem to work". Also: "where is all the profile art and
+player names being stored for now" (answered in the reply; storage is in docs/HANDOFF.md §4).
+
+**Findings**
+- **CR bar:** the only reader was the old one on the RTA page (`js/auto.js` `readCR`): it needs a box the user draws
+  (the owner's report: "cr=missing"; their own box is around the EXPANDED list, where a position means nothing), it
+  matched heroes with the old 16×16 colour features against the official icons, and it read "top = 100 %" for a
+  vertical bar, while this game's bar has 100 % at the BOTTOM. It never ran usefully.
+- The owner's pictures of #63 hold two of the SAME moment of a battle: the normal bar, and the expanded list with the
+  game's own numbers (Peira 16 %, Tywin 34 %, Jenua 50 %, Politis 74 %). Their portraits sit at y = 318, 432, 540, 693
+  of 1070: a straight line (6.5 px per %), 0 % at 209, 100 % at 859. The hero acting now is not on the bar.
+- The speeds come from the CR at the START of a battle, measured against your own heroes' speeds
+  (`RTALogic.speedsFromCR`). The owner's report: gear.txt gives a full build for only one hero, so even a perfect
+  reading would give no speeds until their heroes' speeds are known.
+- **Artifacts:** never read from the game; the scouting table's artifact column is typed by hand. Needs a picture of
+  where the game shows an opponent's artifact.
+
+**Changed**
+- `js/draftscreen.js`: `CR_BAR` (the bar's place, units of the picture's height, pinned left), `crFromY`,
+  `barPeaks` (each hero's best place; one hero per place; score ≥ 0.64 and lead ≥ 0.08).
+- `js/vision/readers/rta-cr.js` (new): after an arena draft, for 25 s after the battle's "VS" bar first shows, the
+  left column is compared with the ten drafted heroes (the game's round icons); the same answer twice → `rta:cr
+  { readings: [{ code, side, cr, score }] }`, once per match. No box to draw.
+- `js/auto.js` `onWatcherCR`: CR → speeds → scouting (`method: 'cr-read'`, shown under the enemy picks, in the mini
+  window and on the overlay). Without a known speed for any of YOUR heroes on the bar it says so and how to fix it
+  (gear.txt with builds, or typing your speeds on the Data tab).
+
+**Tested**
+- `npm test` 184 (+1: the four heights against the game's numbers; one hero per place).
+- New `tests/e2e/rta-cr.e2e.js` on the owner's battle picture (names and guilds hidden): **Peira 16.7, Tywin 34.3,
+  Jenua 50.9, Politis 74.4 %** (the game: 16, 34, 50, 74); without your speeds the status says why; with Tywin typed
+  at 200 their speeds come out (Peira ~97, Jenua ~297, Politis ~434: this picture is mid-battle, so the numbers only
+  show the sums work); the same picture with no arena draft before it reads nothing.
+- Browser suite 42/42 clean (the other RTA, overlay and Guild War tests print the same as at #67).
+- **Not tested:** a picture of the very first moment of a battle (the bar with all eight heroes); on the owner's PC.
+
+**Open:** artifacts (picture wanted); the hero acting first (100 %, the big picture bottom left) could be read by
+its name to give one more yardstick.
+
+---
+
 ## 2026-11-18 · #68 · A small RTA mini window that fits its content; screenshots packed into one file for Claude · this commit (previous: `70f04dd`)
 
 **Asked for** (with a report and pictures of a match on 0.1.52):

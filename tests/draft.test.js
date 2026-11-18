@@ -229,6 +229,21 @@ test('draftscreen: the battle bar (names, servers, the same guild on both sides)
   assert.ok(D.vsFlame(px(20, 20, 20, 100)) < 0.01);
 });
 
+test('draftscreen: the CR bar — CR % from the height, one hero per place (DEVLOG #69)', () => {
+  // the owner's battle picture (1070 high) next to the game's own numbers at the same moment
+  for (const [y, want] of [[318, 16], [432, 34], [540, 50], [693, 74]]) assert.ok(Math.abs(D.crFromY(y, 1070) - want) <= 1, `${y} -> ${D.crFromY(y, 1070)} (${want})`);
+  assert.equal(D.crFromY(100, 1070), 0);
+  assert.equal(D.crFromY(1000, 1070), 100);
+  const rows = [
+    { y: 318, code: 'peira', score: 0.81, lead: 0.22 },
+    { y: 324, code: 'mort', score: 0.62, lead: 0.11 }, // the same icon read as another hero: weaker, and too low anyway
+    { y: 330, code: 'mort2', score: 0.7, lead: 0.1 }, // on top of Peira: dropped
+    { y: 432, code: 'tywin', score: 0.68, lead: 0.16 },
+    { y: 600, code: 'weak', score: 0.9, lead: 0.03 }, // no lead: not sure
+  ];
+  assert.deepEqual(D.barPeaks(rows, 1070).map((p) => [p.code, Math.round(p.cr)]), [['peira', 17], ['tywin', 34]]);
+});
+
 test('draftscreen: turn order and pre-ban icon boxes (E7DaT layout)', () => {
   assert.deepEqual(D.TURN_SLOTS[3], ['first', [1, 2]]);
   assert.equal(D.BAN_GUARD_SLOT, 2);

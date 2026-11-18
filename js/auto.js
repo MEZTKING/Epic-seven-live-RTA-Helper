@@ -633,6 +633,22 @@
     if (fun) setStatus('This opponent is in your guild: the match is kept as "played for fun" and not counted (Draft tab: "Count it after all").');
   }
   if (window.E7Bus) window.E7Bus.on('rta:battle', onWatcherBattle);
+  // the CR bar at the start of the battle, read by the game watcher (js/vision/readers/rta-cr.js, DEVLOG #69): CR % ->
+  // the opponent's speeds, measured against your own heroes' speeds (gear.txt / speeds you typed)
+  function onWatcherCR(d) {
+    if (!d || !Array.isArray(d.readings) || !d.readings.length) return;
+    const speeds = L.speedsFromCR(d.readings, App.cache.mySpeeds, App.store.settings.variance);
+    const crText = d.readings.map((r) => `${App.nameOf(r.code)} ${r.cr}%`).join(', ');
+    note('CR bar at the battle start (game watcher)', { readings: d.readings.map((r) => `${r.side} ${r.code} ${r.cr}%`) });
+    if (!speeds.length) {
+      setStatus(`CR bar read at the start of the battle (${crText}), but none of YOUR heroes there has a known speed, so the opponent's speeds can't be worked out. Import gear.txt with builds, or type your speeds (Data tab).`);
+      return;
+    }
+    App.addScoutSpeeds(speeds);
+    const opp = speeds.filter((x) => x.side === 'opp');
+    setStatus(`Opponent's speeds from the CR bar: ${opp.map((x) => `${App.nameOf(x.code)} ~${Math.round(x.speed)}`).join(', ') || 'none of theirs on the bar'}`);
+  }
+  if (window.E7Bus) window.E7Bus.on('rta:cr', onWatcherCR);
 
   function applyBoard(fromWatcher) {
     if (!fromWatcher && Date.now() - watcherDraftAt < 20000) return; // the watcher's reader is on it
