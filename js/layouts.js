@@ -110,6 +110,44 @@
         rtaBatGuildL: A(mid(640, 100, 248, 40), 'c'),
         rtaBatGuildR: A(mid(1112, 100, 150, 40), 'c'),
         // A player's page in Guild War: the empty part of the name panel (right of the name), pinned left (DEVLOG #62)
+        // ARENA (DEVLOG #71), measured on the owner's 2000×1070 screens. Opponents list (3 rows, 190 apart, centred):
+        // magnifier button, name, points, 4 defense heroes (round icons with class top left, level top right)
+        arenaOppMag0: A(mid(1415, 303, 62, 62), 'c'),
+        arenaOppName0: A(mid(636, 300, 264, 45), 'c'),
+        arenaOppPts0: A(mid(636, 358, 170, 44), 'c'),
+        arenaOppHero00: A(mid(907, 278, 110, 110), 'c'),
+        arenaOppHero01: A(mid(1030, 278, 110, 110), 'c'),
+        arenaOppHero02: A(mid(1153, 278, 110, 110), 'c'),
+        arenaOppHero03: A(mid(1276, 278, 110, 110), 'c'),
+        arenaOppMag1: A(mid(1415, 493, 62, 62), 'c'),
+        arenaOppName1: A(mid(636, 490, 264, 45), 'c'),
+        arenaOppPts1: A(mid(636, 548, 170, 44), 'c'),
+        arenaOppHero10: A(mid(907, 468, 110, 110), 'c'),
+        arenaOppHero11: A(mid(1030, 468, 110, 110), 'c'),
+        arenaOppHero12: A(mid(1153, 468, 110, 110), 'c'),
+        arenaOppHero13: A(mid(1276, 468, 110, 110), 'c'),
+        arenaOppMag2: A(mid(1415, 683, 62, 62), 'c'),
+        arenaOppName2: A(mid(636, 680, 264, 45), 'c'),
+        arenaOppPts2: A(mid(636, 738, 170, 44), 'c'),
+        arenaOppHero20: A(mid(907, 658, 110, 110), 'c'),
+        arenaOppHero21: A(mid(1030, 658, 110, 110), 'c'),
+        arenaOppHero22: A(mid(1153, 658, 110, 110), 'c'),
+        arenaOppHero23: A(mid(1276, 658, 110, 110), 'c'),
+        // team set-up before the fight: the big VS in the middle, the opponent's name and points (right, bright)
+        arenaPrepVs: A(mid(800, 470, 260, 240), 'c'),
+        arenaPrepName: A(mid(1330, 798, 230, 42), 'c'),
+        arenaPrepPts: A(mid(1380, 838, 180, 42), 'c'),
+        // result: VICTORY / DEFEAT, "Victory Points", the points and their change, my 4 heroes (left; the box sits a
+        // little low: a heart covers the top of each portrait), Confirm (right)
+        arenaResWord: A(mid(720, 315, 560, 95), 'c'),
+        arenaResLabel: A(mid(890, 603, 220, 42), 'c'),
+        arenaResPts: A(mid(920, 650, 165, 55), 'c'),
+        arenaResDelta: A(mid(950, 712, 100, 40), 'c'),
+        arenaResMine0: A(lft(44, 268, 112, 112), 'l'),
+        arenaResMine1: A(lft(44, 427, 112, 112), 'l'),
+        arenaResMine2: A(lft(44, 587, 112, 112), 'l'),
+        arenaResMine3: A(lft(44, 747, 112, 112), 'l'),
+        arenaResConfirm: A(rgt(1712, 940, 248, 85), 'r'),
         gwPageBar: A(lft(440, 228, 120, 74), 'l'),
         // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
         // screenshot (DEVLOG #58). A team stands on three of four places: 1 top, 2 left, 3 right, 4 bottom.

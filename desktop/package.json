@@ -36,6 +36,7 @@
         "filter": [
           "index.html",
           "rta.html",
+          "arena.html",
           "gear.html",
           "guild.html",
           "live.html",

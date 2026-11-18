@@ -15,6 +15,11 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0m. Gear (owner, DEVLOG #71): a REAL-TIME gear analyser with no boxes to draw (built-in positions of the item panel
+   in the inventory, hero gear and enhance screens; verdict and best heroes on the overlay). Needs pictures of those
+   screens at the owner's window size.
+0n. Arena after #71: a DEFEAT screen and other window sizes to check; the owner's heroes on the result screen (2 of 4
+   read); suggest a team for each defense from the top-player data.
 0l. Owner's wish (DEVLOG #70): a profile-art DRAWING page outside the game, with the same tools and limits as the
    game's own profile drawing, so a design (from a reference or another player's art in the gallery) has to be
    redrawn or traced by hand in the game. Needs: pictures of the game's drawing screen (canvas size, colours,

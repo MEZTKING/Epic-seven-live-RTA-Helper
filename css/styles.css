@@ -595,3 +595,13 @@ details.more-tools[open] > summary { margin-bottom: 6px; }
 .gw-fort-rows .alts { display: flex; gap: 4px; flex-wrap: wrap; }
 .gw-fort-rows .alts .btn { padding: 1px 7px; font-size: 12px; }
 @media (max-width: 760px) { .gw-fort-rows { grid-template-columns: 110px 1fr; } .gw-fort-rows .gw-fort-pic { width: 110px; } }
+/* Arena page (DEVLOG #71) */
+.ar-opp { display: grid; grid-template-columns: minmax(130px, 1fr) auto minmax(160px, 2fr); gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.ar-opp.best { background: rgba(62, 207, 142, .07); }
+.ar-team { display: inline-flex; gap: 3px; }
+.ar-hero { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 6px; background: var(--panel-2); color: var(--muted); }
+.ar-fights td { vertical-align: middle; }
+.ar-fights .res.win { color: var(--win); font-weight: 700; }
+.ar-fights .res.loss { color: var(--loss); font-weight: 700; }
+.ar-fights tr.off { opacity: .45; }
+@media (max-width: 640px) { .ar-opp { grid-template-columns: 1fr; } }
