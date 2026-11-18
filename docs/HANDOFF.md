@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #71, 2026-11-18) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #72, 2026-11-18) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -352,7 +352,7 @@ that commit; which desktop checks were run is in the devlog entry.
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`, `rta-cr`, `rta-art`, `arena`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`, `rta-cr`, `rta-art`, `arena`, `gw-overlay`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -414,6 +414,9 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 - (#71) New module **Arena** (`arena.html`, `js/arena-app.js`, pure `js/arena.js`): readers in
   `js/vision/readers/arena.js` (opponents list, set-up, result), the log kept by `js/arena-log.js` next to the watcher
   (`localStorage['e7-arena']`). New pages must also go into `desktop/package.json` → `extraResources.filter`.
+- (#72) Snow on Guild War pages: `E7GWResult.pageAt` counts the share of the strip in the slate colour (≥ 0.7),
+  `guild-name.js` needs 3 misses before "left" (which clears the overlay card), `guild-defense.js` reads icons from
+  the darker of two looks. Test with snow: `tests/e2e/gw-overlay.e2e.js`.
 
 **DEVLOG #63** (the owner's real arena match):
 - Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from

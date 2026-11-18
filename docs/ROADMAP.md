@@ -15,6 +15,10 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0o. Owner (DEVLOG #72): a CLICKABLE overlay on Guild War maps: hover a defender's marker for what is known (name
+   read, defense, verdict, counter), click to pick an alternative spelling or type the name, without leaving the
+   game. The overlay window stays click-through except on its own markers (Electron setIgnoreMouseEvents with
+   forward, switched while the pointer is over a marker); clicks never reach the game.
 0m. Gear (owner, DEVLOG #71): a REAL-TIME gear analyser with no boxes to draw (built-in positions of the item panel
    in the inventory, hero gear and enhance screens; verdict and best heroes on the overlay). Needs pictures of those
    screens at the owner's window size.

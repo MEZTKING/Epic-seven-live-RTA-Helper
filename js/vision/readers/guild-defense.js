@@ -63,6 +63,28 @@
   // browser's cache after the first time)
   setTimeout(loadTemplates, 2500);
 
+  // the left part of the picture (where the teams are), the darker of two looks
+  const snow = { prev: null, w: 0, h: 0, canvas: document.createElement('canvas') };
+  function cleanSource(ctx) {
+    const H = ctx.h();
+    const w = Math.round(Math.min(ctx.w(), 0.7 * H));
+    const y0 = Math.round(0.25 * H);
+    const h = Math.round(0.75 * H) - y0 + Math.round(0.08 * H);
+    const c = snow.canvas;
+    if (c.width !== w || c.height !== h) {
+      c.width = w;
+      c.height = h;
+      snow.prev = null;
+    }
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(ctx.source, 0, y0, w, h, 0, 0, w, h);
+    const now = x.getImageData(0, 0, w, h);
+    const G = window.E7GWMap;
+    const dark = snow.prev && G && G.darkerOfTwo ? G.darkerOfTwo(snow.prev, now.data) : null;
+    snow.prev = now.data;
+    if (dark) x.putImageData(new ImageData(dark, w, h), 0, 0);
+    return { canvas: c, dx: 0, dy: y0 };
+  }
   let lastKey = '';
   // published only when two reads in a row agree: a Steam / Discord notification sliding over an icon for a moment
   // (they draw inside the game window, so the capture sees them) can't produce a wrong team
@@ -88,7 +110,11 @@
         return ctx.note(`Loading hero portraits ${I.count()}/${I.total}…`);
       }
       const all = allFaces();
-      const px = (r) => ({ x: r.x * ctx.w(), y: r.y * ctx.h(), w: r.w * ctx.w(), h: r.h * ctx.h() });
+      // Snow drifts over this page (DEVLOG #72: 2 of 6 heroes on the owner's PC, 5 of 6 on a still picture of the same
+      // page): the icons are read from the darker of this look and the one before (snowflakes are bright and move;
+      // the icons stay), like the fortress maps (E7GWMap.darkerOfTwo).
+      const src = cleanSource(ctx);
+      const px = (r) => ({ x: r.x * ctx.w() - src.dx, y: r.y * ctx.h() - src.dy, w: r.w * ctx.w(), h: r.h * ctx.h() });
       // any window shape (DEVLOG #38): where the panel sits on a wider window isn't verified yet, so every placement
       // js/layouts.js offers is read and the one that recognises the most heroes wins
       // places of a team in the order they are stored: top, right, left, then the bottom place (three of four are used)
@@ -100,7 +126,7 @@
           const rect = px((alts[anchorIdx] || alts[0]).rect);
           rect.y += dy * ctx.h();
           if (rect.y + rect.h > ctx.h()) return null;
-          return readIcon(ctx.source, rect, all);
+          return readIcon(src.canvas, rect, all);
         };
         const icons = [];
         for (const team of PLACES) {

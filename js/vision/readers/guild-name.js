@@ -49,6 +49,7 @@
     }
   }
   window.E7GWPage = { shown: pageShown };
+  let missed = 0; // looks in a row without the player's page (DEVLOG #72)
   // the name box as last read (small grey picture) and what came out: the text reader is not asked again for the same picture
   let lastPic = null;
   let lastOut = null;
@@ -96,8 +97,11 @@
     async read(ctx) {
       size = { w: ctx.w(), h: ctx.h() };
       if (!pageShown(ctx)) {
+        // left only after three looks without the page (a notification or effect passing over it is not leaving)
+        if (shown && ++missed < 3) return ctx.note('Player\'s page: not seen for a moment…');
         if (shown) ctx.publish('guild:name-read', { text: '', away: true });
         shown = false;
+        missed = 0;
         lastPic = lastOut = null;
         return ctx.note('Waiting for a player\'s page (their defense / profile)…');
       }
