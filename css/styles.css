@@ -200,6 +200,12 @@ input.full { width: 100%; }
 .clickable { cursor: pointer; }
 .hcell { display: flex; align-items: center; gap: 8px; }
 .hist-list li.off { opacity: .45; }
+.art-gallery summary { cursor: pointer; }
+.art-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 8px; }
+.art-grid figure { margin: 0; background: var(--panel-2); border-radius: 6px; padding: 6px; }
+.art-grid img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 4px; display: block; }
+.art-grid figcaption { font-size: 12px; margin-top: 4px; word-break: break-word; }
+.art-grid .btn { padding: 2px 8px; font-size: 12px; margin-top: 4px; }
 .hist-list .hist-btns { display: flex; gap: 6px; }
 .hist-list .hist-btns .btn { padding: 3px 8px; font-size: 12px; }
 .suggest-list button { display: inline-flex; align-items: center; gap: 6px; }

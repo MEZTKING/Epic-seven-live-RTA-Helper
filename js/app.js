@@ -774,6 +774,7 @@
   });
   $('#opp-name').addEventListener('input', (e) => {
     store.draft.opponent = e.target.value;
+    store.draft.opponentFrom = ''; // typed by you: not a guess any more
     save();
     renderProfileStrip();
     renderSuggestions(L.currentStep(store.draft));
@@ -1290,8 +1291,28 @@
       render();
     };
   }
+  /** The profile art gallery (DEVLOG #70): localStorage['e7-rta-arts'] (names) + IndexedDB pictures (js/artstore.js). */
+  async function renderArtGallery() {
+    const grid = $('#art-grid');
+    if (!grid || !window.E7ArtStore) return;
+    let list = [];
+    try {
+      list = JSON.parse(localStorage.getItem('e7-rta-arts') || '[]') || [];
+    } catch (_) { /* none */ }
+    const pics = new Map((await window.E7ArtStore.all()).map((p) => [p.id, p]));
+    const shown = list.filter((e) => pics.has(e.id));
+    $('#art-count').textContent = shown.length ? `(${shown.length})` : '(none yet)';
+    grid.innerHTML = shown
+      .map((e) => {
+        const names = (e.names || []).map((x) => `${esc(x.name)}${x.n > 1 ? ` ×${x.n}` : ''}`).join(', ');
+        const file = `profile-art-${(e.names[0] || { name: 'unknown' }).name.replace(/[^\w-]+/g, '_')}.jpg`;
+        return `<figure><img alt="" src="${pics.get(e.id).jpg}" /><figcaption>${names}</figcaption><a class="btn" download="${esc(file)}" href="${pics.get(e.id).jpg}">Save picture</a></figure>`;
+      })
+      .join('') || '<p class="hint">Nothing yet: the art is kept once the battle shows the opponent\'s name.</p>';
+  }
   function renderHistory() {
     renderSeasons();
+    renderArtGallery();
     const ms = cache.enabledMatches;
     const wins = ms.filter((m) => m.result === 'win').length;
     const fp = ms.filter((m) => m.firstPick === 'me');
@@ -1804,14 +1825,16 @@
     },
     replaceDraft(next, { newMatch = false } = {}) {
       if (newMatch && L.isComplete(store.draft)) store.pending = { ...store.draft };
-      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '', ...(store.draft.crTeams ? { crTeams: store.draft.crTeams } : {}), ...(store.draft.fun ? { fun: store.draft.fun } : {}), ...(store.draft.funOff ? { funOff: true } : {}) };
+      const keep = newMatch ? { id: newId(), suggestLog: [], opponent: '' } : { id: store.draft.id, suggestLog: store.draft.suggestLog || [], opponent: store.draft.opponent || '', ...(store.draft.opponentFrom ? { opponentFrom: store.draft.opponentFrom } : {}), ...(store.draft.crTeams ? { crTeams: store.draft.crTeams } : {}), ...(store.draft.fun ? { fun: store.draft.fun } : {}), ...(store.draft.funOff ? { funOff: true } : {}) };
       store.draft = { ...keep, ...next };
       save();
       if (activeTab === 'draft') renderDraft();
     },
-    setOpponent(name) {
-      if (store.draft.opponent) return;
+    /** opts.from: where the name came from ('profile art' = a guess); a guess is replaced by the name read later. */
+    setOpponent(name, opts = {}) {
+      if (store.draft.opponent && !(store.draft.opponentFrom === 'profile art' && opts.from !== 'profile art')) return;
       store.draft.opponent = name;
+      store.draft.opponentFrom = opts.from || '';
       save();
       if (activeTab === 'draft') renderDraft();
     },

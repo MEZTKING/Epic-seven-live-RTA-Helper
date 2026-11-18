@@ -15,6 +15,10 @@ Needs the owner first:
 3. Their report on DEVLOG #46–#52 on Windows (standby banner, reminder, statistics tab, team plans, turn order).
 
 Can be done without the owner:
+0l. Owner's wish (DEVLOG #70): a profile-art DRAWING page outside the game, with the same tools and limits as the
+   game's own profile drawing, so a design (from a reference or another player's art in the gallery) has to be
+   redrawn or traced by hand in the game. Needs: pictures of the game's drawing screen (canvas size, colours,
+   brushes, layers, undo) to copy its limits exactly.
 0k. After DEVLOG #69: artifacts read from the game (picture of where an opponent's artifact shows needed); the
    first hero to act read by its name (one more yardstick for the speeds); retire the old drawn-box CR reader.
 0j. After DEVLOG #66: Guild War end screens from the PC (DEFEAT / VICTORY with both guilds, the "War Result"
