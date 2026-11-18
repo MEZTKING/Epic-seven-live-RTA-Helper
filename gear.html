@@ -42,15 +42,19 @@
 
     <div class="card wide">
       <h3>Read gear from the game <span class="src other">screen</span> <small class="hint">(no Fribbels needed)</small></h3>
-      <p class="hint">Open your inventory in the game and show an item's details. The <b>game watcher</b> (desktop app: always on; browser: the Live page) reads each item you click on, checks it and adds it here, even when this page is closed. Box the item panel once with <b>Set boxes</b> and teach the item screen. Only reads the screen; nothing is sent anywhere. Items read this way aren't linked to a hero (use gear.txt for that).</p>
+      <p class="hint">Open your <b>Inventory</b> in the game and click an item: the <b>game watcher</b> (desktop app: always on; browser: the Live page) reads its details panel, tells you on the overlay whether to keep, enhance, reforge or extract it and whom it suits best, and adds it here, even when this page is closed. Nothing to draw or teach. Only reads the screen; nothing is sent anywhere. Items read this way aren't linked to a hero (use gear.txt for that).</p>
       <div class="btn-row">
         <button id="gs-scan" class="btn primary">Start the game watcher</button>
-        <button id="gs-scan-boxes" class="btn">Set boxes</button>
-        <button id="gs-scan-teach" class="btn" title="Press while an item's details are showing">This is the item screen</button>
-        <button class="btn" data-reset-game-area title="Pick the game window / draw the game area again">Reset game area</button>
         <label class="inline"><input id="gs-scan-use" type="checkbox" /> Use screen-read items</label>
         <button id="gs-scan-clear" class="btn danger">Delete screen-read items</button>
       </div>
+      <details class="hint"><summary>Items not read?</summary>
+        <p>The panel's place is built in (measured on the Steam client). If your items are not read, draw the boxes yourself once; your boxes then win.</p>
+        <div class="btn-row">
+          <button id="gs-scan-boxes" class="btn">Set boxes</button>
+          <button class="btn" data-reset-game-area title="Pick the game window / draw the game area again">Reset game area</button>
+        </div>
+      </details>
       <div id="gs-scan-info" class="hint"></div>
       <div id="gs-scan-status" class="hint"></div>
       <ul id="gs-scan-log" class="plain-list"></ul>

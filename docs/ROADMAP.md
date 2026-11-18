@@ -19,9 +19,9 @@ Can be done without the owner:
    read, defense, verdict, counter), click to pick an alternative spelling or type the name, without leaving the
    game. The overlay window stays click-through except on its own markers (Electron setIgnoreMouseEvents with
    forward, switched while the pointer is over a marker); clicks never reach the game.
-0m. Gear (owner, DEVLOG #71): a REAL-TIME gear analyser with no boxes to draw (built-in positions of the item panel
-   in the inventory, hero gear and enhance screens; verdict and best heroes on the overlay). Needs pictures of those
-   screens at the owner's window size.
+0m. ~~Gear (owner, DEVLOG #71): a REAL-TIME gear analyser with no boxes to draw~~ done in #74 for the Inventory item
+   panel (verdict and whom it suits on the overlay). Still to check: the enhance and shop screens, other window sizes,
+   the item level under the lock icon.
 0n. Arena after #71: a DEFEAT screen and other window sizes to check; the owner's heroes on the result screen (2 of 4
    read); suggest a team for each defense from the top-player data.
 0l. Owner's wish (DEVLOG #70): a profile-art DRAWING page outside the game, with the same tools and limits as the
@@ -101,7 +101,7 @@ A module for everything outside PvP: which heroes and which gear setups to use, 
    `js/vision/readers/` (draft board, prebans/postbans, opponent name, CR bar, Victory/Defeat), with a consumer that updates
    the RTA store, so the RTA page only listens.
 2. **Partly done (DEVLOG #25):** built-in Steam 16:9 layout for the draft (by eye; verify with a real file) and the result
-   banner (exact). Still to add from screenshot files: CR bars, opponent name, drafting help, Guild War name, gear panel.
+   banner (exact). Still to add from screenshot files: CR bars, opponent name, drafting help, Guild War name (gear panel done in #74).
    Built-in screen layouts ("layout packs", fractions of a 16:9 game picture) from real Steam screenshots → no boxes.
    The owner shared draft (preban / picks / postban / Ready), battle (CR bar normal + expanded with exact CR %),
    Defeat, inventory and item-detail screenshots in chat; they're needed as files (e.g. `tests/fixtures/screens/`).

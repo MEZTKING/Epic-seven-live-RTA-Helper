@@ -2,8 +2,8 @@
  * Gear page ↔ game watcher. Reading items from the screen happens in the game watcher
  * (js/vision/readers/gear-item.js); saving them in js/vision/consumers/gear.js. This page only:
  *   - shows the watcher's status and the items it added ('gear:added' / 'gear:dup' events),
- *   - lets you draw the item-panel boxes on a snapshot of the game (localStorage 'e7-gearscan-boxes'),
- *   - teaches "this is the item screen".
+ *   - lets you draw your own item-panel boxes on a snapshot of the game (localStorage 'e7-gearscan-boxes'); only needed
+ *     when the built-in positions (js/layouts.js gear*, DEVLOG #74) miss.
  * Only reads the screen; never touches the game.
  */
 (function () {
@@ -150,27 +150,16 @@
     $('#gs-scan').textContent = watching ? 'Stop watching' : 'Start the game watcher';
     $('#gs-scan-use').checked = A.gs.useScanned;
     const reader = s && s.readers && s.readers.find((r) => r.id === 'gear-item');
-    const n = window.E7Screens ? window.E7Screens.refs().filter((r) => r.screen === 'gear-item').length : 0;
-    $('#gs-scan-info').textContent = `${C.line()} · ${A.gs.scanned.length} items read from the screen · boxes ${calibrated() ? 'set' : 'not set'} · item screen ${n ? `taught (${n})` : 'not taught'}${reader && reader.note ? ` · ${reader.note}` : ''}`;
+    $('#gs-scan-info').textContent = `${C.line()} · ${A.gs.scanned.length} items read from the screen · positions ${calibrated() ? 'your own boxes' : 'built in'}${reader && reader.note ? ` · ${reader.note}` : ''}`;
   }
   C.onStatus(update);
   $('#gs-scan').addEventListener('click', () => {
     const s = C.status();
     if (C.alive() && s && s.watching) C.stop().catch(() => {});
     else
-      C.ensure()
-        .then(() => !calibrated() && calibrate())
-        .catch((e) => status(e.message));
+      C.ensure().catch((e) => status(e.message));
   });
   $('#gs-scan-boxes').addEventListener('click', calibrate);
-  $('#gs-scan-teach').addEventListener('click', () =>
-    C.teach('gear-item')
-      .then((r) => {
-        status(`Item screen taught (${r.examples} example${r.examples === 1 ? '' : 's'}).`);
-        update();
-      })
-      .catch((e) => status('Could not teach: ' + e.message)),
-  );
   $('#gs-scan-use').addEventListener('change', (e) => A.setUseScanned(e.target.checked));
   $('#gs-scan-clear').addEventListener('click', () => {
     if (A.gs.scanned.length && confirm('Delete all items read from the screen?')) A.clearScanned();

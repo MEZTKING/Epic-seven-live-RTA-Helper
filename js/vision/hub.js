@@ -9,7 +9,8 @@
  *
  *   E7Vision.register({ id, label, screen, every, module, ready(), hasBoxes(), read(ctx), idle(ctx) })
  *   ctx: { source, w, h, crop(rect, {minH, filter}), ocr(canvas, {line}), publish(type, data), note(text) }
- *   ocr(canvas, { line: true }) reads ONE line of text (Tesseract page mode 7: names under icons)
+ *   ocr(canvas, { line: true }) reads ONE line of text (Tesseract page mode 7: names under icons); { psm, chars }: another
+ *   page mode, only these characters (digits of a gear value)
  *   ocrWords(canvas) -> [{ text, conf, x, y }] scattered words with their centres (page mode 11: labels on a picture)
  *
  * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach, save-picture.
@@ -80,7 +81,8 @@
   function ocr(canvas, opts = {}) {
     const job = ocrChain.then(async () => {
       const wk = await loadOcr(opts.lang || 'eng');
-      await wk.setParameters({ tessedit_pageseg_mode: opts.line ? '7' : '3' });
+      // opts.psm: another page mode (e.g. '8' one word); opts.chars: only these characters (reset for every other job)
+      await wk.setParameters({ tessedit_pageseg_mode: opts.psm || (opts.line ? '7' : '3'), tessedit_char_whitelist: opts.chars || '' });
       const { data } = await wk.recognize(canvas);
       const text = ((data && data.text) || '').replace(/\n+/g, ' ').trim();
       // opts.full: also how sure the reader is (0–100) and which language data was used
@@ -93,7 +95,7 @@
   function ocrWords(canvas) {
     const job = ocrChain.then(async () => {
       const wk = await loadOcr();
-      await wk.setParameters({ tessedit_pageseg_mode: '11' });
+      await wk.setParameters({ tessedit_pageseg_mode: '11', tessedit_char_whitelist: '' });
       const { data } = await wk.recognize(canvas);
       return ((data && data.words) || []).map((w) => ({ text: w.text, conf: w.confidence, x: (w.bbox.x0 + w.bbox.x1) / 2, y: (w.bbox.y0 + w.bbox.y1) / 2 }));
     });

@@ -7,6 +7,61 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #74 · Gear: the item panel read with nothing to draw; a verdict and whom it suits on the game · this commit (previous: `976f621`)
+
+**Asked for:** "for the gear section make a real-time gear analyser if its worth keeping/upgrading or for what unit
+its good for" (then eight pictures: inventory items, a hero's helmet, the Substat Modification screen).
+
+**Findings**
+- The gear reader (since #21) only ran after boxes were drawn on the Gear page AND the item screen was taught; on the
+  owner's PC it never ran ("gear-item: no boxes").
+- On the owner's 2000×1070 pictures the item details panel has the same layout for every item (weapon, heroic helmet,
+  equipped helmet, armor): slot line in the rarity's colour (red Epic, purple Heroic; "Otherworldly / Epic Armor" on two
+  lines), item level and the "+6" badge on the picture, the main stat, up to four substats, the yellow "Equipment Score"
+  line and the set. Measured once; the boxes fit all four pictures.
+- The plain grey crop loses the red / purple slot line and the white "+6" on the orange badge ("Hheapon", "RK ]"), and
+  a one-digit value ("Speed 3") vanished from the line.
+- `parseSet("Immunity Set")` said Unity: "immunity set" contains "unity set".
+
+**Changed**
+- `js/layouts.js`: built-in `gear*` regions (slot line, level, badge, main stat, 4 substats, score, set), pinned to the
+  right edge (centred tried as well).
+- `js/vision/readers/gear-item.js`: works without drawn boxes (drawn boxes still win). Recognises the panel by the
+  yellow "Equipment Score" words plus the text reader finding them there (no taught screen). Reads the slot line with a
+  colour mask (any bright coloured text), the badge with a white mask and digits only (no badge = +0), the level with a
+  cream mask; a stat line whose value is lost is read again as name + digits. Publishes `gear:gone` when the panel
+  closes. With your own boxes (no score check) it reads the main stat first and stops there when it isn't a stat, so
+  other screens cost one text read. Test hook `E7GearItem._raw()`.
+- `js/vision/hub.js`: `ctx.ocr(canvas, { psm, chars })` (page mode, only these characters; reset for every other job).
+- `js/vision/consumers/gear.js`: the verdict card goes on the LEFT of the panel (it is at the right edge), with a
+  coloured dot (keep / reforge green, enhance yellow, extract / sell red) and "Upgrade for <hero> (+x), <hero> (+y)",
+  else "Fits <hero> best (not an upgrade)", else "Import gear.txt … to see whom it suits". An item read before shows its
+  verdict again (it is not saved twice); the item on screen is judged even when screen items are off for the sorter.
+  `gear:gone` takes the card off the game.
+- `js/statparse.js`: sets matched by whole words first (Immunity no longer Unity).
+- `gear.html` / `js/gear-scan.js`: the "This is the item screen" button is gone; "Set boxes" and "Reset game area"
+  moved under "Items not read?"; the status says "positions built in" or "your own boxes".
+
+**Tested**
+- `npm test` 188 (set / slot / rank / a whole item from the owner's weapon readings added).
+- New `tests/e2e/gear-panel.e2e.js` on the owner's pictures (no names on these screens): weapon "Epic Weapon +6 ·
+  Weakening · Attack 220 · Attack 6%, Speed 4, Effect Resistance 16%, Crit Damage 13%", heroic helmet (3 substats,
+  Resist), equipped helmet (+15, Immunity, Speed 17), armor (Otherworldly Epic, Speed 3) all exact; the same weapon cut
+  to 16:9 the same; the Substat Modification screen reads nothing; four items saved and four verdicts on the overlay;
+  with a gear.txt roster the helmet shows "Upgrade for Lilias (+46.7), Tamarinne (+45.3)". The old drawn-boxes test
+  (`live-gearscan-overlay`) still passes.
+- Browser suite 46/46 clean (the others print the same as at #73; `live-gearscan-overlay` now says "Not an item's
+  details panel" on the other screen and "Fits Lilias best" instead of "Not an upgrade for anyone"). Desktop (packaged
+  Linux build): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** other window sizes on the owner's PC, the necklace / ring / boots pictures (not received as files),
+  the shop and drop screens, the enhance screen.
+
+**Open / unverified**
+- The level under the lock icon (88) reads wrong and falls back to 85 (only the reforge maths use it).
+- Whom it suits needs the owner's heroes (gear.txt); the screen cannot tell who wears the item.
+
+---
+
 ## 2026-11-18 · #73 · Clickable markers on the game: hover a Guild War defender for what is known, fix the name in place · this commit (previous: `64ac334`)
 
 **Asked for:** "maybe the overlay some parts should be clickable or something where if you hover over it you load
