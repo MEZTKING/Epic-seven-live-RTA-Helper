@@ -7,6 +7,39 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #67 · The game window's title bar was read as part of the game: every RTA card ~2 % too high · this commit (previous: `3b140db`)
+
+**Asked for:** the owner sent four pictures of a match (versus, pre-ban window, BAN twice), the app's notes for each
+and a diagnostic report (app 0.1.51): the draft was still read badly.
+
+**Findings**
+- The new report's watcher lines (added in #65) showed why: on the BAN screen the cards read at **0.51–0.72**
+  (right cards 0.79–0.98), only 2 + 1 of them sure.
+- The pictures show the Windows title bar ("Epic Seven", – □ ×) above the game: the game window is maximised but
+  not borderless now (2560×1392 with the bar; 2560×1369 without it before). `js/frame.js` finds and cuts title bars,
+  but here **4 black rows sit above the bar**, the search stopped at the first one, and nothing was cut. The window
+  is wider than 16:9, so the 16:9 fallback cut nothing either. Every position was ~25 px of 1088 too high.
+- The same picture with the bar cut by hand: **10 of 10 cards sure** (0.97–0.98 for most).
+- The pre-ban window ("Selected Heroes") is recognised (0.91); its two heroes read right but just under the sure bar
+  (Lisette 0.83, Lady of the Scales 0.77). They still come from the draft's own pre-ban row afterwards. Left as is.
+
+**Changed**
+- `js/frame.js` `detect`: up to ~1 % of black rows at the top are skipped when a title bar follows them; black rows
+  without a bar after them are still the game's own band and stay. This is the one place that tells every reader
+  and the overlay where the game is inside the window (`js/game-area.js` `windowFrame`).
+- `rta-draft.js`: test / report hook `_popupScore` (how well the pre-ban window's title matches).
+
+**Tested**
+- `npm test` 181 (+1: black rows above a title bar; black rows without one are kept).
+- All 92 screenshots in the repository and the session: only the owner's four new pictures are cut differently
+  (25 rows of 1088); every older one exactly as before.
+- `tests/e2e/rta-match.e2e.js` + the owner's BAN screen WITH its title bar (owner's name and guild blacked out): the
+  bar found from the pixels, **mine 5/5, theirs 5/5**.
+- Browser suite 41/41 clean (other results the same as at #66 apart from clock times). Desktop (packaged Linux build): watcher, overlay-test, rta-follow, popout clean.
+- **Not tested:** on the owner's PC.
+
+---
+
 ## 2026-11-17 · #66 · RTA: picks the watcher read now always reach the RTA page (an unread first card hid them all) · this commit (previous: `9aee26d`)
 
 **Asked for:** "for the rta i don't see any of the characters picked show up in app or any recommendations anywhere

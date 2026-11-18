@@ -6,7 +6,8 @@
  *   - title-bar rows are ≥ 0.96 uniform and take the window's colour (an accent colour or grey, never black), ending
  *     abruptly where the game starts (next rows ≤ 0.4 uniform);
  *   - the game itself can start with PURE BLACK uniform rows (RTA screens' top band), which must be kept.
- * So: cut a short (≤ 7% of the height) run of uniform, non-black rows from the top, and ≤ 1% of uniform non-black
+ * So: cut a short (≤ 7% of the height) run of uniform, non-black rows from the top (after at most ~1% of black rows
+ * above it, DEVLOG #67), and ≤ 1% of uniform non-black
  * rows/columns from the other sides. A loose Snipping Tool box can't be told apart from the game this way; readers
  * search around every position instead (js/layouts.js, js/faces.js WIDE_VARIANTS).
  *   E7Frame.detect(rgba, W, H) -> { x, y, w, h } in pixels (the whole picture when nothing should be cut)
@@ -78,7 +79,19 @@
   function detect(rgba, W, H) {
     const full = { x: 0, y: 0, w: W, h: H };
     if (!rgba || !W || !H) return full;
-    const top = cutSide(rgba, W, H, 0, 1, false, Math.ceil(H * 0.07), true);
+    // A few BLACK rows can come above the title bar (a window that is maximised but not borderless: the screen's edge /
+    // the window's shadow; seen on the owner's PC, DEVLOG #67: 4 black rows, then the grey title bar). They used to
+    // stop the search at the first row, so nothing was cut and every position was ~2 % too high: the RTA cards read
+    // at 0.5-0.7 instead of 0.8-0.98. Black rows count only when a title bar follows them; otherwise they are the
+    // game's own black band and stay.
+    const darkLimit = Math.max(2, Math.ceil(H * 0.012));
+    let dark = 0;
+    while (dark < darkLimit && lineInfo(rgba, W, H, dark, false).bright < BLACK) dark++;
+    let top = cutSide(rgba, W, H, 0, 1, false, Math.ceil(H * 0.07), true);
+    if (!top && dark > 0 && dark < darkLimit) {
+      const bar = cutSide(rgba, W, H, dark, 1, false, Math.ceil(H * 0.07), true);
+      if (bar) top = dark + bar;
+    }
     const thinH = Math.max(2, Math.ceil(H * 0.01));
     const thinW = Math.max(2, Math.ceil(W * 0.01));
     const bottom = cutSide(rgba, W, H, H - 1, -1, false, thinH, false);

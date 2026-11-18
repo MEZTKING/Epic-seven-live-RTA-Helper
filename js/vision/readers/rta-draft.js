@@ -359,4 +359,9 @@
   });
   const api = { tracker, wide, round, loadWide, loadRound, wideReady, roundReady, seenAt: 0, _readSlot: readSlot, _readLabel: readLabel, _locks: locks };
   window.E7RtaDraft = api;
+  /** Test / report hook: how well the pre-ban window's title matches on a picture (≥ 0.6 = the window is open). */
+  api._popupScore = (ctx) => {
+    const l = lang(curLang);
+    return l.prebanPopup ? bestAt(ctx, l.prebanPopup.box, l.prebanPopup.T, anchorsFor(ctx, ['c', 'l'])) : null;
+  };
 })();
