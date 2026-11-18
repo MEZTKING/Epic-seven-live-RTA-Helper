@@ -7,6 +7,78 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #77 · Gear: the inventory's Full format read a whole screen at once, a label on every item · this commit (previous: `3457a3f`)
+
+**Asked for:** "yes do it": read the inventory in the game's **Full** display format (main stat and substats next to
+every item) a whole screen at once, so items need not be clicked one by one. The owner also sent the Equipment Score
+format sorted both ways, the filter menu, and a second Full screen.
+
+**Research / findings**
+- In the Full format each tile shows 5 lines: the main stat (white) and the substats (grey), each an ICON and a number.
+  The 8 icons (attack, health, defense, speed, crit chance, crit damage, effectiveness, resistance) were cut from the
+  owner's two Full pictures (160 icons, grouped by likeness: 8 groups) and checked against items whose details panel
+  had been read (Bow of Agony, Bow of Grudges: four-point star = resistance, crosshair = effectiveness). Defense never
+  appears on weapons; its icon was taken from the Standard format's tiles (the same icon).
+- Rows scroll, so they are found by the white main-stat line (one per row, 191.3 px apart at 1070 high); substats at
+  +35.5 / 66 / 96 / 127 px. Columns 254 px apart, pinned left.
+- The set is only a small badge. The game's own set pictures in the asset repository already used (CeciliaBot
+  E7Assets-Temp, `assets/img/icon_menu_set_*.png`) are plain menu glyphs without the badge and lack the newest sets
+  (Weakening, Fervor, Riposte…): not used. Instead the app learns each badge from the details panel (see below).
+- Text reading: a block of the five numbers changed big main values ("500" → "100" / "1100") and dropped lone
+  single digits; digits touching the cut's edge were misread ("500" → "2100"); the "+" of "+9" became a "4" ("49");
+  white above 190 lost the "6" of "+6".
+- A worn item has the hero's round portrait with a pale beige ring (measured: worn 0.19-0.94 of the ring's points,
+  not worn 0-0.06); it also showed that two swords in the bottom row are NOT worn, which I had missed by eye.
+- The level's digits are often under the lock icon; a +15 weapon's attack gives it exactly (500 / 515 / 525 at
+  85 / 88 / 90), a +15 helmet's health too (2700 / 2765 at 85 / 88).
+- The picture's colour is no help for rarity (a teal bow looked "rare"): 4 substats = Epic, 3 = Heroic.
+
+**Changed**
+- `js/geargrid.js` (new, pure): positions, the 8 icon templates (16×14 grey), `classifyIcon`, `mainRows`, `statFrom`
+  (icon + number → stat; a lost "%" put back when the value is too small for a flat stat), `levelFrom` /
+  `levelFromMain`, `rankFrom`, set-badge fingerprints `badgePrint` / `badgeSet` / `learnBadge`.
+- `js/vision/readers/gear-grid.js` (new): recognises the Full grid (main-stat icons sure in 3 of 4 columns), waits
+  for the list to stand still, reads every complete tile: icons, the main number alone, the substats as one block
+  (line by line when the block doesn't give one number per icon), numbers dark-on-white with a border, the enhance
+  badge (no badge = +0; a first digit above 15 was the "+"), the level, worn / locked / selected (the gold frame's top
+  edge), the slot from the selected tab (else from a weapon / helmet / armor main stat). Publishes `gear:grid` once
+  per screen and `gear:grid-gone` when it leaves. Set badges: when an item is clicked, its panel's set (gear-item.js)
+  and the selected tile's badge are remembered in `localStorage['e7-gear-setbadges']`.
+- `js/gear-setseed.js` (new): the badges of Weakening, Riposte, Hit, Fervor and Immunity from the owner's pictures
+  (each from the tile whose panel named the set), known from the start.
+- `js/vision/consumers/gear.js`: `gear:grid` → each item saved once (source `screen`), all judged at once, a label on
+  every tile on the overlay's `gear-grid` layer: "KEEP 76", "ENHANCE 45", "REFORGE 58", "EXTRACT 21" (coloured dot),
+  "WORN" for items on a hero (the screen doesn't say which hero, so they are not judged). `gear:grid-judged`.
+- `js/vision/readers/gear-item.js`: remembers the last item (for the badges); its level also from the +15 main stat
+  (the Bow of Grudges' "90" under the lock read as 85, so the same item was saved twice, once per reader).
+- `js/vision/hub.js`: `ctx.ocr(…, { lines: true })` keeps one line per row of text.
+- `gear.html`: the hint tells to use the Full format and to click one item of each set once.
+- `tests/e2e/live-gearscan-overlay.e2e.js`: the overlay's card checked while the item is on screen.
+- Docs: HANDOFF (reader, events, storage key, overlay layer), ROADMAP 0p (the #76 entry called it 0o, a number
+  already used), CLAUDE.md test list.
+
+**Tested**
+- `npm test` 193 (new `tests/geargrid.test.js`: icons, stat from icon + number, level, rows, badges).
+- New `tests/e2e/gear-grid.e2e.js` on the owner's pictures (no player names on these screens), checked against what
+  the tiles show (read by eye): +15 weapons 16/16 tiles exactly right (main, 4 substats each), 14 worn + 2 not,
+  levels 88/90 from the attack, Riposte from its badge; +0..+15 weapons 16/16 exactly right (+6, +9, +15, flat health
+  substats 184 / 170), the selected tile found, Weakening on 5 tiles; Standard, Equipment Score and the filter menu
+  read nothing (labels taken off); every item saved once; with the built-in badges removed, clicking the Bow of Agony
+  teaches the Weakening badge and the next read finds it on 5 tiles. About 4 s per screen.
+- Browser suite 47/47 clean. Differences from #74: `gear-panel` also reads the Full picture's grid (more items saved) and
+  the Palace Maid helmet is level 88 (from its health); `live-gearscan-overlay` now checks the card while the item is
+  shown and that it is taken off on the other screen (it printed the card's text after that screen before).
+- Desktop (packaged Linux build, the new files inside): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** slots other than weapons in the Full format (no picture yet; same icons and positions expected),
+  other window sizes, scrolling on the owner's PC.
+
+**Open / unverified**
+- Sets other than the five above show "-" until one item of the set is clicked once.
+- Heroic items at +12 or more (4 substats) count as Epic (a little off in the "rolls left" maths).
+- Worn items get no verdict (which hero wears them is not on the screen).
+
+---
+
 ## 2026-11-18 · #76 · Gear: the inventory's display formats checked · this commit (previous: `17351c1`)
 
 **Asked for:** the owner showed the inventory's display formats ("I can also sort by equipment score or full"):

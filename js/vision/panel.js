@@ -21,6 +21,9 @@
       case 'gear:dup': return `Gear: already have ${d.desc}`;
       case 'gear:item': return null; // shown as gear:added / gear:dup
       case 'gear:gone': return null;
+      case 'gear:grid': return null;
+      case 'gear:grid-gone': return null;
+      case 'gear:grid-judged': return `Gear: ${d.read} items on the screen (${d.added} new) · ${Object.entries(d.counts || {}).map(([k, n]) => `${n} ${k}`).join(', ')}`;
       case 'guild:name-read': return d.away ? null : `Guild War: read "${(d.text || '').slice(0, 30)}"`;
       case 'screen:changed': return `Screen: ${d.label || 'other / not taught'}`;
       case 'vision:started': return `Started watching "${d.name}"`;
