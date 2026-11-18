@@ -7,6 +7,24 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #76 · Gear: the inventory's display formats checked · this commit (previous: `17351c1`)
+
+**Asked for:** the owner showed the inventory's display formats ("I can also sort by equipment score or full"):
+Equipment Score (a score under each item), Full (main stat + substats next to each item) and the filter menu.
+
+**Findings:** the item details panel on the right is the same in every format, so the #74 reader reads the selected
+item in each (Bow of Agony, exact). With the filter menu open the panel is half covered: "Not an item's details
+panel", nothing read (right: half the numbers are hidden). The Full format could let a reader take 16 items per
+screen without clicking: added to the roadmap (0o), not built.
+
+**Changed:** fixtures `gear-view-score-wide.jpg`, `gear-view-menu-wide.jpg`, `gear-view-full-wide.jpg` (no names on
+these screens); `tests/e2e/gear-panel.e2e.js` checks them; `docs/ROADMAP.md` 0o. No app code.
+
+**Tested:** `tests/e2e/gear-panel.e2e.js`: Equipment Score and Full formats read the weapon; the menu reads nothing
+and takes the verdict off the game; errors none.
+
+---
+
 ## 2026-11-18 · #75 · Gear: the boots, necklace and ring pictures added to the gear test · this commit (previous: `cbce4ee`)
 
 **Asked for:** the owner sent the three item pictures that were missing at #74 (boots +7, necklace, ring).

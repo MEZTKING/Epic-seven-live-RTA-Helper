@@ -47,6 +47,8 @@ const dataUrl = (f) => 'data:image/jpeg;base64,' + __fs.readFileSync(__path.join
   for (const f of ['gear-weapon-wide.jpg', 'gear-helmet-heroic-wide.jpg', 'gear-helmet-equipped-wide.jpg', 'gear-armor-wide.jpg', 'gear-boots-wide.jpg', 'gear-necklace-wide.jpg', 'gear-ring-wide.jpg']) console.log('1)', f, JSON.stringify(await show(f)));
   await lv.evaluate(() => localStorage.removeItem('e7-gearscan-boxes'));
   console.log('2) 16:9 weapon:', JSON.stringify(await show('gear-weapon-16x9.jpg')));
+  // the inventory's other display formats (Equipment Score, Full) and its filter menu over the panel
+  for (const f of ['gear-view-score-wide.jpg', 'gear-view-menu-wide.jpg', 'gear-view-full-wide.jpg']) console.log('2b)', f, JSON.stringify((({ note, gone, verdict }) => ({ note, gone, verdict }))(await show(f))));
   console.log('3) substat modification:', JSON.stringify(await show('gear-substat-mod-wide.jpg')));
   console.log('4) saved items:', await lv.evaluate(() => (window.GearStore.load().scanned || []).length), '· overlay posts:', JSON.stringify(await lv.evaluate(() => window.__ov.filter((p) => p.layer === 'gear').map((p) => p.items.map((x) => `${x.level} ${x.side} ${x.title} | ${x.lines[1]}`)))));
   // 5) with the owner-like roster from gear.txt: whom the item suits

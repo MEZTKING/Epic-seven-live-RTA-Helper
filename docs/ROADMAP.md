@@ -22,6 +22,11 @@ Can be done without the owner:
 0m. ~~Gear (owner, DEVLOG #71): a REAL-TIME gear analyser with no boxes to draw~~ done in #74 for the Inventory item
    panel (verdict and whom it suits on the overlay). Still to check: the enhance and shop screens, other window sizes,
    the item level under the lock icon.
+0o. Gear (owner, DEVLOG #76): the inventory's "Full" display format shows each item's main stat and four substats on
+   the grid (icons + numbers, 16 items per screen). A reader could take a whole screen at once (no clicking each item;
+   scroll to read the bag). Needs: stat icons recognised (attack, health, defense, speed, crit chance, crit damage,
+   effectiveness, resistance; flat vs %), the set from its small icon, the slot from the selected tab. The owner's
+   picture with the known first item (Bow of Agony) gives labelled icons to start.
 0n. Arena after #71: a DEFEAT screen and other window sizes to check; the owner's heroes on the result screen (2 of 4
    read); suggest a team for each defense from the top-player data.
 0l. Owner's wish (DEVLOG #70): a profile-art DRAWING page outside the game, with the same tools and limits as the
