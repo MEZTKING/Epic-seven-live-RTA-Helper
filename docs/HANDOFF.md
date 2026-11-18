@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #68, 2026-11-18) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #69, 2026-11-18) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -177,6 +177,7 @@ only receive events.
   | `guild-result.js` | `guild:result { type, ok, side, left, right, rounds }` | A battle-result window ("Successful Attack" / "Failed Defense" …): both players, both sides' two teams, each round's result (DEVLOG #57) |
   | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, my pre-bans in the pre-ban window, both bans from the formation screen, first pick) |
   | `rta-battle.js` | `rta:battle { me, opp, sameGuild }` | The battle's top bar after an arena draft: both names, servers, guilds (DEVLOG #63) |
+  | `rta-cr.js` | `rta:cr { readings: [{ code, side, cr }] }` | The CR bar at the start of an arena battle (built-in place; DEVLOG #69) |
 
 **Page parts for the official record site and top players** (not pure; `rta.html`, the first also `guild.html`):
 - `js/records-app.js` (`E7RecordsApp`): settings, find me, import my matches, opponent panel, Guild War "Arena
@@ -347,7 +348,7 @@ that commit; which desktop checks were run is in the devlog entry.
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`, `rta-cr`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -400,6 +401,9 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 - (#68) The owner can send at most 5 pictures / 30 MB per message: ask for Developer → "Pack the newest screenshots
   into one file for Claude" (one zip on their Desktop, `desktop/pack.js`) plus the text report. The RTA mini window's
   height is set by `desktop/main.js` (`setContentSize`), not by the page.
+- (#69) CR bar: watcher reader `rta-cr.js` → `rta:cr` → `js/auto.js` `onWatcherCR` → scouting speeds. The game's bar
+  has 100 % at the BOTTOM (`E7Draft.CR_BAR`). The old `readCR` on the RTA page (drawn box) is still there but is not
+  needed. Speeds need the owner's own speeds (gear.txt builds or typed).
 
 **DEVLOG #63** (the owner's real arena match):
 - Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from
