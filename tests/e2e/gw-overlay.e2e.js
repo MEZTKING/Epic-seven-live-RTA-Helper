@@ -4,6 +4,8 @@
 // and stay while the page is shown. (The owner: "guild war overlay not visible".)
 // + snow (the owner's real page, names replaced): snowflakes drift over the page; the page must not be taken for
 // "left" (that cleared the card) and the heroes must still be read (2 of 6 on the owner's PC before).
+// + DEVLOG #73, clickable markers: every defender of a map gets a marker on the game; hovering shows what is known,
+// clicking a spelling there renames the defender and saves it (the owner: "it takes a while to find and fix a name").
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
 const { chromium } = require('playwright');
 const { autoAsk, ask } = require('./_ask.js');
@@ -31,7 +33,7 @@ const { autoAsk, ask } = require('./_ask.js');
   const lv = await ctx.newPage();
   lv.on('pageerror', (e) => errs.push('live: ' + e.message));
   await lv.goto(BASE + 'live.html');
-  await lv.evaluate(() => window.E7Bus.publish('guild:fortress', { side: 'enemy', index: 0, fort: 'Stinger Fortress', players: [{ name: 'Rival7', known: false, conf: 90, agree: true, x: 0.4, y: 0.4, pos: 0 }], keep: null }));
+  await lv.evaluate(() => window.E7Bus.publish('guild:fortress', { side: 'enemy', index: 0, fort: 'Stinger Fortress', players: [{ name: 'Rival7', known: false, conf: 90, agree: true, x: 0.4, y: 0.4, pos: [0.4, 0.4] }], keep: null }));
   await gp.waitForTimeout(800);
   // the overlay page (what the desktop app shows on the game)
   const ov = await ctx.newPage();
@@ -56,6 +58,30 @@ const { autoAsk, ask } = require('./_ask.js');
   await lv.evaluate(() => window.E7Bus.publish('guild:name-read', { text: '', away: true }));
   await ov.waitForTimeout(800);
   console.log('page left in the game:', JSON.stringify(await shown()));
+  // clickable markers: a map with a sure name and one the app is not sure of (with two other readings)
+  await lv.evaluate(() => window.E7Bus.publish('guild:fortress', { side: 'enemy', index: 1, fort: 'Darkwood Fortress', players: [
+    { name: 'Rival7', known: true, x: 0.3, y: 0.3, pos: [0.3, 0.3] },
+    { name: 'Rlval8', known: false, conf: 40, agree: false, options: ['Rival8', 'Riva18'], x: 0.5, y: 0.45, pos: [0.5, 0.45] },
+  ], keep: null }));
+  await gp.waitForTimeout(900);
+  await ov.waitForTimeout(600);
+  const pins = await ov.evaluate(() => [...document.querySelectorAll('.ov-pin')].map((e) => `${e.dataset.pin} [${e.textContent}] ${e.className.replace('ov ov-pin ', '')}`));
+  console.log('markers on the game:', JSON.stringify(pins));
+  const opened = await ov.evaluate(() => { const ok = window.E7OverlayView._openPin('guild-fort:1'); const p = document.querySelector('#ov-pop'); return { ok, shown: p.style.display, text: p.textContent.replace(/\s+/g, ' ').trim(), buttons: [...p.querySelectorAll('button')].map((b) => b.textContent), input: !!p.querySelector('input') }; });
+  console.log('hover the "?" marker:', JSON.stringify(opened));
+  await ov.click('#ov-pop button[data-v="Rival8"]');
+  await gp.waitForTimeout(1200);
+  const after = await gp.evaluate(() => ({ boxes: [...document.querySelectorAll('#gw-fort-seen [data-fort-i]')].map((b) => b.value), targets: window.GuildApp.state.targets.map((t) => t.player), msg: (document.querySelector('#gw-fort-msg') || {}).textContent || '' }));
+  console.log('after clicking "Rival8" on the game:', JSON.stringify(after), '(the same record renamed: no "Rlval8" left)');
+  await ov.waitForTimeout(1500);
+  console.log('markers now:', JSON.stringify(await ov.evaluate(() => [...document.querySelectorAll('.ov-pin')].map((e) => `${e.dataset.pin} [${e.textContent}]`))), '· card closed:', await ov.evaluate(() => document.querySelector('#ov-pop').style.display === 'none'));
+  // typing a name on the marker
+  await ov.evaluate(() => window.E7OverlayView._openPin('guild-fort:0'));
+  await ov.fill('#ov-pop input', 'Rival7b');
+  await ov.press('#ov-pop input', 'Enter');
+  await gp.waitForTimeout(1200);
+  console.log('after typing "Rival7b" on the game:', JSON.stringify(await gp.evaluate(() => [...document.querySelectorAll('#gw-fort-seen [data-fort-i]')].map((b) => b.value))));
+
   // snow: the real page with two different sets of snowflakes, shown in turn
   const url = 'data:image/jpeg;base64,' + require('fs').readFileSync(require('path').join(__dirname, '..', 'fixtures', 'screens', 'steam-gw-page-snow-wide.jpg')).toString('base64');
   const snow = await lv.evaluate(async (url) => {

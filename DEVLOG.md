@@ -7,6 +7,46 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #73 · Clickable markers on the game: hover a Guild War defender for what is known, fix the name in place · this commit (previous: `64ac334`)
+
+**Asked for:** "maybe the overlay some parts should be clickable or something where if you hover over it you load
+those stats, because currently in guild war it takes a while to find and fix a player's name" (with a picture of the
+"Seen in game" card next to the game: a row "(not read)", alternatives far to the right).
+
+**Findings**
+- The overlay window let every click through (`setIgnoreMouseEvents(true)`) and could not take the keyboard
+  (`focusable: false`): nothing on it could be used. Only unsure names got a mark ("? tap: name not read").
+- Electron can pass the pointer's moves to a click-through window (`forward: true`, Windows / macOS), so the overlay
+  can see when the pointer is on one of its own elements and take the mouse only then.
+
+**Changed**
+- `overlay.html`: a new item kind `pin` (a round marker; "?" on an unsure name, else the verdict's colour). Hovering
+  it opens a small card: the name, how sure it is / beaten / keep, the saved defense per team with your verdict, the
+  other spellings as buttons, and a box to type the name (Enter). The choice goes back on the overlay channel
+  (`{ action: 'pick', layer, id, key, value }`); the card says "✓ saved" and closes. The overlay is not redrawn while
+  a name is being typed.
+- `desktop/main.js` + `desktop/preload.js`: the overlay forwards the pointer's moves and takes the mouse only while it
+  is on a marker or its card (`E7Desktop.overlayMouse`), and the keyboard only while a name is typed
+  (`E7Desktop.overlayFocus`, `setFocusable`); only the overlay page itself may switch these. The game never gets
+  input from the app: these clicks land on the app's own window.
+- `js/guild-watch.js`: a marker on EVERY defender of the map read from the game (`fortMarks`, `pinLines`); a pick
+  from the game renames that defender exactly like the "Seen in game" card (the record keeps everything logged on
+  it; the earlier reading becomes an "other spelling"), and is saved. A marker of a map shown before is ignored.
+
+**Tested**
+- `npm test` 188.
+- `tests/e2e/gw-overlay.e2e.js` (+ markers): a map with a sure and an unsure name → two markers on the overlay ("?"
+  yellow on the unsure one); its card lists the two other spellings and a box; clicking "Rival8" → the Guild War
+  page's row and the war plan say "Rival8" (the same record renamed, "Rlval8" gone) and "changed on the game, and
+  saved"; the card closes; typing "Rival7b" + Enter on the other marker → renamed.
+- Browser suite 45/45 clean (the overlay and Guild War tests print the same as at #72). Desktop (packaged Linux build): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** hovering on Windows (pointer moves are not forwarded to click-through windows on Linux, so the
+  mouse switching was only checked for errors here); typing on the game with the game in front.
+
+**Open:** the same markers for the RTA overlay (e.g. hover a suggestion for all its reasons) if the owner wants them.
+
+---
+
 ## 2026-11-18 · #72 · Guild War in the snow: the player's page kept "disappearing" (card gone, 2 of 6 heroes); the overlay switch says ON / OFF · this commit (previous: `748d9fb`)
 
 **Asked for**

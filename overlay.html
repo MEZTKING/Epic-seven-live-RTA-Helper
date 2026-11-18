@@ -30,12 +30,27 @@
       font: 600 13px system-ui, sans-serif; border: 1px solid rgba(127,224,166,.5); pointer-events: none; transition: opacity .6s; opacity: 0; }
     .ov-badge.on { opacity: 1; }
     .ov-frame { position: fixed; inset: 0; border: 2px dashed rgba(201,162,74,.35); pointer-events: none; display: none; }
+    /* clickable markers (DEVLOG #73): hover = what is known, click a spelling or type one = fixed in place */
+    .ov-pin { pointer-events: auto; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font: 700 13px system-ui, sans-serif; color: #12131a; background: #9aa0b4; border: 2px solid rgba(12,14,22,.9); box-shadow: 0 1px 6px rgba(0,0,0,.6); }
+    .ov-pin.yellow { background: #f0d48a; } .ov-pin.green, .ov-pin.proven { background: #7fe0a6; } .ov-pin.red { background: #ff8a8a; } .ov-pin.grey { background: #6b7083; }
+    .ov-pin:hover, .ov-pin.open { outline: 2px solid #fff; }
+    #ov-pop { position: fixed; display: none; pointer-events: auto; z-index: 5; background: rgba(12,14,22,.95); border: 1px solid rgba(201,162,74,.8); border-radius: 8px;
+      padding: 8px 10px; min-width: 200px; max-width: 300px; color: #fff; font: 13px/1.35 system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,.6); }
+    #ov-pop b { color: #f0d48a; }
+    #ov-pop .l { color: #cfd2de; font-size: 12px; }
+    #ov-pop .opts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    #ov-pop button { font: 12px system-ui, sans-serif; padding: 3px 8px; border-radius: 6px; border: 1px solid #3a3f55; background: #1d2130; color: #fff; cursor: pointer; }
+    #ov-pop button:hover { border-color: #f0d48a; }
+    #ov-pop input { margin-top: 6px; width: 100%; box-sizing: border-box; font: 13px system-ui, sans-serif; padding: 4px 6px; border-radius: 6px; border: 1px solid #3a3f55; background: #0f1220; color: #fff; }
+    #ov-pop .ok { color: #7fe0a6; margin-top: 4px; font-size: 12px; }
     body.preview .ov-frame { display: block; }
   </style>
 </head>
 <body>
   <div class="ov-frame"></div>
   <div id="layers"></div>
+  <div id="ov-pop"></div>
   <div class="preview-note" id="note"></div>
   <script>
     (function () {
@@ -84,6 +99,9 @@
         const W = innerWidth, H = innerHeight;
         const A = desktop ? area() : { x: 0, y: 0, w: 1, h: 1 };
         let nBusy = 0;
+        // (not while a name is being typed in the marker's card: the redraw would take the box away)
+        if (pop.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+        pins = [];
         root.innerHTML = Object.values(layers).flat().map((it) => {
           let x = (A.x + it.x * A.w) * W, y = (A.y + it.y * A.h) * H;
           if (it.kind === 'busy') {
@@ -104,6 +122,11 @@
           const dot = it.level ? `<span class="gwdot ${esc(it.level)}"></span> ` : '';
           const box = `data-bx="${x}" data-by="${y}" data-bw="${w}" data-bh="${h}"`;
           if (it.kind === 'dot') return `<div class="ov" ${box} style="${style}">${dot}</div>`;
+          if (it.kind === 'pin') {
+            pins.push(it);
+            const k = esc(it.pin.layer + ':' + it.pin.id);
+            return `<div class="ov ov-pin ${esc(it.level || 'grey')}${popKey === it.pin.layer + ':' + it.pin.id ? ' open' : ''}" data-busy="1" data-pin="${k}" style="left:${x - 10}px;top:${y - 10}px" title="${esc(it.pin.name || '')}">${esc(it.title || '')}</div>`;
+          }
           if (it.kind === 'label') return `<div class="ov ov-label" ${box} style="${style}">${dot}${esc(it.title)}</div>`;
           return `<div class="ov ov-card" ${box} style="${style}"><div>${dot}<b>${esc(it.title || '')}</b></div>${(it.lines || []).map((l) => `<div class="l">${esc(l)}</div>`).join('')}</div>`;
         }).join('');
@@ -120,6 +143,74 @@
         }
       }
       const chan = new BroadcastChannel('e7-overlay');
+      // ---- clickable markers (DEVLOG #73) ---------------------------------------------------------------------------
+      // The overlay lets every click through to the game, except while the pointer is on one of its markers or their
+      // card (desktop: setIgnoreMouseEvents is switched off then), and it takes the keyboard only while a name is typed.
+      // What is clicked goes back to the page that posted the marker ({ action: 'pick', layer, id, key, value }); the
+      // game never gets any input from here.
+      const pop = document.getElementById('ov-pop');
+      let pins = [];
+      let popKey = null;
+      let hideTimer = null;
+      const interactive = (on) => { try { if (window.E7Desktop && E7Desktop.overlayMouse) E7Desktop.overlayMouse(!!on); } catch (_) {} };
+      const keyboard = (on) => { try { if (window.E7Desktop && E7Desktop.overlayFocus) E7Desktop.overlayFocus(!!on); } catch (_) {} };
+      function closePop() {
+        clearTimeout(hideTimer);
+        popKey = null;
+        pop.style.display = 'none';
+        keyboard(false);
+        interactive(false);
+        for (const el of root.querySelectorAll('.ov-pin.open')) el.classList.remove('open');
+      }
+      function openPop(el) {
+        const key = el.dataset.pin;
+        const it = pins.find((p) => p.pin.layer + ':' + p.pin.id === key);
+        if (!it) return;
+        clearTimeout(hideTimer);
+        interactive(true);
+        if (popKey !== key) {
+          popKey = key;
+          const P = it.pin;
+          pop.innerHTML = `<div><b>${esc(P.name || '(name not read)')}</b></div>${(P.lines || []).map((l) => `<div class="l">${esc(l)}</div>`).join('')}` +
+            (P.options && P.options.length ? `<div class="l" style="margin-top:6px">Use this spelling:</div><div class="opts">${P.options.map((o) => `<button type="button" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>` : '') +
+            (P.input ? `<input type="text" placeholder="Type the name, then Enter" value="" />` : '') + '<div class="ok"></div>';
+          pop.querySelectorAll('button[data-v]').forEach((b) => (b.onclick = () => send(it, b.dataset.v)));
+          const inp = pop.querySelector('input');
+          if (inp) {
+            inp.onfocus = () => keyboard(true);
+            inp.onkeydown = (e) => {
+              if (e.key === 'Enter' && inp.value.trim()) send(it, inp.value.trim());
+              if (e.key === 'Escape') closePop();
+            };
+          }
+        }
+        for (const p of root.querySelectorAll('.ov-pin.open')) p.classList.remove('open');
+        el.classList.add('open');
+        const r = el.getBoundingClientRect();
+        pop.style.display = 'block';
+        const pw = pop.offsetWidth, ph = pop.offsetHeight;
+        let left = r.right + 8, top = r.top - 6;
+        if (left + pw > innerWidth - 4) left = Math.max(4, r.left - pw - 8);
+        if (top + ph > innerHeight - 4) top = Math.max(4, innerHeight - ph - 4);
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+      }
+      function send(it, value) {
+        chan.postMessage({ action: 'pick', layer: it.pin.layer, id: it.pin.id, key: it.pin.key, value });
+        const ok = pop.querySelector('.ok');
+        if (ok) ok.textContent = `✓ "${value}" saved`;
+        keyboard(false);
+        setTimeout(closePop, 900);
+      }
+      const leaveSoon = () => {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => { if (!(pop.contains(document.activeElement) && document.activeElement.tagName === 'INPUT')) closePop(); }, 450);
+      };
+      root.addEventListener('mouseover', (e) => { const el = e.target.closest && e.target.closest('.ov-pin'); if (el) openPop(el); });
+      root.addEventListener('mouseout', (e) => { if (e.target.closest && e.target.closest('.ov-pin')) leaveSoon(); });
+      root.addEventListener('click', (e) => { const el = e.target.closest && e.target.closest('.ov-pin'); if (el) { openPop(el); const i = pop.querySelector('input'); if (i) i.focus(); } });
+      pop.addEventListener('mouseenter', () => { clearTimeout(hideTimer); interactive(true); });
+      pop.addEventListener('mouseleave', leaveSoon);
       // a layer lives as long as its page keeps repeating it (js/overlay-bus.js, every 5 s): not heard for 15 s -> gone
       const heard = {};
       chan.onmessage = (e) => {
@@ -162,7 +253,7 @@
       }
       chan.addEventListener('message', (e) => e.data && e.data.test && testCard());
       if (window.E7Desktop && E7Desktop.onHotkey) E7Desktop.onHotkey((n) => (n === 'overlay-test' ? testCard() : n === 'overlay-badge' && showBadge()));
-      window.E7OverlayView = { layers, draw, testCard };
+      window.E7OverlayView = { layers, draw, testCard, _openPin: (key) => { const el = root.querySelector(`[data-pin="${key}"]`); if (el) openPop(el); return !!el; } };
     })();
   </script>
 </body>
