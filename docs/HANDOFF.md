@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #66, 2026-11-17) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #67, 2026-11-18) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -394,6 +394,9 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 - (#66) `E7Draft.toBoard` keeps an unread card BEFORE a read one as `?unseen-<side><i>`: never cut a pick list at
   the first gap (that emptied the whole RTA page). The Draft tab shows such places as "?"; count places with
   `draft.actions`, not `draftView` (which leaves placeholders out).
+- (#67) The owner's game window can show its Windows title bar (maximised, not borderless), with a few black rows
+  above it. `js/frame.js` skips those black rows; when card scores on the owner's PC are all low (0.5–0.7), suspect
+  the frame first (all positions shift together).
 
 **DEVLOG #63** (the owner's real arena match):
 - Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from

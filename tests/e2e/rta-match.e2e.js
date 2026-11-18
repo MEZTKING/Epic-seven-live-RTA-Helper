@@ -69,6 +69,26 @@ const PRE = ['Stark', 'Fern', 'Rhianna and Luciella', 'Lisette'];
     }, dataUrl(f));
     console.log(`0) my turn ${f.match(/\d/)[0]}: hovered ${JSON.stringify(r.held)} (right: ${r.held.length === 1 && r.held[0] === want}, not a pick: ${!r.own.includes(want)}) · picks mine ${r.own.filter(Boolean).length} theirs ${r.enemy.filter(Boolean).length} ${JSON.stringify(r.enemy)}`);
   }
+  // 0b) DEVLOG #67: the BAN screen of another match WITH the window's title bar (and black rows above it): the game
+  //     part is found from the pixels (js/frame.js, as the watcher does) and all ten cards are read
+  const tb = await lv.evaluate(async (url) => {
+    const im = new Image();
+    await new Promise((r) => { im.onload = r; im.src = url; });
+    const c0 = document.createElement('canvas'); c0.width = im.width; c0.height = im.height;
+    const x0 = c0.getContext('2d'); x0.drawImage(im, 0, 0);
+    const before = window.E7Frame.detect(x0.getImageData(0, 0, im.width, im.height).data, im.width, im.height);
+    const game = document.createElement('canvas'); game.width = before.w; game.height = before.h;
+    game.getContext('2d').drawImage(im, before.x, before.y, before.w, before.h, 0, 0, before.w, before.h);
+    window.E7Vision._useSource(game);
+    const T = window.E7RtaDraft.tracker;
+    T.reset(); T.vsFirst = null;
+    for (let i = 0; i < 3; i++) await window.E7Vision.tick(true);
+    const NAME = new Map(window.RTASources.allHeroes.map((h) => [h.code, h.name]));
+    return { cut: before, own: T.own.map((c) => NAME.get(c) || null), enemy: T.enemy.map((c) => NAME.get(c) || null) };
+  }, dataUrl('steam-rta-ban-titlebar-wide.jpg'));
+  const TB_OWN = ['Perfumer Byblis', 'Haru', 'Eye of the Abyss Fumyr', 'Shepherd of the Dark Diene', 'Aubade Ludwig'];
+  const TB_EN = ['Boss Arunka', 'School Nurse Yulha', 'Spirit Eye Celine', 'Lone Wolf Peira', 'Arbiter Vildred'];
+  console.log(`0b) title bar cut: ${tb.cut.y} rows · mine ${hits(tb.own, TB_OWN)}/5 · theirs ${hits(tb.enemy, TB_EN)}/5 ${JSON.stringify([tb.own, tb.enemy])}`);
   await lv.evaluate(() => { const T = window.E7RtaDraft.tracker; T.reset(); T.vsFirst = null; });
   console.log('1) versus:', (await show('steam-rta-versus-wide.jpg')).note);
   const pb = await show('steam-rta-preban-chosen-wide.jpg');

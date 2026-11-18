@@ -29,6 +29,17 @@ test('frame: a title bar right above the game\'s black band is still cut (RTA sc
   assert.deepEqual(F.detect(a, W, H), { x: 0, y: 14, w: 400, h: 236 });
 });
 
+test('frame: a few black rows ABOVE the title bar do not stop the cut (owner\'s maximised window, DEVLOG #67)', () => {
+  const W = 400;
+  const H = 250;
+  // 2 black rows (screen edge / shadow), a grey title bar, a dark border row, then the game's own black band
+  const a = picture(W, H, (x, y, r) => (y < 2 ? [0, 0, 0] : y < 7 ? [243, 243, 243] : y < 8 ? [38, 38, 38] : y < 30 ? [0, 0, 0] : [r() * 255, r() * 255, r() * 255]));
+  assert.deepEqual(F.detect(a, W, H), { x: 0, y: 8, w: 400, h: 242 });
+  // black rows with NO title bar after them are the game's band: nothing is cut
+  const band = picture(W, H, (x, y, r) => (y < 2 ? [0, 0, 0] : [r() * 255, r() * 255, r() * 255]));
+  assert.deepEqual(F.detect(band, W, H), { x: 0, y: 0, w: 400, h: 250 });
+});
+
 test("frame: the game's own black band at the top is NOT cut; a snip of just the game is left whole", () => {
   const W = 400, H = 250;
   const black = picture(W, H, (x, y, r) => (y < 30 ? [0, 0, 0] : [r() * 255, r() * 255, r() * 255]));
