@@ -7,6 +7,22 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #75 · Gear: the boots, necklace and ring pictures added to the gear test · this commit (previous: `cbce4ee`)
+
+**Asked for:** the owner sent the three item pictures that were missing at #74 (boots +7, necklace, ring).
+
+**Findings:** all three read exactly with the #74 positions, nothing changed: "Otherworldly Epic Boots +7 · Defense
+29% · Attack 14%, Crit Chance 10%, Speed 2, Crit Damage 7% · Weakening", the necklace (Crit Chance 11% main, Speed 2)
+and "Epic Ring · Defense 12% · Health 8%, Effectiveness 4%, Attack 43, Crit Chance 5% · Fervor". So every slot is
+now checked on a real picture.
+
+**Changed:** fixtures `gear-boots-wide.jpg`, `gear-necklace-wide.jpg`, `gear-ring-wide.jpg` (no names on these
+screens) and `tests/e2e/gear-panel.e2e.js` reads seven items. No app code.
+
+**Tested:** `tests/e2e/gear-panel.e2e.js`: 7/7 items exact, 7 saved, errors none.
+
+---
+
 ## 2026-11-18 · #74 · Gear: the item panel read with nothing to draw; a verdict and whom it suits on the game · commit `cbce4ee` (previous: `976f621`)
 
 **Asked for:** "for the gear section make a real-time gear analyser if its worth keeping/upgrading or for what unit

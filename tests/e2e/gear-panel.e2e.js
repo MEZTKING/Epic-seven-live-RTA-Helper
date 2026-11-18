@@ -1,6 +1,6 @@
 // Browser end-to-end test (Playwright). Run all with: bash tests/e2e/run-all.sh  (needs internet: text reader)
 // DEVLOG #74: the gear analyser on the owner's real Inventory pictures, with NO boxes drawn and no screen taught:
-//  1) four items (weapon, heroic helmet, equipped helmet, armor): slot, rarity, enhance, main stat, substats, set
+//  1) seven items (weapon, heroic helmet, equipped helmet, armor, boots, necklace, ring): slot, rarity, enhance, main stat, substats, set
 //  2) the same weapon on a 16:9 picture (the panel is pinned to the right edge)
 //  3) the Substat Modification screen (an item, but another layout) reads nothing
 //  4) each item is saved (gear store, source 'screen'), judged, and the verdict goes to the overlay
@@ -44,7 +44,7 @@ const dataUrl = (f) => 'data:image/jpeg;base64,' + __fs.readFileSync(__path.join
         verdict: ad ? `${ad[1].verdict} (score ${ad[1].wss}) ${ad[1].reason}` : ev.find((e) => e[0] === 'gear:dup') ? 'dup' : null,
       };
     }, dataUrl(file));
-  for (const f of ['gear-weapon-wide.jpg', 'gear-helmet-heroic-wide.jpg', 'gear-helmet-equipped-wide.jpg', 'gear-armor-wide.jpg']) console.log('1)', f, JSON.stringify(await show(f)));
+  for (const f of ['gear-weapon-wide.jpg', 'gear-helmet-heroic-wide.jpg', 'gear-helmet-equipped-wide.jpg', 'gear-armor-wide.jpg', 'gear-boots-wide.jpg', 'gear-necklace-wide.jpg', 'gear-ring-wide.jpg']) console.log('1)', f, JSON.stringify(await show(f)));
   await lv.evaluate(() => localStorage.removeItem('e7-gearscan-boxes'));
   console.log('2) 16:9 weapon:', JSON.stringify(await show('gear-weapon-16x9.jpg')));
   console.log('3) substat modification:', JSON.stringify(await show('gear-substat-mod-wide.jpg')));
