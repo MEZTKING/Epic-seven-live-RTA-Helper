@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #72, 2026-11-18) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #73, 2026-11-18) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -417,6 +417,10 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 - (#72) Snow on Guild War pages: `E7GWResult.pageAt` counts the share of the strip in the slate colour (≥ 0.7),
   `guild-name.js` needs 3 misses before "left" (which clears the overlay card), `guild-defense.js` reads icons from
   the darker of two looks. Test with snow: `tests/e2e/gw-overlay.e2e.js`.
+- (#73) Clickable overlay: item `kind: 'pin'` with `pin: { layer, id, key, name, lines, options, input }`; overlay.html
+  sends `{ action: 'pick', layer, id, key, value }` on the 'e7-overlay' channel; the page that posted the pin handles it
+  (Guild War: `js/guild-watch.js`). Desktop: `setIgnoreMouseEvents(true, { forward: true })`, IPC `e7:overlay-mouse` /
+  `e7:overlay-focus` (overlay page only). Never send anything to the game.
 
 **DEVLOG #63** (the owner's real arena match):
 - Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from

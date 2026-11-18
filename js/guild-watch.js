@@ -264,11 +264,62 @@
   let askFort = -1;
   const fortList = () => (seenFort ? [...seenFort.players, ...(seenFort.keep ? [seenFort.keep] : [])] : []);
   const unsure = (p) => window.E7GWMap.unsureName(p);
+  /**
+   * A marker on every defender of the map on the game (DEVLOG #73): "?" on a name the app is not sure of, else a dot
+   * in the verdict's colour. Hover it on the game: what is known (how sure the name is, beaten, their saved defense
+   * and your verdict); click a spelling or type the name there, and it is put on this defender and saved, as if done
+   * in the card here (the "pick" message from overlay.html, below).
+   */
+  function pinLines(p) {
+    const lines = [];
+    lines.push(unsure(p) ? 'Name not sure: pick a spelling, type it, or tap them in the game' : `✓ ${p.fromPage ? 'read on their page' : p.typed ? 'typed by you' : p.fromGuild ? 'in the war plan' : p.known ? 'known' : p.official ? 'official spelling' : 'read clearly'}`);
+    if (p.state === 'beaten') lines.push('Beaten');
+    if (p.keep) lines.push('Keep');
+    const t = p.name && A.state.targets.find((x) => x.player && x.player.toLowerCase() === p.name.toLowerCase());
+    if (t) {
+      const v = A.verdict(t);
+      (t.teams || []).slice(0, 2).forEach((tm, k) => {
+        const heroes = ((tm && tm.heroes) || []).filter(Boolean).map(A.nameOf).join(', ');
+        const tv = (v.teams || [])[k] || {};
+        const st = (v.status && v.status.teams && v.status.teams[k]) || {};
+        lines.push(`Team ${k + 1}: ${heroes || '?'}${st.cleared ? ' (cleared)' : tv.label ? ` · ${tv.label}` : ''}`);
+      });
+      if (!(t.teams || []).some((tm) => tm && (tm.heroes || []).some(Boolean))) lines.push('Defense not seen yet: open their page in the game');
+    }
+    return { lines, level: unsure(p) ? 'yellow' : p.state === 'beaten' ? 'grey' : t ? A.verdict(t).level || 'grey' : 'grey' };
+  }
   function fortMarks() {
     const O = window.E7Overlay;
     if (!O) return;
-    const items = seenFort && !seenFort.left ? fortList().filter((p) => unsure(p) && typeof p.x === 'number').map((p) => ({ x: p.x, y: p.y, w: 0, h: 0, kind: 'label', level: 'yellow', title: '? tap: name not read' })) : [];
+    const key = seenFort ? `${seenFort.side}|${seenFort.fort}` : '';
+    const items = seenFort && !seenFort.left
+      ? fortList()
+          .map((p, i) => ({ p, i }))
+          .filter(({ p }) => typeof p.x === 'number')
+          .map(({ p, i }) => {
+            const info = pinLines(p);
+            return { x: p.x, y: p.y, w: 0, h: 0, kind: 'pin', level: info.level, title: unsure(p) ? '?' : '', pin: { layer: 'guild-fort', id: i, key, name: p.name || '', lines: info.lines, options: (p.options || []).slice(0, 4), input: true } };
+          })
+      : [];
     O.post('guild-fort', items);
+  }
+  // a spelling picked or a name typed on a marker on the game (overlay.html): this defender, saved
+  if (typeof BroadcastChannel !== 'undefined') {
+    new BroadcastChannel('e7-overlay').addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.action !== 'pick' || d.layer !== 'guild-fort' || !seenFort) return;
+      if (d.key !== `${seenFort.side}|${seenFort.fort}`) return; // a marker of a map shown before
+      keepBoxes();
+      const p = fortList()[d.id];
+      const v = String(d.value || '').trim();
+      if (!p || !v || v === p.name) return;
+      const old = p.name;
+      Object.assign(p, { name: v, typed: true, options: [...new Set([...(old ? [old] : []), ...(p.options || [])])].filter((o) => o !== v).slice(0, 3) });
+      askFort = -1;
+      renderFort();
+      fortMarks();
+      saveFort(old ? `"${old}" changed to "${v}" on the game, and saved.` : `"${v}" typed on the game, and saved.`);
+    });
   }
   let fortSaving = Promise.resolve();
   /** Save what the card shows (one after the other; called by itself after every reading and every change). */

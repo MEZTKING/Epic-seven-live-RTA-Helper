@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('E7Desktop', {
   zoom: () => ipcRenderer.sendSync('e7:zoom'),
   version: () => ipcRenderer.sendSync('e7:version'),
   overlayStatus: () => ipcRenderer.sendSync('e7:overlay-status'),
+  // the overlay's clickable markers (DEVLOG #73): take the mouse / the keyboard only while one is used
+  overlayMouse: (on) => ipcRenderer.send('e7:overlay-mouse', !!on),
+  overlayFocus: (on) => ipcRenderer.send('e7:overlay-focus', !!on),
   records: {
     game: (name, params) => ipcRenderer.invoke('e7:records', { op: 'game', name, params }),
     find: (world, name) => ipcRenderer.invoke('e7:records', { op: 'find', world, name }),

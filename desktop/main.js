@@ -150,6 +150,17 @@ ipcMain.handle('e7:records', async (e, req) => {
   if (r.op === 'status') return records.status();
   throw new Error('Unknown request.');
 });
+// The overlay's clickable markers (DEVLOG #73): only the overlay page may switch these, and only for itself.
+ipcMain.on('e7:overlay-mouse', (e, on) => {
+  if (!overlay || overlay.isDestroyed() || e.sender !== overlay.webContents) return;
+  overlay.setIgnoreMouseEvents(!on, { forward: true });
+});
+ipcMain.on('e7:overlay-focus', (e, on) => {
+  if (!overlay || overlay.isDestroyed() || e.sender !== overlay.webContents) return;
+  overlay.setFocusable(!!on); // typing a name needs the keyboard; given back to the game when done
+  if (on) overlay.focus();
+  else overlay.blur();
+});
 ipcMain.on('e7:version', (e) => {
   e.returnValue = app.getVersion();
 });
@@ -484,7 +495,9 @@ function createOverlay() {
     webPreferences: { backgroundThrottling: false, preload: PRELOAD },
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
-  overlay.setIgnoreMouseEvents(true); // clicks go straight through to the game
+  // clicks go straight through to the game; the pointer's moves are still passed on (forward) so the overlay sees
+  // when it is over one of its clickable markers, and only then takes the mouse (DEVLOG #73)
+  overlay.setIgnoreMouseEvents(true, { forward: true });
   overlay.setContentProtection(true); // not visible to screen capture -> readers never read the overlay itself
   overlay.setVisibleOnAllWorkspaces(true);
   overlay.loadURL(`${ORIGIN}/overlay.html?desktop=1`);
