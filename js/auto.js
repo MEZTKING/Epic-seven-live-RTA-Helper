@@ -625,6 +625,19 @@
   if (window.E7Bus) window.E7Bus.on('rta:draft', onWatcherDraft);
   // the battle's top bar, read by the game watcher (js/vision/readers/rta-battle.js, DEVLOG #63): the opponent's name
   // (hidden during the draft) and whether both players are in the same guild -> a match played for fun
+  // the opponent's profile art on the versus screen, seen before with these names (js/vision/readers/rta-art.js,
+  // DEVLOG #70): name the opponent before the draft when one name clearly goes with this art (a guess: the battle bar
+  // replaces it)
+  function onWatcherArt(d) {
+    if (!d || !Array.isArray(d.names) || !d.names.length) return note('profile art: not seen before');
+    const [a, b] = d.names;
+    note('profile art seen before', { names: d.names.map((x) => `${x.name} ${x.n}x`) });
+    if (!b || a.n >= 2 * b.n) {
+      App.setOpponent(a.name, { from: 'profile art' });
+      setStatus(`Opponent probably ${a.name} (same profile art as in ${a.n} earlier match${a.n > 1 ? 'es' : ''}${b ? `; also seen with ${d.names.slice(1).map((x) => x.name).join(', ')}` : ''}). The battle will confirm the name.`);
+    } else setStatus(`This profile art was seen with several players: ${d.names.map((x) => `${x.name} (${x.n}×)`).join(', ')}.`);
+  }
+  if (window.E7Bus) window.E7Bus.on('rta:art', onWatcherArt);
   function onWatcherBattle(b) {
     if (!b || !b.opp) return;
     if (b.opp.name) App.setOpponent(b.opp.name);

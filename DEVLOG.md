@@ -7,6 +7,45 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #70 · The opponent's profile art: remembered with their name, names them before the draft, kept in a gallery · this commit (previous: `9647c35`)
+
+**Asked for**
+- "Profile art should be stored to figure out players in rta"
+- "i also want to be able to copy that art if possible / make a system so that the engine can also draw profile art
+  based on other people's art or a reference" → then: "just the gallery for now. Drawing new profile art: not inside
+  the game. we can make it outside the game then, with the same method and limitations as the one in game, so anybody
+  who wants to use it has to do it by hand or by tracing it" (put on the roadmap, 0l).
+
+**Findings**
+- The versus screen shows the opponent's card art at once; their name only shows in the battle ("Unknown Opponent"
+  during the draft).
+- A 12×18 colour fingerprint of the card's art, measured on the owner's versus screens: the same art in three matches
+  (one an older, smaller screenshot) 0.99–1.00; different players' art at most 0.26. Same-art threshold 0.93.
+
+**Changed**
+- `js/artprint.js` (new, pure): card boxes (centred screen, units of the height), fingerprint, `remember` (one entry
+  per art, every name counted), `lookup`, `entryFor`.
+- `js/artstore.js` (new): the pictures in IndexedDB `e7-rta-arts` (`pics`).
+- `js/vision/readers/rta-art.js` (new): on the versus screen the opponent's art is read (the same twice), looked up
+  → `rta:art { names, sim }`; when the battle bar (`rta:battle`) gives the name, the art is remembered with it
+  (`localStorage['e7-rta-arts']`, newest 400) and its picture kept (full size, JPEG).
+- `js/auto.js` `onWatcherArt`: one name clearly with this art → the opponent is named before the draft
+  (`App.setOpponent(name, { from: 'profile art' })`, so the official record lookup can start), with a status line;
+  several names → listed. The battle bar's name replaces a guess (`draft.opponentFrom`); a name you type is not a
+  guess.
+- RTA → History: "Profile art seen" (folded): every art with its names and a "Save picture" button.
+
+**Tested**
+- `npm test` 186 (+2: `tests/artprint.test.js`).
+- New `tests/e2e/rta-art.e2e.js` on the owner's versus screens: art read → remembered with the battle's name (picture
+  450×675) → the next match with the same art names "Rival_77" before the draft → the battle's "Rival_78" replaces the
+  guess → another art "not seen before" → the gallery shows the picture with both names and a Save button.
+- Browser suite 43/43 clean (the other RTA, overlay and Guild War tests print the same as at #69).
+- **Not tested:** on the owner's PC; versus screens at other window sizes than 2000×1070 / 1340×754; how many players
+  share popular arts (the guess is labelled as one).
+
+---
+
 ## 2026-11-18 · #69 · The CR bar read by itself at the start of every arena battle → the opponent's speeds · this commit (previous: `e6aae06`)
 
 **Asked for:** "also scouting for cr bar and artifact doesn't seem to work". Also: "where is all the profile art and
