@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epic 7 Engine · Arena</title>
+  <meta name="description" content="Epic Seven arena: your opponents' defenses, your record against each defense and every fight, read from the game by itself." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#12131a" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="appbar">
+      <a class="brand" href="index.html" title="Epic 7 Engine home">Epic 7 Engine</a>
+      <nav class="modules" aria-label="Modules"><a class="mod" href="rta.html">RTA</a><a class="mod active" href="arena.html" aria-current="page">Arena</a><a class="mod" href="gear.html">Gear</a><a class="mod" href="guild.html">Guild War</a><a class="mod" href="live.html">Live</a></nav>
+    </div>
+  </header>
+
+  <main>
+    <p class="hint">Everything here is read from the game by itself (the game watcher): open the Arena's <b>Opponents</b> list, fight, and the result is logged. Nothing to press. Kept on this PC.</p>
+    <div class="card wide">
+      <h3>Opponents now</h3>
+      <div id="ar-now"><p class="hint">Open the Opponents list in the game's Arena.</p></div>
+    </div>
+    <div id="ar-summary" class="cards"></div>
+    <div class="card wide">
+      <h3>Fights</h3>
+      <div class="table-wrap"><table class="mini ar-fights"><thead><tr><th>When</th><th>Opponent</th><th>Their defense</th><th>Your team</th><th>Result</th><th>Points</th><th></th></tr></thead><tbody id="ar-fights"></tbody></table></div>
+    </div>
+  </main>
+  <p class="hint" style="text-align:center"><button class="btn" data-diag-copy>Copy report for Claude</button></p>
+  <footer class="foot">Epic 7 Engine is a fan-made tool. Not affiliated with Smilegate or Epic Seven.</footer>
+
+  <script src="js/diag.js"></script>
+  <script src="js/sources/official-heroes.js"></script>
+  <script src="js/sources/fribbels-data.js"></script>
+  <script src="js/roster.js"></script>
+  <script src="js/sources/all-heroes.js"></script>
+  <script src="js/arena.js"></script>
+  <script src="js/arena-app.js"></script>
+</body>
+</html>

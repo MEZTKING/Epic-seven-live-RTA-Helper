@@ -22,6 +22,11 @@
 
   const gear = read('rta-gear-v1');
   const nItems = gear ? (Array.isArray(gear.items) ? gear.items.length : 0) + (Array.isArray(gear.scanned) ? gear.scanned.length : 0) : 0;
+  try {
+    const ar = JSON.parse(localStorage.getItem('e7-arena') || '{}') || {};
+    const f = (ar.fights || []).filter((x) => !x.fun);
+    set('st-arena', f.length ? `${f.length} fights logged · ${f.filter((x) => x.result === 'win').length} won` : 'Fights are logged by themselves from the game');
+  } catch (_) { /* nothing yet */ }
   set('st-gear', nItems ? `${nItems} items (gear.txt + read from screen)` : 'Import gear.txt or read gear from the game');
 
   const g = read('e7-guild-conn');

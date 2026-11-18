@@ -7,6 +7,49 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #71 · A new module: Arena (opponents' defenses, every fight logged by itself, your record per defense) · this commit (previous: `edc0d4b`)
+
+**Asked for:** "can we add a section for arena too" (five pictures: the Opponents list twice, the team set-up, a battle,
+VICTORY). Also, during this change: "for the gear section make a real-time gear analyser if it's worth
+keeping/upgrading or for what unit it's good for" (next; pictures asked for, task in docs/ROADMAP.md 0m).
+
+**Findings** (measured on the owner's 2000×1070 screens)
+- Opponents list: three rows 190 px apart, centred; each with the name, "5,036 pts." and four round defense icons
+  (class top left, level top right, like the Guild War icons). The three magnifier buttons on the right look the
+  same (correlation 0.99–1.00, dark): a cheap test for this screen that nothing else passes.
+- Team set-up: a big flame-coloured VS in the middle; the opponent's name and points bright at the bottom right.
+- Result: "VICTORY" / "DEFEAT", "Victory Points", the points and the change with a green / red arrow, your four
+  heroes as portraits on the left (a heart covers each one's top), the green Confirm button. An RTA victory has the
+  same button at the same place but not the words "Victory Points".
+- The opponent's name on the result screen is faded; on the set-up screen it is bright, so the fight takes it from there.
+
+**Changed**
+- `arena.html` + `js/arena-app.js` (new page): opponents now (each defense with your record against it, the team
+  that beat it, "best chance"), a summary (fights, last 7 days, the defense heroes you lose to most), every fight
+  (delete with ✕). Home card, app-bar link on every page, desktop app's file list.
+- `js/arena.js` (new, pure): points, change, result words, `defenseKey`, `addFight` (the same result twice within 2
+  minutes is one fight), `record`, `heroRecord`, `advise`.
+- `js/vision/readers/arena.js` (new): `arena-opponents` → `arena:opponents`, `arena-prep` → `arena:prep`,
+  `arena-result` → `arena:result`; positions in `js/layouts.js` (`arena*`).
+- `js/arena-log.js` (new, loaded with the game watcher): keeps `localStorage['e7-arena']` (opponents now, defenses
+  by name, the fight being prepared, fights), so fights are logged with the Arena page closed.
+
+**Tested**
+- `npm test` 188 (+2: `tests/arena.test.js`).
+- New `tests/e2e/arena.e2e.js` on the owner's screens (every player name replaced by a made-up one): opponents 3/3
+  with points and 12 defense heroes (23 of 24 sure on the two lists); set-up → "RivalOne, 5036"; VICTORY → logged
+  "RivalOne: win 5017 (+10)" with their defense and your heroes; the battle screen and an RTA victory log nothing;
+  the page shows "1–0 against this defense, won with …", the home card counts the fight.
+- Browser suite 44/44 clean (other tests print the same as at #70, the home page now lists Arena). Desktop (packaged Linux build): watcher, popout clean; arena.html is in the packaged app.
+- **Not tested:** on the owner's PC; a DEFEAT screen (the red arrow); other window sizes.
+
+**Open**
+- Your heroes on the result screen: 2 of 4 recognised (Saria 0.87, Amid 0.93; Hecate and Pirate Captain Flan just
+  under the bar, shown as "?").
+- Names with "_" can lose it ("Rival_Two" read as "Rival").
+
+---
+
 ## 2026-11-18 · #70 · The opponent's profile art: remembered with their name, names them before the draft, kept in a gallery · this commit (previous: `9647c35`)
 
 **Asked for**

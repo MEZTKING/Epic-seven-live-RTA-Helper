@@ -4,7 +4,7 @@ Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), 
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
 `docs/E7DAT_NOTES.md`.
 
-## 0. Where things stand (end of DEVLOG #70, 2026-11-18) — read this before touching anything
+## 0. Where things stand (end of DEVLOG #71, 2026-11-18) — read this before touching anything
 
 **The owner** plays the Steam PC client on Windows (game window maximized, 2560×1392, not 16:9), is not a
 programmer, wants everything automatic, and tests by installing the Windows build and sending screenshots. Write to
@@ -179,6 +179,7 @@ only receive events.
   | `rta-battle.js` | `rta:battle { me, opp, sameGuild }` | The battle's top bar after an arena draft: both names, servers, guilds (DEVLOG #63) |
   | `rta-cr.js` | `rta:cr { readings: [{ code, side, cr }] }` | The CR bar at the start of an arena battle (built-in place; DEVLOG #69) |
   | `rta-art.js` | `rta:art { names: [{ name, n, server }], sim }` | The opponent's profile art on the versus screen, looked up among arts seen before (DEVLOG #70) |
+  | `arena.js` (three readers) | `arena:opponents { list }`, `arena:prep { name, pts }`, `arena:result { result, points, delta, mine }` | The Arena: opponents list, team set-up, result (DEVLOG #71) |
 
 **Page parts for the official record site and top players** (not pure; `rta.html`, the first also `guild.html`):
 - `js/records-app.js` (`E7RecordsApp`): settings, find me, import my matches, opponent panel, Guild War "Arena
@@ -218,6 +219,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
+| `localStorage['e7-arena']` | `js/arena-log.js` (next to the watcher) → `js/arena-app.js`, `js/home.js` | Arena: `now {at, list}`, `defs` (defenses by name, newest 300), `pending` (the fight being set up), `fights` (newest 2000: `{at, opponent, theirPts, defense, mine, result, points, delta}`) |
 | `localStorage['e7-rta-arts']` + IndexedDB `e7-rta-arts` (store `pics`) | `js/vision/readers/rta-art.js`, `js/artstore.js` → RTA History gallery | Opponents' profile art: `[{ id, fp, names: [{ name, n, server, last }], first, last }]` (newest 400) and each art's picture `{ id, jpg, w, h, at }` |
 | IndexedDB `e7-templates` (store `t`, keys `wide`, `icons`; `round` is no longer written since #63) | `js/vision/readers/rta-draft.js` (wide), `js/vision/icons.js` (round icons + skins) | Computed hero-picture templates kept between app starts: `{ sig, items }` (valid for the same picture list and month); only a cache |
 | `localStorage['e7-records']` | `js/records-app.js` | Official record site settings: `me {world, name, nickNo}`, `autoImport`, `autoScout`, `lastImportAt`, `lastImport`, `top {players, at, season, games, rows}` |
@@ -350,7 +352,7 @@ that commit; which desktop checks were run is in the devlog entry.
   crashed, so read the printed lines of the tests that cover what you changed. They need internet (portraits, OCR library from jsDelivr, CeciliaBot).
   Run one alone: `python3 -m http.server 8766 &` then `node tests/e2e/<name>.e2e.js`.
   - Real screenshots of the owner (names replaced) are in `tests/fixtures/screens/`; tests that use them:
-    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`, `rta-cr`, `rta-art`,
+    `gw-fortress`, `gw-war-names`, `gw-scripts`, `gw-result`, `gw-offense`, `gw-states`, `gw-shared`, `gw-autowar`, `gw-standby`, `gw-defense`, `rta-draft`, `rta-match`, `rta-cr`, `rta-art`, `arena`,
     `rta-real-screens`, `faces-real`, `teach`.
   - The record site is replaced by a stand-in (`window.__e7RecordsTest`) serving one real page of games
     (`tests/fixtures/records/battle-list.json`, names replaced): `records`, `seasons`. `topmodel` puts 6,000 made-up
@@ -409,6 +411,9 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 - (#70) Profile art: `rta-art.js` reads the opponent's card on the versus screen, remembers it with the battle bar's
   name (`localStorage['e7-rta-arts']` + pictures in IndexedDB `e7-rta-arts`), and `rta:art` names a known opponent
   before the draft (`draft.opponentFrom = 'profile art'` = a guess the battle replaces). Gallery: RTA → History.
+- (#71) New module **Arena** (`arena.html`, `js/arena-app.js`, pure `js/arena.js`): readers in
+  `js/vision/readers/arena.js` (opponents list, set-up, result), the log kept by `js/arena-log.js` next to the watcher
+  (`localStorage['e7-arena']`). New pages must also go into `desktop/package.json` → `extraResources.filter`.
 
 **DEVLOG #63** (the owner's real arena match):
 - Round icons for every reader come from `window.E7Icons` (`js/vision/icons.js`): the game's own icon files from
