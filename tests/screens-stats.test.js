@@ -61,7 +61,14 @@ test('set / slot / enhance / level / rank', () => {
   assert.equal(SP.parseEnhance('Cursed Ring +15'), 15);
   assert.equal(SP.parseEnhance('+99'), null);
   assert.equal(SP.parseLevel('Lv. 85'), 85);
-  assert.equal(SP.parseRank('Heroic Necklace'), 'Heroic');
+  assert.equal(SP.parseRank('Heroic Necklace'), 'Heroic');  // DEVLOG #74: the owner's real item panels (read by the built-in gear reader)
+  assert.equal(SP.parseSet('Immunity Set (1/2)'), 'ImmunitySet'); // not Unity: "immunity set" contains "unity set"
+  assert.equal(SP.parseSet('Unity Set (2/2)'), 'UnitySet');
+  assert.equal(SP.parseSet('Weakening Set (0/4)'), 'WeakeningSet');
+  assert.equal(SP.parseRank('Otherworldly Epic Armor'), 'Epic');
+  assert.equal(SP.parseGear('Otherworldly Epic Armor'), 'Armor');
+  const { item } = SP.itemFromReadings({ main: 'Attack 220', subs: ['Attack 6%', 'Speed 4', 'Effect Resistance 16%', 'Critical Hit Damage 13%'], set: 'Weakening Set (0/4)', gear: 'Epic Weapon', rank: 'Epic Weapon', enhance: '+6', level: '85' });
+  assert.deepEqual([item.gear, item.rank, item.enhance, item.set, item.main.type, item.substats.length], ['Weapon', 'Epic', 6, 'WeakeningSet', 'Attack', 4]);
 });
 
 test('a whole item from the panel readings, with problems reported', () => {

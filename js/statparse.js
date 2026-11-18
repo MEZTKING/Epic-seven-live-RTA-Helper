@@ -89,7 +89,9 @@
 
   function parseSet(text) {
     const t = cleanWords(text);
-    for (const [w, id] of Object.entries(SET_WORDS)) if (new RegExp(`(^| )${w}( set|$| )`).test(t) || hasWord(t, w + ' set')) return id;
+    // whole words first: "immunity set" also CONTAINS "unity set"
+    for (const [w, id] of Object.entries(SET_WORDS)) if (new RegExp(`(^| )${w}( set|$| )`).test(t)) return id;
+    for (const [w, id] of Object.entries(SET_WORDS)) if (hasWord(t, w + ' set')) return id;
     return null;
   }
   function parseGear(text) {

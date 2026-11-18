@@ -25,7 +25,7 @@ run the suites first (§6), and one DEVLOG entry per commit.
 | Seasons (History → Seasons, statistics per season) | Works in tests | No |
 | RTA draft read from the screen without calibration | **Whole real match since #63** (owner's pictures, 2000×1070): pre-bans 4/4, picks 10/10, both bans, first pick, opponent's name from the battle, guildmate → for fun | Before #63 on the owner's PC: heroes 10/10, 6/10, 0/10, pre-bans never. #63 itself not yet seen on their PC |
 | Guild War: overview → war starts by itself, fortress maps (names in any writing), enemy defense / stronghold screen (name + 6/6), standby page, changed defenses, "working…" card | Works on the owner's real screenshots | Auto-war seen working (#46). Names in a running war were wrong on their PC before #55 / #56; **not yet confirmed fixed there**. Standby / reminder / beaten marking: not yet |
-| Gear Sorter, screen gear reader | Built on generated screens only | No |
+| Gear Sorter, screen gear reader | **Built-in item panel since #74** (owner's 2000×1070 inventory pictures: 4/4 items exact); verdict + whom it suits on the overlay | Not yet seen on their PC |
 | Guild sharing through Firebase | Built; local mode tested | No real Firebase project connected |
 
 **Waiting on the owner (ask for these; they unblock the most):**
@@ -167,7 +167,7 @@ only receive events.
 
   | Reader | Publishes | Reads |
   |---|---|---|
-  | `gear-item.js` | `gear:item` | Item panel (boxes drawn once on the Gear page) |
+  | `gear-item.js` | `gear:item`, `gear:gone` | Item details panel, built-in positions (`gear*` in `js/layouts.js`, #74), recognised by the yellow "Equipment Score"; drawn boxes still win |
   | `guild-name.js` | `guild:name-read { text, rect, options?, pic?, lang? }` | A player's name on a defense / stronghold screen, in any writing (`js/vision/names.js`) |
   | `guild-defense.js` | `guild:defense` | The six hero icons of a player's two defense teams (faces, no calibration; 3 of 4 places per team, stronghold shift) |
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
@@ -217,7 +217,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
-| `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Item-panel calibration boxes (fractions of the game area) |
+| `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Own item-panel boxes (fractions of the game area); optional since #74 (built-in positions otherwise) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | `localStorage['e7-arena']` | `js/arena-log.js` (next to the watcher) → `js/arena-app.js`, `js/home.js` | Arena: `now {at, list}`, `defs` (defenses by name, newest 300), `pending` (the fight being set up), `fights` (newest 2000: `{at, opponent, theirPts, defense, mine, result, points, delta}`) |
 | `localStorage['e7-rta-arts']` + IndexedDB `e7-rta-arts` (store `pics`) | `js/vision/readers/rta-art.js`, `js/artstore.js` → RTA History gallery | Opponents' profile art: `[{ id, fp, names: [{ name, n, server, last }], first, last }]` (newest 400) and each art's picture `{ id, jpg, w, h, at }` |
@@ -291,9 +291,11 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   (names checked, then saved as targets) and `markBeaten` (no button); enemy screen → `guild:defense`; standby page →
   `guild:standby` → `standbyFromGame` (banner, open war finished with Undo, `settings.nextWar`, desktop reminder).
 - **Gear:** `gear.txt` → `RTAGear.extractBuilds` (RTA speeds) and `RTAGearSort.slimInventory` (Gear Sorter). Screen
-  reading: the game watcher's `gear-item` reader OCRs the boxed item panel → `RTAStatParse.itemFromReadings` →
-  `gear:item` → gear consumer → `GearStore.addScanned` (source `screen`, not linked to heroes) → `gear:added`. The Gear page
-  (`js/gear-scan.js`) draws boxes on a watcher snapshot, teaches the screen, and reloads on `gear:added` / storage.
+  reading: the game watcher's `gear-item` reader OCRs the item panel at built-in positions (colour masks for the slot
+  line / badge / level, digits-only re-reads) → `RTAStatParse.itemFromReadings` → `gear:item` → gear consumer →
+  `GearStore.addScanned` (source `screen`, not linked to heroes) → `gear:added` (or `gear:dup`) and a verdict card on
+  the overlay's `gear` layer (left of the panel: verdict, reason, whom it suits); `gear:gone` clears it. The Gear page
+  (`js/gear-scan.js`) can still draw own boxes on a watcher snapshot ("Items not read?") and reloads on `gear:added`.
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all

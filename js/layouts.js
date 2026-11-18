@@ -149,6 +149,16 @@
         arenaResMine3: A(lft(44, 747, 112, 112), 'l'),
         arenaResConfirm: A(rgt(1712, 940, 248, 85), 'r'),
         gwPageBar: A(lft(440, 228, 120, 74), 'l'),
+        // Gear: an item's details panel (Inventory, a hero's gear, the shop), DEVLOG #74. Measured on the owner's 2000×1070
+        // inventory pictures (weapon, helmet ×2, armor): the same layout for every item. Pinned right (tried centred too).
+        gearType: A(rgt(1540, 254, 240, 66), 'r', ['c']), // "Epic Weapon" / "Otherworldly Epic Armor"
+        gearLevel: A(rgt(1411, 266, 41, 30), 'r', ['c']), // "85" on the item picture
+        gearEnhance: A(rgt(1484, 250, 58, 30), 'r', ['c']), // the "+6" badge
+        gearMain: A(rgt(1400, 488, 520, 44), 'r', ['c']),
+        ...Object.fromEntries([0, 1, 2, 3].map((k) => [`gearSub${k}`, A(rgt(1400, 552 + 33 * k, 520, 34), 'r', ['c'])])),
+        gearScore: A(rgt(1400, 700, 520, 38), 'r', ['c']), // "Equipment Score 55" (yellow)
+        gearScoreLabel: A(rgt(1405, 705, 235, 28), 'r', ['c']),
+        gearSet: A(rgt(1455, 822, 265, 42), 'r', ['c']), // "Weakening Set (0/4)"
         // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
         // screenshot (DEVLOG #58). A team stands on three of four places: 1 top, 2 left, 3 right, 4 bottom.
         // gwOffM<team><place> = my teams (left, green), gwOffE<team><place> = the defender's teams (right, red).
