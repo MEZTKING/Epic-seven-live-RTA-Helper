@@ -20,7 +20,7 @@
  *
  * Shortcuts: Ctrl+Shift+O show/hide overlay · Ctrl+Shift+E show the main window · Ctrl+Shift+S save a game picture
  */
-const { app, BrowserWindow, protocol, net, screen, session, desktopCapturer, globalShortcut, Menu, ipcMain, shell, Notification } = require('electron');
+const { app, BrowserWindow, protocol, net, screen, session, desktopCapturer, globalShortcut, Menu, ipcMain, shell, Notification, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -28,6 +28,7 @@ const updater = require('./updater');
 const wintrack = require('./wintrack');
 const recordsLib = require('./records');
 const reminderLib = require('./reminder');
+const packLib = require('./pack');
 const PRELOAD = path.join(__dirname, 'preload.js');
 // tests only (tests/desktop/overlay-status.js): behave as on Windows, so the window tracker really starts (and,
 // off Windows, really fails: no PowerShell), and expose trackGame
@@ -171,6 +172,37 @@ ipcMain.on('e7:dev-shot', (_e, shot) => {
     fs.writeFileSync(base + '.json', JSON.stringify(shot.meta || {}, null, 2));
   } catch (_) { /* disk full / no permission: skip */ }
 });
+/**
+ * One small zip of the newest collected screenshots (JPEG, 1600 px wide, with their notes), at most ~25 MB, on the
+ * Desktop: the owner can send only 5 pictures / 30 MB per message (DEVLOG #68).
+ */
+function packPictures() {
+  const root = path.join(app.getPath('pictures'), 'Epic 7 Engine');
+  let dirs = [];
+  try {
+    dirs = fs.readdirSync(root).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().slice(-3).map((d) => path.join(root, d));
+  } catch (_) { /* no folder yet */ }
+  const out = path.join(app.getPath('desktop'), `Epic7-pictures-for-Claude-${new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-')}.zip`);
+  const shrink = (p) => {
+    let img = nativeImage.createFromPath(p);
+    const { width } = img.getSize();
+    if (width > 1600) img = img.resize({ width: 1600, quality: 'better' });
+    return img.toJPEG(80);
+  };
+  let r = { file: null, pictures: 0 };
+  try {
+    r = packLib.pack({ dirs, out, shrink });
+  } catch (e) {
+    dialog.showMessageBox({ type: 'error', message: `Could not pack the pictures: ${e.message}` });
+    return;
+  }
+  if (!r.file) {
+    dialog.showMessageBox({ type: 'info', message: 'No collected screenshots yet.', detail: 'Turn on Developer → "Collect screenshots automatically", play, then pack them.' });
+    return;
+  }
+  shell.showItemInFolder(r.file);
+  dialog.showMessageBox({ type: 'info', message: `${r.pictures} pictures packed into one file (${(r.bytes / 1048576).toFixed(1)} MB) on your Desktop.`, detail: `${path.basename(r.file)}\n\nSend this ONE file to Claude: it counts as one attachment. The pictures stay on this PC until you send them.` });
+}
 function setDevCapture(on) {
   config.devCapture = !!on;
   saveConfig();
@@ -366,14 +398,48 @@ function createMain() {
   main.loadURL(`${ORIGIN}/index.html`);
   // bigger text by default (View menu / Ctrl + Ctrl − Ctrl 0 to change; remembered)
   main.webContents.on('did-finish-load', () => main.webContents.setZoomFactor(config.zoom));
-  main.webContents.on('did-create-window', (child) => {
-    child.webContents.setZoomFactor(config.zoom); // about:blank pop-outs may never fire did-finish-load
-    child.webContents.on('did-finish-load', () => child.webContents.setZoomFactor(config.zoom));
+  main.webContents.on('did-create-window', (child, details) => {
+    const name = details && details.frameName;
+    const mini = name === 'rta-mini' || name === 'e7-guild-mini';
+    // a mini window keeps its text a little smaller than the main window, and has no menu bar
+    const zoom = mini ? Math.max(0.8, config.zoom - 0.25) : config.zoom;
+    child.webContents.setZoomFactor(zoom); // about:blank pop-outs may never fire did-finish-load
+    child.webContents.on('did-finish-load', () => child.webContents.setZoomFactor(zoom));
+    if (mini) {
+      child.removeMenu();
+      const keep = () => {
+        if (child.isDestroyed()) return;
+        config.miniBounds = { ...(config.miniBounds || {}), [name]: child.getBounds() };
+        saveConfig();
+      };
+      child.on('moved', keep);
+      // the RTA mini window: as tall as what it shows (a page cannot resize its own window here); width as left
+      if (name === 'rta-mini') {
+        let lastH = 0;
+        const fit = setInterval(async () => {
+          if (child.isDestroyed()) return clearInterval(fit);
+          try {
+            const css = await child.webContents.executeJavaScript("(() => { const r = document.getElementById('pip-root'); return r ? Math.ceil(r.getBoundingClientRect().bottom + 8) : 0; })()");
+            const h = Math.max(80, Math.min(700, Math.round(css * zoom)));
+            if (css && Math.abs(h - lastH) > 3) {
+              lastH = h;
+              child.setContentSize(child.getContentSize()[0], h);
+            }
+          } catch (_) { /* page not ready */ }
+        }, 700);
+        child.on('closed', () => clearInterval(fit));
+      }
+      child.on('resized', keep); // (the width you give it is kept; the RTA mini's height follows its content)
+    }
   });
   // pop-out windows (mini windows) stay on top of the game
   main.webContents.setWindowOpenHandler(({ frameName }) => {
     const mini = frameName === 'rta-mini' || frameName === 'e7-guild-mini';
-    return { action: 'allow', overrideBrowserWindowOptions: mini ? { alwaysOnTop: true, width: 380, height: 620, backgroundColor: '#12131a', webPreferences: { backgroundThrottling: false } } : { backgroundColor: '#12131a' } };
+    // small (it sits over the game; DEVLOG #68: the old 380×620 blocked the view), no menu bar, where it was last time;
+    // the page fits the height to what it shows
+    const b = (config.miniBounds || {})[frameName] || {};
+    const at = Number.isFinite(b.x) && Number.isFinite(b.y) ? { x: b.x, y: b.y } : {};
+    return { action: 'allow', overrideBrowserWindowOptions: mini ? { alwaysOnTop: true, width: b.width || (frameName === 'rta-mini' ? 270 : 380), height: b.height || (frameName === 'rta-mini' ? 230 : 620), minWidth: 200, minHeight: 90, ...at, autoHideMenuBar: true, backgroundColor: '#12131a', webPreferences: { backgroundThrottling: false } } : { backgroundColor: '#12131a' } };
   });
   main.on('closed', () => {
     main = null;
@@ -488,6 +554,7 @@ function buildMenu() {
         { label: 'Copy report for Claude (what the app sees and did)', click: () => main && main.webContents.send('e7:hotkey', 'copy-report') },
         { type: 'separator' },
         { label: 'Collect screenshots automatically (to improve the readers)', type: 'checkbox', checked: !!config.devCapture, click: (mi) => setDevCapture(mi.checked) },
+        { label: 'Pack the newest screenshots into one file for Claude (on the Desktop)', click: packPictures },
         { label: 'Open the screenshot folder', click: () => { fs.mkdirSync(devFolder(), { recursive: true }); shell.openPath(devFolder()); } },
         { label: `Saves a PNG + notes when the game screen changes (and once a minute). Stays on this PC.`, enabled: false },
       ],
