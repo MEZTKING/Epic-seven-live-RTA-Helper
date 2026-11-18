@@ -178,19 +178,22 @@
     const y0 = Math.max(0, Math.round(R.bar.y));
     const x1 = Math.min(W, Math.round(R.bar.x + R.bar.w));
     const y1 = Math.min(H, Math.round(R.bar.y + R.bar.h));
-    let r = 0, g = 0, b = 0, n = 0, s1 = 0, s2 = 0;
+    // Most of the strip in the panel's slate colour (DEVLOG #72: was "all of it flat", and snowflakes drifting over the
+    // panel made the page "left" for a moment, which cleared the card on the game). Measured: player pages 0.98-1.00
+    // of the strip in this colour, every other screen at most 0.35.
+    let n = 0;
+    let inside = 0;
     for (let y = y0; y < y1; y++) {
       for (let x = x0; x < x1; x++) {
         const p = (y * W + x) * 4;
-        r += rgba[p]; g += rgba[p + 1]; b += rgba[p + 2];
-        const l = (rgba[p] + rgba[p + 1] + rgba[p + 2]) / 3;
-        s1 += l; s2 += l * l; n++;
+        const r = rgba[p];
+        const g = rgba[p + 1];
+        const b = rgba[p + 2];
+        n++;
+        if (r >= 36 && r <= 64 && g >= 54 && g <= 82 && b >= 72 && b <= 104 && b - r >= 18 && g > r) inside++;
       }
     }
-    if (!n) return false;
-    r /= n; g /= n; b /= n;
-    const sd = Math.sqrt(Math.max(0, s2 / n - (s1 / n) ** 2));
-    return r >= 36 && r <= 64 && g >= 54 && g <= 82 && b >= 72 && b <= 104 && b - r >= 24 && g > r && sd <= 9;
+    return n > 0 && inside / n >= 0.7;
   }
 
   const api = { stats, windowAt, roundResult, titleKind, plan, key, offenseAt, battleAt, noteAt, noteTitle, roundOf, pickTeam, pageAt };

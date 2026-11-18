@@ -7,6 +7,45 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #72 · Guild War in the snow: the player's page kept "disappearing" (card gone, 2 of 6 heroes); the overlay switch says ON / OFF · this commit (previous: `748d9fb`)
+
+**Asked for**
+- "couldn't read some units and guild war overlay not visible" (a player's page in the game, the Seen-in-game card,
+  a diagnostic report: "Defense: 2/6 heroes recognised")
+- "when toggling between show overlay and hide overlay it should say what it's on"
+- "maybe the overlay some parts should be clickable … hover over it you load those stats, because currently in guild
+  war it takes a while to find and fix a player's name" (next: docs/ROADMAP.md 0o)
+
+**Findings**
+- The page is recognised by a strip of the name panel in one flat slate colour (#62). Snow drifts over this page:
+  a few flakes on the strip and it was "not the page": the name reader said "page left" (seen in the report right
+  after reading the name), which **clears the card on the game**, and the defense reader waited.
+- Measured on every page and screen picture (41): player pages have 98–100 % of the strip in the slate colour, every
+  other screen at most 35 %.
+- On the owner's still picture of the same page the icons read 5 of 6; snowflakes over the icons lower the scores.
+- Browser test of the overlay card: it reaches the overlay and stays (the page repeats it every 5 s).
+
+**Changed**
+- `E7GWResult.pageAt`: the page when ≥ 70 % of the strip is in the slate colour (was: all of it flat).
+- `guild-name.js`: "page left" only after three looks in a row without the page.
+- `guild-defense.js`: the icons are read from the darker of this look and the one before (snowflakes are bright and
+  move), on the left part of the picture (`cleanSource`, `E7GWMap.darkerOfTwo`).
+- `desktop/main.js`: Overlay menu "Overlay is ON: click to hide it" / "Overlay is OFF: click to show it"; switching
+  (also Ctrl+Shift+O) shows a short Windows notice, and turning it on shows the overlay's ✓ badge.
+
+**Tested**
+- `npm test` 188 (the page test + snowflakes on a fifth of the strip = still the page; half of it = not).
+- New `tests/e2e/gw-overlay.e2e.js`: the card for a player read on their page reaches the overlay, is still there
+  16 s later, and goes when the page is left; then the owner's page (all names replaced) with two different sets of
+  random snowflakes shown in turn: **never "left", name read every time, 5/6 heroes**. The same test on the code
+  before this change: the page was not recognised at all (no name, no heroes, no card).
+- Browser suite 45/45 clean (every Guild War test prints the same as at #71). Desktop (packaged Linux build): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** on the owner's PC; the Windows notice (Linux build).
+
+**Open:** Arbiter Vildred and Vildred have nearly the same face (lead 0.04): stays "not sure" until named once.
+
+---
+
 ## 2026-11-18 · #71 · A new module: Arena (opponents' defenses, every fight logged by itself, your record per defense) · this commit (previous: `edc0d4b`)
 
 **Asked for:** "can we add a section for arena too" (five pictures: the Opponents list twice, the team set-up, a battle,

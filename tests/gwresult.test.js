@@ -158,4 +158,12 @@ test('gwresult: a player\'s page is known by the flat slate colour of its name p
   noisy.paint(10, 5, 25, 20, [10, 20, 30]);
   noisy.paint(25, 5, 40, 20, [90, 115, 145]);
   assert.equal(R.pageAt(noisy.a, W, H, BAR), false);
+  // snowflakes on the panel (DEVLOG #72): a fifth of it bright is still the page; half of it is not
+  const snowy = picture(W, H, [49, 67, 88]);
+  snowy.paint(12, 6, 18, 12, [235, 240, 245]);
+  snowy.paint(30, 10, 34, 16, [220, 230, 240]);
+  assert.equal(R.pageAt(snowy.a, W, H, BAR), true);
+  const half = picture(W, H, [49, 67, 88]);
+  half.paint(10, 5, 25, 20, [220, 230, 240]);
+  assert.equal(R.pageAt(half.a, W, H, BAR), false);
 });

@@ -562,7 +562,8 @@ function buildMenu() {
     {
       label: 'Overlay',
       submenu: [
-        { label: 'Show / hide overlay', accelerator: 'Ctrl+Shift+O', click: toggleOverlay },
+        // says what it is now (DEVLOG #72: the owner could not tell whether it was on)
+        { label: config.overlay ? 'Overlay is ON: click to hide it' : 'Overlay is OFF: click to show it', accelerator: 'Ctrl+Shift+O', click: toggleOverlay },
         { label: 'Show a test card (is the overlay working?)', click: () => {
           if (!config.overlay) toggleOverlay();
           if (overlay && !overlay.isDestroyed()) overlay.webContents.send('e7:hotkey', 'overlay-test');
@@ -614,6 +615,12 @@ function toggleOverlay() {
   saveConfig();
   if (!config.overlay) overlay.hide();
   else placeOverlay();
+  buildMenu(); // the menu says ON / OFF
+  // and a short notice, also when switched with Ctrl+Shift+O while the game is in front
+  try {
+    if (Notification.isSupported()) new Notification({ title: 'Epic 7 Engine', body: config.overlay ? 'Overlay ON: shown on the game' : 'Overlay OFF: hidden (Ctrl+Shift+O shows it again)', silent: true }).show();
+  } catch (_) { /* no notifications on this system */ }
+  if (config.overlay && overlay && !overlay.isDestroyed()) overlay.webContents.send('e7:hotkey', 'overlay-badge'); // the small ✓ badge on the game
 }
 
 /** Overlay → Overlay status: plain words for "why don't I see it?" */
