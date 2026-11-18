@@ -7,7 +7,7 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
-## 2026-11-18 · #74 · Gear: the item panel read with nothing to draw; a verdict and whom it suits on the game · this commit (previous: `976f621`)
+## 2026-11-18 · #74 · Gear: the item panel read with nothing to draw; a verdict and whom it suits on the game · commit `cbce4ee` (previous: `976f621`)
 
 **Asked for:** "for the gear section make a real-time gear analyser if its worth keeping/upgrading or for what unit
 its good for" (then eight pictures: inventory items, a hero's helmet, the Substat Modification screen).
