@@ -86,6 +86,7 @@
   // the built-in boxes, for the anchor where the panel was last found
   let anchor = null;
   let lastRaw = null; // the newest raw readings (test hook)
+  let lastPub = null; // the newest item published { item, at } (the Full-grid reader learns set badges from it)
   function builtIn(ctx) {
     const W = ctx.w();
     const H = ctx.h();
@@ -172,13 +173,17 @@
         gate.reset();
         return ctx.note(`Can't read this item yet (${problems.join(', ')}).`);
       }
+      // the level is often under the lock icon: a +15 weapon / helmet's main stat tells it (js/geargrid.js)
+      const byMain = window.E7GearGrid && window.E7GearGrid.levelFromMain(item.main, item.enhance);
+      if (byMain) item.level = byMain;
       const key = P.itemKey(item);
       if (gate.push(key)) {
         shown = true;
+        lastPub = { item, at: Date.now() };
         ctx.publish('gear:item', { item, key, problems, rect: b.main });
       }
       ctx.note(`Item: ${item.rank} ${item.gear} +${item.enhance} · ${item.main.type} ${item.main.value} · ${item.substats.length} substats`);
     },
   });
-  window.E7GearItem = { _raw: () => lastRaw };
+  window.E7GearItem = { _raw: () => lastRaw, _last: () => lastPub };
 })();

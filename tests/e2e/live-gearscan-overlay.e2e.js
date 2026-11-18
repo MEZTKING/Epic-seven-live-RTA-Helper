@@ -51,6 +51,8 @@ const B = BASE;
   await run('__item2');
   console.log('snapshot for Set boxes (gear page):', JSON.stringify(await g.evaluate(async () => { const s = await window.VisionClient.snapshot(); return [s.w, s.h, s.frameKey, s.img.naturalWidth]; })));
   console.log('status 2 (gear page):', await g.textContent('#gs-scan-status'));
+  await g.waitForTimeout(300);
+  console.log('overlay draws (item on screen):', (await ov.textContent('#layers')).replace(/\s+/g, ' ').slice(0, 200));
   // other screen: the gear reader must pause
   await run('__other');
   console.log('reader on other screen:', await l.evaluate(() => window.E7Vision._readers.find((r) => r.id === 'gear-item').note));
@@ -58,7 +60,7 @@ const B = BASE;
   console.log('scanned items:', JSON.stringify(await g.evaluate(() => window.GearApp.gs.scanned.map((i) => [i.gear, i.set, i.enhance, i.main.type, i.main.value, i.subs.map((s) => s.type + ' ' + s.value).join(', ')]))));
   console.log('in sorter table:', await g.$$eval('#gs-rows tr', (r) => r.filter((x) => x.textContent.includes('screen')).length), 'rows with screen badge');
   await g.waitForTimeout(300);
-  console.log('overlay draws:', (await ov.textContent('#layers')).replace(/\s+/g, ' ').slice(0, 200));
+  console.log('overlay after the other screen (card taken off):', (await ov.textContent('#layers')).replace(/\s+/g, ' ').slice(0, 200));
   await ov.screenshot({ path: SP + '/v10-overlay.png' });
   await g.screenshot({ path: SP + '/v10-gear-scan.png' });
   // live page + home

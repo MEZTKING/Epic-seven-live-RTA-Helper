@@ -4,6 +4,8 @@
  * with your gear and heroes, shows the verdict in the overlay and publishes:
  *   gear:added { desc, verdict, reason, wss, reforgedWss, best, problems }   or   gear:dup { desc } (read before; its
  *   verdict is shown again). 'gear:gone' (the panel closed) takes the verdict off the overlay.
+ *   'gear:grid' (the Full format, many items) → each saved and judged, a label per tile on the overlay's 'gear-grid'
+ *   layer; publishes gear:grid-judged { read, added, counts }.
  */
 (function () {
   'use strict';
@@ -49,4 +51,42 @@
   });
   // the item panel closed: take the verdict off the game
   bus.on('gear:gone', () => window.E7Overlay && window.E7Overlay.clear('gear'));
+
+  // the inventory in the Full format (DEVLOG #77): every item on the screen at once → saved, judged, and a short
+  // label on each tile (KEEP / ENHANCE / REFORGE / EXTRACT / SELL; WORN = on a hero, kept whatever its score)
+  const SHORT = { keep: 'KEEP', enhance: 'ENHANCE', reforge: 'REFORGE', extract: 'EXTRACT', sell: 'SELL' };
+  const COLOR = { keep: 'green', reforge: 'green', enhance: 'yellow', extract: 'red', sell: 'red' };
+  bus.on('gear:grid', ({ tiles }) => {
+    const gs = GS.load();
+    const mine = [];
+    let added = 0;
+    for (const t of tiles || []) {
+      let slim = GS.addScanned(gs, t.item, t.key);
+      if (slim) added++;
+      else slim = gs.scanned.find((x) => x.key === t.key);
+      if (slim) mine.push({ t, slim });
+    }
+    if (added) {
+      try {
+        GS.save(gs);
+      } catch (e) {
+        bus.publish('vision:warning', { reader: 'gear-grid', text: 'Could not save the items (browser storage full?): ' + e.message });
+      }
+    }
+    const all = GS.allItems(gs);
+    const extra = mine.map((m) => m.slim).filter((x) => !all.includes(x));
+    const ev = S.evaluateAll([...all, ...extra], HEROES, gs.overrides, gs.rules);
+    const byId = new Map(ev.results.map((r) => [r.item.id, r]));
+    const counts = {};
+    const labels = mine.map(({ t, slim }) => {
+      const r = byId.get(slim.id);
+      const verdict = t.worn ? 'worn' : r ? r.verdict : '?';
+      counts[verdict] = (counts[verdict] || 0) + 1;
+      const title = t.worn ? 'WORN' : r ? `${SHORT[r.verdict] || r.verdict.toUpperCase()} ${r.wss}` : '?';
+      return { ...t.rect, kind: 'label', side: 'below', level: t.worn ? 'grey' : r ? COLOR[r.verdict] || 'grey' : 'grey', title };
+    });
+    bus.publish('gear:grid-judged', { read: mine.length, added, counts });
+    if (window.E7Overlay) window.E7Overlay.post('gear-grid', labels);
+  });
+  bus.on('gear:grid-gone', () => window.E7Overlay && window.E7Overlay.clear('gear-grid'));
 })();

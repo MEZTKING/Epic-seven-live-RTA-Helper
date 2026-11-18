@@ -84,7 +84,8 @@
       // opts.psm: another page mode (e.g. '8' one word); opts.chars: only these characters (reset for every other job)
       await wk.setParameters({ tessedit_pageseg_mode: opts.psm || (opts.line ? '7' : '3'), tessedit_char_whitelist: opts.chars || '' });
       const { data } = await wk.recognize(canvas);
-      const text = ((data && data.text) || '').replace(/\n+/g, ' ').trim();
+      // opts.lines: keep one line per row of text (a column of numbers)
+      const text = opts.lines ? ((data && data.text) || '').split(/\n/).map((l) => l.trim()).filter(Boolean).join('\n') : ((data && data.text) || '').replace(/\n+/g, ' ').trim();
       // opts.full: also how sure the reader is (0–100) and which language data was used
       return opts.full ? { text, conf: Math.round((data && data.confidence) || 0), lang: opts.lang || 'eng' } : text;
     });
