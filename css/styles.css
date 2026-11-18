@@ -286,6 +286,14 @@ body.pip { padding: 10px; font-size: 13px; }
 .pip-sug .why { color: var(--muted); font-size: 11.5px; }
 .pip-speeds { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 8px 0; }
 .pip-speeds span { display: inline-flex; align-items: center; gap: 4px; }
+/* compact mini window (DEVLOG #68) */
+body.pip { padding: 6px; font-size: 12px; }
+body.pip .pip-status { padding: 4px 6px; margin-bottom: 4px; }
+body.pip .pip-line, body.pip .pip-sug li { margin: 3px 0; }
+body.pip .pip-sug { margin: 3px 0; padding-left: 16px; }
+body.pip .pt.sm { width: 22px; height: 22px; }
+body.pip .pip-btns { margin-top: 4px; gap: 4px; }
+body.pip .pip-btns .btn { padding: 2px 8px; font-size: 12px; }
 
 /* -------- gear sorter -------- */
 .verdicts { display: flex; flex-wrap: wrap; gap: 6px; }

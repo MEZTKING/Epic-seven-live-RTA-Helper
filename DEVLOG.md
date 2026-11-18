@@ -7,6 +7,43 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-18 · #68 · A small RTA mini window that fits its content; screenshots packed into one file for Claude · this commit (previous: `70f04dd`)
+
+**Asked for** (with a report and pictures of a match on 0.1.52):
+- "make a smaller rta mini since it blocks view" (picture: the mini window over the game, 380×620, mostly empty)
+- "i can't send more than 5 images here and i can't send anything over 30mb so sending logs to you is not easy"
+
+**Findings**
+- The report shows #67 working on the owner's PC: pre-bans 2 + 2, picks 5 + 5 (most cards 0.78–0.99), both bans,
+  the opponent's name from the battle bar; the mini window showed the complete draft.
+- The mini window opened at 380×620 with the app's menu bar, a row of "?" (enemy speeds not known yet), two lines of
+  reasons per suggestion and a "Read CR" button (the turn order is read by itself).
+- A page cannot resize its own window in the desktop app (`resizeTo` is ignored there).
+- Collected screenshots are full-size PNGs (3–5 MB each): six of them already pass the 30 MB a message may carry.
+
+**Changed**
+- RTA mini (`js/pip.js`, `css/styles.css`, `desktop/main.js`): opens at 270 wide, no menu bar, text a step smaller
+  than the main window; the app keeps its height to what it shows (checked every 0.7 s, `setContentSize`), and keeps
+  where you put it and the width you give it (`config.miniBounds`). Content: the reason only under the first
+  suggestion (all reasons on hover), enemy speeds only when known, buttons Undo (+ Win / Loss once the draft is
+  complete); "Read CR" removed. The Guild War mini window keeps its size.
+- Developer → "Pack the newest screenshots into one file for Claude (on the Desktop)" (`desktop/pack.js`, new): the
+  newest collected screenshots of the last three days, as JPEG 1600 px wide with their notes, in ONE zip of at most
+  ~25 MB (a plain zip Windows opens by itself), shown in its folder. Nothing is sent anywhere.
+
+**Tested**
+- `npm test` 183 (+2: `tests/pack.test.js`: CRC, the zip opened by Python's zip reader, newest first, the size
+  limit, no pictures).
+- Desktop (packaged Linux build): `popout` (+ the RTA mini's size and menu: 270×210, no menu bar; the Guild War one
+  380×620 as before), `watcher`, `overlay-test`, `rta-follow`, `update-check` clean. `rta-auto-full`: same output as
+  before except the suggestions' second reason (intended).
+- **Not tested:** the pack menu item inside the packaged app (it opens a dialog; the packing itself is unit-tested);
+  on Windows.
+
+**Open:** "scouting for CR bar and artifact doesn't seem to work" (asked during this change): next entry.
+
+---
+
 ## 2026-11-18 · #67 · The game window's title bar was read as part of the game: every RTA card ~2 % too high · this commit (previous: `3b140db`)
 
 **Asked for:** the owner sent four pictures of a match (versus, pre-ban window, BAN twice), the app's notes for each

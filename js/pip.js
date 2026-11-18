@@ -21,13 +21,13 @@
     const desktop = /Electron/.test(navigator.userAgent);
     if (window.documentPictureInPicture && !desktop) {
       try {
-        win = await window.documentPictureInPicture.requestWindow({ width: 340, height: 520 });
+        win = await window.documentPictureInPicture.requestWindow({ width: 270, height: 230 });
       } catch (_) {
         win = null;
       }
     }
     if (!win) {
-      win = window.open('', 'rta-mini', 'width=340,height=560');
+      win = window.open('', 'rta-mini', 'width=270,height=230');
       if (!win) return alert('The pop-up was blocked. Allow pop-ups for this page.');
       win.document.title = 'RTA mini';
     }
@@ -39,6 +39,7 @@
     }
     win.document.body.className = 'pip';
     win.document.body.innerHTML = '<div id="pip-root"></div>';
+    lastHtml = '';
     win.document.body.addEventListener('click', onClick);
     win.document.addEventListener('keydown', (e) => document.dispatchEvent(new KeyboardEvent('keydown', { key: e.key })));
     win.addEventListener('pagehide', () => (win = null));
@@ -99,7 +100,8 @@
       parts.push(
         '<ol class="pip-sug">' +
           items
-            .map((s, i) => `<li><button data-act="pick" data-code="${esc(s.hero.code)}" title="Shortcut: ${i + 1}">${chip(s.hero.code)}</button> <span class="score">${s.score > 0 ? '+' : ''}${s.score}</span><div class="why">${s.reasons.slice(0, 2).map((r) => esc(r.text)).join(' · ')}</div></li>`)
+            // compact (DEVLOG #68): the reason only under the first suggestion
+            .map((s, i) => `<li><button data-act="pick" data-code="${esc(s.hero.code)}" title="${esc(s.reasons.slice(0, 3).map((r) => r.text).join(' · '))} (shortcut: ${i + 1})">${chip(s.hero.code)}</button> <span class="score">${s.score > 0 ? '+' : ''}${s.score}</span>${i === 0 && s.reasons[0] ? `<div class="why">${esc(s.reasons[0].text)}</div>` : ''}</li>`)
             .join('') +
           '</ol>',
       );
@@ -111,28 +113,40 @@
       if (risk && risk.score > 0) parts.push(`<div class="pip-line warn">Ban risk: ${chip(risk.hero.code)}</div>`);
     }
 
-    const enemies = v.picks.opp.filter((c) => !v.postbans.me.includes(c));
-    if (enemies.length) {
-      parts.push(
-        '<div class="pip-speeds">' +
-          enemies
-            .map((c) => {
-              const e = st.scouting.find((x) => x.draftId === d.id && x.code === c);
-              const seen = App.scoutedSpeed(c, d.opponent);
-              const sp = (e && e.speed) || (seen && seen.speed);
-              return `<span>${App.portrait(c, 'pt sm')} ${sp ? `${e && e.speed ? '' : '~'}${Math.round(sp)}` : '?'}</span>`;
-            })
-            .join('') +
-          '</div>',
-      );
-    }
+    // enemy speeds: only the ones known (a row of "?" only took room; DEVLOG #68)
+    const speeds = v.picks.opp
+      .filter((c) => !v.postbans.me.includes(c))
+      .map((c) => {
+        const e = st.scouting.find((x) => x.draftId === d.id && x.code === c);
+        const seen = App.scoutedSpeed(c, d.opponent);
+        const sp = (e && e.speed) || (seen && seen.speed);
+        return sp ? `<span>${App.portrait(c, 'pt sm')} ${e && e.speed ? '' : '~'}${Math.round(sp)}</span>` : '';
+      })
+      .filter(Boolean);
+    if (speeds.length) parts.push(`<div class="pip-speeds">${speeds.join('')}</div>`);
 
-    parts.push(`<div class="btn-row">
-      <button class="btn" data-act="undo">Undo</button>
+    // buttons: only Undo while drafting; Win / Loss once the draft is complete (the result is also read by itself).
+    // "Read CR" is gone from here: the turn order is read by itself when the battle starts (DEVLOG #68)
+    parts.push(`<div class="btn-row pip-btns">
+      <button class="btn" data-act="undo" title="Take back the last hero">Undo</button>
       ${!step ? '<button class="btn win" data-act="win">Win</button><button class="btn loss" data-act="loss">Loss</button>' : ''}
-      ${window.RTAAuto ? '<button class="btn" data-act="cr">Read CR</button>' : ''}
     </div>`);
-    root.innerHTML = parts.join('');
+    const html = parts.join('');
+    if (html !== lastHtml) {
+      root.innerHTML = html;
+      lastHtml = html;
+      fit();
+    }
+  }
+  // the window as tall as what it shows (it sits over the game), width as the user left it
+  let lastHtml = '';
+  function fit() {
+    try {
+      // the content's own height (the page itself is always at least as tall as the window)
+      const root = win.document.getElementById('pip-root');
+      const want = Math.ceil(root.getBoundingClientRect().bottom + 8 + (win.outerHeight - win.innerHeight));
+      if (Math.abs(win.outerHeight - want) > 4) win.resizeTo(win.outerWidth, Math.min(700, Math.max(90, want)));
+    } catch (_) { /* Picture-in-Picture windows size themselves */ }
   }
 
   App.onDraftRender(render);

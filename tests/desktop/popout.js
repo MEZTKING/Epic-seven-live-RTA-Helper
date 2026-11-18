@@ -17,9 +17,12 @@ const { _electron } = require('playwright');
     let ok = false;
     let top = null;
     if (child) {
-      await child.waitForTimeout(700);
+      await child.waitForTimeout(2000);
       ok = !!(await child.$(root));
       top = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.isAlwaysOnTop()).length);
+      // DEVLOG #68: the RTA mini window is small, has no menu bar and fits its height to what it shows
+      const info = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.isAlwaysOnTop() && w.getTitle() !== '').map((w) => ({ title: w.getTitle(), size: w.getSize(), menu: w.isMenuBarVisible() })));
+      console.log('  windows on top:', JSON.stringify(info));
       await child.screenshot({ path: (process.argv[3] || require('path').join(__dirname, 'out')) + '/' + page + '.png' });
       await child.close();
     }
