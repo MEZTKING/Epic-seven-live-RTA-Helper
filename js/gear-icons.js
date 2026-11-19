@@ -1,4 +1,4 @@
-/* Original SVG icons for gear slots and sets (drawn for Epic 7 Engine; not game art). window.E7GearIcons */
+/* Original SVG icons for gear slots and sets (drawn for Orbis Lens; not game art). window.E7GearIcons */
 (function () {
   'use strict';
 

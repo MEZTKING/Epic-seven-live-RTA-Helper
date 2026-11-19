@@ -1,4 +1,4 @@
-# Design review: "how would you build Epic 7 Engine from scratch?" (2026-11-12)
+# Design review: "how would you build Orbis Lens from scratch?" (2026-11-12)
 
 The owner asked two outside reviewers how to design the app from zero. Both got the **same neutral brief** (below: goals and
 constraints only, no personal details, no description of the current code, no opinions from us). Answers are kept verbatim
@@ -13,7 +13,7 @@ See DEVLOG #20.
 
 ## The brief
 
-### Design brief: "Epic 7 Engine" — if you were building it from scratch
+### Design brief: "Orbis Lens" — if you were building it from scratch
 
 A fan-made companion app for the mobile/PC gacha game **Epic Seven** (Smilegate). One player builds it for themselves
 and their guild. Asking: what is the best overall architecture and design, starting from zero?

@@ -1,4 +1,4 @@
-// Packaged desktop app: the overlay shows its "✓ Epic 7 Engine overlay" badge when it starts, and the
+// Packaged desktop app: the overlay shows its "✓ Orbis Lens overlay" badge when it starts, and the
 // Overlay menu's "Show a test card" puts a card on the real overlay window.
 const { _electron } = require('playwright');
 const path = require('path');

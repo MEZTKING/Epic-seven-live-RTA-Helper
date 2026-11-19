@@ -1,4 +1,4 @@
-# Epic 7 Engine
+# Orbis Lens
 
 A fan-made toolkit for Epic Seven, as a **Windows desktop app** that reads the game window and draws an overlay on top of it
 ([download](https://github.com/MEZTKING/Epic-seven-live-RTA-Helper/releases/latest), details in `desktop/README.md`).
@@ -15,7 +15,7 @@ The home page (`index.html`) lets you pick a module, and every page has the same
 RTA and Gear data stay in your browser. Guild War data is shared with your guild through a free Firebase project
 (see [docs/GUILD_SETUP.md](docs/GUILD_SETUP.md)), or kept on one device if you don't set that up.
 
-> Epic 7 Engine is fan-made and not affiliated with Smilegate or Epic Seven. The hero list and portraits load from the official Epic Seven site.
+> Orbis Lens is fan-made and not affiliated with Smilegate or Epic Seven. The hero list and portraits load from the official Epic Seven site.
 
 ## Live: automatic, with an overlay on the game
 
@@ -59,7 +59,7 @@ No Node.js, command line or GitHub account needed:
    reads only that window and the overlay follows it. Change it later: menu **Game window**, or **Reset game area**.
    Text too small or big? **Ctrl+=** / **Ctrl+-** (**Ctrl+0** resets).
 
-**Updates are built in:** the app checks for a new version when it starts (and from **Epic 7 Engine → Check for updates…**),
+**Updates are built in:** the app checks for a new version when it starts (and from **Orbis Lens → Check for updates…**),
 downloads it and restarts on it. Every change pushed to the app makes a new release automatically.
 Without the desktop app you can simply open `index.html` in Chrome or Edge (everything except the overlay).
 Building it yourself: see [desktop/README.md](desktop/README.md).

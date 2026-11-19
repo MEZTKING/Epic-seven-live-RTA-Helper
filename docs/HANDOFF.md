@@ -1,4 +1,9 @@
-# Handoff — how Epic 7 Engine works, for whoever continues it
+# Handoff — how Orbis Lens works, for whoever continues it
+
+> **Name (DEVLOG #81):** the app is called **Orbis Lens** (before: Epic 7 Engine). The desktop build still has `productName`
+> "Epic 7 Engine", `appId` `app.epic7engine.desktop` and the package name `epic7-engine-desktop` ON PURPOSE: they set the
+> data folder (%APPDATA%\\Epic 7 Engine), the install folder and the update channel. Shortcuts / Apps list say Orbis Lens
+> (`nsis.shortcutName`, `uninstallDisplayName`); the installed .exe file keeps its old name.
 
 Read this first, then `CLAUDE.md` (rules), `DEVLOG.md` (history, newest first), `docs/SOURCES.md` (every outside
 source and where it's used), `docs/ROADMAP.md` (later plans) and, for anything about top players' games,
@@ -75,7 +80,7 @@ statistics tab's "what top players pick at this draft position"; moving the old 
 
 ## 1. What it is
 
-**Epic 7 Engine** is a fan-made Epic Seven toolkit (the owner's name for it; not "RTA Engine"). Since DEVLOG #37 it is
+**Orbis Lens** is a fan-made Epic Seven toolkit (the owner's name for it; not "RTA Engine"). Since DEVLOG #37 it is
 a **desktop app** (Electron, `desktop/`) that shows the static pages of this repository (no build step for the
 pages) and puts an overlay on top of the game. The web (GitHub Pages) only hosts the Guild War page for guildmates.
 
@@ -157,7 +162,7 @@ only receive events.
 - **RTA reader:** `js/auto.js` still captures on its own, but in the desktop app it **follows the watcher** (starts/stops with
   it, same window; `followWatcher`, DEVLOG #28). Moving its readers into `js/vision/readers/` is step 1b part 2.
 - Developer tool (desktop menu **Developer**): the watcher saves PNG + JSON notes on scene changes (`devTick` in hub.js);
-  `E7Desktop.dev()/saveDevShot()`; main writes to `Pictures/Epic 7 Engine/<date>/`.
+  `E7Desktop.dev()/saveDevShot()`; main writes to `Pictures/Orbis Lens/<date>/`.
 - Gear art: `js/gear-icons.js` (`E7GearIcons.slot/set`), original SVG (not game art).
 
 - **Shared by readers:** `js/vision/names.js` (`E7Names.read`: one player name in any writing, DEVLOG #56; loaded
@@ -204,9 +209,9 @@ start), `records.js` (the ONLY code that talks to the official record site), `re
 ## 4. Storage (all on the user's device unless noted)
 
 Where "the user's device" is: the desktop app's own data folder (Electron `userData`; by the package name
-`%APPDATA%\epic7-engine-desktop` on Windows, not checked there; menu Epic 7 Engine → "Open the folder where the
+`%APPDATA%\epic7-engine-desktop` on Windows, not checked there; menu Orbis Lens → "Open the folder where the
 app keeps its data"): the pages' localStorage and IndexedDB, `config.json`, `records/` (player lists and games
-from the official record site). Developer screenshots: `Pictures\Epic 7 Engine\<date>`. Nothing of it is in the
+from the official record site). Developer screenshots: `Pictures\Orbis Lens\<date>`. Nothing of it is in the
 repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkovers` since DEVLOG #60.
 
 | Key / place | Owner | Content |
@@ -249,7 +254,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['e7-gear-view']` | `js/gear-app.js` | Gear list view: `cards` (default, game-like tiles + details card), `table` or `heroes` (gear per hero) |
 | IndexedDB `e7-pictures` | `js/pictures.js` | Saved game pictures (newest 24) to calibrate on after a match (choose the part first: draft, one box, CR, expanded CR, result, drafting help): Ctrl+Shift+S (desktop), "Save a game picture", or auto every 15 s while RTA isn't calibrated |
 | `rta-helper-v2`.`auto.faceCorrections` | `js/auto.js` | Face-matcher copies of your corrections on round slots (`{code, q}`) |
-| Desktop `config.devCapture` + `Pictures/Epic 7 Engine/<date>/` | `desktop/main.js`, `js/vision/hub.js` | Developer tool: automatic PNG + JSON notes when the scene changes |
+| Desktop `config.devCapture` + `Pictures/Orbis Lens/<date>/` | `desktop/main.js`, `js/vision/hub.js` | Developer tool: automatic PNG + JSON notes when the scene changes |
 | `localStorage['e7-frame-of']` | `js/game-area.js` | Which picture each module's calibration boxes were drawn on (`{rta, gear, guild}` → `window` / `area:x,y,w,h` / `full`); readers warn once when it changed |
 | `localStorage['e7-game-area']` | `js/game-area.js` | Where the game is inside a whole-screen capture: `{x,y,w,h}` fractions + capture size `fw,fh`, or `{full:true,fw,fh}`. Asked again when the capture size changes; "Reset game area" buttons clear it. `overlay.html` reads it too |
 | `localStorage['e7-cecilia-heroes']`, `['e7-cecilia-hero-<slug>']`, `['e7-use-cecilia']` | `js/ceciliabot.js` | CeciliaBot effect list (weekly), per-hero skills (weekly), on/off |

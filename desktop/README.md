@@ -1,6 +1,6 @@
-# Epic 7 Engine — desktop app
+# Orbis Lens — desktop app
 
-The same Epic 7 Engine pages, plus what a browser can't do:
+The same Orbis Lens pages, plus what a browser can't do:
 
 - **Overlay on top of the game:** a transparent, click-through layer showing suggestions next to draft slots,
   enemy speeds, Guild War dots next to the enemy's name, and gear verdicts next to the item panel.
@@ -8,7 +8,7 @@ The same Epic 7 Engine pages, plus what a browser can't do:
 - **Reads just the game window** (picked once from a list with previews), even when other windows cover it; the
   overlay follows that window. A whole screen can be chosen instead.
 - **No "choose what to share" prompt** every session.
-- **Updates itself** from this repository's GitHub Releases (Epic 7 Engine → Check for updates…).
+- **Updates itself** from this repository's GitHub Releases (Orbis Lens → Check for updates…).
 - **Mini windows stay on top** of the game.
 
 It only **reads** the screen and never clicks or types into the game.
@@ -56,7 +56,7 @@ dependency versions (`npm ci` uses it).
   example blocked by antivirus), the overlay covers the whole display instead; that lines up exactly when the game runs
   in borderless (windowed) fullscreen.
 - **Steam and Discord overlays.** Both draw *inside* the game window (that's how they work in fullscreen), so the app's
-  capture sees them too. The Epic 7 Engine overlay is a separate click-through window on top and doesn't interfere with them.
+  capture sees them too. The Orbis Lens overlay is a separate click-through window on top and doesn't interfere with them.
   - Opening the Steam overlay (Shift+Tab) covers the game: the readers find no game screen there and wait. Close it and
     they continue.
   - Notifications (Steam's "friend is online", Discord messages, Discord's voice widget) can slide over a hero icon. Guild

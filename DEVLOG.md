@@ -7,6 +7,41 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #81 · The app is now called Orbis Lens · this commit (previous: `4426f8b`)
+
+**Asked for:** "Is there a better name for this application" → five names offered (the game's name is Smilegate's
+trademark, a fan tool is safer with its own) → "go with Orbis Lens".
+
+**Findings**
+- The desktop build's `productName` decides the folder Electron keeps ALL saved data in (%APPDATA%\Epic 7 Engine:
+  localStorage, IndexedDB pictures, config), and with the `appId` the Windows install folder and the update channel.
+  Changing them would start the app with empty data or as a second app.
+- The Windows installer can name the shortcuts and the "Apps" entry on their own (`nsis.shortcutName`,
+  `uninstallDisplayName`). The portable updater finds its file by "-portable.exe" at the end, installed copies follow
+  latest.yml: renamed release files keep updating. No code finds the app's windows by their title.
+
+**Changed**
+- Every name you see: page titles, the app bar, the home page ("An unofficial, fan-made toolkit for Epic Seven"),
+  the guild web page, window titles, the menu, notifications, the diagnostic report, the overlay badge, the release
+  names and files (`Orbis-Lens-Setup-<v>.exe`, `Orbis-Lens-<v>-portable.exe`), the shortcuts and the Apps entry.
+- Kept on purpose: `productName` "Epic 7 Engine", `appId`, the package name (data, install folder, updates); the
+  installed .exe keeps its old file name. The Pictures folder: an existing "Epic 7 Engine" folder keeps being used,
+  else "Orbis Lens"; the zip for Claude is "OrbisLens-pictures-for-Claude-…".
+- Docs: CLAUDE.md (the name and why the ids stay), HANDOFF (a note at the top), README and the other docs. Older
+  devlog entries keep the old name (history).
+
+**Tested**
+- `npm test` 201. Browser suite 50/50 clean; the only differences are the name (page titles, app bar, diagnostic
+  report, overlay badge). Desktop (packaged Linux build): watcher, overlay-test, popout, update-check clean; the data
+  folder is the same as before.
+- **Not tested:** the update on Windows from an "Epic 7 Engine" release to the first "Orbis Lens" one (the next
+  automatic update on the owner's PC is that test).
+
+**Open / unverified**
+- The repository is still called Epic-seven-live-RTA-Helper (renaming it would change the update address).
+
+---
+
 ## 2026-11-19 · #80 · Gear: real pictures for gear.txt items too, and a separate "Item upgrades" part · this commit (previous: `f4e3589`)
 
 **Asked for:** whether the drawn art stays or is replaced by real images; the proposal (gear.txt items get the

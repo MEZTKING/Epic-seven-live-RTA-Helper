@@ -27,7 +27,7 @@
     if (!win) {
       win = window.open('', 'e7-guild-mini', 'width=360,height=600');
       if (!win) return alert('The pop-up was blocked. Allow pop-ups for this page.');
-      win.document.title = 'Guild War · Epic 7 Engine';
+      win.document.title = 'Guild War · Orbis Lens';
     }
     for (const l of document.querySelectorAll('link[rel=stylesheet]')) {
       const n = win.document.createElement('link');

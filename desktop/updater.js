@@ -1,5 +1,5 @@
 /*
- * In-app updater for the Epic 7 Engine desktop app.
+ * In-app updater for the Orbis Lens desktop app.
  *
  * Every build on GitHub (".github/workflows/desktop-build.yml") publishes a numbered
  * Release (v0.1.<run number>) with the installer, its latest.yml and the portable .exe.
@@ -112,7 +112,7 @@ async function checkInstalled(manual) {
 
 // ------------------------------------------------------------ portable .exe
 async function latestRelease() {
-  const res = await net.fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Epic-7-Engine-updater' } });
+  const res = await net.fetch(`https://api.github.com/repos/${OWNER}/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Orbis-Lens-updater' } });
   if (res.status === 404) return null; // no release yet
   if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
   return res.json();
@@ -121,7 +121,7 @@ async function latestRelease() {
 async function download(url, dest) {
   const { Readable, Transform } = require('stream');
   const { pipeline } = require('stream/promises');
-  const res = await net.fetch(url, { headers: { 'User-Agent': 'Epic-7-Engine-updater' } });
+  const res = await net.fetch(url, { headers: { 'User-Agent': 'Orbis-Lens-updater' } });
   if (!res.ok || !res.body) throw new Error(`Download failed (${res.status})`);
   const total = Number(res.headers.get('content-length')) || 0;
   let got = 0;

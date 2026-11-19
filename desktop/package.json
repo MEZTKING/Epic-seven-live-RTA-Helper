@@ -2,7 +2,7 @@
   "name": "epic7-engine-desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Epic 7 Engine desktop app: the same pages, plus a transparent click-through overlay on top of the game and screen capture without a prompt every session.",
+  "description": "Orbis Lens desktop app (unofficial, fan-made, for Epic Seven): the same pages, plus a transparent click-through overlay on top of the game and screen capture without a prompt every session.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -57,14 +57,16 @@
       ]
     },
     "portable": {
-      "artifactName": "Epic-7-Engine-${version}-portable.exe"
+      "artifactName": "Orbis-Lens-${version}-portable.exe"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "Epic-7-Engine-Setup-${version}.exe",
+      "artifactName": "Orbis-Lens-Setup-${version}.exe",
       "createDesktopShortcut": true,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "shortcutName": "Orbis Lens",
+      "uninstallDisplayName": "Orbis Lens"
     },
     "publish": [
       {
@@ -75,5 +77,5 @@
       }
     ]
   },
-  "author": "Epic 7 Engine (fan-made)"
+  "author": "Orbis Lens (fan-made)"
 }

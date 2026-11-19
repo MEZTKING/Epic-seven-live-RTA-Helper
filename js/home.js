@@ -1,4 +1,4 @@
-/* Epic 7 Engine home page: a one-line status for each module, read from this device's storage. */
+/* Orbis Lens home page: a one-line status for each module, read from this device's storage. */
 (function () {
   'use strict';
   const read = (key) => {

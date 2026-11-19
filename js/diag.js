@@ -130,7 +130,7 @@
     out.push(section('Game watcher events (last 25)', ev.slice(-25).map((e) => `${e.at ? new Date(e.at).toISOString().slice(11, 19) : ''} ${e.type} ${short(e.data, 160)}`)));
     const lg = readJSON(KEY) || [];
     out.push(section('Log (last 120)', lg.slice(-120).map((l) => `${l.t.slice(11, 19)}${l.n ? `…${(l.t2 || '').slice(11, 19)} ×${l.n}` : ''} [${l.p}/${l.a}] ${l.m}${l.d ? ' ' + l.d : ''}`)));
-    return '# Epic 7 Engine diagnostic report\n(paste this whole block to Claude; it has no sync key, Firebase settings or guild codes)\n\n' + out.join('\n');
+    return '# Orbis Lens diagnostic report\n(paste this whole block to Claude; it has no sync key, Firebase settings or guild codes)\n\n' + out.join('\n');
   }
 
   async function copy(extra) {
