@@ -96,15 +96,23 @@
 
   // ------------------------------------------------------------------- rules
   const RULE_INPUTS = { '#r-keep': 'keepWss', '#r-reforge': 'reforgeWss', '#r-speed': 'speedKeep', '#r-margin': 'upgradeMargin' };
+  // keep / reforge lines are shown in the chosen score (stored in gear score)
+  const SHIFTED = { keepWss: true, reforgeWss: true };
   for (const [sel, k] of Object.entries(RULE_INPUTS)) {
     $(sel).addEventListener('change', (e) => {
-      gs.rules[k] = Number(e.target.value) || 0;
+      gs.rules[k] = (Number(e.target.value) || 0) - (SHIFTED[k] ? RULE_OFF() : 0);
       save();
       recompute();
       render();
     });
   }
 
+  $('#r-score').addEventListener('change', (e) => {
+    gs.rules.scoreMode = e.target.value;
+    save();
+    recompute();
+    render();
+  });
   // ------------------------------------------------------------------ render
   const fmtSub = (s) => `${S.STATS[s.type] || s.type} ${s.value}${/Percent/.test(s.type) ? '%' : ''}${s.rolls > 1 ? `<sup>${s.rolls}</sup>` : ''}`;
   const VERDICT_LABEL = { keep: 'Keep', enhance: 'Enhance', reforge: 'Reforge', extract: 'Extract', sell: 'Sell' };
@@ -124,6 +132,17 @@
       : `<span class="setb" style="--set:${SET_COLOR[set] || '#555'}" title="${esc(setLabel(set))} set">${esc(setLabel(set).slice(0, 2))}</span>`;
   const slotArt = (g) => (ICONS && ICONS.slot(g) ? `<span class="gt-art">${ICONS.slot(g)}</span>` : esc(SLOT_ICON[g] || '?'));
   const rankCls = (rank) => `rk-${['Epic', 'Heroic', 'Rare', 'Good', 'Normal'].includes(rank) ? rank : 'Epic'}`;
+  // ---- which score is shown (DEVLOG #83): Epic Seven's Equipment Score (default; read from the screen, else estimated)
+  // or the Fribbels gear score. The rules are kept in gear score inside; in the game's score they read +25 (the main stat
+  // at +15).
+  const gameMode = () => (gs.rules.scoreMode || 'game') !== 'wss';
+  const SC = (r) => (gameMode() ? S.gameScore(r.item) : r.wss);
+  const SCref = (r) => SC(r) + (r.reforgedWss - r.wss);
+  const SC15 = (w) => (gameMode() ? S.gameAt15(w) : w);
+  const SCN = () => (gameMode() ? 'Score' : 'Gear score');
+  const SCT = () => (gameMode() ? "Epic Seven's Equipment Score (read from the game, else estimated)" : 'Fribbels/RexQian WSS: substats only');
+  const RULE_OFF = () => (gameMode() ? S.gameAt15(0) : 0);
+  const showFor = (r) => ({ label: gameMode() ? 'score' : 'gear score', now: SC(r), after: SCref(r), at15: SC15 });
   function iconBox(it) {
     const pic = pics.get(it.id);
     if (pic && pic.icon) return `<div class="gt-icon gt-pic" title="As the game showed it"><img alt="" src="${pic.icon}" /></div>`;
@@ -137,7 +156,7 @@
     const it = r.item;
     const line = (st, cls) => `<div class="${cls}"><span class="si">${STAT_ICON[st.type] || '·'}</span>${esc(val(st))}${cls === 'sub' && st.rolls > 1 ? `<sup>${st.rolls}</sup>` : ''}</div>`;
     return `<button class="gtile vdc-${r.verdict}${selected === it.id ? ' sel' : ''}" data-item="${esc(it.id)}" title="${esc(`${it.rank} ${it.gear} · ${setLabel(it.set)} · ${VERDICT_LABEL[r.verdict]}`)}">
-      <div class="gt-left">${iconBox(it)}<div class="gt-score" title="Gear score (WSS)">${r.wss}</div></div>
+      <div class="gt-left">${iconBox(it)}<div class="gt-score" title="${esc(SCT())}">${SC(r)}</div></div>
       <div class="gt-stats">${line(it.main, 'main')}${it.subs.map((x) => line(x, 'sub')).join('')}</div></button>`;
   }
   // ---- details: what to do, the game's picture, numbers you can fix, the enhance simulator (DEVLOG #78)
@@ -170,16 +189,16 @@
     if (Number(it.enhance) >= 15) {
       if (r.reforgedWss === r.wss) return '';
       const ref = S.reforgedSubs(it);
-      return `<div class="gd-block sim"><b>Reforge (level 85 → 90)</b><div class="sim-subs">${ref.map((x, k) => `<span>${esc(STAT_NAME[x.type] || x.type)} ${esc(val(it.subs[k]))} → <b>${esc(val(x))}</b></span>`).join('')}</div><div>Gear score ${r.wss} → <b>${r.reforgedWss}</b></div></div>`;
+      return `<div class="gd-block sim"><b>Reforge (level 85 → 90)</b><div class="sim-subs">${ref.map((x, k) => `<span>${esc(STAT_NAME[x.type] || x.type)} ${esc(val(it.subs[k]))} → <b>${esc(val(x))}</b></span>`).join('')}</div><div>${SCN()} ${SC(r)} → <b>${SCref(r)}</b></div></div>`;
     }
     const out = SIM.outcomes(it, { runs: 1000, rng: SIM.rngFrom(12345), keep: gs.rules.keepWss });
     const one = SIM.simulate(it, SIM.rngFrom(simSeed * 7919));
     const steps = one.steps.map((x) => `<div class="sim-step"><span class="sim-at">+${x.at}</span> ${x.kind === 'new' ? 'new substat: ' : ''}${esc(STAT_NAME[x.type] || x.type)} <b>+${x.add}${pct(x.type) ? '%' : ''}</b></div>`).join('');
-    const reforged = Number(it.level) === 85 ? ` → <b>${one.reforgedWss}</b> after reforge` : '';
+    const reforged = Number(it.level) === 85 ? ` → <b>${SC15(one.reforgedWss)}</b> after reforge` : '';
     return `<div class="gd-block sim"><b>Simulate enhancing to +15</b>
-      <div class="sim-range" title="1000 simulated enhancements">Usual result: gear score <b>${out.low}–${out.high}</b> <span class="hint">(worst ${out.worst}, best ${out.best}${Number(it.level) === 85 ? `; after reforge ~${out.reforged.mid}` : ''})</span></div>
-      <div class="hint">${Math.round(out.chanceKeep * 100)}% of the time it ends at ${gs.rules.keepWss}+ (your "keep" line)${out.speedChance ? ` · ${Math.round(out.speedChance * 100)}% of the time it gets good speed` : ''}</div>
-      <div class="sim-run"><div class="hint">One try:</div>${steps}<div>Result: ${one.item.subs.map((x) => `${esc(S.STATS[x.type] || x.type)} ${esc(val(x))}`).join(' · ')}</div><div>Gear score <b>${one.wss}</b>${reforged}</div></div>
+      <div class="sim-range" title="1000 simulated enhancements">Usual result: ${SCN().toLowerCase()} <b>${SC15(out.low)}–${SC15(out.high)}</b> <span class="hint">(worst ${SC15(out.worst)}, best ${SC15(out.best)}${Number(it.level) === 85 ? `; after reforge ~${SC15(out.reforged.mid)}` : ''})</span></div>
+      <div class="hint">${Math.round(out.chanceKeep * 100)}% of the time it ends at ${SC15(gs.rules.keepWss)}+ (your "keep" line)${out.speedChance ? ` · ${Math.round(out.speedChance * 100)}% of the time it gets good speed` : ''}</div>
+      <div class="sim-run"><div class="hint">One try:</div>${steps}<div>Result: ${one.item.subs.map((x) => `${esc(S.STATS[x.type] || x.type)} ${esc(val(x))}`).join(' · ')}</div><div>${SCN()} <b>${SC15(one.wss)}</b>${reforged}</div></div>
       <button class="btn" data-act="reroll">Roll again</button></div>`;
   }
   function detail(r) {
@@ -194,7 +213,7 @@
       .join('') || '<span class="hint">Not an upgrade for anyone</span>';
     const SET_SIZE = G.SETS[it.set] ? G.SETS[it.set][1] : '';
     const out = SIM && Number(it.enhance) < 15 ? SIM.outcomes(it, { runs: 1000, rng: SIM.rngFrom(12345), keep: gs.rules.keepWss }) : null;
-    const adv = SIM ? SIM.advice(r, { rules: gs.rules, out, nameOf, worn: !!it.worn }) : { action: VERDICT_LABEL[r.verdict], tone: '', text: r.reason };
+    const adv = SIM ? SIM.advice(r, { rules: gs.rules, out, nameOf, worn: !!it.worn, show: showFor(r) }) : { action: VERDICT_LABEL[r.verdict], tone: '', text: r.reason };
     const head = `<div class="gd-head">${iconBox(it)}<div><div class="gd-rank">${esc(it.rank)} ${esc(it.gear)}</div><div class="gd-name">${esc(it.name && it.name.length > 2 ? it.name : `${setLabel(it.set)} ${it.gear}`)}</div>
         <div class="hint">Level ${it.level} · +${it.enhance}${screen ? ' · <span class="src other">screen</span>' : ' · <span class="src fribbels">Fribbels</span>'}${it.worn ? ' · on a hero' : ''}${fixed.length ? ` · <b class="fixed-note">${fixed.length} fixed by you</b>` : ''}</div></div></div>`;
     const todo = `<div class="gd-todo tone-${adv.tone}"><span class="vd ${r.verdict}">${esc(adv.action)}</span> ${esc(adv.text)}</div>`;
@@ -207,8 +226,8 @@
       : `<div class="gd-main"><span><span class="si">${STAT_ICON[it.main.type] || ''}</span> ${esc(STAT_NAME[it.main.type] || it.main.type)}</span><span>${esc(val(it.main))}</span></div>
         ${it.subs.map((x) => `<div class="gd-sub"><span>${esc(STAT_NAME[x.type] || x.type)}${x.rolls > 1 ? ` <small class="hint">×${x.rolls}</small>` : ''}</span><span>${esc(val(x))}</span></div>`).join('')}`;
     return `${head}${todo}${shot}${numbers}
-      <div class="gd-score"><span title="Fribbels/RexQian WSS: substats only">Gear score</span><span>${r.wss}</span></div>
-      ${r.reforgedWss !== r.wss ? `<div class="gd-sub"><span>After reforge</span><span>${r.reforgedWss}</span></div>` : ''}
+      <div class="gd-score"><span title="${esc(SCT())}">${SCN()}${gameMode() && !(Number(r.item.gameScore) > 0) ? ' <small class="hint">(estimated)</small>' : ''}</span><span>${SC(r)}</span></div>
+      ${r.reforgedWss !== r.wss ? `<div class="gd-sub"><span>After reforge</span><span>${SCref(r)}</span></div>` : ''}
       ${simBlock(r)}
       ${tryOnBlock(r)}
       ${it.set && !screen ? `<div class="gd-set">${setBadge(it.set)} ${esc(setLabel(it.set))} Set ${SET_SIZE ? `<span class="hint">(${SET_SIZE} pieces)</span>` : ''}</div>` : ''}
@@ -290,9 +309,9 @@
           })
           .join('') || '<span class="hint">no full set</span>';
         const spd = items.reduce((n, r) => n + (r.item.main.type === 'Speed' ? r.item.main.value : 0) + r.item.subs.filter((x) => x.type === 'Speed').reduce((m, x) => m + x.value, 0), 0);
-        const total = items.reduce((n, r) => n + r.wss, 0);
+        const total = items.reduce((n, r) => n + SC(r), 0);
         return `<div class="hg-row"><div class="hg-hero clickable" data-hero="${esc(code)}">${portrait(code)}<b>${esc(nameOf(code))}</b>
-            <div class="hint">gear score ${Math.round(total)} · +${spd} speed from gear</div><div class="hg-sets">${sets}</div></div>
+            <div class="hint">${SCN().toLowerCase()} ${Math.round(total)} · +${spd} speed from gear</div><div class="hg-sets">${sets}</div></div>
           <div class="hg-slots">${G.GEAR_SLOTS.map((g) => (slots[g] ? tile(slots[g]) : `<div class="gtile hg-empty"><span class="hint">${g}: empty</span></div>`)).join('')}</div></div>`;
       })
       .join('');
@@ -330,7 +349,7 @@
     }
     const sort = $('#f-sort').value;
     const speed = (r) => r.item.subs.filter((s) => s.type === 'Speed').reduce((n, s) => n + s.value, 0) + (r.item.main.type === 'Speed' ? 100 : 0);
-    const key = sort === 'delta' ? (r) => (r.heroFit ? r.heroFit.delta : r.best[0] ? r.best[0].delta : -99) : sort === 'speed' ? speed : (r) => r.wss;
+    const key = sort === 'delta' ? (r) => (r.heroFit ? r.heroFit.delta : r.best[0] ? r.best[0].delta : -99) : sort === 'speed' ? speed : (r) => SC(r);
     return list.sort((a, b) => key(b) - key(a));
   }
 
@@ -338,7 +357,9 @@
     $('#gs-src').innerHTML =
       (gs.items.length ? `${gs.items.length} items from <b>${esc(gs.fileName)}</b> (${new Date(gs.importedAt).toLocaleDateString()}) · ${gs.items.filter((i) => i.equipped).length} equipped · ${evald.profiles.length} heroes with gear` : 'No gear.txt imported.') +
       (gs.scanned.length ? `<br>${gs.scanned.length} items read from the game screen <span class="src other">screen</span>${gs.useScanned ? '' : ' (switched off)'}` : '');
-    for (const [sel, k] of Object.entries(RULE_INPUTS)) $(sel).value = gs.rules[k];
+    for (const [sel, k] of Object.entries(RULE_INPUTS)) $(sel).value = gs.rules[k] + (SHIFTED[k] ? RULE_OFF() : 0);
+    $('#r-score').value = gameMode() ? 'game' : 'wss';
+    for (const el of document.querySelectorAll('[data-score-name]')) el.textContent = gameMode() ? 'score' : 'gear score';
     const counts = {};
     for (const r of evald.results) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
     $('#gs-summary').innerHTML = Object.keys(VERDICT_LABEL)
@@ -359,7 +380,7 @@
             <td><b>${esc(it.gear)}</b> · ${esc(setLabel(it.set))}${it.source === 'screen' ? ' <span class="src other" title="Read from the game screen">screen</span>' : ''}<div class="hint">${esc(it.rank)} lv${it.level} +${it.enhance}${it.locked ? ' 🔒' : ''}</div>
               <div class="hint">Main: ${fmtSub(it.main)}</div>${it.equipped ? `<div class="hint">on ${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</div>` : ''}</td>
             <td class="small">${it.subs.map(fmtSub).join('<br>')}</td>
-            <td><b>${r.wss}</b>${r.reforgedWss !== r.wss ? `<div class="hint">→ ${r.reforgedWss} reforged</div>` : ''}${r.potential.rollsLeft ? `<div class="hint">~${r.potential.expected} at +15</div>` : ''}</td>
+            <td><b>${SC(r)}</b>${r.reforgedWss !== r.wss ? `<div class="hint">→ ${SCref(r)} reforged</div>` : ''}${r.potential.rollsLeft ? `<div class="hint">~${SC15(r.potential.expected)} at +15</div>` : ''}</td>
             <td class="small">${best}</td>
             <td><span class="vd ${r.verdict}">${VERDICT_LABEL[r.verdict]}</span><div class="hint">${esc(r.reason)}</div></td></tr>`;
         })
@@ -486,7 +507,7 @@
     }
     const r = S.evaluate(it, evald.profiles, byHero, gs.rules);
     const worth = r.best[0] && r.best[0].delta > gs.rules.upgradeMargin;
-    $('#b-out').innerHTML = `<div class="ins ${worth || r.verdict === 'enhance' ? 'good' : 'warn'}"><b>${worth ? 'Worth buying' : r.verdict === 'enhance' ? 'Maybe: good start, needs enhancing' : 'Probably skip'}</b> · gear score ${r.wss}${r.potential.rollsLeft ? ` (≈${r.potential.expected} at +15)` : ''}
+    $('#b-out').innerHTML = `<div class="ins ${worth || r.verdict === 'enhance' ? 'good' : 'warn'}"><b>${worth ? 'Worth buying' : r.verdict === 'enhance' ? 'Maybe: good start, needs enhancing' : 'Probably skip'}</b> · ${SCN().toLowerCase()} ${SC(r)}${r.potential.rollsLeft ? ` (≈${SC15(r.potential.expected)} at +15)` : ''}
       <div>${r.best.filter((b) => b.delta > 0).map((b) => `${portrait(b.code)} ${esc(nameOf(b.code))} +${b.delta}`).join(' · ') || 'Not an upgrade for any hero right now.'}</div></div>`;
   });
 
@@ -779,9 +800,9 @@
     const row = (x, text) => `<button class="up-row" data-item="${esc(x.r.item.id)}">${iconBox(x.r.item)}<span><b>${esc(itemLabel(x.r.item))}</b><br><span class="hint">${text}</span></span></button>`;
     const col = (title, hint, list, fn) => `<div class="up-col"><h4>${title}</h4><p class="hint">${hint}</p>${list.length ? list.map((x) => row(x, fn(x))).join('') : '<p class="hint">Nothing right now.</p>'}</div>`;
     $('#up-out').innerHTML =
-      col('Enhance next', 'Below +15, most likely to end up good (1000s of simulated tries)', plan.enhance, (x) => `gear score ${x.r.wss} → usually <b>${x.out.low}–${x.out.high}</b> at +15 · ${Math.round(x.out.chanceKeep * 100)}% reach ${gs.rules.keepWss}+`) +
-      col('Reforge', '+15, level 85: what reforging (to level 90) adds', plan.reforge, (x) => `gear score ${x.r.wss} → <b>${x.r.reforgedWss}</b> (+${x.gain})${x.r.item.equipped ? ` · on ${esc(nameOf(x.r.item.equipped))}` : ''}`) +
-      col('Modify a substat', 'Items you keep: the weakest substat and a better one for it (an estimate with average rolls)', plan.modify, (x) => `${esc(STAT_NAME[x.sub.type] || x.sub.type)} ${esc(val(x.sub))} → <b>${esc(STAT_NAME[x.to.type] || x.to.type)} ~${esc(val(x.to))}</b> · gear score about +${x.gain}`);
+      col('Enhance next', 'Below +15, most likely to end up good (1000s of simulated tries)', plan.enhance, (x) => `${SCN().toLowerCase()} ${SC(x.r)} → usually <b>${SC15(x.out.low)}–${SC15(x.out.high)}</b> at +15 · ${Math.round(x.out.chanceKeep * 100)}% reach ${SC15(gs.rules.keepWss)}+`) +
+      col('Reforge', '+15, level 85: what reforging (to level 90) adds', plan.reforge, (x) => `${SCN().toLowerCase()} ${SC(x.r)} → <b>${SCref(x.r)}</b> (+${x.gain})${x.r.item.equipped ? ` · on ${esc(nameOf(x.r.item.equipped))}` : ''}`) +
+      col('Modify a substat', 'Items you keep: the weakest substat and a better one for it (an estimate with average rolls)', plan.modify, (x) => `${esc(STAT_NAME[x.sub.type] || x.sub.type)} ${esc(val(x.sub))} → <b>${esc(STAT_NAME[x.to.type] || x.to.type)} ~${esc(val(x.to))}</b> · ${SCN().toLowerCase()} about +${x.gain}`);
   }
   $('#up-box').addEventListener('toggle', renderUpgrades);
   $('#up-out').addEventListener('click', (e) => {

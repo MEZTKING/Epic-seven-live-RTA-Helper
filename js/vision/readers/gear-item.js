@@ -103,6 +103,7 @@
       const at = (k) => (L.alternatives(W, H, k).find((x) => x.anchor === lab.anchor) || L.alternatives(W, H, k)[0]).rect;
       return {
         label: at('gearScoreLabel'),
+        score: at('gearScore'),
         main: at('gearMain'),
         sub0: at('gearSub0'),
         sub1: at('gearSub1'),
@@ -146,9 +147,30 @@
       return null;
     }
   }
+  // items already read (DEVLOG #83): a small grey picture of the panel's stats with what was published for it
+  const seenPanels = [];
+  let current = null; // the panel on screen now, already read
+  function lookOf(ctx, r) {
+    const W = ctx.w();
+    const H = ctx.h();
+    cv.width = 48;
+    cv.height = 24;
+    cx.drawImage(ctx.source, r.x * W, r.y * H, r.w * W, r.h * H, 0, 0, 48, 24);
+    const d = cx.getImageData(0, 0, 48, 24).data;
+    const g = new Uint8Array(48 * 24);
+    for (let i = 0; i < g.length; i++) g[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
+    return g;
+  }
+  const lookDiff = (a, b) => {
+    if (!a || !b || a.length !== b.length) return 255;
+    let s = 0;
+    for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+    return s / a.length;
+  };
   let shown = false; // an item was published and its panel is still open
   function away(ctx) {
     gate.reset();
+    current = null;
     if (shown) ctx.publish('gear:gone', {});
     shown = false;
     return ctx.note("Not an item's details panel");
@@ -167,8 +189,23 @@
       else {
         b = builtIn(ctx);
         if (!b) return away(ctx);
-        const label = await read(b.label, 40);
-        if (!/equip|score|ment/i.test(label)) return away(ctx);
+        // read before (DEVLOG #83): the same panel picture as an item already read → no reading again
+        const look = lookOf(ctx, b.shot);
+        if (current && lookDiff(look, current.look) < 3) return ctx.note(`Item already read: ${current.payload.item.gear} · ${current.payload.item.main.type} ${current.payload.item.main.value}`);
+        const known = seenPanels.find((x) => lookDiff(look, x.look) < 3);
+        if (known) {
+          current = known;
+          shown = true;
+          lastPub = { item: known.payload.item, at: Date.now() };
+          ctx.publish('gear:item', { ...known.payload, rect: b.main });
+          return ctx.note(`Item read before: ${known.payload.item.gear} · ${known.payload.item.main.type} ${known.payload.item.main.value}`);
+        }
+        const scoreLine = await read(b.score, 40);
+        if (!/equip|score|ment/i.test(scoreLine)) return away(ctx);
+        // the game's own Equipment Score (the number after the words), DEVLOG #83
+        const sm = scoreLine.replace(/[oO]/g, '0').match(/(\d{1,3})\s*$/);
+        b.gameScore = sm && +sm[1] > 0 && +sm[1] < 200 ? +sm[1] : null;
+        b.look = look;
       }
       const main = await read(b.main);
       // your own boxes have no "Equipment Score" check: one line first, the rest only when it is a stat
@@ -207,6 +244,7 @@
       // the level is often under the lock icon: a +15 weapon / helmet's main stat tells it (js/geargrid.js)
       const byMain = window.E7GearGrid && window.E7GearGrid.levelFromMain(item.main, item.enhance);
       if (byMain) item.level = byMain;
+      if (b.gameScore) item.gameScore = b.gameScore;
       const key = P.itemKey(item);
       if (gate.push(key)) {
         shown = true;
@@ -219,7 +257,13 @@
           art = { fp: artFp(ctx, b.pic), name: window.E7GearArts.cleanName(nameText) };
           if (art.name) item.name = art.name;
         }
-        ctx.publish('gear:item', { item, key, problems, rect: b.main, pics, art });
+        const payload = { item, key, problems, rect: b.main, pics, art };
+        if (b.look) {
+          current = { look: b.look, payload };
+          seenPanels.unshift(current);
+          if (seenPanels.length > 300) seenPanels.pop();
+        }
+        ctx.publish('gear:item', payload);
       }
       ctx.note(`Item: ${item.rank} ${item.gear} +${item.enhance} · ${item.main.type} ${item.main.value} · ${item.substats.length} substats`);
     },

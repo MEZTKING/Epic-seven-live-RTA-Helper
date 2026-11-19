@@ -49,6 +49,7 @@
       rank: item.rank,
       level: item.level,
       enhance: item.enhance,
+      ...(item.gameScore ? { gameScore: item.gameScore } : {}), // the game's Equipment Score as read (DEVLOG #83)
       name: '',
       locked: false,
       main: item.main,

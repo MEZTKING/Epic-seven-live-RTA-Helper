@@ -106,22 +106,24 @@
   }
 
   /** One plain sentence: what to do with this item now. result = RTAGearSort.evaluate(...) (+ worn for screen items). */
-  function advice(r, { rules = S.DEFAULT_RULES, out = null, nameOf = (c) => c, worn = false } = {}) {
+  function advice(r, { rules = S.DEFAULT_RULES, out = null, nameOf = (c) => c, worn = false, show = null } = {}) {
+    // show (DEVLOG #83): the score the page shows: { label, now, after, at15(gear score at +15) }; default the gear score
+    const sh = show || { label: 'gear score', now: r.wss, after: r.reforgedWss, at15: (w) => w };
     const it = r.item;
     const ups = (r.best || []).filter((b) => b.delta > rules.upgradeMargin);
     const who = ups.length ? ups.slice(0, 2).map((b) => nameOf(b.code)).join(' or ') : '';
     if (it.equipped || worn) {
       return { action: 'Keep', tone: 'good', text: it.equipped ? `Keep it: ${nameOf(it.equipped)} wears it.${who && ups[0].code !== it.equipped ? ` It would suit ${who} even better.` : ''}` : 'Keep it: one of your heroes wears it.' };
     }
-    if (r.verdict === 'reforge') return { action: 'Reforge', tone: 'good', text: `Reforge it (level 85 → 90): gear score ${r.wss} → ${r.reforgedWss}.${who ? ` Then put it on ${who}.` : ''}` };
+    if (r.verdict === 'reforge') return { action: 'Reforge', tone: 'good', text: `Reforge it (level 85 → 90): ${sh.label} ${sh.now} → ${sh.after}.${who ? ` Then put it on ${who}.` : ''}` };
     if (r.verdict === 'keep') return { action: 'Keep', tone: 'good', text: who ? `Keep it and put it on ${who}.` : `Keep it: ${r.reason.charAt(0).toLowerCase() + r.reason.slice(1)}.` };
     if (r.verdict === 'enhance') {
       const next = [3, 6, 9, 12, 15].find((x) => x > (Number(it.enhance) || 0)) || 15;
-      const chance = out && out.runs ? ` About ${Math.round(out.chanceKeep * 100)}% of the time it ends at ${rules.keepWss}+ (after reforge).` : '';
+      const chance = out && out.runs ? ` About ${Math.round(out.chanceKeep * 100)}% of the time it ends at ${sh.at15(rules.keepWss)}+ (after reforge).` : '';
       const stop = next < 15 ? ` Enhance to +${next}, look at the new roll, then decide.` : ' Enhance it to +15.';
       return { action: 'Enhance', tone: 'maybe', text: `Worth a try.${stop}${chance}` };
     }
-    const why = out && out.runs ? ` Even the best quarter of the simulations ends around ${out.high} (keep from ${rules.keepWss}).` : '';
+    const why = out && out.runs ? ` Even the best quarter of the simulations ends around ${sh.at15(out.high)} (keep from ${sh.at15(rules.keepWss)}).` : '';
     if (r.verdict === 'extract') return { action: 'Extract', tone: 'bad', text: `Extract it (level 85+ gives materials).${why}` };
     return { action: 'Sell', tone: 'bad', text: `Sell it.${why}` };
   }

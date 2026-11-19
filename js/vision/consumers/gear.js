@@ -59,6 +59,14 @@
     }
     return ch;
   }
+  // the score shown (DEVLOG #83): the game's Equipment Score (read, else estimated) or the Fribbels gear score (rules)
+  const gameMode = (gs) => (gs.rules.scoreMode || 'game') !== 'wss';
+  const scoreNum = (it, r, gs) => (gameMode(gs) ? S.gameScore(it) : r.wss);
+  function scoreText(it, r, gs) {
+    const now = scoreNum(it, r, gs);
+    const after = r.reforgedWss !== r.wss ? now + (r.reforgedWss - r.wss) : null;
+    return `${gameMode(gs) ? 'score' : 'gear score'} ${now}${after !== null ? ` → ${after}` : ''}`;
+  }
   bus.on('gear:item', ({ item, key, problems, rect, pics, art }) => {
     const desc = `${item.gear} · ${String(item.set || '').replace(/Set$/, '') || '?'} · +${item.enhance} · ${item.main.type} ${item.main.value}`;
     const gs = GS.load();
@@ -66,7 +74,13 @@
     const dup = !slim;
     if (dup) slim = gs.scanned.find((x) => x.key === key); // read before: still show its verdict on the game
     const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank }, pics);
-    if (linkArt(slim, entry) && dup) {
+    // the game's score read now fills one an item read before didn't have (DEVLOG #83)
+    let scoreNew = false;
+    if (slim && item.gameScore && slim.gameScore !== item.gameScore) {
+      slim.gameScore = item.gameScore;
+      scoreNew = true;
+    }
+    if ((linkArt(slim, entry) || scoreNew) && dup) {
       try {
         GS.save(gs);
       } catch (_) { /* full */ }
@@ -95,7 +109,7 @@
       const whom = ups.length ? `Upgrade for ${ups.map((x) => `${nameOf(x.code)} (+${x.delta})`).join(', ')}` : res.best[0] ? `Fits ${nameOf(res.best[0].code)} best (not an upgrade)` : 'Import gear.txt on the Gear page to see whom it suits';
       // the item panel sits at the right edge: the card goes on its left (DEVLOG #74); a coloured dot per verdict
       const level = { keep: 'green', reforge: 'green', enhance: 'yellow', extract: 'red', sell: 'red' }[res.verdict] || 'grey';
-      window.E7Overlay.post('gear', [{ ...rect, kind: 'card', side: rect.x > 0.5 ? 'left' : 'right', level, title: `${res.verdict.toUpperCase()} · gear score ${res.wss}${res.reforgedWss !== res.wss ? ` → ${res.reforgedWss}` : ''}`, lines: /^Upgrade for a hero/.test(res.reason) ? [whom] : [res.reason, whom] }]);
+      window.E7Overlay.post('gear', [{ ...rect, kind: 'card', side: rect.x > 0.5 ? 'left' : 'right', level, title: `${res.verdict.toUpperCase()} · ${scoreText(slim, res, gs)}`, lines: /^Upgrade for a hero/.test(res.reason) ? [whom] : [res.reason, whom] }]);
     }
   });
   // the item panel closed: take the verdict off the game
@@ -116,6 +130,10 @@
       else slim = gs.scanned.find((x) => x.key === t.key);
       if (slim) mine.push({ t, slim });
       if (slim && t.art && linkArt(slim, learnArt(t.art, {}, t.pics))) changed = true;
+      if (slim && t.item.gameScore && slim.gameScore !== t.item.gameScore) {
+        slim.gameScore = t.item.gameScore;
+        changed = true;
+      }
       // a picture from the details panel (sharper, stats in words) is not replaced by a grid tile's
       if (slim && t.pics && window.E7GearPics) window.E7GearPics.get(slim.id).then((old) => (!old || old.from !== 'panel') && keepPics(slim, t.pics));
       // on a hero / locked, as the tile shows it now (the Gear page keeps worn items)
@@ -141,7 +159,7 @@
       const r = byId.get(slim.id);
       const verdict = t.worn ? 'worn' : r ? r.verdict : '?';
       counts[verdict] = (counts[verdict] || 0) + 1;
-      const title = t.worn ? 'WORN' : r ? `${SHORT[r.verdict] || r.verdict.toUpperCase()} ${r.wss}` : '?';
+      const title = t.worn ? 'WORN' : r ? `${SHORT[r.verdict] || r.verdict.toUpperCase()} ${scoreNum(slim, r, gs)}` : '?';
       return { ...t.rect, kind: 'label', side: 'below', level: t.worn ? 'grey' : r ? COLOR[r.verdict] || 'grey' : 'grey', title };
     });
     // tiles not read: a red mark with the reason; rows cut off at the bottom: "scroll" (DEVLOG #82)

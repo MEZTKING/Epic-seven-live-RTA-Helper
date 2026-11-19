@@ -225,6 +225,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
 | `localStorage['e7-gear-arts']` | `js/vision/consumers/gear.js` (learns), `js/vision/readers/gear-grid.js` (looks up), `js/gear-app.js` (gallery, renaming) | Gear designs `[{ id, fp, name, gear, rank, n, first, last, named }]` (#79); each design's picture is `art:<id>` in IndexedDB `e7-gear-pics`; screen items point to theirs with `item.art` |
 | IndexedDB `e7-gear-pics` (store `pics`) | `js/gearpics.js` (written by the gear consumer, read by `js/gear-app.js`) | The game's pictures of each screen-read item `{ id, icon, shot, from: 'panel'|'grid', at }` (#78); a panel picture is not replaced by a grid one |
+| `localStorage['e7-vision-speed']` | `js/vision-speed.js` (read by `js/vision/hub.js`) | Reading speed 'fast' / 'normal' / 'slow' (×0.5 / 1 / 2 of each reader's interval), #83 |
 | `localStorage['e7-gear-setbadges']` | `js/vision/readers/gear-grid.js` | Set badges learned on this PC `[{ set, fp }]` (≤ 6 per set), next to the built-in ones in `js/gear-setseed.js` |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Own item-panel boxes (fractions of the game area); optional since #74 (built-in positions otherwise) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
@@ -325,6 +326,10 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   picture (`art:<id>`), shown zoomed to the middle with the item's own level / enhance / set / hero on top; drawn art
   only when no design matches. "Item upgrades" (#80): `E7GearSim.upgradePlan` → enhance next / reforge / modify a
   substat, cached per evaluation; a row opens the item.
+  Score (#83): `RTAGearSort.gameScore` = the game's Equipment Score read from the screen (`item.gameScore`, panel and
+  Full tiles) else WSS + 26 × main share − 1; `rules.scoreMode` 'game' (default) / 'wss' picks what the page and overlay
+  show; rules stay in WSS (+25 shown in game mode). Readers keep a small picture per panel / tile already read and
+  reuse the result (no second reading).
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all

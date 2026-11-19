@@ -10,6 +10,7 @@
  *   reader finds each row by its white main-stat line)
  *   on the item picture: enhance badge (300, y-28, 58, 26), the level's 2nd digit (251, y-7, 15, 19), set badge
  *   (311, y+57, 44, 46), hero portrait (worn) centre (248, y+80) r 29, lock (222, y-32, 26, 26), picture (227, y-15, 120, 60),
+ *   the game's Equipment Score under the picture (236, y+110, 104, 30; clear of a hero portrait) (DEVLOG #83)
  *   pictures kept with each item (DEVLOG #78): the item (220, y-26, 136, 134), the whole tile (216, y-29, 256, 178)
  *   the selected tile's gold frame: its top edge, a 1-px line at y-28 over x 230..330 (0.9 gold on the owner's picture;
  *   its left edge at x 217 is no use: the frame of the tile before ends at x 471, where the next tile's left edge is)
@@ -37,7 +38,7 @@
   const GEO = {
     colX: 361, colStep: 254, iconW: 32, valueX: 393, valueW: 70, lineH: 28, rowStep: 191.3,
     badge: [300, -28, 58, 26], level2: [251, -7, 15, 19], set: [311, 57, 44, 46], portrait: [248, 80, 29],
-    lock: [222, -32, 26, 26], picture: [227, -15, 120, 60], frame: [230, -31, 100, 6], icon: [220, -26, 136, 136], tile: [216, -29, 256, 178],
+    lock: [222, -32, 26, 26], picture: [227, -15, 120, 60], frame: [230, -31, 100, 6], icon: [220, -26, 136, 136], tile: [216, -29, 256, 178], score: [236, 110, 104, 30],
   };
   const LINE_OFF = [0, 35.5, 66, 96, 127];
   const ICON_W = 16;

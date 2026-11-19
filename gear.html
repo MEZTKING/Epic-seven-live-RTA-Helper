@@ -27,9 +27,10 @@
       </div>
       <div class="card">
         <h3>Rules</h3>
-        <p class="hint">Rules of thumb. Gear score = the Fribbels/RexQian "WSS" (substats only).</p>
-        <label>Keep if gear score ≥ <input id="r-keep" type="number" min="0" max="120" /></label>
-        <label>Reforge if score after reforge ≥ <input id="r-reforge" type="number" min="0" max="120" /></label>
+        <label>Score <select id="r-score"><option value="game">Epic Seven's Equipment Score</option><option value="wss">Fribbels gear score (substats only)</option></select></label>
+        <p class="hint">Epic Seven's score is the number the game shows (read from the screen; estimated for gear.txt items). Rules of thumb below are in this score, for items at +15.</p>
+        <label>Keep if <span data-score-name>score</span> ≥ <input id="r-keep" type="number" min="0" max="200" /></label>
+        <label>Reforge if <span data-score-name>score</span> after reforge ≥ <input id="r-reforge" type="number" min="0" max="200" /></label>
         <label>Always keep with speed substat ≥ <input id="r-speed" type="number" min="0" max="40" /></label>
         <label>"Upgrade" means fit better by more than <input id="r-margin" type="number" min="0" max="30" /></label>
       </div>
@@ -46,6 +47,7 @@
       <div class="btn-row">
         <button id="gs-scan" class="btn primary">Start the game watcher</button>
         <label class="inline"><input id="gs-scan-use" type="checkbox" /> Use screen-read items</label>
+        <label class="inline">Reading speed <select data-vision-speed></select></label>
         <button id="gs-scan-clear" class="btn danger">Delete screen-read items</button>
       </div>
       <details class="hint"><summary>Items not read?</summary>
@@ -163,6 +165,7 @@
   <script src="js/geararts.js"></script>
   <script src="js/gearbuild.js"></script>
   <script src="js/gearstore.js"></script>
+  <script src="js/vision-speed.js"></script>
   <script src="js/gear-app.js"></script>
   <script src="js/frame.js"></script>
   <script src="js/game-area.js"></script>

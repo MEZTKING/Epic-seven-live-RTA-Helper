@@ -154,7 +154,53 @@
     return null;
   }
 
+  /** The selected tile's gold frame: one pixel high, so each row of the strip is looked at in full. */
+  function isSelected(src, f, col, y) {
+    const fr = part(f, col, y, G.GEO.frame);
+    const fw = Math.max(1, Math.round(fr.w));
+    const fh = Math.max(1, Math.round(fr.h));
+    const fd = grab(src, fr.x, fr.y, fw, fh, fw, fh);
+    for (let yy = 0; yy < fh; yy++) {
+      let n = 0;
+      for (let x = 0; x < fw; x++) {
+        const i = (yy * fw + x) * 4;
+        if (fd[i] > 180 && fd[i + 1] > 150 && fd[i] - fd[i + 2] > 40) n++;
+      }
+      if (n / fw > 0.6) return true;
+    }
+    return false;
+  }
+  // tiles already read (DEVLOG #83): a small grey picture of the whole tile with its result; the same tile again (after
+  // scrolling back, or the same screen) is not read again
+  const seenTiles = [];
+  function tileLook(src, f, col, y) {
+    const b = part(f, col, y, G.GEO.tile);
+    const d = grab(src, b.x, b.y, b.w, b.h, 40, 28);
+    const g = new Uint8Array(40 * 28);
+    for (let i = 0; i < g.length; i++) g[i] = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 3;
+    return g;
+  }
+  const lookDiff = (a, b) => {
+    let s = 0;
+    for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]);
+    return s / a.length;
+  };
   async function readTile(ctx, f, col, y, slotTab) {
+    const src = ctx.source;
+    const look = tileLook(src, f, col, y);
+    const known = seenTiles.find((x) => lookDiff(look, x.look) < 3);
+    if (known) {
+      const pic0 = part(f, col, y, G.GEO.picture);
+      return { ...known.result, rect: { x: pic0.x / ctx.w(), y: (y + 20 * f.k) / ctx.h(), w: 0, h: 0 }, selected: isSelected(src, f, col, y), again: true };
+    }
+    const fresh = await readTileFresh(ctx, f, col, y, slotTab);
+    if (fresh && fresh.item) {
+      seenTiles.unshift({ look, result: fresh });
+      if (seenTiles.length > 2000) seenTiles.pop();
+    }
+    return fresh;
+  }
+  async function readTileFresh(ctx, f, col, y, slotTab) {
     const src = ctx.source;
     const icons = G.LINE_OFF.map((o) => iconAt(src, f, col, y + o * f.k));
     if (!G.sureIcon(icons[0])) {
@@ -210,20 +256,7 @@
     }
     const lk = part(f, col, y, G.GEO.lock);
     const locked = share(grab(src, lk.x, lk.y, lk.w, lk.h, 10, 10), (r, g, b) => Math.min(r, g, b) > 180 && Math.max(r, g, b) - Math.min(r, g, b) < 30) > 0.15;
-    const fr = part(f, col, y, G.GEO.frame);
-    // the gold frame is one pixel high: look at each row of the strip at full size
-    const fw = Math.max(1, Math.round(fr.w));
-    const fh = Math.max(1, Math.round(fr.h));
-    const fd = grab(src, fr.x, fr.y, fw, fh, fw, fh);
-    let selected = false;
-    for (let yy = 0; yy < fh && !selected; yy++) {
-      let n = 0;
-      for (let x = 0; x < fw; x++) {
-        const i = (yy * fw + x) * 4;
-        if (fd[i] > 180 && fd[i + 1] > 150 && fd[i] - fd[i + 2] > 40) n++;
-      }
-      selected = n / fw > 0.6;
-    }
+    const selected = isSelected(src, f, col, y);
     const fp = badgeFp(src, f, col, y);
     // the design (js/geararts.js): known designs give the item's name and slot (also in the "all" tab), #79
     let art = null;
@@ -238,7 +271,11 @@
     const hit = G.badgeSet(badges(), fp);
     const gear = slotTab || (art && art.gear) || slotFromMain(main);
     if (!gear) return { problem: 'slot unknown: open its slot tab' };
-    const item = { gear, name: (art && art.name) || '', set: hit ? hit.set : '', rank, level: G.levelFrom(lv, main, enhance), enhance, main, substats: subs, source: 'screen' };
+    // the game's Equipment Score: the yellow number under the picture (DEVLOG #83)
+    const sb = part(f, col, y, G.GEO.score);
+    const st = String((await ctx.ocr(plainCanvas(src, sb, 2 / f.k), { line: true, chars: '0123456789' })) || '').replace(/\D/g, '');
+    const gameScore = st && +st > 0 && +st < 200 ? +st : null;
+    const item = { gear, name: (art && art.name) || '', set: hit ? hit.set : '', rank, level: G.levelFrom(lv, main, enhance), enhance, main, substats: subs, source: 'screen', ...(gameScore ? { gameScore } : {}) };
     const W = ctx.w();
     const H = ctx.h();
     const shot = (pp, width) => {
@@ -325,10 +362,11 @@
           sel.key = P.itemKey(sel.item);
         }
       }
-      for (const t of tiles) delete t.fp;
+      // (copies without the badge fingerprint: the cached results keep theirs for learning badges later)
+      const pub = tiles.map(({ fp, again, ...t }) => t);
       // published for every still screen (the marks on the game show what was read here)
       shown = true;
-      ctx.publish('gear:grid', { slot, tiles, status });
+      ctx.publish('gear:grid', { slot, tiles: pub, status });
       const failed = status.filter((x) => x.state === 'failed').length;
       const noSet = tiles.filter((t) => !t.item.set).length;
       const total = tiles.length + failed;
@@ -338,7 +376,8 @@
           (grid.partial.length ? ' · the bottom row is cut off: scroll down a little' : '') +
           (noSet ? ` · ${noSet} with a set badge not learned yet: click one of them once` : ''),
       );
-      ctx.note(`Inventory (Full): ${tiles.length} items${problems.length ? `, ${problems.length} not read` : ''}`);
+      const again = tiles.filter((t) => t.again).length;
+      ctx.note(`Inventory (Full): ${tiles.length} items${again ? ` (${again} read before, not read again)` : ''}${problems.length ? `, ${problems.length} not read` : ''}`);
     },
   });
   window.E7GearGridReader = { _key: KEY, _find: (ctx) => findGrid(ctx.source, ctx), _debug: () => debug, _badgeAt: (src, W, H, col, y) => badgeFp(src, frame({ w: () => W, h: () => H }, 'l'), col, y) };

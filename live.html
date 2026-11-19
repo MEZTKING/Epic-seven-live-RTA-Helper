@@ -26,6 +26,7 @@
         <b>Desktop app:</b> it runs by itself in the background after you pick the game window once.
         <b>Browser:</b> it runs on this page; keep this tab open.</p>
       <div class="btn-row"><button id="vw-start" class="btn primary">Start watching</button><button id="vw-stop" class="btn hidden">Stop</button><button class="btn" data-diag-copy title="Copies what the app sees and did, to paste to Claude">Copy report for Claude</button></div>
+      <label class="inline">Reading speed <select data-vision-speed></select></label>
       <p id="vw-status" class="hint"></p>
       <ul id="vw-readers" class="plain-list"></ul>
       <h4 style="margin:12px 0 6px">Recent events</h4>
@@ -138,6 +139,7 @@
   <script src="js/wide.js"></script>
   <script src="js/draftscreen.js"></script>
   <script src="js/sources/class-templates.js"></script>
+  <script src="js/vision-speed.js"></script>
   <script src="js/vision/hub.js"></script>
   <script src="js/arena.js"></script>
   <script src="js/artprint.js"></script>

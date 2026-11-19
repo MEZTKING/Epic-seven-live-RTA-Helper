@@ -301,8 +301,10 @@
     }
     const now = Date.now();
     const jobs = [];
+    // reading speed (DEVLOG #83): fast ×0.5, normal ×1, slow ×2 of each reader's own interval
+    const pace = window.E7VisionSpeed ? window.E7VisionSpeed.factor() : 1;
     for (const r of readers) {
-      if (r.busy || (!force && now - r.last < r.every) || !r.ready()) continue;
+      if (r.busy || (!force && now - r.last < r.every * pace) || !r.ready()) continue;
       const ctx = ctxFor(r);
       if (r.screen && SW && !SW.allowed(r.screen)) {
         if (r.idle) r.idle(ctx);
