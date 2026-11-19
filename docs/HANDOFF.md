@@ -174,6 +174,7 @@ only receive events.
   |---|---|---|
   | `gear-item.js` | `gear:item`, `gear:gone` | Item details panel, built-in positions (`gear*` in `js/layouts.js`, #74), recognised by the yellow "Equipment Score"; drawn boxes still win |
   | `gear-grid.js` | `gear:grid { slot, tiles }`, `gear:grid-gone` | The inventory in the **Full** display format: every tile at once (stat icons `js/geargrid.js`, numbers, enhance, level, worn / locked / selected, set badge learned from the details panel; #77) |
+  | `hero-gear.js` | `gear:hero { hero, stats, slots }`, `gear:hero-gone` | A hero's equipment screen: name, real stats, six item pictures (enhance, level, set, design); linked to known items by the consumer (#84) |
   | `guild-name.js` | `guild:name-read { text, rect, options?, pic?, lang? }` | A player's name on a defense / stronghold screen, in any writing (`js/vision/names.js`) |
   | `guild-defense.js` | `guild:defense` | The six hero icons of a player's two defense teams (faces, no calibration; 3 of 4 places per team, stronghold shift) |
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
@@ -330,6 +331,9 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   Full tiles) else WSS + 26 × main share − 1; `rules.scoreMode` 'game' (default) / 'wss' picks what the page and overlay
   show; rules stay in WSS (+25 shown in game mode). Readers keep a small picture per panel / tile already read and
   reuse the result (no second reading).
+  Hero screen (#84): the consumer links slots to known items (`item.wornBy`) and keeps `gs.heroSeen[code]` (real stats,
+  slots); the Gear page's `wearing(code)` uses it when newer than the gear.txt import; try-on / presets start from the
+  real stats + the estimated change.
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all

@@ -231,6 +231,7 @@
       ${simBlock(r)}
       ${tryOnBlock(r)}
       ${it.set && !screen ? `<div class="gd-set">${setBadge(it.set)} ${esc(setLabel(it.set))} Set ${SET_SIZE ? `<span class="hint">(${SET_SIZE} pieces)</span>` : ''}</div>` : ''}
+      ${it.wornBy && !it.equipped ? `<div class="gd-block">On <span class="clickable" data-hero="${esc(it.wornBy)}">${portrait(it.wornBy)} ${esc(nameOf(it.wornBy))}</span> <span class="hint">(seen on their equipment screen)</span></div>` : ''}
       ${it.equipped ? `<div class="gd-block">Equipped on <span class="clickable" data-hero="${esc(it.equipped)}">${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</span></div>` : ''}
       <div class="gd-block"><b>Best for</b>${best}</div>`;
   }
@@ -529,15 +530,43 @@
   };
   const itemsById = () => new Map([...gs.items, ...gs.scanned].map((x) => [x.id, x]));
   /** What a hero wears now (from gear.txt). */
-  const wearing = (code) => gs.items.filter((x) => x.equipped === code);
+  // what a hero wears now: the game's hero screen (DEVLOG #84) when it was seen after the gear.txt import, else gear.txt
+  const seenNow = (code) => {
+    const sn = gs.heroSeen && gs.heroSeen[code];
+    const imp = gs.importedAt ? Date.parse(gs.importedAt) : 0;
+    return sn && sn.at > imp ? sn : null;
+  };
+  const wearing = (code) => {
+    const sn = seenNow(code);
+    if (!sn) return gs.items.filter((x) => x.equipped === code);
+    const byId = itemsById();
+    return sn.slots.map((sl) => sl.itemId && byId.get(sl.itemId)).filter(Boolean);
+  };
+  /** The hero's real stats from the game (artifact, exclusive equipment … included), or null. */
+  const realStats = (code) => {
+    const sn = gs.heroSeen && gs.heroSeen[code];
+    return sn && sn.stats ? { atk: sn.stats.atk, hp: sn.stats.hp, def: sn.stats.def, spd: sn.stats.spd, chc: sn.stats.chc, chd: sn.stats.chd, eff: sn.stats.eff, efr: sn.stats.efr } : null;
+  };
+  /** Real stats as the start: real now, and real + (estimated change) for other items. */
+  function statsPair(code, nowItems, otherItems) {
+    const e0 = B.heroStats(BASE[code], nowItems);
+    const e1 = B.heroStats(BASE[code], otherItems);
+    const real = realStats(code);
+    if (!real || !e0 || !e1) return { a: e0, b: e1, real: false };
+    const b = { sets: e1.sets };
+    for (const k of B.KEYS) b[k] = Math.round((real[k] + e1[k] - e0[k]) * 10) / 10;
+    b.chc = Math.min(100, b.chc); // the game's caps
+    b.chd = Math.min(350, b.chd);
+    return { a: { ...real, sets: e0.sets }, b, real: true };
+  }
   const itemLabel = (it) => `${it.name && it.name.length > 2 ? it.name : `${setLabel(it.set) || '?'} ${it.gear}`} · ${STAT_NAME[it.main.type] || it.main.type} ${val(it.main)} · +${it.enhance}`;
   const STAT_ROWS = [['atk', 'Attack', ''], ['hp', 'Health', ''], ['def', 'Defense', ''], ['spd', 'Speed', ''], ['chc', 'Crit Chance', '%'], ['chd', 'Crit Damage', '%'], ['eff', 'Effectiveness', '%'], ['efr', 'Effect Resistance', '%']];
-  function cmpTable(a, b, labels = ['now', 'with it']) {
+  function cmpTable(a, b, labels = ['now', 'with it'], real = false) {
     if (!a || !b) return '<p class="hint">No base stats for this hero.</p>';
     return `<table class="cmp"><tr><td></td><td class="hint">${labels[0]}</td><td class="hint">${labels[1]}</td><td></td></tr>${STAT_ROWS.map(([k, n, u]) => {
       const d = b[k] - a[k];
       return `<tr><td>${n}</td><td>${a[k]}${u}</td><td><b>${b[k]}${u}</b></td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d ? `${d > 0 ? '+' : ''}${d}${u}` : '—'}</td></tr>`;
-    }).join('')}</table><div class="hint">Sets: ${b.sets.map((x) => `${setLabel(x.set)}${x.full > 1 ? ` ×${x.full}` : ''}`).join(' + ') || 'none complete'}${a.sets.map((x) => x.set + x.full).join() !== b.sets.map((x) => x.set + x.full).join() ? ` (now: ${a.sets.map((x) => setLabel(x.set)).join(' + ') || 'none'})` : ''} · without artifact and exclusive equipment</div>`;
+    }).join('')}</table><div class="hint">Sets: ${b.sets.map((x) => `${setLabel(x.set)}${x.full > 1 ? ` ×${x.full}` : ''}`).join(' + ') || 'none complete'}${a.sets.map((x) => x.set + x.full).join() !== b.sets.map((x) => x.set + x.full).join() ? ` (now: ${a.sets.map((x) => setLabel(x.set)).join(' + ') || 'none'})` : ''} · ${real ? "from the hero's real stats (seen in the game) + the change the items make" : 'without artifact and exclusive equipment'}</div>`;
   }
   const profileOf = (code) => evald.profiles.find((p) => p.code === code) || S.heroProfile(code, (byCode.get(code) || {}).role, wearing(code), gs.overrides[code]);
   /** The best spare item (worn by nobody) of this slot for a hero. */
@@ -554,24 +583,29 @@
     const heroes = evald.profiles.map((p) => p.code);
     if (!tryHero && r.best[0]) tryHero = r.best[0].code;
     const code = tryHero;
-    const head = `<div class="gd-block tryon"><b>Try it on a hero</b><div class="btn-row"><input data-try="hero" list="gs-allheroes" placeholder="Hero" value="${esc(code ? nameOf(code) : '')}" autocomplete="off" />${heroes.length ? '' : '<span class="hint">import gear.txt to know what your heroes wear now</span>'}</div>`;
+    const head = `<div class="gd-block tryon"><b>Try it on a hero</b><div class="btn-row"><input data-try="hero" list="gs-allheroes" placeholder="Hero" value="${esc(code ? nameOf(code) : '')}" autocomplete="off" />${heroes.length || Object.keys(gs.heroSeen || {}).length ? '' : '<span class="hint">import gear.txt, or open a hero\'s equipment screen in the game, to know what your heroes wear now</span>'}</div>`;
     if (!code || !BASE[code]) return head + (code ? '<p class="hint">No base stats for this hero.</p>' : '') + '</div>';
     if (it.equipped === code) return head + `<p class="hint">${esc(nameOf(code))} already wears it.</p></div>`;
     const now = wearing(code);
-    const a = B.heroStats(BASE[code], now);
-    const b = B.heroStats(BASE[code], B.withItem(now, it));
+    const pr = statsPair(code, now, B.withItem(now, it));
+    // the game showed an item in this slot that the app doesn't know: the change counts the slot as empty (DEVLOG #84)
+    const sn = seenNow(code);
+    const unknownSlot = sn && sn.slots.some((sl) => sl.gear === it.gear && !sl.itemId);
+    const a = pr.a;
+    const b = pr.b;
     let loser = '';
     let rep = null;
     if (it.equipped && BASE[it.equipped]) {
       const theirs = wearing(it.equipped);
-      const la = B.heroStats(BASE[it.equipped], theirs);
-      const lb = B.heroStats(BASE[it.equipped], theirs.filter((x) => x.id !== it.id));
+      const lp = statsPair(it.equipped, theirs, theirs.filter((x) => x.id !== it.id));
+      const la = lp.a;
+      const lb = lp.b;
       rep = bestSpare(it.equipped, it.gear, it.id);
-      const lc = rep ? B.heroStats(BASE[it.equipped], B.withItem(theirs, rep.x)) : null;
+      const lc = rep ? statsPair(it.equipped, theirs, B.withItem(theirs, rep.x)).b : null;
       loser = `<div class="loses"><b>${esc(nameOf(it.equipped))}</b> would lose it: speed ${la.spd} → ${lb.spd}, attack ${la.atk} → ${lb.atk}, health ${la.hp} → ${lb.hp}.${rep ? ` Best spare ${esc(it.gear.toLowerCase())} for them: <b>${esc(itemLabel(rep.x))}</b> (speed ${lc.spd}, attack ${lc.atk}).` : ''}</div>`;
     } else if (it.worn) loser = '<div class="loses">One of your heroes wears it now (the screen doesn\'t say who): they would lose it.</div>';
     const planned = gs.moves.some((m) => m.item === it.id && m.to === code && !m.done);
-    return `${head}${cmpTable(a, b)}${loser}<div class="btn-row">${planned ? '<span class="hint">✓ planned (see "Moves to make in the game")</span>' : `<button class="btn primary" data-act="plan">Plan this move</button>${rep ? '<button class="btn" data-act="plan2">Plan both moves</button>' : ''}`}</div></div>`;
+    return `${head}${cmpTable(a, b, ['now', 'with it'], pr.real)}${unknownSlot ? `<div class="loses warn">The ${esc(it.gear.toLowerCase())} ${esc(nameOf(code))} wears now is not known to the app yet (open it once in the inventory): the change above counts that slot as empty, so it is too high.</div>` : ''}${loser}<div class="btn-row">${planned ? '<span class="hint">✓ planned (see "Moves to make in the game")</span>' : `<button class="btn primary" data-act="plan">Plan this move</button>${rep ? '<button class="btn" data-act="plan2">Plan both moves</button>' : ''}`}</div></div>`;
   }
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   function planMove(itemId, from, to) {
@@ -643,7 +677,7 @@
     }
     const mine = gs.presets.filter((p) => p.hero === code);
     if (psTab !== 'now' && !mine.some((p) => p.id === psTab)) psTab = 'now';
-    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">Now (gear.txt)</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button></div>`;
+    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">${seenNow(code) ? 'Now (seen in the game)' : 'Now (gear.txt)'}</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button></div>`;
     const now = wearing(code);
     const base = BASE[code];
     const sNow = B.heroStats(base, now);
@@ -652,7 +686,7 @@
       box.innerHTML = `${tabs}<div class="ps-slots">${B.SLOTS.map((g) => {
         const it = now.find((x) => x.gear === g);
         return `<div class="ps-slot">${it ? iconBox(it) : '<div class="gt-icon ps-empty"></div>'}<div class="hint">${esc(g)}</div>${it ? `<div class="small">${esc(itemLabel(it))}</div>` : ''}</div>`;
-      }).join('')}</div>${sNow ? statLine(sNow) : '<p class="hint">No base stats for this hero.</p>'}${now.length ? '' : '<p class="hint">Nothing from gear.txt for this hero (import gear.txt to see what they wear).</p>'}`;
+      }).join('')}</div>${realStats(code) ? `${statLine(realStats(code))}<p class="hint">The hero's real stats, as the game showed them ${esc(new Date(gs.heroSeen[code].at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}.</p>` : sNow ? statLine(sNow) : '<p class="hint">No base stats for this hero.</p>'}${seenNow(code) && now.length < seenNow(code).slots.length ? `<p class="hint">${seenNow(code).slots.length - now.length} of the items on this hero are not known to the app yet: open them once in the inventory (or read the inventory in the Full format).</p>` : ''}${now.length ? '' : '<p class="hint">Nothing known for this hero yet: open their equipment screen in the game, or import gear.txt.</p>'}`;
       return;
     }
     const p = mine.find((x) => x.id === psTab);
@@ -675,7 +709,7 @@
       const it = p.items[g] && byId.get(p.items[g]);
       return `<div class="ps-slot${clash.length && it && B.conflicts(gs.presets, p).some((c) => c.item === it.id) ? ' warn' : ''}">${it ? iconBox(it) : '<div class="gt-icon ps-empty"></div>'}<div class="hint">${esc(g)}</div>${slotSel(g)}</div>`;
     }).join('')}</div>
-      ${sNow && sP ? cmpTable(sNow, sP, ['now', 'this preset']) : sP ? statLine(sP) : '<p class="hint">No base stats for this hero.</p>'}
+      ${(() => { const pp = statsPair(code, now, items); return pp.a && pp.b ? cmpTable(pp.a, pp.b, ['now', 'this preset'], pp.real) : sP ? statLine(sP) : '<p class="hint">No base stats for this hero.</p>'; })()}
       ${clash.length || worn.length ? `<div class="loses warn">${[...clash, ...worn].join('<br>')}</div>` : ''}
       <div class="btn-row"><button class="btn primary" data-ps-act="moves">Show the moves to wear this preset</button><button class="btn" data-ps-act="fill">Fill empty slots with the best items</button><button class="btn" data-ps-act="copy">Copy what they wear now</button><button class="btn" data-ps-act="rename">Rename</button><button class="btn danger" data-ps-act="delete">Delete</button></div>`;
   }
