@@ -38,12 +38,30 @@
   }
   // ---- pictures of items as the game showed them (IndexedDB 'e7-gear-pics', js/gearpics.js; DEVLOG #78)
   let pics = new Map();
+  // designs by name + slot (DEVLOG #80): a gear.txt item (it has its name) gets the picture of the design the game
+  // watcher learned with that name
+  let designByName = new Map();
+  const nameKey = (name, gear) => `${String(name || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}|${gear || ''}`;
+  function indexDesigns() {
+    let arts = [];
+    try {
+      arts = JSON.parse(localStorage.getItem('e7-gear-arts') || '[]') || [];
+    } catch (_) { /* none */ }
+    designByName = new Map(arts.filter((a) => a.name && a.name.length > 2).map((a) => [nameKey(a.name, a.gear), a.id]));
+  }
   function loadPics() {
     if (!window.E7GearPics) return;
+    indexDesigns();
     window.E7GearPics.all().then((all) => {
       pics = new Map(all.map((x) => [x.id, x]));
       render();
     });
+  }
+  /** The design picture for an item without its own: its design (screen items) or a design of the same name and slot. */
+  function designPic(it) {
+    const id = it.art || (it.name && it.name.length > 2 ? designByName.get(nameKey(it.name, it.gear)) : null);
+    const p = id ? pics.get('art:' + id) : null;
+    return p && p.icon ? p : null;
   }
   /** gear.txt items + screen-read items (kept as separate sources; screen items aren't linked to a hero). */
   const allItems = () => GS.allItems(gs);
@@ -109,6 +127,10 @@
   function iconBox(it) {
     const pic = pics.get(it.id);
     if (pic && pic.icon) return `<div class="gt-icon gt-pic" title="As the game showed it"><img alt="" src="${pic.icon}" /></div>`;
+    // the game's picture of this design, only its middle (the corners hold another copy's badges), with this item's
+    // own level, enhance, set and hero on top
+    const dp = designPic(it);
+    if (dp) return `<div class="gt-icon gt-pic gt-design ${rankCls(it.rank)}" title="The game's picture of this design"><img alt="" src="${dp.icon}" />${it.locked ? '<span class="gt-lock" title="Locked">🔒</span>' : ''}<span class="gt-lv">${it.level || ''}</span>${it.enhance ? `<span class="gt-enh">+${it.enhance}</span>` : ''}${it.equipped ? `<span class="gt-hero" title="On ${esc(nameOf(it.equipped))}">${portrait(it.equipped)}</span>` : ''}${it.set ? setBadge(it.set) : ''}</div>`;
     return `<div class="gt-icon ${rankCls(it.rank)}">${it.locked ? '<span class="gt-lock" title="Locked">🔒</span>' : ''}<span class="gt-lv">${it.level || ''}</span>${slotArt(it.gear)}${it.enhance ? `<span class="gt-enh">+${it.enhance}</span>` : ''}${it.equipped ? `<span class="gt-hero" title="On ${esc(nameOf(it.equipped))}">${portrait(it.equipped)}</span>` : ''}${it.set ? setBadge(it.set) : ''}</div>`;
   }
   function tile(r) {
@@ -367,6 +389,7 @@
     renderMoves();
     renderPresets();
     renderDesigns();
+    renderUpgrades();
   }
   $('#gs-summary').addEventListener('click', (e) => {
     const b = e.target.closest('[data-v]');
@@ -741,9 +764,36 @@
     } catch (_) { /* full */ }
     // the items of this design take the name (unless you typed one for the item itself)
     for (const it of gs.scanned) if (it.art === id && !it.nameTyped) it.name = a.name;
+    indexDesigns();
     save();
     recompute();
     render();
+  });
+  // ---- item upgrades: a separate part (DEVLOG #80) ---------------------------------------------------------------
+  let upCache = { ev: null, plan: null };
+  function renderUpgrades() {
+    if (!$('#up-box').open || !SIM) return;
+    // (simulations: once per evaluation, not on every redraw)
+    if (upCache.ev !== evald) upCache = { ev: evald, plan: SIM.upgradePlan(evald.results, { rules: gs.rules }) };
+    const plan = upCache.plan;
+    const row = (x, text) => `<button class="up-row" data-item="${esc(x.r.item.id)}">${iconBox(x.r.item)}<span><b>${esc(itemLabel(x.r.item))}</b><br><span class="hint">${text}</span></span></button>`;
+    const col = (title, hint, list, fn) => `<div class="up-col"><h4>${title}</h4><p class="hint">${hint}</p>${list.length ? list.map((x) => row(x, fn(x))).join('') : '<p class="hint">Nothing right now.</p>'}</div>`;
+    $('#up-out').innerHTML =
+      col('Enhance next', 'Below +15, most likely to end up good (1000s of simulated tries)', plan.enhance, (x) => `gear score ${x.r.wss} → usually <b>${x.out.low}–${x.out.high}</b> at +15 · ${Math.round(x.out.chanceKeep * 100)}% reach ${gs.rules.keepWss}+`) +
+      col('Reforge', '+15, level 85: what reforging (to level 90) adds', plan.reforge, (x) => `gear score ${x.r.wss} → <b>${x.r.reforgedWss}</b> (+${x.gain})${x.r.item.equipped ? ` · on ${esc(nameOf(x.r.item.equipped))}` : ''}`) +
+      col('Modify a substat', 'Items you keep: the weakest substat and a better one for it (an estimate with average rolls)', plan.modify, (x) => `${esc(STAT_NAME[x.sub.type] || x.sub.type)} ${esc(val(x.sub))} → <b>${esc(STAT_NAME[x.to.type] || x.to.type)} ~${esc(val(x.to))}</b> · gear score about +${x.gain}`);
+  }
+  $('#up-box').addEventListener('toggle', renderUpgrades);
+  $('#up-out').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-item]');
+    if (!t) return;
+    selected = t.dataset.item;
+    simSeed = 1;
+    // make sure the item is in the list: clear the filters that would hide it
+    for (const sel of ['#f-verdict', '#f-gear', '#f-set', '#f-eq', '#f-hero']) $(sel).value = '';
+    $('#f-view').value = 'cards';
+    render();
+    $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   $('#gs-allheroes').innerHTML = HEROES.filter((h) => BASE[h.code]).map((h) => `<option value="${esc(h.name)}"></option>`).join('');
 

@@ -61,3 +61,19 @@ test('what to do: one plain sentence per verdict', () => {
   assert.match(M.advice(r('extract'), { worn: true }).text, /wears it/);
   assert.equal(M.advice(r('extract'), { worn: true }).action, 'Keep');
 });
+
+test('item upgrades: enhance, reforge and modify lists (DEVLOG #80)', () => {
+  const mk = (id, enhance, subs, extra = {}) => ({ id, gear: 'Weapon', rank: 'Epic', level: 85, enhance, main: { type: 'Attack', value: 500 }, subs, ...extra });
+  const good = mk('g', 6, [{ type: 'AttackPercent', value: 6 }, { type: 'Speed', value: 4 }, { type: 'EffectResistancePercent', value: 16 }, { type: 'CriticalHitDamagePercent', value: 13 }]);
+  const plus15 = mk('p', 15, [{ type: 'Speed', value: 17 }, { type: 'CriticalHitChancePercent', value: 15 }, { type: 'CriticalHitDamagePercent', value: 20 }, { type: 'Health', value: 340 }]);
+  const ev = S.evaluateAll([good, plus15], [], {}, S.DEFAULT_RULES);
+  const p = M.upgradePlan(ev.results, { runs: 200 });
+  assert.deepEqual(p.enhance.map((x) => x.r.item.id), ['g']);
+  assert.ok(p.enhance[0].gain > 0);
+  assert.deepEqual(p.reforge.map((x) => x.r.item.id), ['p']);
+  assert.ok(p.reforge[0].gain > 0);
+  // the weakest substat of the +15 item is flat health 340 (two rolls, worth 6); a weapon never gets defense
+  assert.equal(p.modify[0].sub.type, 'Health');
+  assert.ok(!/Defense/.test(p.modify[0].to.type));
+  assert.ok(p.modify[0].gain >= 4);
+});

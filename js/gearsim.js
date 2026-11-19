@@ -15,6 +15,7 @@
  *   outcomes(item, { runs, rng, keep })    -> { runs, worst, low, mid, high, best, chanceKeep, reforged: {low, mid, high},
  *                                              speedChance }   (low / mid / high = 25th / 50th / 75th percentile)
  *   advice(result, { rules, out, nameOf }) -> { action, text, tone }   one plain sentence on what to do
+ *   upgradePlan(results, { rules, runs })  -> { enhance, reforge, modify }  what to upgrade next (DEVLOG #80)
  */
 (function (root) {
   'use strict';
@@ -125,7 +126,44 @@
     return { action: 'Sell', tone: 'bad', text: `Sell it.${why}` };
   }
 
-  const api = { ROLL, STEPS, rngFrom, simulate, outcomes, advice };
+  /**
+   * Item upgrades (DEVLOG #80): what is worth doing next across your gear. results = RTAGearSort.evaluate(...) list.
+   *   enhance: items below +15 worth enhancing, by the usual gain (median of the simulations) → { r, out, gain }
+   *   reforge: +15 level-85 items, by the gear score reforging adds → { r, gain }
+   *   modify:  +15 items you keep, their weakest substat and the best other substat for it, with as many rolls
+   *            (an estimate: average rolls; the game's modification gems give their own ranges) → { r, sub, to, gain }
+   */
+  const AVG = { AttackPercent: 6, HealthPercent: 6, DefensePercent: 6, EffectivenessPercent: 6, EffectResistancePercent: 6, CriticalHitChancePercent: 4, CriticalHitDamagePercent: 5.5, Speed: 3, Attack: 39, Health: 174, Defense: 31 };
+  function upgradePlan(results, { rules = S.DEFAULT_RULES, runs = 300, rng = rngFrom(4242), limit = 12 } = {}) {
+    const enhance = [];
+    const reforge = [];
+    const modify = [];
+    for (const r of results || []) {
+      const it = r.item;
+      const enh = Number(it.enhance) || 0;
+      if (enh < 15 && (r.verdict === 'enhance' || r.verdict === 'keep')) {
+        const out = outcomes(it, { runs, rng, keep: rules.keepWss });
+        enhance.push({ r, out, gain: out.mid - r.wss });
+      }
+      if (enh >= 15 && r.reforgedWss > r.wss && (r.verdict === 'reforge' || r.verdict === 'keep' || it.equipped || it.worn)) reforge.push({ r, gain: r.reforgedWss - r.wss });
+      if (enh >= 15 && (r.verdict === 'keep' || r.verdict === 'reforge' || it.equipped || it.worn) && (it.subs || []).length === 4) {
+        const contrib = (s) => (Number(s.value) || 0) * (S.WSS_WEIGHT[s.type] || 0);
+        const weakest = it.subs.slice().sort((a, b) => contrib(a) - contrib(b))[0];
+        const rolls = S.rollsOf(weakest);
+        const have = new Set([it.main && it.main.type, ...it.subs.map((s) => s.type)]);
+        const options = Object.keys(AVG)
+          .filter((t) => !have.has(t) && !(NO_SUB[it.gear] || []).includes(t))
+          .map((t) => ({ t, v: Math.round(AVG[t] * rolls), w: AVG[t] * rolls * (S.WSS_WEIGHT[t] || 0) }))
+          .sort((a, b) => b.w - a.w);
+        const best = options[0];
+        if (best && best.w - contrib(weakest) >= 4) modify.push({ r, sub: weakest, to: { type: best.t, value: best.v }, gain: Math.round(best.w - contrib(weakest)) });
+      }
+    }
+    const by = (k) => (a, b) => b[k] - a[k];
+    return { enhance: enhance.sort((a, b) => b.out.chanceKeep - a.out.chanceKeep || b.gain - a.gain).slice(0, limit), reforge: reforge.sort(by('gain')).slice(0, limit), modify: modify.sort(by('gain')).slice(0, limit) };
+  }
+
+  const api = { ROLL, STEPS, rngFrom, simulate, outcomes, advice, upgradePlan };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GearSim = api;
 })(typeof self !== 'undefined' ? self : this);

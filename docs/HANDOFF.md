@@ -315,6 +315,10 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   formula with the bundled base stats (no artifact / EE); "Try it on a hero" in the item details; `gs.moves` (a to-do
   list, the app never changes the game) and `gs.presets` in the gear store (`GearStore.load` keeps them, so the
   watcher's saves don't drop them).
+  Pictures for gear.txt items (#80): a design with the same name and slot (`designByName` in `js/gear-app.js`) gives its
+  picture (`art:<id>`), shown zoomed to the middle with the item's own level / enhance / set / hero on top; drawn art
+  only when no design matches. "Item upgrades" (#80): `E7GearSim.upgradePlan` → enhance next / reforge / modify a
+  substat, cached per evaluation; a row opens the item.
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all
