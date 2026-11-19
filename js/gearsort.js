@@ -195,7 +195,38 @@
     return Math.round(v * 10) / 10;
   }
 
-  const DEFAULT_RULES = { keepWss: 60, reforgeWss: 60, speedKeep: 12, upgradeMargin: 3 };
+  // scoreMode (DEVLOG #83): which gear score the app shows: 'game' = Epic Seven's own Equipment Score (default), 'wss' =
+  // the Fribbels / RexQian gear score. The rules stay in gear score (WSS) inside; the Gear page shows them in the chosen one.
+  const DEFAULT_RULES = { keepWss: 60, reforgeWss: 60, speedKeep: 12, upgradeMargin: 3, scoreMode: 'game' };
+
+  /*
+   * Epic Seven's Equipment Score (DEVLOG #83). Not published by the game; worked out from 41 of the owner's items whose
+   * score the game shows (two Full screens + nine item panels): the substats' gear score (WSS, above) + the main stat
+   * weighed by how far it has grown: 26 × (main ÷ its value at +15) − 1. All 41 within 1.3 of the game's number.
+   * When the game's number was read from the screen (item.gameScore), that one is used.
+   */
+  const MAIN_AT_15 = { Attack: { 85: 500, 88: 515, 90: 525 }, Health: { 85: 2700, 88: 2765, 90: 2835 }, Defense: { 85: 300, 88: 310, 90: 315 }, Speed: { 85: 45, 88: 46, 90: 47 } };
+  const PCT_AT_15 = { 85: 60, 88: 62, 90: 65 };
+  function mainShare(item) {
+    const m = item && item.main;
+    if (!m) return 0;
+    const lv = [85, 88, 90].includes(Number(item.level)) ? Number(item.level) : 85;
+    const top = (MAIN_AT_15[m.type] || {})[lv] || PCT_AT_15[lv];
+    return top ? Math.min(1, num(m.value) / top) : 0;
+  }
+  const GAME_MAIN = 26;
+  /** The game's Equipment Score of an item: the number read from the screen, else the estimate. */
+  function gameScore(item) {
+    if (item && Number(item.gameScore) > 0) return Number(item.gameScore);
+    return Math.max(0, Math.round(wssExact(item && item.subs) + GAME_MAIN * mainShare(item) - 1));
+  }
+  /** A gear score (WSS) at +15 as the game would show it (the main stat at its +15 value). */
+  const gameAt15 = (w) => Math.round(w + GAME_MAIN - 1);
+  function wssExact(subs) {
+    let v = 0;
+    for (const s of subs || []) v += num(s.value) * (WSS_WEIGHT[s.type] || 0);
+    return v;
+  }
 
   /**
    * Evaluate one item against all hero profiles.
@@ -267,7 +298,7 @@
     return { profiles, results: items.map((it) => evaluate(it, profiles, byHero, rules)) };
   }
 
-  const api = { STATS, WSS_WEIGHT, REFORGE, MAX_ROLLS_15, DEFAULT_RULES, ROLE_DEFAULT, rollsOf, isReforgeable, reforgedSubs, wss, rollsLeft, slimInventory, heroProfile, fit, evaluate, evaluateAll };
+  const api = { STATS, WSS_WEIGHT, REFORGE, MAX_ROLLS_15, DEFAULT_RULES, MAIN_AT_15, mainShare, gameScore, gameAt15, ROLE_DEFAULT, rollsOf, isReforgeable, reforgedSubs, wss, rollsLeft, slimInventory, heroProfile, fit, evaluate, evaluateAll };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAGearSort = api;
 })(typeof window !== 'undefined' ? window : globalThis);

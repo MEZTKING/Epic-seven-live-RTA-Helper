@@ -7,6 +7,52 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #83 · Gear: Epic Seven's own score by default, items read before not read again, a reading-speed option · this commit (previous: `0ca844c`)
+
+**Asked for:** "add an option which is defaulting gear score to what Epic Seven uses"; "if something is already read
+it shouldn't read it again"; "can we increase screen reading times … or make it an option".
+
+**Research / findings**
+- The game's "Equipment Score" is not published. From 41 of the owner's items whose score the game shows (the 32
+  tiles of two Full screens, the score under each picture, read by eye, plus nine item panels) with their stats:
+  game score = the Fribbels gear score of the substats (WSS) + the main stat weighed by how far it has grown,
+  26 × (main ÷ its value at +15) − 1. All 41 within 1.3 (a +0 item's main stat adds ~4, a +15 one's ~25). The +15
+  main values: attack 500 / 515 / 525, health 2700 / 2765 / 2835, defense 300 / 310 / 315 at level 85 / 88 / 90;
+  % stats 60, speed 45 at 85 (88 / 90 for those: assumed, not seen).
+- Where the game shows its number (the item panel's "Equipment Score", under every Full-format tile) it can simply
+  be read; a hero portrait's lower edge reaches into the tile's number: the box starts 110 px under the main line.
+- A Full screen took ~4 s to read; most of it the text reader. The same tiles again (scrolling back) need nothing new.
+
+**Changed**
+- `js/gearsort.js`: `gameScore(item)` (the number read from the screen, else the estimate), `gameAt15`, `mainShare`,
+  rule `scoreMode` 'game' (default) / 'wss'.
+- Readers: the item panel reads the game's score from its score line, the Full grid the number under each tile
+  (`item.gameScore`, kept by the gear store, filled in for items read before). Items read before are not read
+  again: the panel and each tile keep a small grey picture with their result; the same picture again gives the result
+  at once (the panel's card still shows; a scrolled-back screen took 449 ms instead of ~4 s in the test).
+- Gear page: "Score" in Rules: "Epic Seven's Equipment Score" (default) or "Fribbels gear score"; every score shown
+  (cards, details, table, sorting, simulator ranges at +15, upgrades, advice, hero totals) follows it; "(estimated)"
+  when the game's number was never read; the keep / reforge lines are shown in the chosen score (game: +25, the main
+  stat at +15) and kept in gear score inside. The overlay's cards and tile labels follow it too.
+- Reading speed: "Fast (reads twice as often)", "Normal", "Slow (lighter on the PC)" on the Live page and the Gear page
+  (`js/vision-speed.js`, `localStorage['e7-vision-speed']`); the watcher applies it at once (each reader's interval
+  × 0.5 / 1 / 2).
+
+**Tested**
+- `npm test` 204 (new `tests/gamescore.test.js`: the nine panels within 1 of the game's number).
+- New `tests/e2e/gear-score.e2e.js`: the game's score read on 16/16 + 16/16 tiles and in the panels (55, 14); the
+  first screen again after the second: 449 ms, nothing read again; the Bow of Agony panel again: published from what was
+  read before; the Gear page: "55" and keep 85 by default, "45" and keep 60 with the Fribbels score; gear.txt items get
+  estimates; the reading speed saved (×0.5).
+- Browser suite 51/51 clean. Differences, all from the new default (the game's score): scores shown 55 instead of 45
+  for the +6 Bow of Agony, keep line 85, the sorted lists start with other items (sorted by the game's score), the
+  shop check "score 48", tile labels "ENHANCE 55" …; repeat panels say "Item already read". After a number is fixed the
+  game's score stays (55): it is the game's own number. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check clean.
+- **Not tested:** on the owner's PC; the estimate on levels 88 / 90 for % and speed main stats (not seen).
+
+---
+
 ## 2026-11-19 · #82 · Inventory (Full): a mark on every tile (read / not read and why / scroll), and a missed row read · this commit (previous: `16d44d5`)
 
 **Asked for:** "when reading inventory it should show which ones it's reading so I can scroll to the appropriate
