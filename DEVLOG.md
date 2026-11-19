@@ -7,6 +7,43 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #80 · Gear: real pictures for gear.txt items too, and a separate "Item upgrades" part · this commit (previous: `f4e3589`)
+
+**Asked for:** whether the drawn art stays or is replaced by real images; the proposal (gear.txt items get the
+picture of the design with their name) was accepted: "Heh build that", plus "add the item upgrade as a separate part
+as well".
+
+**Findings**
+- gear.txt keeps every item's name (the Fribbels / RexQian export has `name`; the test file has dummy names), so an
+  item can be matched to a design the game watcher learned with that name (#79), per slot.
+- A design's stored picture carries the badges of the copy it was taken from ("+6"): only its middle may be shown.
+
+**Changed**
+- `js/gear-app.js` + `css/styles.css`: an item without its own picture gets its design's picture (its own design for
+  screen items, else a design of the same name and slot), zoomed to the middle (1.55×), with the item's own level,
+  enhance, lock, set and hero on top. The drawn art stays only when no design matches; renaming a design updates it.
+- `js/gearsim.js` `upgradePlan`: across your gear, "Enhance next" (items below +15 by their chance to reach your keep
+  line, then the usual gain; 300 simulated tries each), "Reforge" (+15 level 85, by the gear score reforging adds),
+  "Modify a substat" (+15 items you keep: the weakest substat and the best other substat for it with as many average
+  rolls, only when it adds 4+ gear score; a weapon never gets defense, an armor never attack; an estimate).
+- `gear.html`: a separate "Item upgrades" card with the three lists; a row opens the item (filters cleared) with its
+  simulator. Computed once per evaluation, not on every redraw.
+
+**Tested**
+- `npm test` 201 (`upgradePlan` added to `tests/gearsim.test.js`).
+- New `tests/e2e/gear-upgrades.e2e.js`: after the watcher read the owner's pictures, gear.txt items named "Bow of
+  Agony" (weapon) and "Ring of Agony" (ring) show the design's picture with their own "+15"; a helmet named "Bow of
+  Agony" keeps the drawn art (another slot); "Item upgrades" lists 12 / 12 / 12 (first: the +6 Bow of Agony, "gear
+  score 45 → usually 61–65 at +15"); a click opens that item with the simulator.
+- Browser suite 50/50 clean, nothing else changed. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check clean.
+- **Not tested:** a real gear.txt from the owner (names in it), on the owner's PC.
+
+**Open / unverified**
+- Modification estimates use average rolls; the game's modification gems have their own value ranges.
+
+---
+
 ## 2026-11-19 · #79 · Gear: designs learned and recognised, moving gear between heroes, gear presets · this commit (previous: `4eac051`)
 
 **Asked for:** "A lot of the gear designs can be similar and don't change, you can use this to your advantage, there

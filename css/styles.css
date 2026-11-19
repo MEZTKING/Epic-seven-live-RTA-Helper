@@ -659,3 +659,15 @@ table.cmp td.down { color: #ff5d6c; font-weight: 700; }
 .design input { width: 100%; font-size: 12px; padding: 2px 4px; }
 @media (max-width: 700px) { .ps-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } .stats8 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .btn.link { background: none; border: none; padding: 0 4px; min-height: 0; color: var(--muted); }
+/* a gear.txt item shown with the game's picture of its design (DEVLOG #80): only the middle, the item's own badges on top */
+.gt-icon.gt-design { position: relative; }
+.gt-icon.gt-design img { transform: scale(1.55); transform-origin: 50% 42%; }
+.gt-icon.gt-design .gt-lv, .gt-icon.gt-design .gt-enh, .gt-icon.gt-design .gt-lock, .gt-icon.gt-design .gt-hero, .gt-icon.gt-design .setb { z-index: 1; }
+.gt-icon.gt-design .gt-lv, .gt-icon.gt-design .gt-enh { text-shadow: 0 0 3px #000, 0 0 3px #000; }
+/* Item upgrades (DEVLOG #80) */
+.up-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 8px; }
+.up-col h4 { margin: 0 0 2px; }
+.up-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 56px 1fr; gap: 8px; align-items: center; width: 100%; padding: 6px; border-radius: 8px; font-size: 13px; }
+.up-row:hover { background: rgba(255,255,255,.06); }
+.up-row .gt-icon { width: 54px; height: 54px; font-size: 20px; }
+@media (max-width: 900px) { .up-cols { grid-template-columns: minmax(0, 1fr); } }
