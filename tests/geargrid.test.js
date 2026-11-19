@@ -58,3 +58,11 @@ test('set badges: a learned badge is found again, others are not', () => {
   list = G.learnBadge(list, 'ImmunitySet', blue);
   assert.equal(G.badgeSet(list, blue).set, 'ImmunitySet');
 });
+
+test('a main-stat line broken in two is one row (owner\'s PC, DEVLOG #82)', () => {
+  const c = new Array(1070).fill(0);
+  for (let y = 544; y < 550; y++) c[y] = 10;
+  for (let y = 552; y < 564; y++) c[y] = 10;
+  for (let y = 735; y < 755; y++) c[y] = 10;
+  assert.deepEqual(G.mainRows(c), [553.5, 744.5]);
+});

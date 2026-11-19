@@ -307,7 +307,8 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   (`js/gear-scan.js`) can still draw own boxes on a watcher snapshot ("Items not read?") and reloads on `gear:added`.
   Full display format (#77): `gear-grid` reads every tile → `gear:grid` → the consumer saves each (dedup by key), judges
   them all at once and posts a label per tile on the overlay's `gear-grid` layer (WORN for items on a hero: the screen
-  doesn't say which hero, so they are not judged) → `gear:grid-judged { read, added, counts }`.
+  doesn't say which hero, so they are not judged) → `gear:grid-judged { read, added, counts, failed }`. Tiles not read get
+  "✗ <why>" and the row cut off at the bottom "↓ scroll to read" (`status` in `gear:grid`, #82).
   Pictures (#78): both readers send `pics { icon, shot }` (JPEG data URLs) with each item; the consumer keeps them in
   IndexedDB `e7-gear-pics` (keyed by the item's id). Events over 4 KB go to the watcher log without their data.
   Gear page details (#78): "what to do" (`E7GearSim.advice`), the game's screenshot, every number of a screen item

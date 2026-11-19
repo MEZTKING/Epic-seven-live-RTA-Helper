@@ -105,7 +105,7 @@
   // label on each tile (KEEP / ENHANCE / REFORGE / EXTRACT / SELL; WORN = on a hero, kept whatever its score)
   const SHORT = { keep: 'KEEP', enhance: 'ENHANCE', reforge: 'REFORGE', extract: 'EXTRACT', sell: 'SELL' };
   const COLOR = { keep: 'green', reforge: 'green', enhance: 'yellow', extract: 'red', sell: 'red' };
-  bus.on('gear:grid', ({ tiles }) => {
+  bus.on('gear:grid', ({ tiles, status }) => {
     const gs = GS.load();
     const mine = [];
     let added = 0;
@@ -144,7 +144,13 @@
       const title = t.worn ? 'WORN' : r ? `${SHORT[r.verdict] || r.verdict.toUpperCase()} ${r.wss}` : '?';
       return { ...t.rect, kind: 'label', side: 'below', level: t.worn ? 'grey' : r ? COLOR[r.verdict] || 'grey' : 'grey', title };
     });
-    bus.publish('gear:grid-judged', { read: mine.length, added, counts });
+    // tiles not read: a red mark with the reason; rows cut off at the bottom: "scroll" (DEVLOG #82)
+    const SHORT_WHY = (w) => (/slot/.test(w || '') ? 'open its slot tab' : /icon/.test(w || '') ? 'not recognised' : /number|enhance/.test(w || '') ? 'numbers unclear' : 'not read');
+    for (const s of status || []) {
+      if (s.state === 'failed') labels.push({ ...s.rect, kind: 'label', side: 'below', level: 'grey', title: `✗ ${SHORT_WHY(s.why)}` });
+      else if (s.state === 'partial') labels.push({ ...s.rect, kind: 'label', side: 'below', level: 'grey', title: '↓ scroll to read' });
+    }
+    bus.publish('gear:grid-judged', { read: mine.length, added, counts, failed: (status || []).filter((s) => s.state === 'failed').length });
     if (window.E7Overlay) window.E7Overlay.post('gear-grid', labels);
   });
   bus.on('gear:grid-gone', () => window.E7Overlay && window.E7Overlay.clear('gear-grid'));
