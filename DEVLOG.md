@@ -7,6 +7,56 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #84 · Gear: the hero equipment screen read (who wears what, the hero's real stats) · this commit (previous: `65210dc`)
+
+**Asked for:** "add the hero equipment screen reader", with pictures of three heroes' equipment screens (Arbiter
+Vildred, Eligos, Rhianna and Luciella), the filter menu over it, and three item windows opened from it (an artifact,
+a necklace, a weapon: those came as pictures in the chat, not as files, so they are not measured yet).
+
+**Findings (2000 × 1070)**
+- The screen shows the hero's name, the hero's REAL stats (artifact, exclusive equipment, imprint included) and the
+  six items as pictures only (enhance, level, set badge; no item stats). Recognised by the three round blue buttons at
+  the bottom (0.15-0.19 bright blue, 0 on every other screen seen); the filter menu covers the items (colour 0.02 against
+  0.23-0.55), so at least 3 items must show.
+- The item pictures (136 box at x 625 / 1357, y 408 / 565 / 720) have the "+15" badge, the level and the set badge in
+  slightly other places than inventory tiles; measured at 3× zoom.
+- Designs match across heroes (the same boots 1.00 on all three, the same ring 1.00, the same helmet design 0.83 with
+  another background; different designs ≤ 0.08).
+- Set badges look slightly different on this screen: the inventory's badges matched at most 0.83 (the bar is 0.9).
+  Rhianna's item windows confirm her weapon is Speed and her necklace Weakening: those two badges, cut from this
+  screen, are added to the known badges; speed badges then match 0.87-0.97 on the three heroes → here 0.85, when no
+  other set comes within 0.1.
+- The stats column read at once fails on a bright background and on red capped numbers (100.0 %, 350.0 %): read line
+  by line then. All three heroes' stats exactly right.
+
+**Changed**
+- `js/vision/readers/hero-gear.js` (new): hero name (matched to the hero list), real stats, six slots (enhance, level,
+  set, design) → `gear:hero`; `gear:hero-gone`.
+- `js/vision/consumers/gear.js`: each slot linked to an item the app knows (same slot, enhance, level, set, design
+  where known; with several alike, the one known on this hero, else none); screen items get `wornBy`; per hero
+  `gs.heroSeen[code] = { name, at, stats, slots }` (kept by `GearStore.load`); marks on the game: "✓ known",
+  "? not read yet", "? N alike".
+- `js/gear-app.js`: what a hero wears now = the game's hero screen when seen after the gear.txt import; presets'
+  "Now (seen in the game)" with the hero's real stats; "Try it on a hero" and presets start from the real stats + the
+  estimated change (capped like the game: crit chance 100 %, crit damage 350 %), and say when the hero's current item
+  in that slot is not known (the change is then too high); item details: "On <hero> (seen on their equipment screen)".
+- `js/gear-setseed.js`: Speed and Weakening badges from the hero screen.
+- Fixtures `hero-gear-av / eligos / rhianna / filter-wide.jpg` (heroes and currencies only, no player names).
+
+**Tested**
+- `npm test` 204.
+- New `tests/e2e/hero-gear.e2e.js`: the three heroes' names and stats exactly right (5015 897 8003 238 98 294 9 8 3 …),
+  every level right (88 / 90), sets: Speed on 3 + 4 + 4 items, Weakening on Rhianna's necklace; the filter menu reads
+  nothing; with look-alike items added: Rhianna's weapon linked ("✓ known"), her boots "? 2 alike"; the Gear page
+  "Now (seen in the game)" with her real stats; trying other boots on her starts from 319 speed and warns that her
+  current boots are unknown.
+- Browser suite 52/52 clean, nothing else changed. Desktop (packaged Linux build, the reader inside): watcher,
+  overlay-test, popout, update-check clean.
+- **Not tested:** on the owner's PC; the item windows opened from this screen (not measured: pictures needed as
+  files); Arbiter Vildred's armor badge (0.83, under the bar); the Critical set badge (not known yet).
+
+---
+
 ## 2026-11-19 · #83 · Gear: Epic Seven's own score by default, items read before not read again, a reading-speed option · this commit (previous: `0ca844c`)
 
 **Asked for:** "add an option which is defaulting gear score to what Epic Seven uses"; "if something is already read

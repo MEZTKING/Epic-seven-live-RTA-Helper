@@ -172,4 +172,48 @@
     if (window.E7Overlay) window.E7Overlay.post('gear-grid', labels);
   });
   bus.on('gear:grid-gone', () => window.E7Overlay && window.E7Overlay.clear('gear-grid'));
+
+  // a hero's equipment screen (DEVLOG #84): each slot linked to an item the app knows (same slot, enhance, level, set
+  // and design where known); the hero's real stats kept; a mark on each slot (✓ linked / ? not found / ? several match)
+  bus.on('gear:hero', ({ hero, stats, slots }) => {
+    if (!hero || !hero.code) return;
+    const gs = GS.load();
+    const all = [...gs.scanned, ...gs.items];
+    const linked = (slots || []).map((sl) => {
+      const cands = all.filter(
+        (it) =>
+          it.gear === sl.gear &&
+          Number(it.enhance) === Number(sl.enhance) &&
+          (!sl.level || Number(it.level) === Number(sl.level)) &&
+          (!sl.set || !it.set || it.set === sl.set) &&
+          (!sl.art || !sl.art.id || !it.art || it.art === sl.art.id),
+      );
+      // several alike: the one already known on this hero
+      const pick = cands.length === 1 ? cands[0] : cands.find((it) => it.equipped === hero.code || it.wornBy === hero.code) || null;
+      return { gear: sl.gear, enhance: sl.enhance, level: sl.level, set: sl.set, art: sl.art && sl.art.id, itemId: pick ? pick.id : null, candidates: cands.length, rect: sl.rect };
+    });
+    // screen items: who wears them now (an item seen on this hero before, in a slot now holding another, is free)
+    for (const it of gs.scanned) if (it.wornBy === hero.code && !linked.some((l) => l.itemId === it.id)) delete it.wornBy;
+    for (const l of linked) {
+      const it = gs.scanned.find((x) => x.id === l.itemId);
+      if (it) {
+        it.wornBy = hero.code;
+        it.worn = true;
+      }
+    }
+    gs.heroSeen[hero.code] = { name: hero.name, at: Date.now(), stats: stats || (gs.heroSeen[hero.code] || {}).stats || null, slots: linked.map(({ rect, ...l }) => l) };
+    try {
+      GS.save(gs);
+    } catch (e) {
+      bus.publish('vision:warning', { reader: 'hero-gear', text: 'Could not save (browser storage full?): ' + e.message });
+    }
+    const n = linked.filter((l) => l.itemId).length;
+    bus.publish('gear:hero-linked', { hero: hero.name, linked: n, slots: linked.length });
+    if (window.E7Overlay)
+      window.E7Overlay.post(
+        'gear-hero',
+        linked.map((l) => ({ x: l.rect.x, y: l.rect.y + l.rect.h, w: 0, h: 0, kind: 'label', side: 'below', level: l.itemId ? 'green' : 'grey', title: l.itemId ? '✓ known' : l.candidates > 1 ? `? ${l.candidates} alike` : '? not read yet' })),
+      );
+  });
+  bus.on('gear:hero-gone', () => window.E7Overlay && window.E7Overlay.clear('gear-hero'));
 })();

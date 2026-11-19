@@ -29,6 +29,9 @@
       // [{ id, item, from, to, done, at }] (kept here so every window that saves the store keeps them)
       presets: Array.isArray(g.presets) ? g.presets : [],
       moves: Array.isArray(g.moves) ? g.moves : [],
+      // DEVLOG #84: what the game's hero equipment screen showed, per hero code: { name, at, stats, slots: [{ gear, enhance,
+      // level, set, art, itemId|null, candidates }] } (source 'screen')
+      heroSeen: g.heroSeen && typeof g.heroSeen === 'object' ? g.heroSeen : {},
     };
   }
   /** Throws if the browser storage is full. */

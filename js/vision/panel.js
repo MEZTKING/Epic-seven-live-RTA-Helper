@@ -22,6 +22,9 @@
       case 'gear:item': return null; // shown as gear:added / gear:dup
       case 'gear:gone': return null;
       case 'gear:grid': return null;
+      case 'gear:hero': return null;
+      case 'gear:hero-gone': return null;
+      case 'gear:hero-linked': return `Gear: ${d.hero} · ${d.linked} of ${d.slots} items known`;
       case 'gear:grid-gone': return null;
       case 'gear:grid-judged': return `Gear: ${d.read} items on the screen (${d.added} new) · ${Object.entries(d.counts || {}).map(([k, n]) => `${n} ${k}`).join(', ')}`;
       case 'guild:name-read': return d.away ? null : `Guild War: read "${(d.text || '').slice(0, 30)}"`;
