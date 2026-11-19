@@ -160,7 +160,10 @@
         gearScoreLabel: A(rgt(1405, 705, 235, 28), 'r', ['c']),
         gearSet: A(rgt(1455, 822, 265, 42), 'r', ['c']), // "Weakening Set (0/4)"
         // pictures kept with each item (DEVLOG #78): the item's picture and its stats block as the game shows them
-        gearPic: A(rgt(1400, 246, 136, 136), 'r', ['c']),
+        // (the item picture: matched against the same item's grid tile, 0.99 at this box; DEVLOG #79)
+        gearPic: A(rgt(1402, 252, 136, 136), 'r', ['c']),
+        // the item's name: white text under the red rarity line ("Bow of Agony", "Palace Maid / Headdress")
+        gearName: A(rgt(1538, 300, 390, 85), 'r', ['c']),
         gearShot: A(rgt(1398, 478, 524, 264), 'r', ['c']),
         // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
         // screenshot (DEVLOG #58). A team stands on three of four places: 1 top, 2 left, 3 right, 4 bottom.

@@ -7,6 +7,75 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #79 · Gear: designs learned and recognised, moving gear between heroes, gear presets · this commit (previous: `4eac051`)
+
+**Asked for:** "A lot of the gear designs can be similar and don't change, you can use this to your advantage, there
+are also lots of unique and special gears so you might need to store all these images too." Then "yes build it, and
+the moves and presets too" (both shown as mock-ups first: "try this item on a hero" with a to-do list of moves, and
+gear presets per hero).
+
+**Research / findings**
+- The middle of the item picture (x 30-70 %, y 20-60 %) is clear of the level, the badges, the lock and a hero's
+  portrait. On the owner's pictures (10×10 colour fingerprint): copies of one design 0.82-1.00 (red and purple
+  backgrounds, the details panel against a grid tile, the Equipment Score view), different designs at most 0.56.
+  The details panel's item picture had to be moved to (1402, 252, 136): before, the same item scored 0.62
+  panel-to-grid, after 0.95-0.99.
+- The item's name is white text under the red rarity line; a white mask leaves the rarity out. All 9 names read right
+  on the owner's pictures ("Bow of Agony", "Hellish Essence Crown", "Palace Maid Headdress" on two lines, "Restraints
+  of Agony", "Abyss Drake Bonesword" …).
+- Hero stats: the RexQian fork's backend `StatCalculator.java` and `enums/Set.java` give the set bonuses (in
+  docs/SOURCES.md): e.g. Attack +45 % (4), Destruction +60 crit damage (4), Weakening +15 % speed (4), Torrent −10 %
+  health per 2. Base stats are the bundled fribbels-data snapshot (level 60, 6★, awakened). Artifacts and exclusive
+  equipment are not known (not in gear.txt nor on these screens), so the numbers are close, not exact.
+
+**Changed**
+- `js/geararts.js` (new, pure): design fingerprint, lookup, learn (name / slot / rarity; a name you typed is kept),
+  `cleanName`.
+- Readers: the panel reader sends `art { fp, name }` (new region `gearName`, `gearPic` moved) and sets the item's name;
+  the grid reader looks each tile's design up: the item gets the design's name, and its slot when the "all" tab is
+  open. The consumer learns designs (`localStorage['e7-gear-arts']`), keeps one picture per design (`art:<id>` in
+  IndexedDB `e7-gear-pics`, a details-panel picture preferred) and links items to their design (`item.art`, name).
+  Names make the existing Gaveleet rule (not reforgeable) work for screen items too.
+- `js/gearbuild.js` (new, pure): `heroStats` (the RexQian formula), `diff`, `withItem`, `movesFor`, `conflicts`.
+- Gear page: in an item's details "Try it on a hero" (now vs with it for 8 stats and the sets; who loses it, with their
+  stats and their best spare item; "Plan this move" / "Plan both moves"); a "Moves to make in the game" card (tick
+  them off, "Clear the ticked ones"; the app never changes the game); "Gear presets": per hero "Now (gear.txt)" + your
+  presets (start from what the hero wears; pick each slot from your items sorted by fit; compare with now; items shared
+  with another preset or worn by another hero warned; "Fill empty slots with the best items", "Copy what they wear
+  now", "Show the moves to wear this preset", rename, delete); "Gear designs seen" (each design once with its
+  picture, name and item count; type a name to fix it and its items follow).
+- `js/gearstore.js`: `presets` and `moves` kept by `load()` (the watcher saves the store too and would drop them).
+- Docs: HANDOFF (storage keys, flow), SOURCES (the stat formula), CLAUDE.md test list.
+- `tests/e2e/gear-details.e2e.js`: item pictures and design pictures counted apart.
+
+**Bugs found and fixed while building**
+- 100 × 1.15 is 114.999… in floating point: the speed rounded down to 114; a tiny tolerance added.
+- A `prompt()` fallback for the preset name: the project's test caught it (prompt does nothing in the desktop app);
+  only the app's own question box is used.
+- The sets line only showed the current sets when their number differed (Speed → Immunity was not shown).
+
+**Tested**
+- `npm test` 200 (new `tests/gearbuild.test.js`: stats with sets and caps, try on, moves, shared items, designs).
+- New `tests/e2e/gear-plans.e2e.js`: 23 designs from the owner's pictures, 9 named from the details panel; 11 Bows of
+  Agony named on the tiles; all 16 tiles of a Full screen right (Agony bows named, the four other designs not); the
+  gallery shows 23 pictures, renaming a design renames its 3 items; the speed is the same as the RTA helper's
+  (`RTAGear.computeBuild`) for all 8 gear.txt heroes; Arbiter Vildred's weapon tried on Belian: 8-stat table, "would
+  lose it: speed 160 → 156 …, best spare …", both moves planned, ticking + clearing works; a preset starts from what
+  the hero wears (6 slots), empty / change / fill slots, compare with now, "Show the moves" lists 3 moves; presets and
+  moves survive the watcher saving the store; delete works.
+- Browser suite 49/49 clean. Differences: `gear-details` counted the design pictures with the item pictures (now
+  counted apart: 33 item pictures, 17 design pictures); the Guild War standby banner's "by Ann" came and went (timing:
+  run alone it is there; nothing Guild War changed). Desktop (packaged Linux build, the new files inside): watcher,
+  overlay-test, popout, update-check clean.
+- **Not tested:** on the owner's PC; names on non-English clients; designs in the Standard format's tiles (smaller).
+
+**Open / unverified**
+- Items read from the screen and the same items from gear.txt are two entries (the screen doesn't give the game's
+  item id); both can show up when picking a preset's item.
+- Hero stats leave out artifacts, exclusive equipment and imprints.
+
+---
+
 ## 2026-11-19 · #78 · Gear page: the game's pictures, numbers you can fix, an enhance simulator and "what to do" · this commit (previous: `69efbaa`)
 
 **Asked for:** "Use a screenshot system for the gears instead of the art we currently have, and each of the numbers

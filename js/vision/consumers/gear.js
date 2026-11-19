@@ -21,13 +21,57 @@
   const keepPics = (slim, pics) => {
     if (slim && pics && (pics.icon || pics.shot) && window.E7GearPics) window.E7GearPics.put(slim.id, { ...pics, at: Date.now() });
   };
-  bus.on('gear:item', ({ item, key, problems, rect, pics }) => {
+  // designs (js/geararts.js, DEVLOG #79): one entry per design in localStorage['e7-gear-arts'] { id, fp, name, gear,
+  // rank, n, first, last }, one clean picture per design in IndexedDB 'e7-gear-pics' under 'art:<id>'
+  const ARTS_KEY = 'e7-gear-arts';
+  const loadArts = () => {
+    try {
+      return JSON.parse(localStorage.getItem(ARTS_KEY) || '[]') || [];
+    } catch (_) {
+      return [];
+    }
+  };
+  function learnArt(art, info, pics) {
+    const A = window.E7GearArts;
+    if (!A || !art || !art.fp) return null;
+    const r = A.learn(loadArts(), art.fp, info);
+    try {
+      localStorage.setItem(ARTS_KEY, JSON.stringify(r.list));
+    } catch (_) { /* full: only a convenience */ }
+    if (r.entry && pics && pics.icon && window.E7GearPics) {
+      const id = 'art:' + r.entry.id;
+      // the design's picture: the first one, or a sharper one from the details panel
+      window.E7GearPics.get(id).then((old) => (!old || (old.from !== 'panel' && pics.from === 'panel')) && window.E7GearPics.put(id, { icon: pics.icon, from: pics.from, at: Date.now() }));
+    }
+    return r.entry;
+  }
+  /** Link an item to its design; the design's name fills a missing item name. Returns true when the item changed. */
+  function linkArt(slim, entry) {
+    if (!slim || !entry) return false;
+    let ch = false;
+    if (slim.art !== entry.id) {
+      slim.art = entry.id;
+      ch = true;
+    }
+    if (entry.name && slim.name !== entry.name && (!slim.name || !slim.nameTyped)) {
+      slim.name = entry.name;
+      ch = true;
+    }
+    return ch;
+  }
+  bus.on('gear:item', ({ item, key, problems, rect, pics, art }) => {
     const desc = `${item.gear} · ${String(item.set || '').replace(/Set$/, '') || '?'} · +${item.enhance} · ${item.main.type} ${item.main.value}`;
     const gs = GS.load();
     let slim = GS.addScanned(gs, item, key);
     const dup = !slim;
     if (dup) slim = gs.scanned.find((x) => x.key === key); // read before: still show its verdict on the game
-    else {
+    const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank }, pics);
+    if (linkArt(slim, entry) && dup) {
+      try {
+        GS.save(gs);
+      } catch (_) { /* full */ }
+    }
+    if (!dup) {
       try {
         GS.save(gs);
       } catch (e) {
@@ -71,6 +115,7 @@
       if (slim) added++;
       else slim = gs.scanned.find((x) => x.key === t.key);
       if (slim) mine.push({ t, slim });
+      if (slim && t.art && linkArt(slim, learnArt(t.art, {}, t.pics))) changed = true;
       // a picture from the details panel (sharper, stats in words) is not replaced by a grid tile's
       if (slim && t.pics && window.E7GearPics) window.E7GearPics.get(slim.id).then((old) => (!old || old.from !== 'panel') && keepPics(slim, t.pics));
       // on a hero / locked, as the tile shows it now (the Gear page keeps worn items)

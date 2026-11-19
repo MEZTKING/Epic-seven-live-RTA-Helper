@@ -632,3 +632,30 @@ details.more-tools[open] > summary { margin-bottom: 6px; }
 .ar-fights .res.loss { color: var(--loss); font-weight: 700; }
 .ar-fights tr.off { opacity: .45; }
 @media (max-width: 640px) { .ar-opp { grid-template-columns: 1fr; } }
+/* Gear: try on a hero, moves, presets, designs seen (DEVLOG #79) */
+table.cmp { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; margin: 6px 0; }
+table.cmp td { padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,.06); }
+table.cmp td:nth-child(n+2) { text-align: right; }
+table.cmp td.up { color: #3ecf8e; font-weight: 700; }
+table.cmp td.down { color: #ff5d6c; font-weight: 700; }
+.loses { margin: 8px 0; padding: 8px 10px; border-left: 4px solid #ff5d6c; background: rgba(255,93,108,.08); border-radius: 6px; font-size: 14px; }
+.loses.warn { border-color: #f3c94b; background: rgba(243,201,75,.08); }
+.gd-block.tryon input { min-width: 0; width: 100%; }
+.moves-list li { margin: 4px 0; }
+.moves-list li.done label { text-decoration: line-through; opacity: .6; }
+.ps-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ps-tabs button { all: unset; cursor: pointer; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 14px; }
+.ps-tabs button.on { background: #f3c94b; color: #111; border-color: #f3c94b; font-weight: 700; }
+.ps-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.ps-slot { display: grid; gap: 3px; align-content: start; justify-items: center; text-align: center; min-width: 0; }
+.ps-slot select { width: 100%; font-size: 12px; }
+.ps-slot.warn .gt-icon { outline: 2px solid #f3c94b; }
+.ps-empty { border: 1px dashed var(--line); background: transparent; }
+.stats8 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 12px; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.stats8 b { float: right; }
+.design-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.design { display: grid; gap: 4px; justify-items: center; text-align: center; }
+.design img { width: 84px; height: 84px; border-radius: 7px; object-fit: cover; }
+.design input { width: 100%; font-size: 12px; padding: 2px 4px; }
+@media (max-width: 700px) { .ps-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); } .stats8 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.btn.link { background: none; border: none; padding: 0 4px; min-height: 0; color: var(--muted); }

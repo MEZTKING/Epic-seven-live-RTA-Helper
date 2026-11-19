@@ -2,7 +2,8 @@
  * Reader: an item's details panel (Inventory, a hero's gear, the shop). Reads the lines with the shared text reader,
  * checks them (js/statparse.js) and publishes 'gear:item' once the same item was read twice in a row.
  *   gear:item { item, key, problems, rect, pics }   (rect = main-stat box, fractions of the game picture, for the overlay;
- *                                                    pics = { icon, shot } JPEGs of the item and its stats, built-in positions only)
+ *                                                    pics = { icon, shot } JPEGs of the item and its stats, built-in positions only;
+ *                                                    art = { fp, name } the design's fingerprint and the item's name, #79)
  *   gear:gone {}                              the panel closed after an item was read (the overlay takes its verdict off)
  * Positions are built in (js/layouts.js gear*, DEVLOG #74): nothing to draw or teach. Boxes you drew earlier on the Gear
  * page (localStorage 'e7-gearscan-boxes') still win.
@@ -112,12 +113,25 @@
         enhance: at('gearEnhance'),
         level: at('gearLevel'),
         pic: at('gearPic'),
+        name: at('gearName'),
         shot: at('gearShot'),
       };
     }
     return null;
   }
 
+  /** The design's fingerprint: the middle of the item picture (js/geararts.js BOX). */
+  function artFp(ctx, r) {
+    const A = window.E7GearArts;
+    const W = ctx.w();
+    const H = ctx.h();
+    const c = document.createElement('canvas');
+    c.width = A.FP;
+    c.height = A.FP;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(ctx.source, (r.x + r.w * A.BOX.x0) * W, (r.y + r.h * A.BOX.y0) * H, r.w * (A.BOX.x1 - A.BOX.x0) * W, r.h * (A.BOX.y1 - A.BOX.y0) * H, 0, 0, A.FP, A.FP);
+    return A.fingerprint(x.getImageData(0, 0, A.FP, A.FP).data);
+  }
   /** A box of the game picture as a small JPEG (for the Gear page: the item as the game showed it). */
   function jpg(ctx, r, width) {
     try {
@@ -198,7 +212,14 @@
         shown = true;
         lastPub = { item, at: Date.now() };
         const pics = b.pic ? { icon: jpg(ctx, b.pic, 120), shot: jpg(ctx, b.shot, 440), from: 'panel' } : null;
-        ctx.publish('gear:item', { item, key, problems, rect: b.main, pics });
+        // the design (js/geararts.js) and the item's name, so the design is known on every tile from now on (#79)
+        let art = null;
+        if (b.pic && window.E7GearArts) {
+          const nameText = b.name ? String((await ctx.ocr(masked(ctx, b.name, (r, g, bl) => r > 200 && g > 200 && bl > 200, 160), { lines: true })) || '') : '';
+          art = { fp: artFp(ctx, b.pic), name: window.E7GearArts.cleanName(nameText) };
+          if (art.name) item.name = art.name;
+        }
+        ctx.publish('gear:item', { item, key, problems, rect: b.main, pics, art });
       }
       ctx.note(`Item: ${item.rank} ${item.gear} +${item.enhance} · ${item.main.type} ${item.main.value} · ${item.substats.length} substats`);
     },

@@ -34,8 +34,8 @@ const dataUrl = (f) => 'data:image/jpeg;base64,' + __fs.readFileSync(__path.join
     }, dataUrl(file));
   // 1)
   for (const f of ['gear-weapon-wide.jpg', 'gear-view-full-wide.jpg', 'gear-view-full2-wide.jpg']) await show(f);
-  const kept = await lv.evaluate(async () => ({ items: window.GearStore.load().scanned.length, pics: (await window.E7GearPics.all()).length, panel: (await window.E7GearPics.all()).filter((x) => x.from === 'panel').length, log: (localStorage.getItem('e7-vision-log') || '').length }));
-  console.log('1) items read:', kept.items, '· with pictures:', kept.pics, `(${kept.panel} from a details panel)`, '· watcher log size', kept.log, 'characters (pictures not in it)');
+  const kept = await lv.evaluate(async () => ({ items: window.GearStore.load().scanned.length, pics: (await window.E7GearPics.all()).filter((x) => !String(x.id).startsWith('art:')).length, panel: (await window.E7GearPics.all()).filter((x) => x.from === 'panel' && !String(x.id).startsWith('art:')).length, designs: (await window.E7GearPics.all()).filter((x) => String(x.id).startsWith('art:')).length, log: (localStorage.getItem('e7-vision-log') || '').length }));
+  console.log('1) items read:', kept.items, '· with pictures:', kept.pics, `(${kept.panel} from a details panel)`, '· design pictures (#79):', kept.designs, '· watcher log size', kept.log, 'characters (pictures not in it)');
   // 2)
   const g = await ctx.newPage();
   g.on('pageerror', (e) => errs.push('gear: ' + e.message));

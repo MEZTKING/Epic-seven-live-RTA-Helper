@@ -2,7 +2,8 @@
  * Gear store (no DOM): the Gear Sorter's saved data, shared by the Gear page (js/gear-app.js) and the
  * game watcher's gear consumer (js/vision/consumers/gear.js), so items read from the screen are saved
  * even when the Gear page isn't open. localStorage 'rta-gear-v1':
- *   { fileName, importedAt, items (source 'fribbels', gear.txt), scanned (source 'screen'), useScanned, rules, overrides }
+ *   { fileName, importedAt, items (source 'fribbels', gear.txt), scanned (source 'screen'), useScanned, rules, overrides,
+ *     presets (source 'my presets'), moves (planned moves, a to-do list) }
  * Sources stay separate: screen items are never merged into the gear.txt list.
  */
 (function () {
@@ -24,6 +25,10 @@
       useScanned: g.useScanned !== false,
       rules: { ...S.DEFAULT_RULES, ...(g.rules || {}) },
       overrides: g.overrides || {},
+      // DEVLOG #79: your gear presets [{ id, hero, name, items: { slot: item id } }] and planned moves
+      // [{ id, item, from, to, done, at }] (kept here so every window that saves the store keeps them)
+      presets: Array.isArray(g.presets) ? g.presets : [],
+      moves: Array.isArray(g.moves) ? g.moves : [],
     };
   }
   /** Throws if the browser storage is full. */

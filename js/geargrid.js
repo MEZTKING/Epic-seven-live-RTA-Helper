@@ -37,7 +37,7 @@
   const GEO = {
     colX: 361, colStep: 254, iconW: 32, valueX: 393, valueW: 70, lineH: 28, rowStep: 191.3,
     badge: [300, -28, 58, 26], level2: [251, -7, 15, 19], set: [311, 57, 44, 46], portrait: [248, 80, 29],
-    lock: [222, -32, 26, 26], picture: [227, -15, 120, 60], frame: [230, -31, 100, 6], icon: [220, -26, 136, 134], tile: [216, -29, 256, 178],
+    lock: [222, -32, 26, 26], picture: [227, -15, 120, 60], frame: [230, -31, 100, 6], icon: [220, -26, 136, 136], tile: [216, -29, 256, 178],
   };
   const LINE_OFF = [0, 35.5, 66, 96, 127];
   const ICON_W = 16;
