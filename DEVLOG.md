@@ -7,6 +7,42 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #82 · Inventory (Full): a mark on every tile (read / not read and why / scroll), and a missed row read · this commit (previous: `16d44d5`)
+
+**Asked for:** "when reading inventory it should show which ones it's reading so I can scroll to the appropriate
+sections", with a screenshot from the owner's PC (the "all" tab; the done card said "7 items read").
+
+**Findings (on that picture, the title bar cut off as the app does)**
+- A whole row was never read: its white main-stat line broke in two where the letters are thin (544-549 and
+  552-563 px), so the reader looked for two rows at the wrong heights and found no icons. Tiles that failed this way
+  returned nothing, so they were silently missing (and the test log put their result on the tile before).
+- With the "all" tab open, a crit chance / crit damage main stat can only be a necklace and speed only boots; only
+  weapons, helmets and armors were known by their main stat before.
+- The owner's screenshot also contains the app's own overlay (the item card covers one tile's last substat): the
+  app's real capture doesn't see the overlay, so that tile's "numbers unclear" happens only in the test.
+
+**Changed**
+- `js/geargrid.js` `mainRows`: pieces of one line at most 8 px apart are one line.
+- `js/vision/readers/gear-grid.js`: every tile gives a result (a reason when it is not read); crit chance / crit
+  damage → necklace, speed → boots when no slot tab is open; `gear:grid` now also carries `status` (tiles not read, and
+  the row cut off at the bottom) and is published for every still screen; the done card says "Inventory: 9 of 12 items
+  read · ✗ 3 not read (red marks) · the bottom row is cut off: scroll down a little · …".
+- `js/vision/consumers/gear.js`: besides the verdict on read tiles, "✗ open its slot tab" / "✗ not recognised" /
+  "✗ numbers unclear" on tiles not read and "↓ scroll to read" on the row cut off at the bottom (grey dots, so they
+  don't look like the red "extract").
+
+**Tested**
+- `npm test` 202 (a broken line read as one row).
+- `tests/e2e/gear-grid.e2e.js` + the owner's PC picture (fixture `gear-view-full-all-pc.jpg`, title bar cut off; no
+  names on it): 9 of 12 full tiles read, every number checked by eye against the picture; the other 3 marked (2 "open
+  its slot tab": health % main stats in the all tab, 1 covered by the overlay in the screenshot); 4 "↓ scroll to
+  read"; the two earlier Full pictures still 16/16; badges and learning as before.
+- Browser suite 50/50 clean (only the new marks and the "failed" count in the outputs). Desktop (packaged Linux
+  build): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** on the owner's PC; a row cut off at the TOP (its main line hides behind the tabs, so it gets no mark).
+
+---
+
 ## 2026-11-19 · #81 · The app is now called Orbis Lens · this commit (previous: `4426f8b`)
 
 **Asked for:** "Is there a better name for this application" → five names offered (the game's name is Smilegate's

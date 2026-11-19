@@ -2,7 +2,9 @@
  * Reader: the inventory in the "Full" display format (DEVLOG #77). Reads EVERY item on the screen at once (main stat
  * and substats from their icons + numbers, enhance, level, set badge, worn / locked), no clicking needed; scroll to
  * read more. Positions and icons: js/geargrid.js. Publishes, once per still screen:
- *   'gear:grid' { slot, tiles: [{ item, key, rect, worn, locked, selected, pics }] }   (rect: the tile's picture, fractions;
+ *   'gear:grid' { slot, tiles: [{ item, key, rect, worn, locked, selected, pics }], status: [{ rect, state: 'failed' |
+ *               'partial', why }] }  (status: the tiles NOT read, for marks on the game, DEVLOG #82)
+ *               (tiles: rect = the tile's picture, fractions;
  *               pics: { icon, shot } JPEGs of the item and of the whole tile; art: { fp, id, name, gear } its design, #79)
  *   'gear:grid-gone' {}   the Full grid is no longer on screen (the overlay takes its labels off)
  * Set badges: the game shows a set only as a small badge. The reader learns each badge from the item details panel:
@@ -131,8 +133,9 @@
     // measured: the selected tab 0.18, the others 0
     return best && best.s > 0.06 ? SLOTS[best.i] : null;
   }
+  // a main stat only one slot can have: flat attack / health / defense, crit chance and crit damage (necklace), speed (boots)
   function slotFromMain(main) {
-    return { Attack: 'Weapon', Health: 'Helmet', Defense: 'Armor' }[main.type] || null;
+    return { Attack: 'Weapon', Health: 'Helmet', Defense: 'Armor', CriticalHitChancePercent: 'Necklace', CriticalHitDamagePercent: 'Necklace', Speed: 'Boots' }[main.type] || null;
   }
 
   /** Is this the Full grid (and anchored how)? The main-stat icon of the first row is sure in 3 of 4 columns. */
@@ -140,10 +143,13 @@
     for (const a of ['l', 'c']) {
       const f = frame(ctx, a);
       if (f.W / f.H < 1.7 || f.W / f.H > 2.6) return null;
-      const rows = rowsOf(src, f).filter((y) => y - 32 * f.k >= f.Y(205) && y + 142 * f.k <= f.H);
+      const all = rowsOf(src, f).filter((y) => y - 32 * f.k >= f.Y(205));
+      const rows = all.filter((y) => y + 142 * f.k <= f.H);
+      // rows cut off at the bottom: their main line shows, their substats don't (scroll a little to read them)
+      const partial = all.filter((y) => y + 142 * f.k > f.H);
       if (!rows.length) continue;
       const sure = [0, 1, 2, 3].filter((c) => G.sureIcon(iconAt(src, f, c, rows[0]))).length;
-      if (sure >= 3) return { a, f, rows };
+      if (sure >= 3) return { a, f, rows, partial };
     }
     return null;
   }
@@ -151,7 +157,10 @@
   async function readTile(ctx, f, col, y, slotTab) {
     const src = ctx.source;
     const icons = G.LINE_OFF.map((o) => iconAt(src, f, col, y + o * f.k));
-    if (!G.sureIcon(icons[0])) return null;
+    if (!G.sureIcon(icons[0])) {
+      debug.push({ col, y: Math.round(y), lines: icons.map((r) => `${r.stat}:${r.score}/${r.lead}`), block: [], out: 'main stat icon not recognised' });
+      return { problem: 'main stat icon not recognised' };
+    }
     const lines = icons.map((r, i) => (i === 0 || G.sureIcon(r) ? r.stat : null));
     const n = lines.filter(Boolean).length;
     // the numbers: the main stat's line alone (big white digits read wrongly in a block: 500 -> 100), the substats as
@@ -228,7 +237,7 @@
     }
     const hit = G.badgeSet(badges(), fp);
     const gear = slotTab || (art && art.gear) || slotFromMain(main);
-    if (!gear) return { problem: 'slot unknown (choose a slot tab)' };
+    if (!gear) return { problem: 'slot unknown: open its slot tab' };
     const item = { gear, name: (art && art.name) || '', set: hit ? hit.set : '', rank, level: G.levelFrom(lv, main, enhance), enhance, main, substats: subs, source: 'screen' };
     const W = ctx.w();
     const H = ctx.h();
@@ -250,7 +259,6 @@
 
   // the screen must stand still (the list scrolls): the same small picture twice, then read once
   let seen = { pic: null, read: false };
-  let lastKeys = '';
   let debug = []; // test hook: the raw readings of the last screen
   let shown = false;
   const thumb = (ctx) => {
@@ -267,7 +275,6 @@
   };
   function gone(ctx, why) {
     seen = { pic: null, read: false };
-    lastKeys = '';
     if (shown) ctx.publish('gear:grid-gone', {});
     shown = false;
     return ctx.note(why);
@@ -294,13 +301,18 @@
       ctx.busy('Reading your inventory…');
       const tiles = [];
       const problems = [];
+      // every tile's state, for a mark on the game (DEVLOG #82): read / not read (why) / cut off (scroll)
+      const status = [];
+      const tileRect = (col, y) => ({ x: grid.f.X(G.GEO.picture[0] + col * G.GEO.colStep) / ctx.w(), y: (y + 20 * grid.f.k) / ctx.h(), w: 0, h: 0 });
       for (const y of grid.rows)
         for (let c = 0; c < 4; c++) {
           const t = await readTile(ctx, grid.f, c, y, slot);
           if (t && t.item) tiles.push(t);
           else if (t && t.problem) problems.push(t.problem);
-          if (debug.length) debug[debug.length - 1].out = t ? t.problem || 'ok' : 'no main icon';
+          if (t && !t.item) status.push({ rect: tileRect(c, y), state: 'failed', why: t.problem });
+          if (debug.length && !debug[debug.length - 1].out) debug[debug.length - 1].out = t ? t.problem || 'ok' : '?';
         }
+      for (const y of grid.partial) for (let c = 0; c < 4; c++) status.push({ rect: tileRect(c, Math.min(y, ctx.h() - 40 * grid.f.k)), state: 'partial' });
       // set badges: the clicked item's set (details panel) goes with the selected tile's badge
       const last = window.E7GearItem && window.E7GearItem._last && window.E7GearItem._last();
       const sel = tiles.find((t) => t.selected);
@@ -314,15 +326,18 @@
         }
       }
       for (const t of tiles) delete t.fp;
-      const keys = tiles.map((t) => t.key).join('#');
-      if (!tiles.length) return ctx.done(`Inventory (Full): nothing read${problems.length ? ` (${problems[0]})` : ''}`);
-      if (keys !== lastKeys) {
-        lastKeys = keys;
-        shown = true;
-        ctx.publish('gear:grid', { slot, tiles });
-      }
+      // published for every still screen (the marks on the game show what was read here)
+      shown = true;
+      ctx.publish('gear:grid', { slot, tiles, status });
+      const failed = status.filter((x) => x.state === 'failed').length;
       const noSet = tiles.filter((t) => !t.item.set).length;
-      ctx.done(`Inventory: ${tiles.length} items read${noSet ? ` (${noSet} with a set badge not learned yet: click one of them once)` : ''}`);
+      const total = tiles.length + failed;
+      ctx.done(
+        `Inventory: ${tiles.length} of ${total} items read` +
+          (failed ? ` · ✗ ${failed} not read (red marks)` : '') +
+          (grid.partial.length ? ' · the bottom row is cut off: scroll down a little' : '') +
+          (noSet ? ` · ${noSet} with a set badge not learned yet: click one of them once` : ''),
+      );
       ctx.note(`Inventory (Full): ${tiles.length} items${problems.length ? `, ${problems.length} not read` : ''}`);
     },
   });

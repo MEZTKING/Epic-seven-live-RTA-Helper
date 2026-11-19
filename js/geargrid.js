@@ -91,19 +91,35 @@
   }
   const sureIcon = (r) => !!r && r.score >= 0.6 && r.lead >= 0.08;
 
-  /** Centres of the white main-stat lines: runs of at least 6 rows (at 1070 high) with 4+ white pixels. */
+  /**
+   * Centres of the white main-stat lines: runs of at least 6 rows (at 1070 high) with 4+ white pixels. A line can break
+   * in two where its letters are thin (seen on the owner's PC: 544-549 and 552-563): pieces at most 8 px apart are one
+   * line.
+   */
   function mainRows(counts, scale = 1) {
     const minRun = Math.max(3, Math.round(6 * scale));
     const minPx = Math.max(2, Math.round(4 * scale));
-    const out = [];
+    const runs = [];
     let start = -1;
     for (let y = 0; y <= counts.length; y++) {
       const on = y < counts.length && counts[y] >= minPx;
       if (on && start < 0) start = y;
       if (!on && start >= 0) {
-        if (y - start >= minRun && y - start <= 40 * scale) out.push((start + y - 1) / 2);
+        runs.push([start, y - 1]);
         start = -1;
       }
+    }
+    // join pieces of one line, then keep lines of a plausible height
+    const joined = [];
+    for (const r of runs) {
+      const last = joined[joined.length - 1];
+      if (last && r[0] - last[1] <= 8 * scale) last[1] = r[1];
+      else joined.push(r.slice());
+    }
+    const out = [];
+    for (const [a, b] of joined) {
+      if (b - a + 1 < minRun || b - a + 1 > 40 * scale) continue;
+      out.push((a + b) / 2);
     }
     return out;
   }

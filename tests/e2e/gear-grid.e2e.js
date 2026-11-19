@@ -96,6 +96,20 @@ const TRUTH = {
   const l2 = await show('gear-view-full-wide.jpg');
   console.log('5) learned from the panel:', JSON.stringify(learnt), '· selected tile now:', l1.extra[0], '· next time Weakening tiles:', l2.extra.filter((x) => /Weakening/.test(x)).length);
   await lv.evaluate(() => { window.E7GearSetSeed = window.__seed; });
+  // 6) DEVLOG #82: the owner's PC, the "all" tab: a row whose white line broke in two is read; every tile gets a mark
+  //    (verdict / ✗ why / ↓ scroll for the row cut off at the bottom)
+  const pc = await show('gear-view-full-all-pc.jpg');
+  const marks = await lv.evaluate(() => (window.__ov['gear-grid'] || []).map((x) => x.title));
+  console.log('6) owner\'s PC, "all" tab:', pc.note, '·', (pc.stats || []).length, 'tiles read ·', (pc.extra || []).filter((x) => /Weakening/.test(x)).length, 'Weakening from the badge');
+  console.log('   marks:', JSON.stringify(marks));
+  // a picture of the marks on the owner's screen (the overlay page over the screenshot)
+  const ovp = await ctx.newPage();
+  await ovp.setViewportSize({ width: 1000, height: 536 });
+  await ovp.goto(BASE + 'overlay.html');
+  await ovp.evaluate((url) => { document.documentElement.style.background = `url(${url}) 0 0 / 100% 100%`; document.body.style.background = 'transparent'; }, dataUrl('gear-view-full-all-pc.jpg'));
+  await lv.evaluate(() => window.E7Overlay.post('gear-grid', window.__ov['gear-grid']));
+  await ovp.waitForTimeout(500);
+  await ovp.screenshot({ path: (process.env.E7_OUT || __path.join(__dirname, 'out')) + '/gear-grid-marks.png' });
   console.log('errors:', errs);
   await b.close();
 })();
