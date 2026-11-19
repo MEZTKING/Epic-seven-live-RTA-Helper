@@ -218,6 +218,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
+| IndexedDB `e7-gear-pics` (store `pics`) | `js/gearpics.js` (written by the gear consumer, read by `js/gear-app.js`) | The game's pictures of each screen-read item `{ id, icon, shot, from: 'panel'|'grid', at }` (#78); a panel picture is not replaced by a grid one |
 | `localStorage['e7-gear-setbadges']` | `js/vision/readers/gear-grid.js` | Set badges learned on this PC `[{ set, fp }]` (≤ 6 per set), next to the built-in ones in `js/gear-setseed.js` |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Own item-panel boxes (fractions of the game area); optional since #74 (built-in positions otherwise) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
@@ -301,6 +302,12 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   Full display format (#77): `gear-grid` reads every tile → `gear:grid` → the consumer saves each (dedup by key), judges
   them all at once and posts a label per tile on the overlay's `gear-grid` layer (WORN for items on a hero: the screen
   doesn't say which hero, so they are not judged) → `gear:grid-judged { read, added, counts }`.
+  Pictures (#78): both readers send `pics { icon, shot }` (JPEG data URLs) with each item; the consumer keeps them in
+  IndexedDB `e7-gear-pics` (keyed by the item's id). Events over 4 KB go to the watcher log without their data.
+  Gear page details (#78): "what to do" (`E7GearSim.advice`), the game's screenshot, every number of a screen item
+  editable (`item.read` keeps the reading; the item's dedup key stays the reading, so a fix survives a new read;
+  "Back to what was read"), the enhance simulator (`E7GearSim.outcomes` / `simulate`, `js/gearsim.js`) or the reforge
+  for a +15 level-85 item. Screen items marked `worn` (from the Full grid) are always Keep.
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all

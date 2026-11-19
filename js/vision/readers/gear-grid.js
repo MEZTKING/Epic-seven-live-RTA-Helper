@@ -2,7 +2,8 @@
  * Reader: the inventory in the "Full" display format (DEVLOG #77). Reads EVERY item on the screen at once (main stat
  * and substats from their icons + numbers, enhance, level, set badge, worn / locked), no clicking needed; scroll to
  * read more. Positions and icons: js/geargrid.js. Publishes, once per still screen:
- *   'gear:grid' { slot, tiles: [{ item, key, rect, worn, locked, selected }] }   (rect: the tile's picture, fractions)
+ *   'gear:grid' { slot, tiles: [{ item, key, rect, worn, locked, selected, pics }] }   (rect: the tile's picture, fractions;
+ *               pics: { icon, shot } JPEGs of the item and of the whole tile)
  *   'gear:grid-gone' {}   the Full grid is no longer on screen (the overlay takes its labels off)
  * Set badges: the game shows a set only as a small badge. The reader learns each badge from the item details panel:
  * when you click an item, the panel names its set (gear-item.js) and the selected tile (gold frame) shows the badge;
@@ -214,7 +215,20 @@
     const item = { gear, set: hit ? hit.set : '', rank, level: G.levelFrom(lv, main, enhance), enhance, main, substats: subs, source: 'screen' };
     const W = ctx.w();
     const H = ctx.h();
-    return { item, key: P.itemKey(item), rect: { x: pic.x / W, y: (y + 20 * f.k) / H, w: 0, h: 0 }, worn: ring / 32 > 0.15, locked, selected, fp };
+    const shot = (pp, width) => {
+      try {
+        const b2 = part(f, col, y, pp);
+        const c = document.createElement('canvas');
+        c.width = width;
+        c.height = Math.round((width * b2.h) / b2.w);
+        c.getContext('2d').drawImage(src, b2.x, b2.y, b2.w, b2.h, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', 0.85);
+      } catch (_) {
+        return null;
+      }
+    };
+    const pics = { icon: shot(G.GEO.icon, 120), shot: shot(G.GEO.tile, 300), from: 'grid' };
+    return { item, key: P.itemKey(item), rect: { x: pic.x / W, y: (y + 20 * f.k) / H, w: 0, h: 0 }, worn: ring / 32 > 0.15, locked, selected, fp, pics };
   }
 
   // the screen must stand still (the list scrolls): the same small picture twice, then read once

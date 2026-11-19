@@ -7,6 +7,60 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-19 · #78 · Gear page: the game's pictures, numbers you can fix, an enhance simulator and "what to do" · this commit (previous: `69efbaa`)
+
+**Asked for:** "Use a screenshot system for the gears instead of the art we currently have, and each of the numbers
+configurable if it's wrong. Show me first." A mock-up (made from the owner's pictures, not committed) was approved:
+"This is perfect", plus "when you click a gear you can simulate what it can do also, and when you click on one it
+should show the suggested idea on what to do with it".
+
+**Findings**
+- The watcher log (`localStorage['e7-vision-log']`) keeps every event with its data: with pictures, one Full screen
+  would add about half a megabyte and soon fill the browser storage.
+- The desktop app serves every page from one origin (`e7://`), so the watcher can keep pictures in IndexedDB and the
+  Gear page can read them (the same as the profile-art gallery, #70).
+
+**Changed**
+- Pictures: the item panel reader (new built-in regions `gearPic`, `gearShot` in `js/layouts.js`) and the Full-grid
+  reader (`GEO.icon`, `GEO.tile` in `js/geargrid.js`) send `pics { icon, shot }` (small JPEGs) with each item; the gear
+  consumer keeps them in IndexedDB `e7-gear-pics` (`js/gearpics.js`, new). A panel picture (the stats in words) is not
+  replaced by a grid tile's. Grid items also remember `worn` / `locked`.
+- `js/vision/core.js`: events over 4 KB are logged without their data.
+- `js/gearsim.js` (new, pure): the enhance simulator (a roll on a random substat at +3 / +6 / +9 / +12 / +15; a new
+  substat at +12 for Heroic, at +9 and +12 for Rare; never the main stat or one it has; no defense on a weapon, no
+  attack on an armor; roll sizes at level 85 built in, approximate), the range of 1000 runs (25th-75th percentile,
+  worst, best, after reforge, how often it reaches your "keep" line, how often it gets good speed), and `advice`: one
+  sentence on what to do ("Reforge it (level 85 → 90): gear score 55 → 65.", "Worth a try. Enhance to +9, look at the
+  new roll, then decide. …", "Keep it and put it on …", "Extract it …", "Keep it: one of your heroes wears it.").
+- `js/gear-app.js` + `css/styles.css`: cards show the game's picture of the item (drawn art only when there is none,
+  e.g. gear.txt items). The details panel: the "what to do" line first, the game's screenshot with its date, then
+  every number of a screen item as a box (stat as a list, value, enhance, level, set): a changed one is outlined with
+  what was read ("read: Speed 4"), "N fixed by you", the verdict and score recomputed at once, "Back to what was read",
+  "Delete item". Then the gear score, the simulator with one example try ("Roll again") or, at +15 level 85, the
+  reforge (each substat before → after). A worn screen item is always Keep.
+- A fix is kept when the item is read again (the item is found by its first reading; the reading is in `item.read`).
+
+**Tested**
+- `npm test` 197 (new `tests/gearsim.test.js`: rolls at the right levels and sizes, the Heroic 4th substat, no defense
+  on weapons, repeatable ranges, the advice per verdict).
+- New `tests/e2e/gear-details.e2e.js` on the owner's pictures: 33 items read, 33 with pictures (2 from a details
+  panel), the watcher log 2,937 characters; the Gear page shows 33 cards, all with the game's picture; the +6 Bow of
+  Agony: "Enhance · Worth a try. Enhance to +9 …", the screenshot, 13 boxes, numbers 220 6 4 16 13, the simulator
+  ("usual result 61–65, worst 57, best 69; after reforge ~74"); fixing speed 4 → 5: "1 fixed by you", "read: Speed 4",
+  score 45 → 47, still 5 after the item was read again, back to 4 with "Back to what was read"; "Roll again" gives
+  another try; a +15 level-85 bow: "Reforge it … 55 → 65"; a worn bow: "Keep it: one of your heroes wears it".
+- Browser suite 48/48 clean; nothing else changed (the records test's "lookups made" swings between 20 and 21 with or
+  without this change: timing). Desktop (packaged Linux build, new files inside): watcher, overlay-test, popout,
+  update-check clean.
+- **Not tested:** on the owner's PC; roll sizes for Heroic / Rare items (the same sizes are used), level 88 / 90 items
+  being enhanced.
+
+**Open / unverified**
+- The roll sizes are approximate (players' knowledge of level-85 gear), not taken from the game's files.
+- Items from gear.txt have no picture and their numbers are not editable here (they come back with the next import).
+
+---
+
 ## 2026-11-18 · #77 · Gear: the inventory's Full format read a whole screen at once, a label on every item · this commit (previous: `3457a3f`)
 
 **Asked for:** "yes do it": read the inventory in the game's **Full** display format (main stat and substats next to

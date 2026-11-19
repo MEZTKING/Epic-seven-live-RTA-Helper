@@ -422,6 +422,33 @@ button.info:hover { color: var(--accent); border-color: var(--accent); }
 .rk-Normal { --rk1: #2a2c33; --rk2: #555a66; --rk3: #777c88; }
 .vdc-keep { --vd: var(--win); } .vdc-enhance { --vd: #58b8ff; } .vdc-reforge { --vd: #c792ff; } .vdc-extract { --vd: var(--accent); } .vdc-sell { --vd: var(--loss); }
 .gear-detail { background: linear-gradient(180deg, #3a1418 0, #1d1218 160px, #17181f 100%); border: 1px solid #5a2a2e; border-radius: 12px; padding: 14px; }
+
+/* Gear details (DEVLOG #78): the game's picture, what to do, numbers you can fix, the enhance simulator */
+.gt-icon.gt-pic { padding: 0; overflow: hidden; background: #000; }
+.gt-icon.gt-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gd-todo { margin: 12px 0 4px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.06); font-size: 15px; line-height: 1.45; }
+.gd-todo .vd { font-size: 15px; margin-right: 4px; }
+.gd-todo.tone-good { border-left: 4px solid #3ecf8e; }
+.gd-todo.tone-maybe { border-left: 4px solid #f3c94b; }
+.gd-todo.tone-bad { border-left: 4px solid #ff5d6c; }
+.shot-box { margin: 12px 0 4px; border-radius: 8px; overflow: hidden; border: 1px solid #5a2a2e; background: #000; }
+.shot-box img { width: 100%; display: block; }
+.shot-cap { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+.ed-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px auto; gap: 6px; align-items: center; margin: 4px 0; }
+.ed-row select, .ed-row input, .ed-meta select, .ed-meta input { font-size: 15px; padding: 4px 6px; min-width: 0; }
+.ed-row input { text-align: right; font-variant-numeric: tabular-nums; }
+.ed-row.main select, .ed-row.main input { font-size: 18px; font-weight: 800; }
+.ed-row.fixed input, .ed-row.fixed select, .ed-meta .fixed input, .ed-meta .fixed select { border-color: #f3c94b; box-shadow: 0 0 0 1px #f3c94b inset; }
+.ed-row .was { font-size: 11px; color: #f3c94b; white-space: nowrap; }
+.ed-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.ed-meta label { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+.fixed-note { color: #f3c94b; }
+.gd-block.sim { background: rgba(255,255,255,.04); border-radius: 8px; padding: 10px 12px; }
+.sim-range { margin: 4px 0 2px; }
+.sim-run { margin: 8px 0; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,.25); font-size: 14px; }
+.sim-step { font-variant-numeric: tabular-nums; }
+.sim-at { display: inline-block; min-width: 34px; color: #f3c94b; font-weight: 700; }
+.sim-subs { display: grid; gap: 2px; margin: 6px 0; font-size: 14px; }
 .gear-detail.rk-Heroic { background: linear-gradient(180deg, #2a1640 0, #1a1424 160px, #17181f 100%); border-color: #4b2d66; }
 .gear-detail.rk-Rare { background: linear-gradient(180deg, #132a48 0, #141a26 160px, #17181f 100%); border-color: #2d4b6e; }
 .gd-head { display: grid; grid-template-columns: 78px 1fr; gap: 12px; align-items: center; }

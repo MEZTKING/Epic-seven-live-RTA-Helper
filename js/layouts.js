@@ -159,6 +159,9 @@
         gearScore: A(rgt(1400, 700, 520, 38), 'r', ['c']), // "Equipment Score 55" (yellow)
         gearScoreLabel: A(rgt(1405, 705, 235, 28), 'r', ['c']),
         gearSet: A(rgt(1455, 822, 265, 42), 'r', ['c']), // "Weakening Set (0/4)"
+        // pictures kept with each item (DEVLOG #78): the item's picture and its stats block as the game shows them
+        gearPic: A(rgt(1400, 246, 136, 136), 'r', ['c']),
+        gearShot: A(rgt(1398, 478, 524, 264), 'r', ['c']),
         // Guild War "Offense Team" screen (after choosing a defender, before Start): measured on the owner's 2000×1070
         // screenshot (DEVLOG #58). A team stands on three of four places: 1 top, 2 left, 3 right, 4 bottom.
         // gwOffM<team><place> = my teams (left, green), gwOffE<team><place> = the defender's teams (right, red).

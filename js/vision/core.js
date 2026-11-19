@@ -38,7 +38,14 @@
     function append(evt) {
       if (!storage || VOLATILE.test(evt.type)) return;
       const l = readLog();
-      l.push(evt);
+      // big events (gear items with their pictures, DEVLOG #78) are logged without their data: the log is a short list
+      let small = evt;
+      try {
+        if (JSON.stringify(evt.data || null).length > 4000) small = { ...evt, data: { big: true } };
+      } catch (_) {
+        small = { ...evt, data: null };
+      }
+      l.push(small);
       while (l.length > LOG_MAX) l.shift();
       try {
         storage.setItem(LOG_KEY, JSON.stringify(l));
