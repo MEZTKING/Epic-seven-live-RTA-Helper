@@ -1,5 +1,5 @@
 rules_version = '2';
-// Epic 7 Engine — Guild War sharing.
+// Orbis Lens — Guild War sharing.
 // Data lives at guilds/{guildCode}/records/{id}. Users sign in anonymously
 // (no email). The long random guild code is the shared secret: anyone who has
 // it can read and write that guild's records, nothing else.

@@ -1,4 +1,4 @@
-# Epic 7 Engine — roadmap (later plans)
+# Orbis Lens — roadmap (later plans)
 
 Ideas the owner asked to keep for later. When one is started, it moves to `DEVLOG.md`.
 

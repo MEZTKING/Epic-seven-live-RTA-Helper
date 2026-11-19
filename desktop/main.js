@@ -1,5 +1,5 @@
 /*
- * Epic 7 Engine — desktop app (Electron).
+ * Orbis Lens — desktop app (Electron).
  *
  * Runs the same pages as the website, plus:
  *  - OVERLAY: a transparent, click-through, always-on-top window covering the
@@ -165,12 +165,17 @@ ipcMain.on('e7:version', (e) => {
   e.returnValue = app.getVersion();
 });
 // ---- developer tool: collect game screenshots automatically (for improving the readers) ----
-const devFolder = () => path.join(app.getPath('pictures'), 'Epic 7 Engine', new Date().toISOString().slice(0, 10));
+// the pictures folder: 'Orbis Lens' (DEVLOG #81); an existing 'Orbis Lens' folder (the old name) keeps being used
+const picRoot = () => {
+  const old = path.join(app.getPath('pictures'), 'Orbis Lens');
+  return fs.existsSync(old) ? old : path.join(app.getPath('pictures'), 'Orbis Lens');
+};
+const devFolder = () => path.join(picRoot(), new Date().toISOString().slice(0, 10));
 let devCount = 0;
 ipcMain.on('e7:dev', (e) => {
   e.returnValue = { on: !!config.devCapture, folder: devFolder(), count: devCount };
 });
-/** { dataUrl (PNG), meta } from the game watcher -> <Pictures>/Epic 7 Engine/<date>/<time>-<screen>.png + .json */
+/** { dataUrl (PNG), meta } from the game watcher -> <Pictures>/Orbis Lens (or the old Orbis Lens folder)/<date>/<time>-<screen>.png + .json */
 ipcMain.on('e7:dev-shot', (_e, shot) => {
   if (!config.devCapture || !shot || !/^data:image\/png;base64,/.test(shot.dataUrl || '')) return;
   try {
@@ -188,12 +193,12 @@ ipcMain.on('e7:dev-shot', (_e, shot) => {
  * Desktop: the owner can send only 5 pictures / 30 MB per message (DEVLOG #68).
  */
 function packPictures() {
-  const root = path.join(app.getPath('pictures'), 'Epic 7 Engine');
+  const root = picRoot();
   let dirs = [];
   try {
     dirs = fs.readdirSync(root).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().slice(-3).map((d) => path.join(root, d));
   } catch (_) { /* no folder yet */ }
-  const out = path.join(app.getPath('desktop'), `Epic7-pictures-for-Claude-${new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-')}.zip`);
+  const out = path.join(app.getPath('desktop'), `OrbisLens-pictures-for-Claude-${new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-')}.zip`);
   const shrink = (p) => {
     let img = nativeImage.createFromPath(p);
     const { width } = img.getSize();
@@ -402,7 +407,7 @@ function createMain() {
   main = new BrowserWindow({
     width: 1280,
     height: 860,
-    title: `Epic 7 Engine ${app.getVersion()}`,
+    title: `Orbis Lens ${app.getVersion()}`,
     backgroundColor: '#12131a',
     webPreferences: { backgroundThrottling: false, preload: PRELOAD }, // keep reading the game while this window is behind it
   });
@@ -464,7 +469,7 @@ function createVision() {
     show: false,
     width: 1000,
     height: 760,
-    title: 'Epic 7 Engine · Game watcher',
+    title: 'Orbis Lens · Game watcher',
     backgroundColor: '#12131a',
     autoHideMenuBar: true,
     webPreferences: { backgroundThrottling: false, preload: PRELOAD },
@@ -521,7 +526,7 @@ function buildMenu() {
   const displays = screen.getAllDisplays();
   const template = [
     {
-      label: 'Epic 7 Engine',
+      label: 'Orbis Lens',
       submenu: [
         { label: 'Home', click: () => main && main.loadURL(`${ORIGIN}/index.html`) },
         { label: 'RTA', click: () => main && main.loadURL(`${ORIGIN}/rta.html`) },
@@ -631,7 +636,7 @@ function toggleOverlay() {
   buildMenu(); // the menu says ON / OFF
   // and a short notice, also when switched with Ctrl+Shift+O while the game is in front
   try {
-    if (Notification.isSupported()) new Notification({ title: 'Epic 7 Engine', body: config.overlay ? 'Overlay ON: shown on the game' : 'Overlay OFF: hidden (Ctrl+Shift+O shows it again)', silent: true }).show();
+    if (Notification.isSupported()) new Notification({ title: 'Orbis Lens', body: config.overlay ? 'Overlay ON: shown on the game' : 'Overlay OFF: hidden (Ctrl+Shift+O shows it again)', silent: true }).show();
   } catch (_) { /* no notifications on this system */ }
   if (config.overlay && overlay && !overlay.isDestroyed()) overlay.webContents.send('e7:hotkey', 'overlay-badge'); // the small ✓ badge on the game
 }

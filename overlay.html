@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Epic 7 Engine · Overlay</title>
+  <title>Orbis Lens · Overlay</title>
   <link rel="stylesheet" href="css/styles.css" />
   <style>
     html, body { background: transparent !important; overflow: hidden; height: 100%; }
@@ -235,18 +235,18 @@
       // "is it working?": a small badge for a few seconds when the overlay starts (desktop), and a test card on request
       const badge = document.createElement('div');
       badge.className = 'ov-badge';
-      badge.textContent = '✓ Epic 7 Engine overlay';
+      badge.textContent = '✓ Orbis Lens overlay';
       document.body.appendChild(badge);
       let badgeTimer = null;
       const showBadge = (text, ms = 6000) => {
-        badge.textContent = text || '✓ Epic 7 Engine overlay';
+        badge.textContent = text || '✓ Orbis Lens overlay';
         badge.classList.add('on');
         clearTimeout(badgeTimer);
         badgeTimer = setTimeout(() => badge.classList.remove('on'), ms);
       };
       // desktop: the app sends 'overlay-badge' the first time the overlay really appears on screen
       function testCard() {
-        showBadge('✓ Epic 7 Engine overlay is working', 5000);
+        showBadge('✓ Orbis Lens overlay is working', 5000);
         layers.test = [{ x: 0.36, y: 0.42, w: 0.0, h: 0.0, kind: 'card', side: 'right', level: 'green', title: '✓ The overlay is working', lines: ['Suggestions, enemy speeds, gear verdicts and', 'Guild War dots appear on the game like this.', 'This card goes away in 5 seconds.'] }];
         draw();
         setTimeout(() => { delete layers.test; draw(); }, 5000);

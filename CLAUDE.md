@@ -9,7 +9,9 @@
 - Commits must use the session's default no-reply identity; do not change `git config user.email`.
 
 ## Project
-- **Epic 7 Engine** (owner's chosen name; not "RTA Engine"): fan-made Epic Seven toolkit. **Desktop app** (Electron, `desktop/`)
+- **Orbis Lens** (owner's chosen name since DEVLOG #81; before: "Epic 7 Engine"; not "RTA Engine"): unofficial, fan-made Epic
+  Seven toolkit. The desktop build keeps `productName` "Epic 7 Engine", `appId` and the package name on purpose: they
+  decide the data folder, the install folder and the update channel (changing them would lose saved data / updates). **Desktop app** (Electron, `desktop/`)
   showing the pages in this repo, no build step for the pages. Since DEVLOG #37 the browser/phone version is dropped: the
   web (GitHub Pages) only hosts `guild.html` for guildmates (desktop-only controls hidden there via `.desktop-only`).
   `index.html` is the **home page** (module picker). Modules: `rta.html` (RTA helper), `arena.html` (Arena), `gear.html` (Gear Sorter),

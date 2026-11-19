@@ -54,7 +54,7 @@ jobs:
         run: Get-ChildItem dist -File | Format-Table Name, Length
       - uses: actions/upload-artifact@v4
         with:
-          name: Epic-7-Engine-windows
+          name: Orbis-Lens-windows
           path: |
             desktop/dist/*.exe
             desktop/dist/latest.yml
@@ -64,16 +64,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}
-          name: Epic 7 Engine ${{ env.APP_VERSION }}
+          name: Orbis Lens ${{ env.APP_VERSION }}
           target_commitish: ${{ github.sha }}
           make_latest: 'true'
           body: |
             Automatic build of commit ${{ github.sha }}. What changed: see DEVLOG.md.
-            **Epic-7-Engine-Setup-${{ env.APP_VERSION }}.exe**: installer (recommended; updates itself).
-            **Epic-7-Engine-${{ env.APP_VERSION }}-portable.exe**: no install; also updates itself from the menu.
+            **Orbis-Lens-Setup-${{ env.APP_VERSION }}.exe**: installer (recommended; updates itself).
+            **Orbis-Lens-${{ env.APP_VERSION }}-portable.exe**: no install; also updates itself from the menu.
           files: |
-            desktop/dist/Epic-7-Engine-Setup-${{ env.APP_VERSION }}.exe
-            desktop/dist/Epic-7-Engine-Setup-${{ env.APP_VERSION }}.exe.blockmap
+            desktop/dist/Orbis-Lens-Setup-${{ env.APP_VERSION }}.exe
+            desktop/dist/Orbis-Lens-Setup-${{ env.APP_VERSION }}.exe.blockmap
             desktop/dist/latest.yml
-            desktop/dist/Epic-7-Engine-${{ env.APP_VERSION }}-portable.exe
+            desktop/dist/Orbis-Lens-${{ env.APP_VERSION }}-portable.exe
           fail_on_unmatched_files: true

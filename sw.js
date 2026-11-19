@@ -1,5 +1,5 @@
 /*
- * Retired (DEVLOG #37): the Epic 7 Engine is a desktop app now; the web site only hosts the Guild War page for
+ * Retired (DEVLOG #37): the Orbis Lens is a desktop app now; the web site only hosts the Guild War page for
  * guildmates. Phones/browsers that installed the old offline web app still have its service worker: this version
  * deletes every cache it made and unregisters itself, so they load the live pages again. Kept for a while, then removed.
  */

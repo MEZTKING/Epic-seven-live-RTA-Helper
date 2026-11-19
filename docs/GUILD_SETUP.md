@@ -17,7 +17,7 @@ Guildmates then just open an invite link.
    phone, in a private `personal/<long key>` area. If you published the rules before 2026-11-13, publish them again.)
 6. **Project settings (gear icon) → General → Your apps → Web (`</>`)**. Register an app (any nickname,
    no hosting needed). Firebase shows a `const firebaseConfig = { ... }` snippet. **Copy it.**
-7. Open the Epic 7 Engine **Guild War** page → **Setup**:
+7. Open the Orbis Lens **Guild War** page → **Setup**:
    - Enter your in-game name.
    - Paste the snippet into **Sharing (Firebase)** and press **Connect**.
    - Enter the guild name and press **Create guild**.
