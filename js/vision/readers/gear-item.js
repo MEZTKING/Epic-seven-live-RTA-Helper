@@ -1,7 +1,8 @@
 /*
  * Reader: an item's details panel (Inventory, a hero's gear, the shop). Reads the lines with the shared text reader,
  * checks them (js/statparse.js) and publishes 'gear:item' once the same item was read twice in a row.
- *   gear:item { item, key, problems, rect }   (rect = main-stat box, fractions of the game picture, for the overlay)
+ *   gear:item { item, key, problems, rect, pics }   (rect = main-stat box, fractions of the game picture, for the overlay;
+ *                                                    pics = { icon, shot } JPEGs of the item and its stats, built-in positions only)
  *   gear:gone {}                              the panel closed after an item was read (the overlay takes its verdict off)
  * Positions are built in (js/layouts.js gear*, DEVLOG #74): nothing to draw or teach. Boxes you drew earlier on the Gear
  * page (localStorage 'e7-gearscan-boxes') still win.
@@ -110,11 +111,27 @@
         gear: at('gearType'),
         enhance: at('gearEnhance'),
         level: at('gearLevel'),
+        pic: at('gearPic'),
+        shot: at('gearShot'),
       };
     }
     return null;
   }
 
+  /** A box of the game picture as a small JPEG (for the Gear page: the item as the game showed it). */
+  function jpg(ctx, r, width) {
+    try {
+      const W = ctx.w();
+      const H = ctx.h();
+      const c = document.createElement('canvas');
+      c.width = width;
+      c.height = Math.max(1, Math.round((width * r.h * H) / (r.w * W)));
+      c.getContext('2d').drawImage(ctx.source, r.x * W, r.y * H, r.w * W, r.h * H, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.85);
+    } catch (_) {
+      return null;
+    }
+  }
   let shown = false; // an item was published and its panel is still open
   function away(ctx) {
     gate.reset();
@@ -180,7 +197,8 @@
       if (gate.push(key)) {
         shown = true;
         lastPub = { item, at: Date.now() };
-        ctx.publish('gear:item', { item, key, problems, rect: b.main });
+        const pics = b.pic ? { icon: jpg(ctx, b.pic, 120), shot: jpg(ctx, b.shot, 440), from: 'panel' } : null;
+        ctx.publish('gear:item', { item, key, problems, rect: b.main, pics });
       }
       ctx.note(`Item: ${item.rank} ${item.gear} +${item.enhance} · ${item.main.type} ${item.main.value} · ${item.substats.length} substats`);
     },

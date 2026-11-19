@@ -29,6 +29,21 @@
 
   function recompute() {
     evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules);
+    // screen items a hero wears (the tile shows the portrait, not who): keep, whatever the score (DEVLOG #78)
+    for (const r of evald.results)
+      if (r.item.worn && r.verdict !== 'keep') {
+        r.verdict = 'keep';
+        r.reason = 'One of your heroes wears it';
+      }
+  }
+  // ---- pictures of items as the game showed them (IndexedDB 'e7-gear-pics', js/gearpics.js; DEVLOG #78)
+  let pics = new Map();
+  function loadPics() {
+    if (!window.E7GearPics) return;
+    window.E7GearPics.all().then((all) => {
+      pics = new Map(all.map((x) => [x.id, x]));
+      render();
+    });
   }
   /** gear.txt items + screen-read items (kept as separate sources; screen items aren't linked to a hero). */
   const allItems = () => GS.allItems(gs);
@@ -76,7 +91,8 @@
   const fmtSub = (s) => `${S.STATS[s.type] || s.type} ${s.value}${/Percent/.test(s.type) ? '%' : ''}${s.rolls > 1 ? `<sup>${s.rolls}</sup>` : ''}`;
   const VERDICT_LABEL = { keep: 'Keep', enhance: 'Enhance', reforge: 'Reforge', extract: 'Extract', sell: 'Sell' };
 
-  // ---- card view (looks like the game's inventory; our own symbols, no game art)
+  // ---- card view (looks like the game's inventory; the game's own picture of an item read from the screen (DEVLOG #78),
+  // else our own symbols)
   const STAT_ICON = { Attack: '⚔', AttackPercent: '⚔', Health: '♥', HealthPercent: '♥', Defense: '⛨', DefensePercent: '⛨', Speed: '»', CriticalHitChancePercent: '✦', CriticalHitDamagePercent: '✸', EffectivenessPercent: '◎', EffectResistancePercent: '✚', DualAttackChancePercent: '⇄' };
   const STAT_NAME = { Attack: 'Attack', AttackPercent: 'Attack', Health: 'Health', HealthPercent: 'Health', Defense: 'Defense', DefensePercent: 'Defense', Speed: 'Speed', CriticalHitChancePercent: 'Critical Hit Chance', CriticalHitDamagePercent: 'Critical Hit Damage', EffectivenessPercent: 'Effectiveness', EffectResistancePercent: 'Effect Resistance', DualAttackChancePercent: 'Dual Attack Chance' };
   const SLOT_ICON = { Weapon: '🗡', Helmet: '⛑', Armor: '🛡', Necklace: '📿', Ring: '💍', Boots: '👢' };
@@ -91,6 +107,8 @@
   const slotArt = (g) => (ICONS && ICONS.slot(g) ? `<span class="gt-art">${ICONS.slot(g)}</span>` : esc(SLOT_ICON[g] || '?'));
   const rankCls = (rank) => `rk-${['Epic', 'Heroic', 'Rare', 'Good', 'Normal'].includes(rank) ? rank : 'Epic'}`;
   function iconBox(it) {
+    const pic = pics.get(it.id);
+    if (pic && pic.icon) return `<div class="gt-icon gt-pic" title="As the game showed it"><img alt="" src="${pic.icon}" /></div>`;
     return `<div class="gt-icon ${rankCls(it.rank)}">${it.locked ? '<span class="gt-lock" title="Locked">🔒</span>' : ''}<span class="gt-lv">${it.level || ''}</span>${slotArt(it.gear)}${it.enhance ? `<span class="gt-enh">+${it.enhance}</span>` : ''}${it.equipped ? `<span class="gt-hero" title="On ${esc(nameOf(it.equipped))}">${portrait(it.equipped)}</span>` : ''}${it.set ? setBadge(it.set) : ''}</div>`;
   }
   function tile(r) {
@@ -100,25 +118,129 @@
       <div class="gt-left">${iconBox(it)}<div class="gt-score" title="Gear score (WSS)">${r.wss}</div></div>
       <div class="gt-stats">${line(it.main, 'main')}${it.subs.map((x) => line(x, 'sub')).join('')}</div></button>`;
   }
+  // ---- details: what to do, the game's picture, numbers you can fix, the enhance simulator (DEVLOG #78)
+  const SIM = window.E7GearSim;
+  let simSeed = 1;
+  const EDIT_TYPES = Object.keys(S.STATS).filter((t) => t !== 'DualAttackChancePercent');
+  const statLabel = (t) => `${STAT_NAME[t] || t}${pct(t) ? ' %' : ''}`;
+  const snapshot = (it) => JSON.parse(JSON.stringify({ main: it.main, subs: it.subs, enhance: it.enhance, level: it.level, set: it.set }));
+  /** Which numbers you changed: ['main', 'sub0', …, 'enhance', 'level', 'set'] */
+  function fixedParts(it) {
+    if (!it.read) return [];
+    const a = it.read;
+    const same = (x, y) => !!x && !!y && x.type === y.type && Number(x.value) === Number(y.value);
+    const out = [];
+    if (!same(a.main, it.main)) out.push('main');
+    for (let k = 0; k < Math.max(a.subs.length, it.subs.length); k++) if (!same(a.subs[k], it.subs[k])) out.push('sub' + k);
+    for (const f of ['enhance', 'level', 'set']) if (String(a[f]) !== String(it[f])) out.push(f);
+    return out;
+  }
+  const readText = (st) => (st ? `${STAT_NAME[st.type] || st.type} ${val(st)}` : '—');
+  function editRow(it, k, fixed) {
+    const st = k === 'main' ? it.main : it.subs[Number(k.slice(3))];
+    const was = it.read && (k === 'main' ? it.read.main : it.read.subs[Number(k.slice(3))]);
+    const isFixed = fixed.includes(k);
+    return `<div class="ed-row${k === 'main' ? ' main' : ''}${isFixed ? ' fixed' : ''}"><select data-ed="${k}:type">${(k === 'main' ? '' : '<option value="">(none)</option>') + EDIT_TYPES.map((t) => `<option value="${t}"${st && st.type === t ? ' selected' : ''}>${esc(statLabel(t))}</option>`).join('')}</select><input type="number" min="0" data-ed="${k}:value" value="${st ? esc(st.value) : ''}" />${isFixed ? `<span class="was" title="What the screen reader read">read: ${esc(readText(was))}</span>` : ''}</div>`;
+  }
+  function simBlock(r) {
+    const it = r.item;
+    if (!SIM) return '';
+    if (Number(it.enhance) >= 15) {
+      if (r.reforgedWss === r.wss) return '';
+      const ref = S.reforgedSubs(it);
+      return `<div class="gd-block sim"><b>Reforge (level 85 → 90)</b><div class="sim-subs">${ref.map((x, k) => `<span>${esc(STAT_NAME[x.type] || x.type)} ${esc(val(it.subs[k]))} → <b>${esc(val(x))}</b></span>`).join('')}</div><div>Gear score ${r.wss} → <b>${r.reforgedWss}</b></div></div>`;
+    }
+    const out = SIM.outcomes(it, { runs: 1000, rng: SIM.rngFrom(12345), keep: gs.rules.keepWss });
+    const one = SIM.simulate(it, SIM.rngFrom(simSeed * 7919));
+    const steps = one.steps.map((x) => `<div class="sim-step"><span class="sim-at">+${x.at}</span> ${x.kind === 'new' ? 'new substat: ' : ''}${esc(STAT_NAME[x.type] || x.type)} <b>+${x.add}${pct(x.type) ? '%' : ''}</b></div>`).join('');
+    const reforged = Number(it.level) === 85 ? ` → <b>${one.reforgedWss}</b> after reforge` : '';
+    return `<div class="gd-block sim"><b>Simulate enhancing to +15</b>
+      <div class="sim-range" title="1000 simulated enhancements">Usual result: gear score <b>${out.low}–${out.high}</b> <span class="hint">(worst ${out.worst}, best ${out.best}${Number(it.level) === 85 ? `; after reforge ~${out.reforged.mid}` : ''})</span></div>
+      <div class="hint">${Math.round(out.chanceKeep * 100)}% of the time it ends at ${gs.rules.keepWss}+ (your "keep" line)${out.speedChance ? ` · ${Math.round(out.speedChance * 100)}% of the time it gets good speed` : ''}</div>
+      <div class="sim-run"><div class="hint">One try:</div>${steps}<div>Result: ${one.item.subs.map((x) => `${esc(S.STATS[x.type] || x.type)} ${esc(val(x))}`).join(' · ')}</div><div>Gear score <b>${one.wss}</b>${reforged}</div></div>
+      <button class="btn" data-act="reroll">Roll again</button></div>`;
+  }
   function detail(r) {
     const it = r.item;
+    const screen = it.source === 'screen';
+    const pic = pics.get(it.id);
+    const fixed = screen ? fixedParts(it) : [];
     const best = (r.heroFit ? [r.heroFit] : r.best)
       .filter((b) => b.delta > 0 || b.code === it.equipped)
       .slice(0, 4)
       .map((b) => `<div class="clickable" data-hero="${esc(b.code)}">${portrait(b.code)} ${esc(nameOf(b.code))} <small class="${b.delta > gs.rules.upgradeMargin ? 'up' : 'hint'}">${b.delta > 0 ? '+' + b.delta : 'current'}</small></div>`)
       .join('') || '<span class="hint">Not an upgrade for anyone</span>';
     const SET_SIZE = G.SETS[it.set] ? G.SETS[it.set][1] : '';
-    return `<div class="gd-head">${iconBox(it)}<div><div class="gd-rank">${esc(it.rank)} ${esc(it.gear)}</div><div class="gd-name">${esc(it.name && it.name.length > 2 ? it.name : `${setLabel(it.set)} ${it.gear}`)}</div>
-        <div class="hint">Level ${it.level} · +${it.enhance}${it.source === 'screen' ? ' · <span class="src other">screen</span>' : ' · <span class="src fribbels">Fribbels</span>'}</div></div></div>
-      <div class="gd-main"><span><span class="si">${STAT_ICON[it.main.type] || ''}</span> ${esc(STAT_NAME[it.main.type] || it.main.type)}</span><span>${esc(val(it.main))}</span></div>
-      ${it.subs.map((x) => `<div class="gd-sub"><span>${esc(STAT_NAME[x.type] || x.type)}${x.rolls > 1 ? ` <small class="hint">×${x.rolls}</small>` : ''}</span><span>${esc(val(x))}</span></div>`).join('')}
+    const out = SIM && Number(it.enhance) < 15 ? SIM.outcomes(it, { runs: 1000, rng: SIM.rngFrom(12345), keep: gs.rules.keepWss }) : null;
+    const adv = SIM ? SIM.advice(r, { rules: gs.rules, out, nameOf, worn: !!it.worn }) : { action: VERDICT_LABEL[r.verdict], tone: '', text: r.reason };
+    const head = `<div class="gd-head">${iconBox(it)}<div><div class="gd-rank">${esc(it.rank)} ${esc(it.gear)}</div><div class="gd-name">${esc(it.name && it.name.length > 2 ? it.name : `${setLabel(it.set)} ${it.gear}`)}</div>
+        <div class="hint">Level ${it.level} · +${it.enhance}${screen ? ' · <span class="src other">screen</span>' : ' · <span class="src fribbels">Fribbels</span>'}${it.worn ? ' · on a hero' : ''}${fixed.length ? ` · <b class="fixed-note">${fixed.length} fixed by you</b>` : ''}</div></div></div>`;
+    const todo = `<div class="gd-todo tone-${adv.tone}"><span class="vd ${r.verdict}">${esc(adv.action)}</span> ${esc(adv.text)}</div>`;
+    const shot = pic && pic.shot ? `<div class="shot-box"><img alt="The item as the game showed it" src="${pic.shot}" /></div><div class="shot-cap">What the game showed (${new Date(pic.at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}). If a number below is wrong, change it.</div>` : '';
+    const numbers = screen
+      ? `${editRow(it, 'main', fixed)}${[0, 1, 2, 3].map((k) => (it.subs[k] || k < 4 ? editRow(it, 'sub' + k, fixed) : '')).join('')}
+        <div class="ed-meta"><label${fixed.includes('enhance') ? ' class="fixed"' : ''}>Enhance<input type="number" min="0" max="15" data-ed="enhance" value="${esc(it.enhance)}" /></label><label${fixed.includes('level') ? ' class="fixed"' : ''}>Level<select data-ed="level">${[85, 88, 90, 70, 72, 75, 78].map((l) => `<option${Number(it.level) === l ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label${fixed.includes('set') ? ' class="fixed"' : ''}>Set<select data-ed="set"><option value="">?</option>${Object.entries(G.SETS).map(([k, [n]]) => `<option value="${k}"${it.set === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label></div>
+        <div class="btn-row">${fixed.length ? '<button class="btn" data-act="restore">Back to what was read</button>' : ''}<button class="btn danger" data-act="delete">Delete item</button></div>`
+      : `<div class="gd-main"><span><span class="si">${STAT_ICON[it.main.type] || ''}</span> ${esc(STAT_NAME[it.main.type] || it.main.type)}</span><span>${esc(val(it.main))}</span></div>
+        ${it.subs.map((x) => `<div class="gd-sub"><span>${esc(STAT_NAME[x.type] || x.type)}${x.rolls > 1 ? ` <small class="hint">×${x.rolls}</small>` : ''}</span><span>${esc(val(x))}</span></div>`).join('')}`;
+    return `${head}${todo}${shot}${numbers}
       <div class="gd-score"><span title="Fribbels/RexQian WSS: substats only">Gear score</span><span>${r.wss}</span></div>
-      ${r.reforgedWss !== r.wss ? `<div class="gd-sub"><span>After reforge</span><span>${r.reforgedWss}</span></div>` : ''}${r.potential.rollsLeft ? `<div class="gd-sub"><span>Expected at +15</span><span>≈${r.potential.expected}</span></div>` : ''}
-      ${it.set ? `<div class="gd-set">${setBadge(it.set)} ${esc(setLabel(it.set))} Set ${SET_SIZE ? `<span class="hint">(${SET_SIZE} pieces)</span>` : ''}</div>` : ''}
-      <div class="gd-block"><span class="vd ${r.verdict}">${VERDICT_LABEL[r.verdict]}</span> <span class="hint">${esc(r.reason)}</span></div>
+      ${r.reforgedWss !== r.wss ? `<div class="gd-sub"><span>After reforge</span><span>${r.reforgedWss}</span></div>` : ''}
+      ${simBlock(r)}
+      ${it.set && !screen ? `<div class="gd-set">${setBadge(it.set)} ${esc(setLabel(it.set))} Set ${SET_SIZE ? `<span class="hint">(${SET_SIZE} pieces)</span>` : ''}</div>` : ''}
       ${it.equipped ? `<div class="gd-block">Equipped on <span class="clickable" data-hero="${esc(it.equipped)}">${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</span></div>` : ''}
       <div class="gd-block"><b>Best for</b>${best}</div>`;
   }
+  /** A number changed in the details panel (screen items only); the reading is kept in item.read to go back. */
+  function editItem(id, field, value) {
+    const it = gs.scanned.find((x) => x.id === id);
+    if (!it) return;
+    if (!it.read) it.read = snapshot(it);
+    const [k, prop] = field.split(':');
+    if (k === 'enhance') it.enhance = Math.max(0, Math.min(15, Number(value) || 0));
+    else if (k === 'level') it.level = Number(value) || 85;
+    else if (k === 'set') it.set = value;
+    else if (k === 'main') it.main = { ...it.main, [prop]: prop === 'value' ? Number(value) || 0 : value };
+    else {
+      const n = Number(k.slice(3));
+      const subs = it.subs.slice();
+      if (prop === 'type' && !value) subs.splice(n, 1);
+      else if (subs[n]) subs[n] = { ...subs[n], [prop]: prop === 'value' ? Number(value) || 0 : value, rolls: undefined };
+      else if (prop === 'type') subs.push({ type: value, value: 0 });
+      it.subs = subs.filter(Boolean);
+    }
+    if (!fixedParts(it).length) delete it.read;
+    save();
+    recompute();
+    render();
+  }
+  $('#gs-detail').addEventListener('change', (e) => {
+    const f = e.target.dataset.ed;
+    if (f && selected) editItem(selected, f, e.target.value);
+  });
+  $('#gs-detail').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]');
+    if (!a || !selected) return;
+    const it = gs.scanned.find((x) => x.id === selected);
+    if (a.dataset.act === 'reroll') {
+      simSeed++;
+      return render();
+    }
+    if (!it) return;
+    if (a.dataset.act === 'restore' && it.read) {
+      Object.assign(it, it.read);
+      delete it.read;
+    } else if (a.dataset.act === 'delete') {
+      if (!confirm('Delete this item (read from the screen)?')) return;
+      gs.scanned = gs.scanned.filter((x) => x.id !== it.id);
+      if (window.E7GearPics) window.E7GearPics.remove(it.id);
+      selected = null;
+    } else return;
+    save();
+    recompute();
+    render();
+  });
   /** One row per hero: their 6 slots in order, active sets, gear score total. */
   function heroRows() {
     const q = $('#f-hero').value.trim();
@@ -251,6 +373,7 @@
   $('#gs-heroview').addEventListener('click', (e) => {
     const t = e.target.closest('[data-item]');
     if (!t) return;
+    simSeed = 1;
     selected = selected === t.dataset.item ? null : t.dataset.item;
     render();
     if (selected && innerWidth < 1100) $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -258,6 +381,7 @@
   $('#gs-cards').addEventListener('click', (e) => {
     const t = e.target.closest('[data-item]');
     if (!t) return;
+    simSeed = 1;
     selected = selected === t.dataset.item ? null : t.dataset.item;
     render();
     if (selected && innerWidth < 1100) $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -361,6 +485,7 @@
       gs = load();
       recompute();
       render();
+      loadPics();
     },
     clearScanned() {
       gs.scanned = [];
@@ -385,4 +510,5 @@
 
   recompute();
   render();
+  loadPics();
 })();

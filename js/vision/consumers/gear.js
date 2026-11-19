@@ -17,7 +17,11 @@
   const byCode = new Map(HEROES.map((h) => [h.code, h]));
   const nameOf = (c) => (byCode.get(c) || {}).name || c;
 
-  bus.on('gear:item', ({ item, key, problems, rect }) => {
+  // the item's pictures as the game showed it (IndexedDB, js/gearpics.js), for the Gear page (DEVLOG #78)
+  const keepPics = (slim, pics) => {
+    if (slim && pics && (pics.icon || pics.shot) && window.E7GearPics) window.E7GearPics.put(slim.id, { ...pics, at: Date.now() });
+  };
+  bus.on('gear:item', ({ item, key, problems, rect, pics }) => {
     const desc = `${item.gear} · ${String(item.set || '').replace(/Set$/, '') || '?'} · +${item.enhance} · ${item.main.type} ${item.main.value}`;
     const gs = GS.load();
     let slim = GS.addScanned(gs, item, key);
@@ -33,6 +37,7 @@
     }
     if (dup) bus.publish('gear:dup', { desc });
     if (!slim) return;
+    keepPics(slim, pics);
     // the item on screen is judged even when screen-read items are switched off for the sorter
     const all = GS.allItems(gs);
     const ev = S.evaluateAll(all.includes(slim) ? all : [...all, slim], HEROES, gs.overrides, gs.rules);
@@ -60,13 +65,22 @@
     const gs = GS.load();
     const mine = [];
     let added = 0;
+    let changed = false;
     for (const t of tiles || []) {
       let slim = GS.addScanned(gs, t.item, t.key);
       if (slim) added++;
       else slim = gs.scanned.find((x) => x.key === t.key);
       if (slim) mine.push({ t, slim });
+      // a picture from the details panel (sharper, stats in words) is not replaced by a grid tile's
+      if (slim && t.pics && window.E7GearPics) window.E7GearPics.get(slim.id).then((old) => (!old || old.from !== 'panel') && keepPics(slim, t.pics));
+      // on a hero / locked, as the tile shows it now (the Gear page keeps worn items)
+      if (slim && (!!slim.worn !== !!t.worn || !!slim.locked !== !!t.locked)) {
+        slim.worn = !!t.worn;
+        slim.locked = !!t.locked;
+        changed = true;
+      }
     }
-    if (added) {
+    if (added || changed) {
       try {
         GS.save(gs);
       } catch (e) {
