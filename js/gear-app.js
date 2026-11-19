@@ -188,6 +188,7 @@
       <div class="gd-score"><span title="Fribbels/RexQian WSS: substats only">Gear score</span><span>${r.wss}</span></div>
       ${r.reforgedWss !== r.wss ? `<div class="gd-sub"><span>After reforge</span><span>${r.reforgedWss}</span></div>` : ''}
       ${simBlock(r)}
+      ${tryOnBlock(r)}
       ${it.set && !screen ? `<div class="gd-set">${setBadge(it.set)} ${esc(setLabel(it.set))} Set ${SET_SIZE ? `<span class="hint">(${SET_SIZE} pieces)</span>` : ''}</div>` : ''}
       ${it.equipped ? `<div class="gd-block">Equipped on <span class="clickable" data-hero="${esc(it.equipped)}">${portrait(it.equipped)} ${esc(nameOf(it.equipped))}</span></div>` : ''}
       <div class="gd-block"><b>Best for</b>${best}</div>`;
@@ -363,6 +364,9 @@
     const withGear = evald.profiles.map((p) => p.code);
     $('#gs-heroes').innerHTML = withGear.map((c) => `<option value="${esc(nameOf(c))}"></option>`).join('');
     renderProfile();
+    renderMoves();
+    renderPresets();
+    renderDesigns();
   }
   $('#gs-summary').addEventListener('click', (e) => {
     const b = e.target.closest('[data-v]');
@@ -462,6 +466,286 @@
     $('#b-out').innerHTML = `<div class="ins ${worth || r.verdict === 'enhance' ? 'good' : 'warn'}"><b>${worth ? 'Worth buying' : r.verdict === 'enhance' ? 'Maybe: good start, needs enhancing' : 'Probably skip'}</b> · gear score ${r.wss}${r.potential.rollsLeft ? ` (≈${r.potential.expected} at +15)` : ''}
       <div>${r.best.filter((b) => b.delta > 0).map((b) => `${portrait(b.code)} ${esc(nameOf(b.code))} +${b.delta}`).join(' · ') || 'Not an upgrade for any hero right now.'}</div></div>`;
   });
+
+
+  // ---- moving gear between heroes, gear presets, designs seen (DEVLOG #79) -------------------------------------
+  const B = window.E7GearBuild;
+  const BASE = (() => {
+    const snap = ((window.RTASources && window.RTASources.fribbelsSnapshot) || {}).stats || {};
+    try {
+      const main = JSON.parse(localStorage.getItem(MAIN_KEY) || 'null');
+      return { ...snap, ...((main && main.fribbelsData && main.fribbelsData.stats) || {}) };
+    } catch (_) {
+      return snap;
+    }
+  })();
+  const codeOfName = (q) => {
+    const h = q && HEROES.find((x) => R.normName(x.name) === R.normName(q));
+    return h ? h.code : null;
+  };
+  const itemsById = () => new Map([...gs.items, ...gs.scanned].map((x) => [x.id, x]));
+  /** What a hero wears now (from gear.txt). */
+  const wearing = (code) => gs.items.filter((x) => x.equipped === code);
+  const itemLabel = (it) => `${it.name && it.name.length > 2 ? it.name : `${setLabel(it.set) || '?'} ${it.gear}`} · ${STAT_NAME[it.main.type] || it.main.type} ${val(it.main)} · +${it.enhance}`;
+  const STAT_ROWS = [['atk', 'Attack', ''], ['hp', 'Health', ''], ['def', 'Defense', ''], ['spd', 'Speed', ''], ['chc', 'Crit Chance', '%'], ['chd', 'Crit Damage', '%'], ['eff', 'Effectiveness', '%'], ['efr', 'Effect Resistance', '%']];
+  function cmpTable(a, b, labels = ['now', 'with it']) {
+    if (!a || !b) return '<p class="hint">No base stats for this hero.</p>';
+    return `<table class="cmp"><tr><td></td><td class="hint">${labels[0]}</td><td class="hint">${labels[1]}</td><td></td></tr>${STAT_ROWS.map(([k, n, u]) => {
+      const d = b[k] - a[k];
+      return `<tr><td>${n}</td><td>${a[k]}${u}</td><td><b>${b[k]}${u}</b></td><td class="${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d ? `${d > 0 ? '+' : ''}${d}${u}` : '—'}</td></tr>`;
+    }).join('')}</table><div class="hint">Sets: ${b.sets.map((x) => `${setLabel(x.set)}${x.full > 1 ? ` ×${x.full}` : ''}`).join(' + ') || 'none complete'}${a.sets.map((x) => x.set + x.full).join() !== b.sets.map((x) => x.set + x.full).join() ? ` (now: ${a.sets.map((x) => setLabel(x.set)).join(' + ') || 'none'})` : ''} · without artifact and exclusive equipment</div>`;
+  }
+  const profileOf = (code) => evald.profiles.find((p) => p.code === code) || S.heroProfile(code, (byCode.get(code) || {}).role, wearing(code), gs.overrides[code]);
+  /** The best spare item (worn by nobody) of this slot for a hero. */
+  function bestSpare(code, gear, exclude) {
+    const p = profileOf(code);
+    return [...gs.items.filter((x) => !x.equipped), ...gs.scanned.filter((x) => !x.worn)]
+      .filter((x) => x.gear === gear && x.id !== exclude)
+      .map((x) => ({ x, f: S.fit(x, p) }))
+      .sort((a, b) => b.f - a.f)[0];
+  }
+  let tryHero = null;
+  function tryOnBlock(r) {
+    const it = r.item;
+    const heroes = evald.profiles.map((p) => p.code);
+    if (!tryHero && r.best[0]) tryHero = r.best[0].code;
+    const code = tryHero;
+    const head = `<div class="gd-block tryon"><b>Try it on a hero</b><div class="btn-row"><input data-try="hero" list="gs-allheroes" placeholder="Hero" value="${esc(code ? nameOf(code) : '')}" autocomplete="off" />${heroes.length ? '' : '<span class="hint">import gear.txt to know what your heroes wear now</span>'}</div>`;
+    if (!code || !BASE[code]) return head + (code ? '<p class="hint">No base stats for this hero.</p>' : '') + '</div>';
+    if (it.equipped === code) return head + `<p class="hint">${esc(nameOf(code))} already wears it.</p></div>`;
+    const now = wearing(code);
+    const a = B.heroStats(BASE[code], now);
+    const b = B.heroStats(BASE[code], B.withItem(now, it));
+    let loser = '';
+    let rep = null;
+    if (it.equipped && BASE[it.equipped]) {
+      const theirs = wearing(it.equipped);
+      const la = B.heroStats(BASE[it.equipped], theirs);
+      const lb = B.heroStats(BASE[it.equipped], theirs.filter((x) => x.id !== it.id));
+      rep = bestSpare(it.equipped, it.gear, it.id);
+      const lc = rep ? B.heroStats(BASE[it.equipped], B.withItem(theirs, rep.x)) : null;
+      loser = `<div class="loses"><b>${esc(nameOf(it.equipped))}</b> would lose it: speed ${la.spd} → ${lb.spd}, attack ${la.atk} → ${lb.atk}, health ${la.hp} → ${lb.hp}.${rep ? ` Best spare ${esc(it.gear.toLowerCase())} for them: <b>${esc(itemLabel(rep.x))}</b> (speed ${lc.spd}, attack ${lc.atk}).` : ''}</div>`;
+    } else if (it.worn) loser = '<div class="loses">One of your heroes wears it now (the screen doesn\'t say who): they would lose it.</div>';
+    const planned = gs.moves.some((m) => m.item === it.id && m.to === code && !m.done);
+    return `${head}${cmpTable(a, b)}${loser}<div class="btn-row">${planned ? '<span class="hint">✓ planned (see "Moves to make in the game")</span>' : `<button class="btn primary" data-act="plan">Plan this move</button>${rep ? '<button class="btn" data-act="plan2">Plan both moves</button>' : ''}`}</div></div>`;
+  }
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  function planMove(itemId, from, to) {
+    if (gs.moves.some((m) => m.item === itemId && m.to === to && !m.done)) return;
+    gs.moves.push({ id: newId(), item: itemId, from: from || null, to, done: false, at: Date.now() });
+  }
+  $('#gs-detail').addEventListener('change', (e) => {
+    if (e.target.dataset.try !== 'hero') return;
+    tryHero = codeOfName(e.target.value);
+    render();
+  });
+  $('#gs-detail').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]');
+    if (!a || !selected || !['plan', 'plan2'].includes(a.dataset.act) || !tryHero) return;
+    const it = itemsById().get(selected);
+    if (!it) return;
+    planMove(it.id, it.equipped || (it.worn ? '?' : null), tryHero);
+    if (a.dataset.act === 'plan2' && it.equipped) {
+      const rep = bestSpare(it.equipped, it.gear, it.id);
+      if (rep) planMove(rep.x.id, null, it.equipped);
+    }
+    save();
+    render();
+  });
+  function renderMoves() {
+    const byId = itemsById();
+    const list = gs.moves;
+    $('#gs-moves-card').classList.toggle('hidden', !list.length);
+    const who = (c) => (c === '?' ? 'a hero' : c ? esc(nameOf(c)) : 'inventory');
+    $('#gs-moves').innerHTML = list
+      .map((m) => {
+        const it = byId.get(m.item);
+        return `<li class="${m.done ? 'done' : ''}"><label><input type="checkbox" data-move="${esc(m.id)}"${m.done ? ' checked' : ''} /> ${it ? esc(itemLabel(it)) : '(item no longer in your gear)'}: ${who(m.from)} → <b>${who(m.to)}</b></label> <button class="btn link" data-move-del="${esc(m.id)}" title="Remove">✕</button></li>`;
+      })
+      .join('');
+  }
+  $('#gs-moves').addEventListener('change', (e) => {
+    const m = gs.moves.find((x) => x.id === e.target.dataset.move);
+    if (!m) return;
+    m.done = e.target.checked;
+    save();
+    renderMoves();
+  });
+  $('#gs-moves').addEventListener('click', (e) => {
+    const id = e.target.dataset && e.target.dataset.moveDel;
+    if (!id) return;
+    gs.moves = gs.moves.filter((x) => x.id !== id);
+    save();
+    renderMoves();
+  });
+  $('#gs-moves-clear').addEventListener('click', () => {
+    gs.moves = gs.moves.filter((x) => !x.done);
+    save();
+    renderMoves();
+  });
+
+  // presets
+  let psTab = 'now';
+  function presetItems(p) {
+    const byId = itemsById();
+    return B.SLOTS.map((g) => (p.items[g] ? byId.get(p.items[g]) : null)).filter(Boolean);
+  }
+  function renderPresets() {
+    const code = codeOfName($('#ps-hero').value.trim());
+    const box = $('#ps-out');
+    if (!code) {
+      box.innerHTML = '<p class="hint">Type a hero to see what they wear now and to make presets.</p>';
+      return;
+    }
+    const mine = gs.presets.filter((p) => p.hero === code);
+    if (psTab !== 'now' && !mine.some((p) => p.id === psTab)) psTab = 'now';
+    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">Now (gear.txt)</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button></div>`;
+    const now = wearing(code);
+    const base = BASE[code];
+    const sNow = B.heroStats(base, now);
+    const byId = itemsById();
+    if (psTab === 'now') {
+      box.innerHTML = `${tabs}<div class="ps-slots">${B.SLOTS.map((g) => {
+        const it = now.find((x) => x.gear === g);
+        return `<div class="ps-slot">${it ? iconBox(it) : '<div class="gt-icon ps-empty"></div>'}<div class="hint">${esc(g)}</div>${it ? `<div class="small">${esc(itemLabel(it))}</div>` : ''}</div>`;
+      }).join('')}</div>${sNow ? statLine(sNow) : '<p class="hint">No base stats for this hero.</p>'}${now.length ? '' : '<p class="hint">Nothing from gear.txt for this hero (import gear.txt to see what they wear).</p>'}`;
+      return;
+    }
+    const p = mine.find((x) => x.id === psTab);
+    const items = presetItems(p);
+    const sP = B.heroStats(base, items);
+    const prof = profileOf(code);
+    const clash = B.conflicts(gs.presets, p).map((c) => `${esc(itemLabel(byId.get(c.item) || { main: {}, subs: [] }))} is also in ${esc(nameOf(c.preset.hero))} · ${esc(c.preset.name)}`);
+    const worn = items.filter((it) => it.equipped && it.equipped !== code).map((it) => `${esc(itemLabel(it))}: ${esc(nameOf(it.equipped))} wears it now`);
+    const slotSel = (g) => {
+      const cur = p.items[g];
+      const opts = [...gs.items, ...gs.scanned]
+        .filter((x) => x.gear === g)
+        .map((x) => ({ x, f: S.fit(x, prof) }))
+        .sort((a, b) => b.f - a.f)
+        .slice(0, 60);
+      if (cur && !opts.some((o) => o.x.id === cur) && byId.get(cur)) opts.unshift({ x: byId.get(cur), f: S.fit(byId.get(cur), prof) });
+      return `<select data-ps-slot="${g}"><option value="">(empty)</option>${opts.map((o) => `<option value="${esc(o.x.id)}"${o.x.id === cur ? ' selected' : ''}>${esc(itemLabel(o.x))}${o.x.equipped ? ` · on ${esc(nameOf(o.x.equipped))}` : ''}</option>`).join('')}</select>`;
+    };
+    box.innerHTML = `${tabs}<div class="ps-slots">${B.SLOTS.map((g) => {
+      const it = p.items[g] && byId.get(p.items[g]);
+      return `<div class="ps-slot${clash.length && it && B.conflicts(gs.presets, p).some((c) => c.item === it.id) ? ' warn' : ''}">${it ? iconBox(it) : '<div class="gt-icon ps-empty"></div>'}<div class="hint">${esc(g)}</div>${slotSel(g)}</div>`;
+    }).join('')}</div>
+      ${sNow && sP ? cmpTable(sNow, sP, ['now', 'this preset']) : sP ? statLine(sP) : '<p class="hint">No base stats for this hero.</p>'}
+      ${clash.length || worn.length ? `<div class="loses warn">${[...clash, ...worn].join('<br>')}</div>` : ''}
+      <div class="btn-row"><button class="btn primary" data-ps-act="moves">Show the moves to wear this preset</button><button class="btn" data-ps-act="fill">Fill empty slots with the best items</button><button class="btn" data-ps-act="copy">Copy what they wear now</button><button class="btn" data-ps-act="rename">Rename</button><button class="btn danger" data-ps-act="delete">Delete</button></div>`;
+  }
+  const statLine = (s) => `<div class="stats8">${STAT_ROWS.map(([k, n, u]) => `<span>${n} <b>${s[k]}${u}</b></span>`).join('')}</div>`;
+  $('#ps-hero').addEventListener('input', () => {
+    psTab = 'now';
+    renderPresets();
+  });
+  $('#ps-out').addEventListener('change', (e) => {
+    const g = e.target.dataset.psSlot;
+    const p = gs.presets.find((x) => x.id === psTab);
+    if (!g || !p) return;
+    if (e.target.value) p.items[g] = e.target.value;
+    else delete p.items[g];
+    save();
+    renderPresets();
+  });
+  $('#ps-out').addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-ps-tab],[data-ps-act]');
+    if (!t) return;
+    const code = codeOfName($('#ps-hero').value.trim());
+    if (!code) return;
+    if (t.dataset.psTab) {
+      psTab = t.dataset.psTab;
+      return renderPresets();
+    }
+    const act = t.dataset.psAct;
+    const p = gs.presets.find((x) => x.id === psTab);
+    const ask = (q, d) => window.E7Ask(q, d); // (prompt() does nothing in the desktop app: js/ask.js)
+    if (act === 'new') {
+      const name = await ask('Name of the preset?', `${nameOf(code)} preset ${gs.presets.filter((x) => x.hero === code).length + 1}`);
+      if (!name || !name.trim()) return;
+      const np = { id: newId(), hero: code, name: name.trim(), items: {} };
+      for (const it of wearing(code)) np.items[it.gear] = it.id;
+      gs.presets.push(np);
+      psTab = np.id;
+    } else if (!p) return;
+    else if (act === 'rename') {
+      const name = await ask('New name?', p.name);
+      if (!name || !name.trim()) return;
+      p.name = name.trim();
+    } else if (act === 'delete') {
+      if (!confirm(`Delete the preset "${p.name}"?`)) return;
+      gs.presets = gs.presets.filter((x) => x.id !== p.id);
+      psTab = 'now';
+    } else if (act === 'copy') {
+      p.items = {};
+      for (const it of wearing(code)) p.items[it.gear] = it.id;
+    } else if (act === 'fill') {
+      const prof = profileOf(code);
+      const used = new Set(gs.presets.filter((x) => x.id !== p.id).flatMap((x) => Object.values(x.items)));
+      for (const g of B.SLOTS) {
+        if (p.items[g]) continue;
+        const best = [...gs.items, ...gs.scanned].filter((x) => x.gear === g && !used.has(x.id) && (!x.equipped || x.equipped === code)).sort((a, b) => S.fit(b, prof) - S.fit(a, prof))[0];
+        if (best) p.items[g] = best.id;
+      }
+    } else if (act === 'moves') {
+      const byId = itemsById();
+      const wanted = {};
+      for (const g of B.SLOTS) if (p.items[g] && byId.get(p.items[g])) wanted[g] = byId.get(p.items[g]);
+      const moves = B.movesFor(code, wanted, (it) => it.equipped || (it.worn ? '?' : null));
+      for (const m of moves) planMove(m.item.id, m.from, m.to);
+      save();
+      render();
+      $('#gs-moves-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    save();
+    renderPresets();
+  });
+
+  // designs seen (localStorage 'e7-gear-arts', pictures 'art:<id>' in IndexedDB 'e7-gear-pics')
+  const ARTS_KEY = 'e7-gear-arts';
+  const loadArts = () => {
+    try {
+      return JSON.parse(localStorage.getItem(ARTS_KEY) || '[]') || [];
+    } catch (_) {
+      return [];
+    }
+  };
+  function renderDesigns() {
+    const arts = loadArts();
+    $('#gs-designs-count').textContent = arts.length ? `(${arts.length}, ${arts.filter((a) => a.name).length} with a name)` : '(none yet)';
+    if (!$('#gs-designs-box').open) return;
+    const count = new Map();
+    for (const it of gs.scanned) if (it.art) count.set(it.art, (count.get(it.art) || 0) + 1);
+    $('#gs-designs').innerHTML = arts
+      .slice()
+      .sort((a, b) => (count.get(b.id) || 0) - (count.get(a.id) || 0) || (b.n || 0) - (a.n || 0))
+      .map((a) => {
+        const pic = pics.get('art:' + a.id);
+        return `<div class="design">${pic ? `<img alt="" src="${pic.icon}" />` : '<div class="gt-icon"></div>'}<input data-art="${esc(a.id)}" value="${esc(a.name || '')}" placeholder="name?" /><div class="hint">${esc(a.gear || '?')} · ${count.get(a.id) || 0} item${count.get(a.id) === 1 ? '' : 's'}</div></div>`;
+      })
+      .join('') || '<p class="hint">Nothing seen yet.</p>';
+  }
+  $('#gs-designs-box').addEventListener('toggle', renderDesigns);
+  $('#gs-designs').addEventListener('change', (e) => {
+    const id = e.target.dataset.art;
+    if (!id) return;
+    const arts = loadArts();
+    const a = arts.find((x) => x.id === id);
+    if (!a) return;
+    a.name = e.target.value.trim();
+    a.named = !!a.name;
+    try {
+      localStorage.setItem(ARTS_KEY, JSON.stringify(arts));
+    } catch (_) { /* full */ }
+    // the items of this design take the name (unless you typed one for the item itself)
+    for (const it of gs.scanned) if (it.art === id && !it.nameTyped) it.name = a.name;
+    save();
+    recompute();
+    render();
+  });
+  $('#gs-allheroes').innerHTML = HEROES.filter((h) => BASE[h.code]).map((h) => `<option value="${esc(h.name)}"></option>`).join('');
 
   // ---------------------------------------------------- API for gear-scan.js
   window.GearApp = {

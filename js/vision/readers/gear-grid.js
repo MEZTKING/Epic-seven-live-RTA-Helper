@@ -3,7 +3,7 @@
  * and substats from their icons + numbers, enhance, level, set badge, worn / locked), no clicking needed; scroll to
  * read more. Positions and icons: js/geargrid.js. Publishes, once per still screen:
  *   'gear:grid' { slot, tiles: [{ item, key, rect, worn, locked, selected, pics }] }   (rect: the tile's picture, fractions;
- *               pics: { icon, shot } JPEGs of the item and of the whole tile)
+ *               pics: { icon, shot } JPEGs of the item and of the whole tile; art: { fp, id, name, gear } its design, #79)
  *   'gear:grid-gone' {}   the Full grid is no longer on screen (the overlay takes its labels off)
  * Set badges: the game shows a set only as a small badge. The reader learns each badge from the item details panel:
  * when you click an item, the panel names its set (gear-item.js) and the selected tile (gold frame) shows the badge;
@@ -31,6 +31,13 @@
     }
   };
   const badges = () => [...learned(), ...(window.E7GearSetSeed || [])];
+  const arts = () => {
+    try {
+      return JSON.parse(localStorage.getItem('e7-gear-arts') || '[]') || [];
+    } catch (_) {
+      return [];
+    }
+  };
 
   /** Pixels of a 1070-high picture → this picture, for the anchor tried ('l' pinned left, 'c' centred 16:9). */
   function frame(ctx, a) {
@@ -209,10 +216,20 @@
       selected = n / fw > 0.6;
     }
     const fp = badgeFp(src, f, col, y);
+    // the design (js/geararts.js): known designs give the item's name and slot (also in the "all" tab), #79
+    let art = null;
+    const A = window.E7GearArts;
+    if (A) {
+      const ib = part(f, col, y, G.GEO.icon);
+      const ad = grab(src, ib.x + ib.w * A.BOX.x0, ib.y + ib.h * A.BOX.y0, ib.w * (A.BOX.x1 - A.BOX.x0), ib.h * (A.BOX.y1 - A.BOX.y0), A.FP, A.FP);
+      const afp = A.fingerprint(ad);
+      const known = A.lookup(arts(), afp);
+      art = { fp: afp, id: known ? known.entry.id : null, name: known ? known.entry.name : '', gear: known ? known.entry.gear : '' };
+    }
     const hit = G.badgeSet(badges(), fp);
-    const gear = slotTab || slotFromMain(main);
+    const gear = slotTab || (art && art.gear) || slotFromMain(main);
     if (!gear) return { problem: 'slot unknown (choose a slot tab)' };
-    const item = { gear, set: hit ? hit.set : '', rank, level: G.levelFrom(lv, main, enhance), enhance, main, substats: subs, source: 'screen' };
+    const item = { gear, name: (art && art.name) || '', set: hit ? hit.set : '', rank, level: G.levelFrom(lv, main, enhance), enhance, main, substats: subs, source: 'screen' };
     const W = ctx.w();
     const H = ctx.h();
     const shot = (pp, width) => {
@@ -228,7 +245,7 @@
       }
     };
     const pics = { icon: shot(G.GEO.icon, 120), shot: shot(G.GEO.tile, 300), from: 'grid' };
-    return { item, key: P.itemKey(item), rect: { x: pic.x / W, y: (y + 20 * f.k) / H, w: 0, h: 0 }, worn: ring / 32 > 0.15, locked, selected, fp, pics };
+    return { item, key: P.itemKey(item), rect: { x: pic.x / W, y: (y + 20 * f.k) / H, w: 0, h: 0 }, worn: ring / 32 > 0.15, locked, selected, fp, pics, art };
   }
 
   // the screen must stand still (the list scrolls): the same small picture twice, then read once

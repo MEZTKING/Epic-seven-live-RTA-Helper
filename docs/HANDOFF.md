@@ -218,6 +218,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
+| `localStorage['e7-gear-arts']` | `js/vision/consumers/gear.js` (learns), `js/vision/readers/gear-grid.js` (looks up), `js/gear-app.js` (gallery, renaming) | Gear designs `[{ id, fp, name, gear, rank, n, first, last, named }]` (#79); each design's picture is `art:<id>` in IndexedDB `e7-gear-pics`; screen items point to theirs with `item.art` |
 | IndexedDB `e7-gear-pics` (store `pics`) | `js/gearpics.js` (written by the gear consumer, read by `js/gear-app.js`) | The game's pictures of each screen-read item `{ id, icon, shot, from: 'panel'|'grid', at }` (#78); a panel picture is not replaced by a grid one |
 | `localStorage['e7-gear-setbadges']` | `js/vision/readers/gear-grid.js` | Set badges learned on this PC `[{ set, fp }]` (≤ 6 per set), next to the built-in ones in `js/gear-setseed.js` |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Own item-panel boxes (fractions of the game area); optional since #74 (built-in positions otherwise) |
@@ -308,6 +309,12 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   editable (`item.read` keeps the reading; the item's dedup key stays the reading, so a fix survives a new read;
   "Back to what was read"), the enhance simulator (`E7GearSim.outcomes` / `simulate`, `js/gearsim.js`) or the reforge
   for a +15 level-85 item. Screen items marked `worn` (from the Full grid) are always Keep.
+  Designs (#79, `js/geararts.js`): the middle of the item picture is fingerprinted; the panel reader also reads the
+  item's name (white text, `gearName`) and the consumer learns design → name / slot; the grid reader looks each tile's
+  design up (name; slot when the "all" tab is open). Moves and presets (#79, `js/gearbuild.js`): hero stats = RexQian
+  formula with the bundled base stats (no artifact / EE); "Try it on a hero" in the item details; `gs.moves` (a to-do
+  list, the app never changes the game) and `gs.presets` in the gear store (`GearStore.load` keeps them, so the
+  watcher's saves don't drop them).
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all

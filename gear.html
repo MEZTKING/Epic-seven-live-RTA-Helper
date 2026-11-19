@@ -70,6 +70,11 @@
       <select id="f-view" title="How items are shown"><option value="cards">View: cards</option><option value="table">View: table</option><option value="heroes">View: by hero</option></select>
     </div>
     <p id="gs-count" class="hint"></p>
+    <div id="gs-moves-card" class="card wide hidden">
+      <h3>Moves to make in the game <span class="src notes">my plan</span> <small class="hint">(the app never changes the game: do these yourself and tick them off)</small></h3>
+      <ul id="gs-moves" class="plain-list moves-list"></ul>
+      <div class="btn-row"><button id="gs-moves-clear" class="btn">Clear the ticked ones</button></div>
+    </div>
     <div id="gs-browse" class="gear-browse">
       <div id="gs-cards" class="gear-grid"></div>
       <div id="gs-heroview" class="hero-gear hidden"></div>
@@ -83,6 +88,18 @@
     </div>
     <div class="btn-row"><button id="gs-more" class="btn hidden">Show more</button></div>
 
+    <div class="card wide" style="margin-top:12px">
+      <h3>Gear presets <span class="src notes">my presets</span> <small class="hint">(6 items you choose per hero, e.g. "RTA speed"; saved on this PC)</small></h3>
+      <div class="btn-row"><input id="ps-hero" list="gs-allheroes" placeholder="Hero" autocomplete="off" /></div>
+      <div id="ps-out"></div>
+    </div>
+    <div class="card wide" style="margin-top:12px">
+      <details id="gs-designs-box"><summary>Gear designs seen <span id="gs-designs-count" class="hint"></span></summary>
+        <p class="hint">Every design the game watcher has seen, kept once (many items share one). The name comes from the item's details panel the first time you click one; type a name to fix it. Designs with a name are recognised on every inventory tile.</p>
+        <div id="gs-designs" class="design-grid"></div>
+      </details>
+    </div>
+    <datalist id="gs-allheroes"></datalist>
     <div class="cards" style="margin-top:12px">
       <div class="card">
         <h3>What a hero wants</h3>
@@ -138,6 +155,8 @@
   <script src="js/gear-icons.js"></script>
   <script src="js/gearpics.js"></script>
   <script src="js/gearsim.js"></script>
+  <script src="js/geararts.js"></script>
+  <script src="js/gearbuild.js"></script>
   <script src="js/gearstore.js"></script>
   <script src="js/gear-app.js"></script>
   <script src="js/frame.js"></script>
