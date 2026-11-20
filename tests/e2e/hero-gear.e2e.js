@@ -55,6 +55,24 @@ const REAL = {
   }
   const fl = await show('hero-gear-filter-wide.jpg');
   console.log('   the filter menu over it:', fl.note, '· read:', !!fl.real);
+  // 1b) DEVLOG #86: the item windows opened from Rhianna's screen: the exact items, linked to her
+  const pop = (f) => lv.evaluate(async (url) => {
+    const im = new Image();
+    await new Promise((r) => { im.onload = r; im.src = url; });
+    window.E7Vision._useSource(im);
+    let ev = null;
+    const off = window.E7Bus.on('gear:item', (d) => (ev = d));
+    for (let i = 0; i < 3; i++) await window.E7Vision.tick(true);
+    off();
+    const i = ev && ev.item;
+    return i ? `${i.rank} ${i.gear} +${i.enhance} lv${i.level} ${i.set} "${i.name}" · ${i.main.type} ${i.main.value} · ${i.substats.map((x) => x.type + ' ' + x.value).join(', ')} · game score ${i.gameScore} · on ${ev.wornBy}` : null;
+  }, dataUrl(f));
+  await show('hero-gear-rhianna-wide.jpg');
+  console.log('1b) necklace window:', await pop('hero-gear-popup-necklace-wide.jpg'));
+  console.log('    weapon window:', await pop('hero-gear-popup-weapon-wide.jpg'));
+  console.log('    the artifact window reads nothing:', (await pop('hero-gear-artifact-wide.jpg')) === null);
+  const back = await show('hero-gear-rhianna-wide.jpg');
+  console.log('    her screen again:', JSON.stringify(back.linked), '·', JSON.stringify(back.marks));
   // 2) items like Rhianna's: her weapon (+15, level 90, speed) once, her boots twice (two alike)
   await lv.evaluate(() => {
     const GS = window.GearStore;
@@ -87,6 +105,14 @@ const REAL = {
   await g.dispatchEvent('#gs-detail [data-try="hero"]', 'change');
   await g.waitForTimeout(300);
   console.log('   try the other boots on her:', (await g.textContent('#gs-detail .tryon')).replace(/\s+/g, ' ').trim().slice(0, 420));
+  // 4) DEVLOG #86: the heroes you are gearing: suggestions only think of them
+  await g.fill('#pr-hero', 'Rhianna and Luciella');
+  await g.click('#pr-add');
+  await g.waitForTimeout(200);
+  console.log('4) gearing list:', (await g.textContent('#pr-list')).replace(/\s+/g, ' ').trim(), '· heroes suggestions think of:', JSON.stringify(await g.evaluate(() => window.GearApp.gs.priority)), await g.evaluate(() => { const S = window.RTAGearSort; const gs = window.GearApp.gs; return S.evaluateAll(window.GearStore.allItems(gs), window.RTASources.allHeroes, gs.overrides, gs.rules, { only: gs.priority }).profiles.map((p) => p.code).join(','); }));
+  await g.click('#pr-clear');
+  await g.waitForTimeout(100);
+  console.log('   cleared:', (await g.textContent('#pr-list')).trim());
   console.log('errors:', errs);
   await b.close();
 })();
