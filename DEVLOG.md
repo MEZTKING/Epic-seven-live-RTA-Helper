@@ -7,6 +7,33 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-20 · #85 · Gear designs: one design = one name · this commit (previous: `f0fdabb`)
+
+**Asked for:** "The equipment design is always with the same name."
+
+**Findings**
+- Until now a design was only recognised by its picture: the same design drawn a little differently (another
+  background colour 0.83-0.92, the hero screen's crop) could fall under the bar and be saved as a second, unnamed design.
+- A misread name from one panel ("Bow ot Agony") replaced the name.
+
+**Changed**
+- `js/geararts.js`: a design keeps every picture variant it was seen with (`fps`, up to 6) and is recognised by any of
+  them; when the details panel names an item and no picture matches, a design with that name and slot takes the
+  picture as a new variant instead of a new design; `mergeByName` joins designs saved apart under one name and slot
+  (pictures, counts, name readings) and says which ids were joined; the name is the one read most often (`names`
+  counts the readings); a name you typed is never replaced.
+- `js/vision/consumers/gear.js`: items of a joined design follow it (in the copy of the gear store the handler saves).
+- `js/gear-app.js`: typing the name of another design of the same slot in "Gear designs seen" joins the two.
+
+**Tested**
+- `npm test` 205 (a variant joined by name and recognised, two designs merged with the items told where to go, a
+  misread name outvoted, a typed name kept).
+- Browser suite 52/52 clean, nothing else changed (the designs on the owner's pictures were already one per name).
+  Desktop (packaged Linux build): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** on the owner's PC (designs saved there before this change get merged the next time one is learned).
+
+---
+
 ## 2026-11-19 · #84 · Gear: the hero equipment screen read (who wears what, the hero's real stats) · this commit (previous: `65210dc`)
 
 **Asked for:** "add the hero equipment screen reader", with pictures of three heroes' equipment screens (Arbiter

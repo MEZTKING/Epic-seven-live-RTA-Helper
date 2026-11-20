@@ -56,3 +56,30 @@ test('designs: learned once, found again, a typed name is kept', () => {
   assert.equal(A.cleanName('Boots of Agony'), 'Boots of Agony');
   assert.equal(A.cleanName('~ ,'), '');
 });
+
+test('one design = one name (DEVLOG #85): variants, merging, the name read most often', () => {
+  const pic = (f) => { const d = new Uint8ClampedArray(A.FP * A.FP * 4); for (let i = 0; i < d.length; i += 4) { const p = i / 4; d[i] = f(p) * 200; d[i + 1] = 40; d[i + 2] = (1 - f(p)) * 200; d[i + 3] = 255; } return d; };
+  const red = A.fingerprint(pic((p) => (p % A.FP < 5 ? 1 : 0)));
+  const other = A.fingerprint(pic((p) => (Math.floor(p / A.FP) < 5 ? 1 : 0))); // the same design drawn another way
+  assert.ok(A.similarity(red, other) < A.SAME);
+  let r = A.learn([], red, { name: 'Bow of Agony', gear: 'Weapon' }, 1);
+  // not recognised by the picture, but the same name and slot: one design with two pictures
+  r = A.learn(r.list, other, { name: 'Bow of Agony', gear: 'Weapon' }, 2);
+  assert.equal(r.isNew, false);
+  assert.equal(r.list.length, 1);
+  assert.equal(A.lookup(r.list, other).entry.name, 'Bow of Agony');
+  // two designs saved apart with one name and slot: joined, items told where to go
+  const twin = [{ id: 'a', fp: red, name: 'Ring of Agony', gear: 'Ring', n: 2 }, { id: 'b', fp: other, name: 'ring of agony', gear: 'Ring', n: 3 }];
+  const m = A.mergeByName(twin);
+  assert.equal(m.list.length, 1);
+  assert.deepEqual(m.into, { b: 'a' });
+  assert.equal(m.list[0].n, 5);
+  // a misread name doesn't win; a typed name always stays
+  let v = A.learn([], red, { name: 'Bow of Agony', gear: 'Weapon' }, 1);
+  v = A.learn(v.list, red, { name: 'Bow of Agony', gear: 'Weapon' }, 2);
+  v = A.learn(v.list, red, { name: 'Bow ot Agony', gear: 'Weapon' }, 3);
+  assert.equal(v.entry.name, 'Bow of Agony');
+  v.list[0].named = true;
+  v.list[0].name = 'My bow';
+  assert.equal(A.learn(v.list, red, { name: 'Bow of Agony', gear: 'Weapon' }, 4).entry.name, 'My bow');
+});
