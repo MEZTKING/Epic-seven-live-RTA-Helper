@@ -113,12 +113,14 @@
         GS.save(gs);
       } catch (_) { /* full */ }
     }
+    // not saved (storage full): the verdict still goes on the game, with a warning (DEVLOG #87: before, nothing showed)
+    let notSaved = false;
     if (!dup) {
       try {
         GS.save(gs);
       } catch (e) {
+        notSaved = true;
         bus.publish('vision:warning', { reader: 'gear-item', text: 'Could not save the item (browser storage full?): ' + e.message });
-        return;
       }
     }
     if (dup) bus.publish('gear:dup', { desc });
@@ -137,7 +139,7 @@
       const whom = ups.length ? `Upgrade for ${ups.map((x) => `${nameOf(x.code)} (+${x.delta})`).join(', ')}` : res.best[0] ? `Fits ${nameOf(res.best[0].code)} best (not an upgrade)` : 'Import gear.txt on the Gear page to see whom it suits';
       // the item panel sits at the right edge: the card goes on its left (DEVLOG #74); a coloured dot per verdict
       const level = { keep: 'green', reforge: 'green', enhance: 'yellow', extract: 'red', sell: 'red' }[res.verdict] || 'grey';
-      window.E7Overlay.post('gear', [{ ...rect, kind: 'card', side: rect.x > 0.5 ? 'left' : 'right', level, title: `${res.verdict.toUpperCase()} · ${scoreText(slim, res, gs)}`, lines: /^Upgrade for a hero/.test(res.reason) ? [whom] : [res.reason, whom] }]);
+      window.E7Overlay.post('gear', [{ ...rect, kind: 'card', side: rect.x > 0.5 ? 'left' : 'right', level, title: `${res.verdict.toUpperCase()} · ${scoreText(slim, res, gs)}`, lines: [...(/^Upgrade for a hero/.test(res.reason) ? [whom] : [res.reason, whom]), ...(notSaved ? ['⚠ Not saved: the app\'s storage is full'] : [])] }]);
     }
   });
   // the item panel closed: take the verdict off the game

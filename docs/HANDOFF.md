@@ -224,7 +224,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
-| `localStorage['e7-gear-arts']` | `js/vision/consumers/gear.js` (learns), `js/vision/readers/gear-grid.js` (looks up), `js/gear-app.js` (gallery, renaming) | Gear designs `[{ id, fp, fps (variants, #85), name, names (readings), gear, rank, n, first, last, named }]` (#79; one design = one name: joined by name + slot, #85); each design's picture is `art:<id>` in IndexedDB `e7-gear-pics`; screen items point to theirs with `item.art` |
+| `localStorage['e7-gear-arts']` | `js/vision/consumers/gear.js` (learns), `js/vision/readers/gear-grid.js` (looks up), `js/gear-app.js` (gallery, renaming) | Gear designs `[{ id, fp, fps (variants, #85; since #87 stored packed: `'q'` + base64 of one signed byte per value, `E7GearArts.pack/unpack`; old number lists still read and repacked on the next learn), name, names (readings), gear, rank, n, first, last, named }]` (#79; one design = one name: joined by name + slot, #85); each design's picture is `art:<id>` in IndexedDB `e7-gear-pics`; screen items point to theirs with `item.art` |
 | IndexedDB `e7-gear-pics` (store `pics`) | `js/gearpics.js` (written by the gear consumer, read by `js/gear-app.js`) | The game's pictures of each screen-read item `{ id, icon, shot, from: 'panel'|'grid', at }` (#78); a panel picture is not replaced by a grid one |
 | `localStorage['e7-vision-speed']` | `js/vision-speed.js` (read by `js/vision/hub.js`) | Reading speed 'fast' / 'normal' / 'slow' (×0.5 / 1 / 2 of each reader's interval), #83 |
 | `localStorage['e7-gear-setbadges']` | `js/vision/readers/gear-grid.js` | Set badges learned on this PC `[{ set, fp }]` (≤ 6 per set), next to the built-in ones in `js/gear-setseed.js` |
@@ -359,7 +359,9 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   - Ctrl+Shift+O / Ctrl+Shift+E.
   - **Capture** (`config.capture` in the app's `config.json`): `{mode:'window', id, name}` = only the game window
     (picked in `desktop/picker.html`, matched again by id then title), or `{mode:'screen', …}`. `null` → the picker
-    opens on the first `getDisplayMedia`. Pages see it through `desktop/preload.js` → `window.E7Desktop`
+    opens on the first `getDisplayMedia`. Since #87 the picker opens BY ITSELF at most once per session (closed
+    without a choice → never again by itself; "window not found" asked once); the menu / `pickWindow()` always opens
+    it (`pickerDeclined`, `notFoundAsked` in `desktop/main.js`). Pages see it through `desktop/preload.js` → `window.E7Desktop`
     (`capture()`, `pickWindow()`, `onCapture()`, `zoom()`/`onZoom()`); `js/game-area.js` skips the box in window mode, `overlay.html` uses no
     mapping. Menu **Game window**.
   - **Overlay follows the game window** (Windows): `desktop/wintrack.js` runs one PowerShell loop reading

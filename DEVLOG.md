@@ -7,6 +7,67 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-20 · #87 · Gear overlay missing (storage full), "War Ends in 5h" read as 8h, the game-window picker that kept opening · this commit (previous: `fd90db4`)
+
+**Asked for:** "it seems the overlay doesn't really show at all anymore for the gears", and two pictures of the start
+of a war (the overview with "War Ends in 5h" and the VS screen). Then: "the which window is the game keeps showing up
+non-stop even though some users will cancel that window". Also asked (answered, not built yet): use the
+Fribbels data to match gear pictures and sets on heroes.
+
+**Findings**
+- The readers and the overlay work on every gear fixture, in `live.html` and in the desktop watcher's `vision.html`
+  (checked again: panel card, Full-grid marks, hero-screen marks). The item-window reader (#86) does not fire on the
+  inventory panel.
+- The likely cause is the app's storage: each design (#79) kept up to 7 picture fingerprints as lists of numbers,
+  ~13 500 characters a design; a few hundred designs fill the browser storage (about 5 million characters for the
+  whole app). Then saving a newly read item failed, and the consumer RETURNED before drawing the card, so new items
+  showed nothing. Not seen on the owner's PC (assumption; the watcher log would show "Could not save the item").
+- The RexQian fork's gear.txt has no picture code per item (`Item.java`: name, set, gear, rank, level, enhance, main,
+  substats, ingameId, ingameEquippedId, equippedById/Name, locked); its app ships set icons (`app/assets/set*.png`,
+  MIT). So gear.txt can match by name (pictures via learned designs, already #80), set and wearer, not by picture.
+- The overview: the game's bold "5" was read as "B" → "Bh" → 8 hours. The VS screen and the overview start the same
+  war (the overview, as before; the VS screen still starts nothing, tested in #55).
+
+- The picker loop: while the game watcher watches, the RTA page (`js/auto.js` `followWatcher`) starts its own capture
+  with every watcher status (every 3 s) while it has none. Each capture asks the desktop app for the game window
+  (`resolveSource`), which opened "Which window is the game?" when the window wasn't found, and cancelling it made
+  the next try open it again. Without a chosen window, any Start did the same.
+
+**Changed**
+- `desktop/main.js`: the picker opens by itself at most once per session: closed without a choice, it doesn't open
+  by itself again; "the game window wasn't found" is asked once, later tries fail quietly. From the menu (Game window
+  → Pick the game window…) or a page's pick button it always opens; a choice resets both.
+- `js/auto.js`: a failed follow of the watcher is not tried again by itself until the watcher starts watching anew or
+  Start is pressed ("Could not follow the game watcher (no game window). Press Start to try again.").
+- `js/vision/hub.js`: desktop message "No game window to watch (not chosen, or not found). Choose it in the menu: Game
+  window → Pick the game window…" instead of "Capture was cancelled."
+- `js/geararts.js`: fingerprints stored packed (`pack` / `unpack`: one signed byte per value, base64, 'q' prefix;
+  renormalised when read): a design with all variants under 3 500 characters (was ~13 500). Old saved lists are read
+  as before and repacked the next time a design is learned, which frees the space by itself.
+- `js/vision/consumers/gear.js`: an item that could not be saved still gets its verdict card on the game, with the
+  line "⚠ Not saved: the app's storage is full".
+- `js/vision/readers/guild-overview.js`: when the time after "War Ends in" has a letter that looks like a digit
+  (B, S, O, I, l), the time alone is read again, digits only.
+
+**Tested**
+- `npm test` 207 (new: designs stored small; old lists still found; 7 variants of one design all found).
+- `tests/e2e/gear-score.e2e.js` step 5: with saving made to fail, the necklace panel still shows "EXTRACT · score 27 →
+  30 … ⚠ Not saved"; designs saved packed. `tests/e2e/gw-war-names.e2e.js` step 5: new fixture
+  `steam-gw-overview-war5h-wide.jpg` (the owner's overview, guild names and notice replaced) → 5 hours.
+- New desktop test `tests/desktop/picker-once.js` (packaged Linux build; the saved game window isn't running): the
+  picker opens once by itself; after closing it, the RTA page and Start on the Gear page open none (the page shows
+  the message); asked for, it opens. Desktop watcher, overlay-test, popout, update-check, cancel, rta-follow, winpick
+  clean.
+- Browser suite 52/52 clean; other differences: only times and made-up ids. (The suite was started before the
+  `js/auto.js` / `js/vision/hub.js` changes; the RTA tests ran after them. The follow code runs only in the desktop
+  app: covered by `rta-follow` and `picker-once`.)
+- **Not tested:** on the owner's PC (whether storage was really full there; the picker on Windows).
+
+**Open**
+- Fribbels data for sets / wearers on the hero screen: waiting for the owner's gear.txt (or build it on the test file).
+
+---
+
 ## 2026-11-20 · #86 · Gear: the item window on the hero screen read (the exact item on the hero), and the heroes you are gearing · this commit (previous: `6772ef8`)
 
 **Asked for:** the item windows from the hero screen, sent again as files (Rhianna and Luciella's necklace and weapon,
