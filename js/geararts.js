@@ -12,7 +12,9 @@
  *   fingerprint(rgba)                 -> number[] (rgba of an FP×FP picture of BOX)
  *   similarity(a, b)                  -> cosine
  *   lookup(list, fp)                  -> { entry, sim } | null
- *   learn(list, fp, info, now)        -> { list, entry, isNew }   info: { name, gear, rank } (only what is known)
+ *   learn(list, fp, info, now)        -> { list, entry, isNew, into }   info: { name, gear, rank } (only what is known);
+ *                                        one design = one name: a known name joins its design (another picture variant)
+ *   mergeByName(list)                 -> { list, into }   designs with the same name + slot joined (DEVLOG #85)
  *   cleanName(text)                   -> the item's name from the panel's white text ("Bow of Agony"), or ''
  */
 (function (root) {
@@ -44,19 +46,44 @@
     for (let i = 0; i < a.length; i++) s += a[i] * b[i];
     return s;
   }
+  // one design = one name (the owner, DEVLOG #85): a design keeps every picture variant it was seen with (another
+  // background, the hero screen's crop) in `fps`, and the name read most often (`names` counts the readings)
+  const variants = (e) => [e.fp, ...(e.fps || [])].filter(Boolean);
+  const nameKey = (name, gear) => `${String(name || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}|${gear || ''}`;
   function lookup(list, fp) {
     let best = null;
     for (const e of list || []) {
-      const s = similarity(e.fp, fp);
-      if (!best || s > best.sim) best = { entry: e, sim: s };
+      for (const v of variants(e)) {
+        const s = similarity(v, fp);
+        if (!best || s > best.sim) best = { entry: e, sim: s };
+      }
     }
     return best && best.sim >= SAME ? { entry: best.entry, sim: Math.round(best.sim * 100) / 100 } : null;
+  }
+  const MAX_VARIANTS = 6;
+  function addVariant(e, fp) {
+    if (variants(e).some((v) => similarity(v, fp) >= 0.97)) return;
+    e.fps = [...(e.fps || []), fp].slice(-MAX_VARIANTS);
+  }
+  function voteName(e, name) {
+    if (!name) return;
+    e.names = { ...(e.names || {}) };
+    e.names[name] = (e.names[name] || 0) + 1;
+    // a name you typed is never replaced; else the name read most often
+    if (!e.named) e.name = Object.entries(e.names).sort((a, b) => b[1] - a[1])[0][0];
   }
   function learn(list, fp, info = {}, now = Date.now()) {
     const out = (list || []).map((e) => ({ ...e }));
     if (!fp) return { list: out, entry: null, isNew: false };
     const hit = lookup(out, fp);
     let entry = hit && out.find((e) => e.id === hit.entry.id);
+    // not recognised by its picture, but the panel gives a name an existing design has (same slot): the same design,
+    // seen another way: its picture becomes a variant
+    if (!entry && info.name) {
+      const k = nameKey(info.name, info.gear);
+      entry = out.find((e) => e.name && nameKey(e.name, e.gear || info.gear) === k) || null;
+      if (entry) addVariant(entry, fp);
+    }
     const isNew = !entry;
     if (!entry) {
       entry = { id: `d${now.toString(36)}${out.length.toString(36)}`, fp, name: '', gear: '', rank: '', n: 0, first: now };
@@ -64,12 +91,40 @@
     }
     entry.n = (entry.n || 0) + 1;
     entry.last = now;
-    // a name / slot read from the details panel wins over nothing; a name you typed (named: true) is never replaced
-    if (info.name && !entry.named) entry.name = info.name;
+    voteName(entry, info.name);
     if (info.gear && !entry.gear) entry.gear = info.gear;
     if (info.rank && !entry.rank) entry.rank = info.rank;
-    const sorted = out.sort((a, b) => (b.last || 0) - (a.last || 0)).slice(0, MAX);
-    return { list: sorted, entry, isNew };
+    const merged = mergeByName(out);
+    const sorted = merged.list.sort((a, b) => (b.last || 0) - (a.last || 0)).slice(0, MAX);
+    const id = merged.into[entry.id] || entry.id;
+    return { list: sorted, entry: sorted.find((e) => e.id === id) || entry, isNew, into: merged.into };
+  }
+  /**
+   * Designs with the same name and slot are one design: joined (pictures as variants, counts and name readings added).
+   * Returns { list, into: { removedId: keptId } } so items pointing to a removed design can follow.
+   */
+  function mergeByName(list) {
+    const out = [];
+    const into = {};
+    const byKey = new Map();
+    for (const e of list || []) {
+      const k = e.name && e.gear ? nameKey(e.name, e.gear) : null;
+      const keep = k && byKey.get(k);
+      if (!keep) {
+        const c = { ...e };
+        out.push(c);
+        if (k) byKey.set(k, c);
+        continue;
+      }
+      for (const v of variants(e)) addVariant(keep, v);
+      keep.n = (keep.n || 0) + (e.n || 0);
+      keep.first = Math.min(keep.first || Infinity, e.first || Infinity);
+      keep.last = Math.max(keep.last || 0, e.last || 0);
+      for (const [nm, c] of Object.entries(e.names || {})) keep.names = { ...(keep.names || {}), [nm]: ((keep.names || {})[nm] || 0) + c };
+      if (e.named && !keep.named) Object.assign(keep, { name: e.name, named: true });
+      into[e.id] = keep.id;
+    }
+    return { list: out, into };
   }
   // the rarity line is red (left out by the white mask); a stray rarity word is still dropped, slot words are kept
   // ("Boots of Agony")
@@ -83,7 +138,7 @@
     return s.length >= 3 ? s : '';
   }
 
-  const api = { BOX, FP, SAME, MAX, fingerprint, similarity, lookup, learn, cleanName };
+  const api = { BOX, FP, SAME, MAX, fingerprint, similarity, lookup, learn, mergeByName, cleanName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GearArts = api;
 })(typeof self !== 'undefined' ? self : this);

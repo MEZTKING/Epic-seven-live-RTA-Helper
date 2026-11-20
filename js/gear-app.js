@@ -814,9 +814,12 @@
     if (!a) return;
     a.name = e.target.value.trim();
     a.named = !!a.name;
+    // one design = one name (DEVLOG #85): typing the name of another design of this slot joins the two
+    const merged = window.E7GearArts ? window.E7GearArts.mergeByName(arts) : { list: arts, into: {} };
     try {
-      localStorage.setItem(ARTS_KEY, JSON.stringify(arts));
+      localStorage.setItem(ARTS_KEY, JSON.stringify(merged.list));
     } catch (_) { /* full */ }
+    for (const it of gs.scanned) if (it.art && merged.into[it.art]) it.art = merged.into[it.art];
     // the items of this design take the name (unless you typed one for the item itself)
     for (const it of gs.scanned) if (it.art === id && !it.nameTyped) it.name = a.name;
     indexDesigns();

@@ -31,13 +31,19 @@
       return [];
     }
   };
-  function learnArt(art, info, pics) {
+  function learnArt(art, info, pics, gs) {
     const A = window.E7GearArts;
     if (!A || !art || !art.fp) return null;
     const r = A.learn(loadArts(), art.fp, info);
     try {
       localStorage.setItem(ARTS_KEY, JSON.stringify(r.list));
     } catch (_) { /* full: only a convenience */ }
+    // designs joined under one name (DEVLOG #85): items pointing to a joined design follow it (in the caller's copy of
+    // the gear store, which it saves)
+    if (gs && r.into) for (const it of gs.scanned) if (it.art && r.into[it.art]) {
+      it.art = r.into[it.art];
+      learnArt.moved = true;
+    }
     if (r.entry && pics && pics.icon && window.E7GearPics) {
       const id = 'art:' + r.entry.id;
       // the design's picture: the first one, or a sharper one from the details panel
@@ -73,14 +79,15 @@
     let slim = GS.addScanned(gs, item, key);
     const dup = !slim;
     if (dup) slim = gs.scanned.find((x) => x.key === key); // read before: still show its verdict on the game
-    const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank }, pics);
+    learnArt.moved = false;
+    const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank }, pics, gs);
     // the game's score read now fills one an item read before didn't have (DEVLOG #83)
     let scoreNew = false;
     if (slim && item.gameScore && slim.gameScore !== item.gameScore) {
       slim.gameScore = item.gameScore;
       scoreNew = true;
     }
-    if ((linkArt(slim, entry) || scoreNew) && dup) {
+    if ((linkArt(slim, entry) || scoreNew || learnArt.moved) && dup) {
       try {
         GS.save(gs);
       } catch (_) { /* full */ }
@@ -129,7 +136,9 @@
       if (slim) added++;
       else slim = gs.scanned.find((x) => x.key === t.key);
       if (slim) mine.push({ t, slim });
-      if (slim && t.art && linkArt(slim, learnArt(t.art, {}, t.pics))) changed = true;
+      learnArt.moved = false;
+      if (slim && t.art && linkArt(slim, learnArt(t.art, {}, t.pics, gs))) changed = true;
+      if (learnArt.moved) changed = true;
       if (slim && t.item.gameScore && slim.gameScore !== t.item.gameScore) {
         slim.gameScore = t.item.gameScore;
         changed = true;
