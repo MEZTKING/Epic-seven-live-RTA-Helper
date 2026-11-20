@@ -28,7 +28,7 @@
   }
 
   function recompute() {
-    evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules);
+    evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules, { only: gs.priority });
     // screen items a hero wears (the tile shows the portrait, not who): keep, whatever the score (DEVLOG #78)
     for (const r of evald.results)
       if (r.item.worn && r.verdict !== 'keep') {
@@ -412,6 +412,7 @@
     renderPresets();
     renderDesigns();
     renderUpgrades();
+    renderPriority();
   }
   $('#gs-summary').addEventListener('click', (e) => {
     const b = e.target.closest('[data-v]');
@@ -677,7 +678,7 @@
     }
     const mine = gs.presets.filter((p) => p.hero === code);
     if (psTab !== 'now' && !mine.some((p) => p.id === psTab)) psTab = 'now';
-    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">${seenNow(code) ? 'Now (seen in the game)' : 'Now (gear.txt)'}</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button></div>`;
+    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">${seenNow(code) ? 'Now (seen in the game)' : 'Now (gear.txt)'}</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button><button data-pr-toggle="${esc(code)}" class="${gs.priority.includes(code) ? 'on' : ''}" title="Suggestions only think of the heroes you are gearing">${gs.priority.includes(code) ? '★ gearing this hero' : '☆ gear this hero'}</button></div>`;
     const now = wearing(code);
     const base = BASE[code];
     const sNow = B.heroStats(base, now);
@@ -852,6 +853,36 @@
     $('#f-view').value = 'cards';
     render();
     $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  // ---- the heroes you are gearing (DEVLOG #86) ---------------------------------------------------------------------
+  function renderPriority() {
+    $('#pr-list').innerHTML = gs.priority.length
+      ? gs.priority.map((c) => `<span class="pr-chip">${portrait(c)} ${esc(nameOf(c))} <button class="btn link" data-pr-del="${esc(c)}" title="Remove">✕</button></span>`).join('')
+      : '<span class="hint">No list: every hero that has gear.</span>';
+  }
+  function setPriority(list) {
+    gs.priority = [...new Set(list)];
+    save();
+    recompute();
+    render();
+  }
+  $('#pr-add').addEventListener('click', () => {
+    const c = codeOfName($('#pr-hero').value.trim());
+    if (!c) return;
+    $('#pr-hero').value = '';
+    setPriority([...gs.priority, c]);
+  });
+  $('#pr-hero').addEventListener('keydown', (e) => e.key === 'Enter' && $('#pr-add').click());
+  $('#pr-list').addEventListener('click', (e) => {
+    const c = e.target.dataset && e.target.dataset.prDel;
+    if (c) setPriority(gs.priority.filter((x) => x !== c));
+  });
+  $('#pr-clear').addEventListener('click', () => setPriority([]));
+  $('#ps-out').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-pr-toggle]');
+    if (!t) return;
+    const c = t.dataset.prToggle;
+    setPriority(gs.priority.includes(c) ? gs.priority.filter((x) => x !== c) : [...gs.priority, c]);
   });
   $('#gs-allheroes').innerHTML = HEROES.filter((h) => BASE[h.code]).map((h) => `<option value="${esc(h.name)}"></option>`).join('');
 

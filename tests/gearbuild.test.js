@@ -83,3 +83,19 @@ test('one design = one name (DEVLOG #85): variants, merging, the name read most 
   v.list[0].name = 'My bow';
   assert.equal(A.learn(v.list, red, { name: 'Bow of Agony', gear: 'Weapon' }, 4).entry.name, 'My bow');
 });
+
+test('the heroes you are gearing: suggestions only think of them (DEVLOG #86)', () => {
+  const S = require('../js/gearsort.js');
+  const items = [
+    { id: 'a', gear: 'Weapon', rank: 'Epic', level: 85, enhance: 15, main: { type: 'Attack', value: 500 }, subs: [{ type: 'Speed', value: 10 }], equipped: 'c1' },
+    { id: 'b', gear: 'Weapon', rank: 'Epic', level: 85, enhance: 15, main: { type: 'Attack', value: 500 }, subs: [{ type: 'Speed', value: 12 }], equipped: 'c2' },
+    { id: 'c', gear: 'Weapon', rank: 'Epic', level: 85, enhance: 15, main: { type: 'Attack', value: 500 }, subs: [{ type: 'Speed', value: 18 }] },
+  ];
+  const heroes = [{ code: 'c1', role: 'warrior' }, { code: 'c2', role: 'thief' }, { code: 'c3', role: 'mage' }];
+  assert.deepEqual(S.evaluateAll(items, heroes).profiles.map((p) => p.code).sort(), ['c1', 'c2']);
+  const only = S.evaluateAll(items, heroes, {}, S.DEFAULT_RULES, { only: ['c2'] });
+  assert.deepEqual(only.profiles.map((p) => p.code), ['c2']);
+  for (const r of only.results) assert.ok(r.best.every((x) => x.code === 'c2'));
+  // a hero without gear can be on the list too
+  assert.deepEqual(S.evaluateAll(items, heroes, {}, S.DEFAULT_RULES, { only: ['c3'] }).profiles.map((p) => p.code), ['c3']);
+});

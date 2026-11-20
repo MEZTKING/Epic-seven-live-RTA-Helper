@@ -286,13 +286,14 @@
   }
 
   /** Evaluate the whole inventory. heroes: official list (code, role). */
-  function evaluateAll(items, heroes, overrides = {}, rules = DEFAULT_RULES, { onlyOwned = null } = {}) {
+  // only (DEVLOG #86): the heroes you are gearing; when given, suggestions consider only them
+  function evaluateAll(items, heroes, overrides = {}, rules = DEFAULT_RULES, { onlyOwned = null, only = null } = {}) {
     const byHero = new Map();
     for (const it of items) if (it.equipped) {
       if (!byHero.has(it.equipped)) byHero.set(it.equipped, {});
       byHero.get(it.equipped)[it.gear] = it;
     }
-    const codes = new Set([...byHero.keys(), ...(onlyOwned || [])]);
+    const codes = only && only.length ? new Set(only) : new Set([...byHero.keys(), ...(onlyOwned || [])]);
     const roleOf = new Map(heroes.map((h) => [h.code, h.role]));
     const profiles = [...codes].map((code) => heroProfile(code, roleOf.get(code), Object.values(byHero.get(code) || {}), overrides[code]));
     return { profiles, results: items.map((it) => evaluate(it, profiles, byHero, rules)) };

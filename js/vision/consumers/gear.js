@@ -73,12 +73,19 @@
     const after = r.reforgedWss !== r.wss ? now + (r.reforgedWss - r.wss) : null;
     return `${gameMode(gs) ? 'score' : 'gear score'} ${now}${after !== null ? ` → ${after}` : ''}`;
   }
-  bus.on('gear:item', ({ item, key, problems, rect, pics, art }) => {
+  bus.on('gear:item', ({ item, key, problems, rect, pics, art, wornBy }) => {
     const desc = `${item.gear} · ${String(item.set || '').replace(/Set$/, '') || '?'} · +${item.enhance} · ${item.main.type} ${item.main.value}`;
     const gs = GS.load();
-    let slim = GS.addScanned(gs, item, key);
-    const dup = !slim;
-    if (dup) slim = gs.scanned.find((x) => x.key === key); // read before: still show its verdict on the game
+    // the same item (main stat and every substat alike) already known: that one (the item window on the hero screen
+    // shows no level badge to read, so its key can differ), DEVLOG #86
+    const sameStats = (x) => x.main && x.main.type === item.main.type && Number(x.main.value) === Number(item.main.value) && (x.subs || []).length === item.substats.length && x.subs.every((sb, i) => sb.type === item.substats[i].type && Number(sb.value) === Number(item.substats[i].value));
+    let slim = wornBy ? gs.scanned.find(sameStats) || null : null;
+    let dup = !!slim;
+    if (!slim) {
+      slim = GS.addScanned(gs, item, key);
+      dup = !slim;
+      if (dup) slim = gs.scanned.find((x) => x.key === key); // read before: still show its verdict on the game
+    }
     learnArt.moved = false;
     const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank }, pics, gs);
     // the game's score read now fills one an item read before didn't have (DEVLOG #83)
@@ -87,7 +94,21 @@
       slim.gameScore = item.gameScore;
       scoreNew = true;
     }
-    if ((linkArt(slim, entry) || scoreNew || learnArt.moved) && dup) {
+    // the item window from a hero's equipment screen (DEVLOG #86): this exact item is on that hero
+    let wornNew = false;
+    if (slim && wornBy) {
+      for (const it of gs.scanned) if (it !== slim && it.wornBy === wornBy && it.gear === slim.gear) delete it.wornBy;
+      if (slim.wornBy !== wornBy || !slim.worn) wornNew = true;
+      slim.wornBy = wornBy;
+      slim.worn = true;
+      const seen = gs.heroSeen[wornBy];
+      const sl = seen && seen.slots.find((x) => x.gear === slim.gear);
+      if (sl && sl.itemId !== slim.id) {
+        sl.itemId = slim.id;
+        wornNew = true;
+      }
+    }
+    if ((linkArt(slim, entry) || scoreNew || learnArt.moved || wornNew) && dup) {
       try {
         GS.save(gs);
       } catch (_) { /* full */ }
@@ -105,7 +126,7 @@
     keepPics(slim, pics);
     // the item on screen is judged even when screen-read items are switched off for the sorter
     const all = GS.allItems(gs);
-    const ev = S.evaluateAll(all.includes(slim) ? all : [...all, slim], HEROES, gs.overrides, gs.rules);
+    const ev = S.evaluateAll(all.includes(slim) ? all : [...all, slim], HEROES, gs.overrides, gs.rules, { only: gs.priority });
     const res = ev.results.find((r) => r.item.id === slim.id);
     if (!res) return;
     const best = res.best.filter((x) => x.delta > gs.rules.upgradeMargin)[0] || null;
@@ -161,7 +182,7 @@
     }
     const all = GS.allItems(gs);
     const extra = mine.map((m) => m.slim).filter((x) => !all.includes(x));
-    const ev = S.evaluateAll([...all, ...extra], HEROES, gs.overrides, gs.rules);
+    const ev = S.evaluateAll([...all, ...extra], HEROES, gs.overrides, gs.rules, { only: gs.priority });
     const byId = new Map(ev.results.map((r) => [r.item.id, r]));
     const counts = {};
     const labels = mine.map(({ t, slim }) => {

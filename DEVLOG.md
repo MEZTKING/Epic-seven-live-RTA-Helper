@@ -7,6 +7,48 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-20 · #86 · Gear: the item window on the hero screen read (the exact item on the hero), and the heroes you are gearing · this commit (previous: `6772ef8`)
+
+**Asked for:** the item windows from the hero screen, sent again as files (Rhianna and Luciella's necklace and weapon,
+her artifact); "make it so that you can prioritise who you want to gear so it doesn't show recommendations for every
+single unit in the game every time".
+
+**Findings**
+- The item window moves with the item clicked (necklace window at 838-1297 × 115-922, weapon at 803-1262 × 160-878),
+  and its upper part grows with the description. Its yellow "Equipment Score" line (a yellow line 388 px wide) is the
+  anchor: every stat line sits at a fixed distance from it in both windows (substats 56 / 95 / 134 / 172 px above, the
+  main stat 233 above, the set 67 below). The yellow pixels per row of that line vary from 12 to 42.
+- The "+15" pill and the item picture's level sit next to the red rarity text ("Epic Necklace"): found from that text,
+  not from colour alone (the picture's red background and red bits of the hero art around it got in the way).
+- The window shows no level badge clearly every time, so an item read there can get another key than the same item read
+  in the inventory: items are matched by their main stat and substats.
+
+**Changed**
+- `js/vision/readers/hero-gear.js`: a second reader, `hero-gear-item`: finds the score line, reads the main stat, the
+  substats, the game's score, the set, the rarity and slot, the name, the enhance and the level, and publishes
+  `gear:item` with `wornBy` = the hero of the screen; an item window read before is not read again.
+- `js/vision/consumers/gear.js`: an item from the hero screen's window is the item with the same main stat and substats
+  if the app has it, else a new one; it is marked as worn by that hero (another item of that slot on that hero is not
+  anymore) and fills that hero's slot.
+- Heroes you are gearing: `gs.priority` (kept by `GearStore.load`); `RTAGearSort.evaluateAll(…, { only })`; the Gear
+  page and the watcher's judgement use it, so "best for", "upgrade for", the overlay, try-on picks and item upgrades
+  only think of those heroes (empty = every hero with gear). A "Heroes you are gearing" card (add, ✕, clear) and a
+  "☆ gear this hero" button by the presets.
+- Fixtures `hero-gear-popup-necklace / popup-weapon / artifact-wide.jpg` (no player names).
+
+**Tested**
+- `npm test` 206 (gearing list: only those heroes, a hero without gear included).
+- `tests/e2e/hero-gear.e2e.js` + item windows: necklace "+15 level 90 Weakening 'Cross of Grudges' · crit damage 70 ·
+  defense 18 %, attack 9 %, crit chance 5 %, speed 23 · game score 107 · on Rhianna", weapon "+15 level 90 Speed
+  'Ancient Drake Bonesword' · attack 525 · attack 8 %, speed 19, crit chance 10 %, crit damage 6 % · game score 94";
+  the artifact window reads nothing; her screen again: 2 of 6 known ("✓ known" on weapon and necklace), kept with a
+  look-alike weapon added; the gearing list limits the suggestions to her, cleared again.
+- Browser suite 52/52 clean; other differences: the presets row shows the new "☆ gear this hero" button. Desktop
+  (packaged Linux build): watcher, overlay-test, popout, update-check clean.
+- **Not tested:** on the owner's PC; item windows of other slots (same layout expected); a 3-substat item window.
+
+---
+
 ## 2026-11-20 · #85 · Gear designs: one design = one name · this commit (previous: `f0fdabb`)
 
 **Asked for:** "The equipment design is always with the same name."

@@ -32,6 +32,8 @@
       // DEVLOG #84: what the game's hero equipment screen showed, per hero code: { name, at, stats, slots: [{ gear, enhance,
       // level, set, art, itemId|null, candidates }] } (source 'screen')
       heroSeen: g.heroSeen && typeof g.heroSeen === 'object' ? g.heroSeen : {},
+      // DEVLOG #86: the heroes you are gearing (hero codes); empty = every hero with gear
+      priority: Array.isArray(g.priority) ? g.priority : [],
     };
   }
   /** Throws if the browser storage is full. */

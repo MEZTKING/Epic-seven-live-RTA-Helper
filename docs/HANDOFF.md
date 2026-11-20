@@ -333,7 +333,9 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   reuse the result (no second reading).
   Hero screen (#84): the consumer links slots to known items (`item.wornBy`) and keeps `gs.heroSeen[code]` (real stats,
   slots); the Gear page's `wearing(code)` uses it when newer than the gear.txt import; try-on / presets start from the
-  real stats + the estimated change.
+  real stats + the estimated change. Item windows opened there (#86, reader `hero-gear-item`, anchored on the yellow
+  score line) publish `gear:item` with `wornBy`; the consumer matches by main stat + substats. `gs.priority` (#86): the
+  heroes you are gearing; `evaluateAll(…, { only })` limits suggestions to them.
 - **Guild War:** records go through `RTASync`; `RTAGuildWar.buildState` builds the state, the newest copy of each record
   wins. Dots come from `targetVerdict`/`teamVerdict`, using your roster and speeds (computed from the RTA store's
   `fribbels.builds` with `RTAGear`), the guild's attacks (`winSpeeds`) and the enemy's recorded speeds across all

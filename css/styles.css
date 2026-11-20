@@ -671,3 +671,6 @@ table.cmp td.down { color: #ff5d6c; font-weight: 700; }
 .up-row:hover { background: rgba(255,255,255,.06); }
 .up-row .gt-icon { width: 54px; height: 54px; font-size: 20px; }
 @media (max-width: 900px) { .up-cols { grid-template-columns: minmax(0, 1fr); } }
+/* Heroes you are gearing (DEVLOG #86) */
+.pr-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pr-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; }
