@@ -148,7 +148,7 @@
     try {
       s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 10 }, audio: false });
     } catch (_) {
-      throw new Error('Capture was cancelled.');
+      throw new Error(window.E7Desktop ? 'No game window to watch (not chosen, or not found). Choose it in the menu: Game window → Pick the game window…' : 'Capture was cancelled.');
     }
     stream = s;
     const v = document.createElement('video');

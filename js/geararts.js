@@ -12,6 +12,7 @@
  *   fingerprint(rgba)                 -> number[] (rgba of an FP×FP picture of BOX)
  *   similarity(a, b)                  -> cosine
  *   lookup(list, fp)                  -> { entry, sim } | null
+ *   pack(fp) / unpack(s)              a fingerprint stored small ('q' + base64 of bytes) and back (DEVLOG #87)
  *   learn(list, fp, info, now)        -> { list, entry, isNew, into }   info: { name, gear, rank } (only what is known);
  *                                        one design = one name: a known name joins its design (another picture variant)
  *   mergeByName(list)                 -> { list, into }   designs with the same name + slot joined (DEVLOG #85)
@@ -48,7 +49,32 @@
   }
   // one design = one name (the owner, DEVLOG #85): a design keeps every picture variant it was seen with (another
   // background, the hero screen's crop) in `fps`, and the name read most often (`names` counts the readings)
-  const variants = (e) => [e.fp, ...(e.fps || [])].filter(Boolean);
+  // stored small (DEVLOG #87): a fingerprint as 300 bytes in base64 (~400 characters) instead of a list of numbers
+  // (~1900): with every picture variant the designs had filled the browser storage, and then items could not be saved
+  const b64e = (u8) => (typeof btoa === 'function' ? btoa(String.fromCharCode(...u8)) : Buffer.from(u8).toString('base64'));
+  const b64d = (s) => (typeof atob === 'function' ? Uint8Array.from(atob(s), (c) => c.charCodeAt(0)) : new Uint8Array(Buffer.from(s, 'base64')));
+  // each value as one signed byte, the largest one = 127 (the scale doesn't need storing: the vector is renormalised)
+  function pack(fp) {
+    if (!fp || typeof fp === 'string') return fp || null;
+    const m = Math.max(1e-9, ...fp.map(Math.abs));
+    const u = new Uint8Array(fp.length);
+    for (let i = 0; i < fp.length; i++) u[i] = Math.round((fp[i] / m) * 127) & 255;
+    return 'q' + b64e(u);
+  }
+  const unpacked = new Map();
+  function unpack(fp) {
+    if (!fp || typeof fp !== 'string') return fp || null;
+    let v = unpacked.get(fp);
+    if (!v) {
+      v = Array.from(b64d(fp.slice(1)), (b) => (b > 127 ? b - 256 : b));
+      const k = 1 / (Math.sqrt(v.reduce((a, x) => a + x * x, 0)) || 1);
+      v = v.map((x) => x * k);
+      if (unpacked.size > 5000) unpacked.clear();
+      unpacked.set(fp, v);
+    }
+    return v;
+  }
+  const variants = (e) => [e.fp, ...(e.fps || [])].filter(Boolean).map(unpack);
   const nameKey = (name, gear) => `${String(name || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()}|${gear || ''}`;
   function lookup(list, fp) {
     let best = null;
@@ -63,7 +89,7 @@
   const MAX_VARIANTS = 6;
   function addVariant(e, fp) {
     if (variants(e).some((v) => similarity(v, fp) >= 0.97)) return;
-    e.fps = [...(e.fps || []), fp].slice(-MAX_VARIANTS);
+    e.fps = [...(e.fps || []), pack(fp)].slice(-MAX_VARIANTS);
   }
   function voteName(e, name) {
     if (!name) return;
@@ -73,7 +99,7 @@
     if (!e.named) e.name = Object.entries(e.names).sort((a, b) => b[1] - a[1])[0][0];
   }
   function learn(list, fp, info = {}, now = Date.now()) {
-    const out = (list || []).map((e) => ({ ...e }));
+    const out = (list || []).map((e) => ({ ...e, fp: pack(e.fp), ...(e.fps ? { fps: e.fps.map(pack) } : {}) }));
     if (!fp) return { list: out, entry: null, isNew: false };
     const hit = lookup(out, fp);
     let entry = hit && out.find((e) => e.id === hit.entry.id);
@@ -86,7 +112,7 @@
     }
     const isNew = !entry;
     if (!entry) {
-      entry = { id: `d${now.toString(36)}${out.length.toString(36)}`, fp, name: '', gear: '', rank: '', n: 0, first: now };
+      entry = { id: `d${now.toString(36)}${out.length.toString(36)}`, fp: pack(fp), name: '', gear: '', rank: '', n: 0, first: now };
       out.push(entry);
     }
     entry.n = (entry.n || 0) + 1;
@@ -138,7 +164,7 @@
     return s.length >= 3 ? s : '';
   }
 
-  const api = { BOX, FP, SAME, MAX, fingerprint, similarity, lookup, learn, mergeByName, cleanName };
+  const api = { BOX, FP, SAME, MAX, pack, unpack, fingerprint, similarity, lookup, learn, mergeByName, cleanName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GearArts = api;
 })(typeof self !== 'undefined' ? self : this);

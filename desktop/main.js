@@ -92,8 +92,14 @@ async function listSources(thumb) {
 
 let picker = null;
 let pickerDone = null;
-/** Ask which window is the game. Resolves with the saved choice, or null if cancelled. */
-function pickWindow(why) {
+// the picker closed without a choice: it doesn't open by itself again in this session (only from the menu / a page's
+// "pick the game window" button). Before, every capture try opened it again, non-stop (DEVLOG #87)
+let pickerDeclined = false;
+let notFoundAsked = false; // "the game window wasn't found" asked once per session; later tries just fail quietly
+/** Ask which window is the game. Resolves with the saved choice, or null if cancelled. auto: asked by itself, not by
+ * the user (then not again after a cancel). */
+function pickWindow(why, { auto = false } = {}) {
+  if (auto && pickerDeclined) return Promise.resolve(null);
   if (picker) {
     picker.focus();
     return new Promise((res) => {
@@ -112,6 +118,7 @@ function pickWindow(why) {
       picker = null;
       const d = pickerDone;
       pickerDone = null;
+      if (d) pickerDeclined = true; // closed without a choice
       d && d(null);
     });
   });
@@ -129,7 +136,11 @@ ipcMain.handle('e7:sources', async () => {
 });
 ipcMain.on('e7:choose', (e, choice) => {
   if (!picker || e.sender !== picker.webContents) return; // only the picker window may choose
-  if (choice) setCapture(choice);
+  if (choice) {
+    setCapture(choice);
+    pickerDeclined = false;
+    notFoundAsked = false;
+  }
   const d = pickerDone;
   pickerDone = null;
   if (picker) picker.close();
@@ -310,7 +321,7 @@ function setCapture(choice) {
 async function resolveSource() {
   let c = config.capture;
   if (!c) {
-    c = await pickWindow();
+    c = await pickWindow(undefined, { auto: true });
     if (!c) return null;
   }
   const list = await listSources();
@@ -324,7 +335,9 @@ async function resolveSource() {
       trackGame(w.id);
       return w;
     }
-    const again = await pickWindow(`The game window "${c.name}" wasn't found (is the game open and not minimized?). Pick it again, or choose a whole screen.`);
+    if (notFoundAsked) return null;
+    notFoundAsked = true;
+    const again = await pickWindow(`The game window "${c.name}" wasn't found (is the game open and not minimized?). Pick it again, or choose a whole screen.`, { auto: true });
     return again ? resolveSource() : null;
   }
   const d = gameDisplay();

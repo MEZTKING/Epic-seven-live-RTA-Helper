@@ -8,6 +8,7 @@
 //     close spellings from that server's player list (stand-in) are used / offered; the name's picture is shown, a
 //     click on an offered spelling fills the box
 //  4) the VS screen and the guild hall start nothing
+//  5) "War Ends in 5h" in the game's bold digits (DEVLOG #87)
 const __path = require('path');
 const __fs = require('fs');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
@@ -117,6 +118,9 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   await gp.evaluate(() => document.activeElement && document.activeElement.blur()); // (the card saves by itself, DEVLOG #62)
   await gp.waitForTimeout(600);
   console.log('saved:', await gp.textContent('#gw-fort-msg'), '· targets', JSON.stringify(await gp.evaluate(() => window.GuildApp.state.targets.map((t) => t.player))));
+  // DEVLOG #87: the game's bold "5h" was read as "Bh" (= 8 hours); now the time is read again, digits only
+  const o5 = await show('steam-gw-overview-war5h-wide.jpg');
+  console.log('overview "War Ends in 5h":', o5.forts && `${o5.forts.endsIn / 60} hours · ${o5.forts.ourGuild} vs ${o5.forts.enemyGuild}`);
   console.log('errors:', errs);
   await b.close();
 })();

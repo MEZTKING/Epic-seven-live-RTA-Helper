@@ -163,6 +163,18 @@
         x.drawImage(norm, r.x * W, r.y * H, r.w * W, r.h * H, 0, 0, c.width, c.height);
         const raw = await ctx.ocr(c, { line: true });
         if (/end/i.test(raw)) endsIn = G.standbyMinutes(raw);
+        // the game's bold digits: "5h" can be read as "Bh" (DEVLOG #87): the time alone (right of "War Ends in")
+        // again, digits only
+        if (/end/i.test(raw) && /\b[il1|]n\b[^\n]*[BSOoIl][dhm]/i.test(raw)) {
+          const c2 = document.createElement('canvas');
+          const sx = Math.round(c.width * 0.45);
+          c2.width = c.width - sx;
+          c2.height = c.height;
+          c2.getContext('2d').drawImage(c, sx, 0, c2.width, c2.height, 0, 0, c2.width, c2.height);
+          const raw2 = await ctx.ocr(c2, { line: true, chars: '0123456789dhm ' });
+          const m2 = G.standbyMinutes('in ' + raw2);
+          if (m2) endsIn = m2;
+        }
       }
       const found = names.filter(Boolean).length;
       if (!found && !enemyGuild) return ctx.note(`${side === 'ours' ? 'Our' : 'Enemy'} side: fortress names not readable`);

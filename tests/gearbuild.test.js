@@ -84,6 +84,25 @@ test('one design = one name (DEVLOG #85): variants, merging, the name read most 
   assert.equal(A.learn(v.list, red, { name: 'Bow of Agony', gear: 'Weapon' }, 4).entry.name, 'My bow');
 });
 
+test('designs are stored small (DEVLOG #87): packed fingerprints, old saved lists still work', () => {
+  const pic = (seed) => { const d = new Uint8ClampedArray(A.FP * A.FP * 4); let s = seed; for (let i = 0; i < d.length; i++) { s = (s * 1103515245 + 12345) >>> 0; d[i] = i % 4 === 3 ? 255 : s % 256; } return d; };
+  const fps = [1, 2, 3, 4, 5, 6, 7].map((k) => A.fingerprint(pic(k)));
+  const p = A.pack(fps[0]);
+  assert.equal(typeof p, 'string');
+  assert.ok(A.similarity(A.unpack(p), fps[0]) > 0.995);
+  assert.ok(Math.abs(A.similarity(A.unpack(p), fps[1]) - A.similarity(fps[0], fps[1])) < 0.01);
+  // an old list (numbers) is read and saved packed
+  let r = A.learn([{ id: 'old', fp: fps[0], name: 'Bow of Agony', gear: 'Weapon', n: 1 }], fps[0], {}, 2);
+  assert.equal(r.isNew, false);
+  assert.equal(typeof r.list[0].fp, 'string');
+  // a design with all its picture variants: under 3500 characters (was ~13 500)
+  for (const f of fps.slice(1)) r = A.learn(r.list, f, { name: 'Bow of Agony', gear: 'Weapon' }, 3);
+  assert.equal(r.list.length, 1);
+  assert.equal(r.list[0].fps.length, 6);
+  assert.ok(JSON.stringify(r.list[0]).length < 3500, JSON.stringify(r.list[0]).length);
+  for (const f of fps) assert.equal(A.lookup(r.list, f).entry.id, 'old');
+});
+
 test('the heroes you are gearing: suggestions only think of them (DEVLOG #86)', () => {
   const S = require('../js/gearsort.js');
   const items = [

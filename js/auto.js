@@ -1741,14 +1741,25 @@
   const VC = window.VisionClient;
   let followed = false;
   let userStopped = false;
+  // a follow that failed (no game window / the window picker closed) is not tried again by itself until the watcher
+  // starts watching anew (another name or a stop in between) or Start is pressed: before, it was tried with every
+  // watcher status (every 3 s), and each try opened "Which window is the game?" again (DEVLOG #87)
+  let followFailedFor = null;
   function followWatcher(s) {
     if (!VC || !VC.desktop) return;
     const watching = VC.alive() && s && s.watching;
     const screenshotMode = source && !live;
-    if (watching && !stream && !capturing && !userStopped && !screenshotMode) {
+    if (!watching) followFailedFor = null;
+    if (watching && !stream && !capturing && !userStopped && !screenshotMode && followFailedFor !== s.name) {
       followed = true;
       setStatus(`Following the game watcher ("${s.name}")…`);
-      startCapture();
+      const name = s.name;
+      startCapture().then(() => {
+        if (!stream) {
+          followFailedFor = name;
+          setStatus('Could not follow the game watcher (no game window). Press Start to try again.');
+        }
+      });
     } else if (!watching && followed && stream) {
       followed = false;
       stopCapture();
@@ -1756,7 +1767,10 @@
     }
   }
   if (VC) VC.onStatus(followWatcher);
-  $('#auto-start').addEventListener('click', () => (userStopped = false));
+  $('#auto-start').addEventListener('click', () => {
+    userStopped = false;
+    followFailedFor = null;
+  });
   $('#auto-stop').addEventListener('click', () => {
     userStopped = true;
     followed = false;

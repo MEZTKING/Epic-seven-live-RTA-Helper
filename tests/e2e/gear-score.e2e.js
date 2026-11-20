@@ -4,6 +4,7 @@
 //  2) items already read are not read again (the same screen / the same panel again)
 //  3) the Gear page shows the game's score by default ("Score"), the Fribbels gear score as an option; the rules follow
 //  4) the reading speed setting
+//  5) storage full (DEVLOG #87): the verdict still on the game, with a warning; designs stored small
 const __path = require('path');
 const __fs = require('fs');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
@@ -77,6 +78,17 @@ const GAME = {
   // 4)
   await g.selectOption('#gs-scan-use + label select, [data-vision-speed]', 'fast').catch(() => g.selectOption('select[data-vision-speed]', 'fast'));
   console.log('4) reading speed:', await g.evaluate(() => [localStorage.getItem('e7-vision-speed'), window.E7VisionSpeed.factor()].join(' ×')), '· options:', await g.$$eval('select[data-vision-speed] option', (o) => o.map((x) => x.textContent).join(' / ')));
+  // 5) DEVLOG #87: the app's storage full: the verdict still shows on the game (before: nothing), with a warning
+  await lv.evaluate(() => {
+    localStorage.removeItem('rta-gear-v1');
+    window.__cards = [];
+    const post = window.E7Overlay.post;
+    window.E7Overlay.post = (l, i) => (l === 'gear' && i.length && window.__cards.push(i[0]), post(l, i));
+    window.GearStore.save = () => { throw new Error('QuotaExceededError (test)'); };
+  });
+  await show('gear-necklace-wide.jpg');
+  console.log('5) storage full, the necklace panel:', await lv.evaluate(() => JSON.stringify(window.__cards.map((c) => [c.title, ...c.lines].join(' / ')))));
+  console.log('   designs stored small:', await lv.evaluate(() => (JSON.parse(localStorage.getItem('e7-gear-arts') || '[]').every((e) => typeof e.fp === 'string') ? 'yes' : 'no')));
   console.log('errors:', errs);
   await b.close();
 })();
