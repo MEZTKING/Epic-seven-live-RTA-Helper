@@ -78,6 +78,7 @@
   <script src="js/arena-log.js"></script>
   <script src="js/gearpics.js"></script>
   <script src="js/vision/consumers/gear.js"></script>
+  <script src="js/gearfile.js"></script>
   <script src="js/vision/client.js"></script>
   <script src="js/vision/panel.js"></script>
   <script>
@@ -87,6 +88,13 @@
       if (!D) return;
       const go = () => window.E7Vision.start().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message }));
       if (D.capture().chosen) go();
+      // your gear file re-imported by itself whenever it changes (DEVLOG #94; the Gear page follows through storage)
+      if (window.E7GearFile && D.gearFile)
+        window.E7GearFile.follow({
+          heroes: window.RTASources.allHeroes || window.RTASources.officialSnapshot.heroes,
+          onImported: (res, f) => window.E7Bus.publish('gear:file-imported', { name: f.name, items: res.count, keptCodes: res.kept }),
+          onError: (e) => window.E7Bus.publish('vision:warning', { reader: 'gear-file', text: 'Could not re-import your gear file: ' + e.message }),
+        });
       // Ctrl+Shift+S (desktop, anywhere): save a picture of the game to calibrate on later
       if (D.onHotkey) D.onHotkey((name) => name === 'save-picture' && window.E7Bus.request('save-picture', { note: 'Ctrl+Shift+S' }).catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));
       D.onCapture(() => window.E7Vision.restart().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));

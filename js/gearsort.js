@@ -116,7 +116,8 @@
         const eq = it.ingameEquippedId && it.ingameEquippedId !== '0' ? idToCode.get(String(it.ingameEquippedId)) : it.equippedById ? idToCode.get(String(it.equippedById)) : null;
         const byNameCode = !eq && it.equippedByName ? (byName.get(key(it.equippedByName)) || {}).code : null;
         return {
-          id: String(it.id || it.ingameId || `i${i}`),
+          // the game's own id first (DEVLOG #94): the optimizer's autosave gives its own ids, the game's stay the same
+          id: String(it.ingameId || it.id || `i${i}`),
           gear: it.gear,
           set: it.set || '',
           rank: it.rank || 'Epic',

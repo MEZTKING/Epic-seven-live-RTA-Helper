@@ -147,6 +147,73 @@ ipcMain.on('e7:choose', (e, choice) => {
   d && d(choice ? config.capture : null);
 });
 ipcMain.handle('e7:pick', () => pickWindow());
+
+// ---- gear.txt (or the Fribbels optimizer's own autosave) re-imported by itself (DEVLOG #94) -------------------------
+// The user picks the file once; it is watched (polled every 3 s: the optimizer rewrites it whole) and every window is
+// told when it changed. Only the chosen file is ever read; nothing is written.
+const fribbelsAutosave = () => path.join(app.getPath('documents'), 'FribbelsOptimizerSaves', 'autosave.json');
+let gearWatched = null;
+let gearTimer = null;
+function gearFileInfo() {
+  const p = config.gearFile;
+  if (!p) {
+    const auto = fribbelsAutosave();
+    return { path: null, suggest: fs.existsSync(auto) ? auto : null };
+  }
+  try {
+    const st = fs.statSync(p);
+    return { path: p, name: path.basename(p), mtime: st.mtimeMs, size: st.size };
+  } catch (_) {
+    return { path: p, name: path.basename(p), missing: true };
+  }
+}
+function watchGearFile() {
+  if (gearWatched) fs.unwatchFile(gearWatched);
+  gearWatched = null;
+  const p = config.gearFile;
+  if (!p) return;
+  gearWatched = p;
+  fs.watchFile(p, { interval: 3000 }, (cur, prev) => {
+    if (!cur.mtimeMs || cur.mtimeMs === prev.mtimeMs) return;
+    // the optimizer may still be writing: tell the pages once it has been quiet for 2 s
+    clearTimeout(gearTimer);
+    gearTimer = setTimeout(() => {
+      for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('e7:gear-file-changed', gearFileInfo());
+    }, 2000);
+  });
+}
+function setGearFile(p) {
+  config.gearFile = p || null;
+  saveConfig();
+  watchGearFile();
+  for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('e7:gear-file-changed', gearFileInfo());
+  return gearFileInfo();
+}
+ipcMain.handle('e7:gear-file', async (e, act) => {
+  if (act === 'info') return gearFileInfo();
+  if (act === 'choose') {
+    const auto = fribbelsAutosave();
+    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender) || undefined, {
+      title: 'Which file should Orbis Lens re-import by itself?',
+      defaultPath: config.gearFile || (fs.existsSync(auto) ? auto : app.getPath('documents')),
+      filters: [{ name: 'gear.txt / Fribbels autosave', extensions: ['txt', 'json'] }],
+      properties: ['openFile'],
+    });
+    return r.canceled || !r.filePaths[0] ? gearFileInfo() : setGearFile(r.filePaths[0]);
+  }
+  if (act === 'autosave') return fs.existsSync(fribbelsAutosave()) ? setGearFile(fribbelsAutosave()) : gearFileInfo();
+  if (act === 'stop') return setGearFile(null);
+  if (act === 'read') {
+    const info = gearFileInfo();
+    if (!info.path || info.missing) return null;
+    try {
+      return { ...info, text: await fs.promises.readFile(info.path, 'utf8') };
+    } catch (_) {
+      return null;
+    }
+  }
+  return null;
+});
 // ---- official record site (desktop/records.js): pages ask, the main process does the (spaced-out) lookups ----
 let records = null;
 ipcMain.handle('e7:records', async (e, req) => {
@@ -683,6 +750,7 @@ app.whenReady().then(() => {
   createMain();
   createOverlay();
   createVision();
+  watchGearFile(); // DEVLOG #94
   buildMenu();
   warReminder.restore();
   updater.init(() => main, () => buildMenu()); // checks at start; the menu line shows when and what it found

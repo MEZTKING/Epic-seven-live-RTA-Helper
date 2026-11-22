@@ -700,3 +700,6 @@ table.cmp td.down { color: #ff5d6c; font-weight: 700; }
 .ag-form input, .ag-form select { width: 100%; }
 .ag-list { flex-wrap: wrap; }
 .ag-list .btn { font-size: 12px; }
+/* re-import by itself (DEVLOG #94) */
+.gf-box { margin-top: 6px; }
+.gf-box .hint { word-break: break-all; }

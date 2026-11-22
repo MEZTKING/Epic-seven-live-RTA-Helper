@@ -19,6 +19,7 @@
     switch (e.type) {
       case 'gear:added': return `Gear: added ${d.desc} → ${String(d.verdict || '').toUpperCase()}`;
       case 'gear:dup': return `Gear: already have ${d.desc}`;
+      case 'gear:file-imported': return `Gear: ${d.name} re-imported by itself (${d.items} items)`;
       case 'gear:item': return null; // shown as gear:added / gear:dup
       case 'gear:gone': return null;
       case 'gear:grid': return null;

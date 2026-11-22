@@ -20,6 +20,8 @@
     return {
       fileName: g.fileName || '',
       importedAt: g.importedAt || null,
+      fileMtime: g.fileMtime || null, // the re-imported file's version and place (DEVLOG #94)
+      filePath: g.filePath || null,
       items: Array.isArray(g.items) ? g.items : [],
       scanned: Array.isArray(g.scanned) ? g.scanned : [],
       useScanned: g.useScanned !== false,

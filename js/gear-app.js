@@ -76,27 +76,40 @@
     e.target.value = '';
     if (!file) return;
     try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      const items = S.slimInventory(data, HEROES);
-      if (!items.length) throw new Error('No items found in this file.');
-      gs = { ...gs, fileName: file.name, importedAt: new Date().toISOString(), items };
-      save();
-      // keep the RTA Helper's roster + speeds in sync (its own 'fribbels' source)
-      try {
-        const main = JSON.parse(localStorage.getItem(MAIN_KEY) || 'null');
-        if (main && typeof main === 'object') {
-          const r = R.parseFribbels(text, HEROES);
-          main.fribbels = { source: 'fribbels', fileName: file.name, importedAt: gs.importedAt, ...r, builds: G.extractBuilds(data, HEROES) };
-          localStorage.setItem(MAIN_KEY, JSON.stringify(main));
-        }
-      } catch (_) { /* the helper will pick it up on its own import */ }
+      // shared with the re-import by itself (js/gearfile.js, DEVLOG #94); the RTA Helper's roster follows
+      window.E7GearFile.importText(await file.text(), file.name, { heroes: HEROES });
+      gs = load();
       recompute();
       render();
     } catch (err) {
       alert('Could not import: ' + err.message);
     }
   });
+  // ---- re-import by itself (desktop, DEVLOG #94): the game watcher re-imports; this page shows and sets the file -----
+  const DF = window.E7Desktop && window.E7Desktop.gearFile;
+  function renderGearFile(info) {
+    if (!DF || !info) return;
+    $('#gf-box').classList.remove('hidden');
+    const when = gs.importedAt ? new Date(gs.importedAt).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    $('#gf-state').textContent = info.path
+      ? info.missing
+        ? `${info.path} is not there any more.`
+        : `watching ${info.path}${gs.filePath === info.path && when ? ` · last re-import ${when}` : ''}`
+      : info.suggest
+        ? 'off. The Fribbels optimizer saves everything to its autosave whenever its data changes: use that, or your gear.txt.'
+        : 'off. Choose your gear.txt (or the Fribbels optimizer\'s autosave.json) and every new version is imported by itself.';
+    $('#gf-auto').classList.toggle('hidden', !(info.suggest && !info.path));
+    $('#gf-stop').classList.toggle('hidden', !info.path);
+  }
+  if (DF) {
+    const refresh = () => DF.info().then(renderGearFile);
+    $('#gf-choose').addEventListener('click', () => DF.choose().then(renderGearFile));
+    $('#gf-auto').addEventListener('click', () => DF.useAutosave().then(renderGearFile));
+    $('#gf-stop').addEventListener('click', () => DF.stop().then(renderGearFile));
+    DF.onChanged(() => setTimeout(refresh, 1500));
+    addEventListener('storage', (e) => e.key === GS.KEY && refresh());
+    refresh();
+  }
 
   // ------------------------------------------------------------------- rules
   const RULE_INPUTS = { '#r-keep': 'keepWss', '#r-reforge': 'reforgeWss', '#r-speed': 'speedKeep', '#r-margin': 'upgradeMargin' };
