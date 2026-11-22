@@ -136,18 +136,27 @@
     keepPics(slim, pics);
     // the item on screen is judged even when screen-read items are switched off for the sorter
     const all = GS.allItems(gs);
-    const ev = S.evaluateAll(all.includes(slim) ? all : [...all, slim], HEROES, gs.overrides, gs.rules, { only: gs.priority });
+    const ev = S.evaluateAll(all.includes(slim) ? all : [...all, slim], HEROES, gs.overrides, gs.rules, { only: gs.priority, skip: gs.skip });
     const res = ev.results.find((r) => r.item.id === slim.id);
     if (!res) return;
     const best = res.best.filter((x) => x.delta > gs.rules.upgradeMargin)[0] || null;
     if (!dup) bus.publish('gear:added', { desc, verdict: res.verdict, reason: res.reason, wss: res.wss, reforgedWss: res.reforgedWss, best: best && { code: best.code, name: nameOf(best.code), delta: best.delta }, problems });
     if (window.E7Overlay && rect) {
-      // whom it suits: up to two heroes it is an upgrade for, else the hero it fits best (your heroes from gear.txt)
-      const ups = res.best.filter((x) => x.delta > gs.rules.upgradeMargin).slice(0, 2);
-      const whom = ups.length ? `Upgrade for ${ups.map((x) => `${nameOf(x.code)} (+${x.delta})`).join(', ')}` : res.best[0] ? `Fits ${nameOf(res.best[0].code)} best (not an upgrade)` : 'Import gear.txt on the Gear page to see whom it suits';
+      // whom it suits: up to two heroes it is an upgrade for, else the hero it fits best (your heroes from gear.txt).
+      // An item that is in gear.txt (DEVLOG #91): judged as that item, which knows its hero: "On <hero>" first
+      const fr = inFile ? ev.results.find((r) => r.item.id === inFile.id) : null;
+      const on = fr && fr.item.equipped;
+      const ups = (fr || res).best.filter((x) => x.delta > gs.rules.upgradeMargin && x.code !== on).slice(0, 2);
+      const whom = on
+        ? `On ${nameOf(on)} (gear.txt)${ups.length ? ` · would suit ${ups.map((x) => `${nameOf(x.code)} (+${x.delta})`).join(', ')} better` : ''}`
+        : ups.length
+          ? `Upgrade for ${ups.map((x) => `${nameOf(x.code)} (+${x.delta})`).join(', ')}`
+          : res.best[0]
+            ? `Fits ${nameOf(res.best[0].code)} best (not an upgrade)`
+            : 'Import gear.txt on the Gear page to see whom it suits';
       // the item panel sits at the right edge: the card goes on its left (DEVLOG #74); a coloured dot per verdict
-      const level = { keep: 'green', reforge: 'green', enhance: 'yellow', extract: 'red', sell: 'red' }[res.verdict] || 'grey';
-      window.E7Overlay.post('gear', [{ ...rect, kind: 'card', side: rect.x > 0.5 ? 'left' : 'right', level, title: `${res.verdict.toUpperCase()} · ${scoreText(slim, res, gs)}`, lines: [...(/^Upgrade for a hero/.test(res.reason) ? [whom] : [res.reason, whom]), ...(notSaved ? ['⚠ Not saved: the app\'s storage is full'] : [])] }]);
+      const level = on ? 'grey' : { keep: 'green', reforge: 'green', enhance: 'yellow', extract: 'red', sell: 'red' }[res.verdict] || 'grey';
+      window.E7Overlay.post('gear', [{ ...rect, kind: 'card', side: rect.x > 0.5 ? 'left' : 'right', level, title: `${on ? 'WORN' : res.verdict.toUpperCase()} · ${scoreText(slim, res, gs)}`, lines: [...(on || /^Upgrade for a hero/.test(res.reason) ? [whom] : [res.reason, whom]), ...(notSaved ? ['⚠ Not saved: the app\'s storage is full'] : [])] }]);
     }
   });
   // the item panel closed: take the verdict off the game
@@ -197,7 +206,7 @@
     }
     const all = GS.allItems(gs);
     const extra = mine.map((m) => m.slim).filter((x) => !all.includes(x));
-    const ev = S.evaluateAll([...all, ...extra], HEROES, gs.overrides, gs.rules, { only: gs.priority });
+    const ev = S.evaluateAll([...all, ...extra], HEROES, gs.overrides, gs.rules, { only: gs.priority, skip: gs.skip });
     const byId = new Map(ev.results.map((r) => [r.item.id, r]));
     const counts = {};
     const labels = mine.map(({ t, slim }) => {

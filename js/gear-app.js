@@ -28,7 +28,7 @@
   }
 
   function recompute() {
-    evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules, { only: gs.priority });
+    evald = S.evaluateAll(allItems(), HEROES, gs.overrides, gs.rules, { only: gs.priority, skip: gs.skip });
     // screen items a hero wears (the tile shows the portrait, not who): keep, whatever the score (DEVLOG #78)
     for (const r of evald.results)
       if (r.item.worn && r.verdict !== 'keep') {
@@ -425,6 +425,7 @@
     renderDesigns();
     renderUpgrades();
     renderPriority();
+    renderSkip();
   }
   $('#gs-summary').addEventListener('click', (e) => {
     const b = e.target.closest('[data-v]');
@@ -690,16 +691,15 @@
     }
     const mine = gs.presets.filter((p) => p.hero === code);
     if (psTab !== 'now' && !mine.some((p) => p.id === psTab)) psTab = 'now';
-    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">${seenNow(code) ? 'Now (seen in the game)' : 'Now (gear.txt)'}</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button><button data-pr-toggle="${esc(code)}" class="${gs.priority.includes(code) ? 'on' : ''}" title="Suggestions only think of the heroes you are gearing">${gs.priority.includes(code) ? '★ gearing this hero' : '☆ gear this hero'}</button></div>`;
+    const tabs = `<div class="ps-tabs"><button class="${psTab === 'now' ? 'on' : ''}" data-ps-tab="now">${seenNow(code) ? 'Now (seen in the game)' : 'Now (gear.txt)'}</button>${mine.map((p) => `<button class="${psTab === p.id ? 'on' : ''}" data-ps-tab="${esc(p.id)}">${esc(p.name)}</button>`).join('')}<button data-ps-act="new">+ New preset</button><button data-pr-toggle="${esc(code)}" class="${gs.priority.includes(code) ? 'on' : ''}" title="Suggestions only think of the heroes you are gearing">${gs.priority.includes(code) ? '★ gearing this hero' : '☆ gear this hero'}</button><button data-sk-toggle="${esc(code)}" class="${gs.skip.includes(code) ? 'on' : ''}" title="Never suggest gear for this hero">${gs.skip.includes(code) ? '⊘ left out' : "⊘ don't gear"}</button></div>`;
     const now = wearing(code);
     const base = BASE[code];
     const sNow = B.heroStats(base, now);
     const byId = itemsById();
     if (psTab === 'now') {
-      box.innerHTML = `${tabs}<div class="ps-slots">${B.SLOTS.map((g) => {
-        const it = now.find((x) => x.gear === g);
-        return `<div class="ps-slot">${it ? iconBox(it) : '<div class="gt-icon ps-empty"></div>'}<div class="hint">${esc(g)}</div>${it ? `<div class="small">${esc(itemLabel(it))}</div>` : ''}</div>`;
-      }).join('')}</div>${realStats(code) ? `${statLine(realStats(code))}<p class="hint">The hero's real stats, as the game showed them ${esc(new Date(gs.heroSeen[code].at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}.</p>` : sNow ? statLine(sNow) : '<p class="hint">No base stats for this hero.</p>'}${seenNow(code) && now.length < seenNow(code).slots.length ? `<p class="hint">${seenNow(code).slots.length - now.length} of the items on this hero are not known to the app yet: open them once in the inventory (or read the inventory in the Full format).</p>` : ''}${now.length ? '' : '<p class="hint">Nothing known for this hero yet: open their equipment screen in the game, or import gear.txt.</p>'}`;
+      const real = realStats(code);
+      const when = real ? new Date(gs.heroSeen[code].at).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      box.innerHTML = `${tabs}${heroBoard(code, now, real || sNow, real ? `as the game showed them ${when}` : sNow ? 'worked out from the items (no artifact / exclusive equipment)' : '')}${seenNow(code) && now.length < seenNow(code).slots.length ? `<p class="hint">${seenNow(code).slots.length - now.length} of the items on this hero are not known to the app yet: open them once in the inventory (or read the inventory in the Full format).</p>` : ''}${now.length ? '' : '<p class="hint">Nothing known for this hero yet: open their equipment screen in the game, or import gear.txt.</p>'}`;
       return;
     }
     const p = mine.find((x) => x.id === psTab);
@@ -725,6 +725,31 @@
       ${(() => { const pp = statsPair(code, now, items); return pp.a && pp.b ? cmpTable(pp.a, pp.b, ['now', 'this preset'], pp.real) : sP ? statLine(sP) : '<p class="hint">No base stats for this hero.</p>'; })()}
       ${clash.length || worn.length ? `<div class="loses warn">${[...clash, ...worn].join('<br>')}</div>` : ''}
       <div class="btn-row"><button class="btn primary" data-ps-act="moves">Show the moves to wear this preset</button><button class="btn" data-ps-act="fill">Fill empty slots with the best items</button><button class="btn" data-ps-act="copy">Copy what they wear now</button><button class="btn" data-ps-act="rename">Rename</button><button class="btn danger" data-ps-act="delete">Delete</button></div>`;
+  }
+  /**
+   * A hero's gear laid out like the game's equipment screen (DEVLOG #90): the hero's picture with the stats and the
+   * set bonuses on the left, the six items in two columns (weapon / helmet / armor, necklace / ring / boots), each with
+   * its main stat and substats. A click on an item opens it below.
+   */
+  const SET_SIZE = { HealthSet: 2, DefenseSet: 2, CriticalSet: 2, HitSet: 2, ResistSet: 2, UnitySet: 2, ImmunitySet: 2, PenetrationSet: 2, ProtectionSet: 2, TorrentSet: 2, PursuitSet: 2, WarfareSet: 2, WeakeningSet: 2, FervorSet: 2 };
+  function heroBoard(code, items, stats, statsNote) {
+    const bySlot = (g) => items.find((x) => x.gear === g);
+    const counts = {};
+    for (const it of items) if (it.set) counts[it.set] = (counts[it.set] || 0) + 1;
+    const sets = Object.entries(counts).map(([st, n]) => ({ st, n, need: SET_SIZE[st] || 4 }));
+    const slot = (g) => {
+      const it = bySlot(g);
+      if (!it) return `<div class="hb-slot empty"><div class="gt-icon ps-empty"></div><div><div class="hint">${esc(g)}</div><div class="hint">empty / not known</div></div></div>`;
+      return `<button class="hb-slot" data-item="${esc(it.id)}" title="${esc(itemLabel(it))}">${iconBox(it)}<div class="hb-txt"><div class="hb-main">${STAT_ICON[it.main.type] || ''} ${esc(STAT_NAME[it.main.type] || it.main.type)} <b>${esc(val(it.main))}</b></div>${(it.subs || []).map((x) => `<div class="hb-sub">${esc(STAT_NAME[x.type] || x.type)} <b>${esc(val(x))}</b>${x.rolls > 1 ? `<sup>${x.rolls}</sup>` : ''}</div>`).join('')}<div class="hint">${esc(setLabel(it.set) || '')}${it.set && it.setFrom ? ' (gear.txt)' : ''}</div></div></button>`;
+    };
+    const wide = R.WIDE_PORTRAIT_URL ? R.WIDE_PORTRAIT_URL(code + '_l') : '';
+    return `<div class="hboard">
+      <div class="hb-hero"><div class="hb-art">${wide ? `<img alt="" loading="lazy" src="${esc(wide)}" onerror="this.remove()" />` : ''}<div class="hb-name">${esc(nameOf(code))}</div></div>
+        ${stats ? `<div class="hb-stats">${STAT_ROWS.map(([k, n, u]) => `<div><span>${n}</span><b>${stats[k] !== undefined && stats[k] !== null ? stats[k] + u : '–'}</b></div>`).join('')}</div><p class="hint">${esc(statsNote)}</p>` : '<p class="hint">No base stats for this hero.</p>'}
+        <div class="hb-sets">${sets.length ? sets.map((x) => `<span class="${x.n >= x.need ? 'on' : ''}" title="${x.n} of ${x.need} pieces">${setBadge(x.st)} ${esc(setLabel(x.st))} ${x.n}/${x.need}</span>`).join('') : '<span class="hint">No set</span>'}</div>
+      </div>
+      <div class="hb-gear"><div class="hb-col">${['Weapon', 'Helmet', 'Armor'].map(slot).join('')}</div><div class="hb-col">${['Necklace', 'Ring', 'Boots'].map(slot).join('')}</div></div>
+    </div>`;
   }
   const statLine = (s) => `<div class="stats8">${STAT_ROWS.map(([k, n, u]) => `<span>${n} <b>${s[k]}${u}</b></span>`).join('')}</div>`;
   $('#ps-hero').addEventListener('input', () => {
@@ -855,8 +880,10 @@
       col('Modify a substat', 'Items you keep: the weakest substat and a better one for it (an estimate with average rolls)', plan.modify, (x) => `${esc(STAT_NAME[x.sub.type] || x.sub.type)} ${esc(val(x.sub))} → <b>${esc(STAT_NAME[x.to.type] || x.to.type)} ~${esc(val(x.to))}</b> · ${SCN().toLowerCase()} about +${x.gain}`);
   }
   $('#up-box').addEventListener('toggle', renderUpgrades);
-  $('#up-out').addEventListener('click', (e) => {
-    const t = e.target.closest('[data-item]');
+  $('#up-out').addEventListener('click', (e) => openItem(e.target.closest('[data-item]')));
+  // the hero board (DEVLOG #90): a click on an item opens it below
+  $('#ps-out').addEventListener('click', (e) => openItem(e.target.closest('.hb-slot[data-item]')));
+  function openItem(t) {
     if (!t) return;
     selected = t.dataset.item;
     simSeed = 1;
@@ -865,7 +892,7 @@
     $('#f-view').value = 'cards';
     render();
     $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  }
   // ---- the heroes you are gearing (DEVLOG #86) ---------------------------------------------------------------------
   function renderPriority() {
     $('#pr-list').innerHTML = gs.priority.length
@@ -874,6 +901,7 @@
   }
   function setPriority(list) {
     gs.priority = [...new Set(list)];
+    gs.skip = (gs.skip || []).filter((c) => !gs.priority.includes(c)); // not both lists
     save();
     recompute();
     render();
@@ -890,11 +918,43 @@
     if (c) setPriority(gs.priority.filter((x) => x !== c));
   });
   $('#pr-clear').addEventListener('click', () => setPriority([]));
+  // ---- heroes you don't gear (DEVLOG #90) ----------------------------------------------------------------------------
+  function renderSkip() {
+    $('#sk-list').innerHTML = gs.skip.length
+      ? gs.skip.map((c) => `<span class="pr-chip">${portrait(c)} ${esc(nameOf(c))} <button class="btn link" data-sk-del="${esc(c)}" title="Gear this hero again">✕</button></span>`).join('')
+      : '<span class="hint">Nobody left out.</span>';
+  }
+  function setSkip(list) {
+    gs.skip = [...new Set(list)];
+    gs.priority = gs.priority.filter((c) => !gs.skip.includes(c)); // not both lists
+    save();
+    recompute();
+    render();
+  }
+  $('#sk-add').addEventListener('click', () => {
+    const c = codeOfName($('#sk-hero').value.trim());
+    if (!c) return;
+    $('#sk-hero').value = '';
+    setSkip([...gs.skip, c]);
+  });
+  $('#sk-hero').addEventListener('keydown', (e) => e.key === 'Enter' && $('#sk-add').click());
+  $('#sk-list').addEventListener('click', (e) => {
+    const c = e.target.dataset && e.target.dataset.skDel;
+    if (c) setSkip(gs.skip.filter((x) => x !== c));
+  });
+  $('#sk-clear').addEventListener('click', () => setSkip([]));
   $('#ps-out').addEventListener('click', (e) => {
     const t = e.target.closest('[data-pr-toggle]');
-    if (!t) return;
-    const c = t.dataset.prToggle;
-    setPriority(gs.priority.includes(c) ? gs.priority.filter((x) => x !== c) : [...gs.priority, c]);
+    if (t) {
+      const c = t.dataset.prToggle;
+      setPriority(gs.priority.includes(c) ? gs.priority.filter((x) => x !== c) : [...gs.priority, c]);
+      return;
+    }
+    const k = e.target.closest('[data-sk-toggle]');
+    if (k) {
+      const c = k.dataset.skToggle;
+      setSkip(gs.skip.includes(c) ? gs.skip.filter((x) => x !== c) : [...gs.skip, c]);
+    }
   });
   $('#gs-allheroes').innerHTML = HEROES.filter((h) => BASE[h.code]).map((h) => `<option value="${esc(h.name)}"></option>`).join('');
 

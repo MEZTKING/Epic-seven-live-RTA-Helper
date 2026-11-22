@@ -7,7 +7,7 @@
 //  3) names on the map in katakana, hiragana, kanji and Latin letters, read with the enemy server's language data;
 //     close spellings from that server's player list (stand-in) are used / offered; the name's picture is shown, a
 //     click on an offered spelling fills the box
-//  4) the VS screen and the guild hall start nothing
+//  4) the VS screen and the guild hall start nothing; the game's title screen is no fortress map (DEVLOG #89)
 //  5) "War Ends in 5h" in the game's bold digits (DEVLOG #87)
 const __path = require('path');
 const __fs = require('fs');
@@ -82,13 +82,13 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
         if (got.fortress) break;
       }
       for (const off of offs) off();
-      return { size: [im.naturalWidth, im.naturalHeight], overview: R('guild-overview').note, fortress: R('guild-fortress').note, ...got };
+      return { size: [im.naturalWidth, im.naturalHeight], overview: R('guild-overview').note, fortressNote: R('guild-fortress').note, ...got };
     }, dataUrl(file));
 
   // 4) first: screens that are neither
-  for (const f of ['steam-gw-hall-wide.jpg', 'steam-gw-versus-wide.jpg']) {
+  for (const f of ['steam-gw-hall-wide.jpg', 'steam-gw-versus-wide.jpg', 'steam-title-screen.jpg']) {
     const r = await show(f);
-    console.log(`${f}: events ${[r.forts && 'forts', r.fortress && 'fortress', r.standby && 'standby'].filter(Boolean).join(', ') || 'none'} · ${r.overview}`);
+    console.log(`${f}: events ${[r.forts && 'forts', r.fortress && 'fortress', r.standby && 'standby'].filter(Boolean).join(', ') || 'none'} · ${r.overview} · ${r.fortressNote}`);
   }
   // 1) the overview of the running war
   const o = await show('steam-gw-overview-war-wide.jpg');

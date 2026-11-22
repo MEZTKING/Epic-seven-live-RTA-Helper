@@ -63,3 +63,19 @@ test('user override wins over build/class profile', () => {
   assert.equal(p.sources.AttackPercent, 'your setting');
   assert.equal(p.sources.HealthPercent, 'class default');
 });
+
+test('a slot holds one item: at most 2 upgrade candidates per hero and slot (DEVLOG #90)', () => {
+  // a hero wearing only a weapon: its empty helmet slot made EVERY helmet "an upgrade" before
+  const heroes = [{ code: 'c1', name: 'H', role: 'warrior' }];
+  const weapon = { id: 'w', gear: 'Weapon', set: 'SpeedSet', rank: 'Epic', level: 90, enhance: 15, main: sub('Attack', 525), subs: [sub('Speed', 12)], equipped: 'c1' };
+  const helmet = (i, spd) => ({ id: 'h' + i, gear: 'Helmet', set: 'SpeedSet', rank: 'Epic', level: 90, enhance: 15, main: sub('Health', 2835), subs: [sub('Speed', spd), sub('CriticalHitChancePercent', 4)] });
+  const items = [weapon, ...[1, 2, 3, 4, 5].map((i) => helmet(i, 2 + i))];
+  const ev = S.evaluateAll(items, heroes, {}, S.DEFAULT_RULES);
+  const up = ev.results.filter((r) => /^Upgrade for a hero/.test(r.reason)).map((r) => r.item.id);
+  assert.deepEqual(up.sort(), ['h4', 'h5']); // the two that fit best (most speed)
+  // the others are judged on their own (here: not good enough)
+  assert.ok(ev.results.filter((r) => ['h1', 'h2', 'h3'].includes(r.item.id)).every((r) => !/^Upgrade/.test(r.reason)));
+  // the hero is still listed for them, but not as an upgrade
+  const h1 = ev.results.find((r) => r.item.id === 'h1');
+  assert.ok(h1.best[0].code === 'c1' && h1.best[0].delta <= S.DEFAULT_RULES.upgradeMargin);
+});

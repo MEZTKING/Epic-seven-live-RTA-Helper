@@ -329,6 +329,7 @@
       const pic = thumb(ctx);
       if (diff(pic, seen.pic) > 3) {
         seen = { pic, read: false };
+        if (ctx.soon) ctx.soon();
         return ctx.note('Inventory (Full): waiting for the list to stand still…');
       }
       if (seen.read) return ctx.note('Inventory (Full) read');
@@ -341,14 +342,17 @@
       // every tile's state, for a mark on the game (DEVLOG #82): read / not read (why) / cut off (scroll)
       const status = [];
       const tileRect = (col, y) => ({ x: grid.f.X(G.GEO.picture[0] + col * G.GEO.colStep) / ctx.w(), y: (y + 20 * grid.f.k) / ctx.h(), w: 0, h: 0 });
-      for (const y of grid.rows)
-        for (let c = 0; c < 4; c++) {
-          const t = await readTile(ctx, grid.f, c, y, slot);
-          if (t && t.item) tiles.push(t);
-          else if (t && t.problem) problems.push(t.problem);
-          if (t && !t.item) status.push({ rect: tileRect(c, y), state: 'failed', why: t.problem });
-          if (debug.length && !debug[debug.length - 1].out) debug[debug.length - 1].out = t ? t.problem || 'ok' : '?';
-        }
+      // every tile at once (DEVLOG #91): the text reader has several workers; results are taken in screen order
+      const at = [];
+      for (const y of grid.rows) for (let c = 0; c < 4; c++) at.push({ c, y, p: readTile(ctx, grid.f, c, y, slot) });
+      for (const { c, y, p } of at) {
+        const t = await p;
+        if (t && t.item) tiles.push(t);
+        else if (t && t.problem) problems.push(t.problem);
+        if (t && !t.item) status.push({ rect: tileRect(c, y), state: 'failed', why: t.problem });
+        const d = debug.find((x) => x.col === c && x.y === Math.round(y));
+        if (d && !d.out) d.out = t ? t.problem || 'ok' : '?';
+      }
       for (const y of grid.partial) for (let c = 0; c < 4; c++) status.push({ rect: tileRect(c, Math.min(y, ctx.h() - 40 * grid.f.k)), state: 'partial' });
       // set badges from gear.txt (DEVLOG #88): a tile with all its numbers is that gear.txt item, so its set is known
       // (badge not learned yet, or read as another set) and its badge is learned for every other tile
@@ -402,5 +406,5 @@
       ctx.note(`Inventory (Full): ${tiles.length} items${again ? ` (${again} read before, not read again)` : ''}${problems.length ? `, ${problems.length} not read` : ''}`);
     },
   });
-  window.E7GearGridReader = { _key: KEY, _find: (ctx) => findGrid(ctx.source, ctx), _debug: () => debug, _badgeAt: (src, W, H, col, y) => badgeFp(src, frame({ w: () => W, h: () => H }, 'l'), col, y) };
+  window.E7GearGridReader = { _key: KEY, _find: (ctx) => findGrid(ctx.source, ctx), _debug: () => debug.slice().sort((a, b) => a.y - b.y || a.col - b.col), _badgeAt: (src, W, H, col, y) => badgeFp(src, frame({ w: () => W, h: () => H }, 'l'), col, y) };
 })();

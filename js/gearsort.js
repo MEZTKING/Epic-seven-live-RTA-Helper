@@ -203,6 +203,7 @@
 
   // scoreMode (DEVLOG #83): which gear score the app shows: 'game' = Epic Seven's own Equipment Score (default), 'wss' =
   // the Fribbels / RexQian gear score. The rules stay in gear score (WSS) inside; the Gear page shows them in the chosen one.
+  const PER_SLOT = 2; // upgrade candidates per hero and slot (DEVLOG #90)
   const DEFAULT_RULES = { keepWss: 60, reforgeWss: 60, speedKeep: 12, upgradeMargin: 3, scoreMode: 'game' };
 
   /*
@@ -239,7 +240,7 @@
    * profiles: [{ code, ...profile }], equippedBy: Map code -> { [gear]: item }
    * Returns { item, wss, reforgedWss, potential, best: [{code, fit, delta}], verdict, reason }
    */
-  function evaluate(item, profiles, equippedBy, rules = DEFAULT_RULES) {
+  function evaluate(item, profiles, equippedBy, rules = DEFAULT_RULES, allowed = null) {
     const R = { ...DEFAULT_RULES, ...rules };
     const now = wss(item.subs);
     const ref = isReforgeable(item) ? wss(reforgedSubs(item)) : now;
@@ -252,6 +253,8 @@
         const curFit = cur && cur.id !== item.id ? fit(cur, p) : cur ? f : 0;
         return { code: p.code, fit: f, delta: Math.round((f - curFit) * 10) / 10, current: cur ? cur.id : null };
       })
+      // allowed (DEVLOG #90): only the best few items per hero and slot count as that hero's upgrade
+      .map((b) => (allowed && b.delta > R.upgradeMargin && !allowed.has(`${b.code}|${item.gear}|${item.id}`) ? { ...b, delta: Math.min(b.delta, R.upgradeMargin), capped: true } : b))
       .sort((a, b) => b.delta - a.delta || b.fit - a.fit)
       .slice(0, 3);
     const top = best[0];
@@ -293,16 +296,33 @@
 
   /** Evaluate the whole inventory. heroes: official list (code, role). */
   // only (DEVLOG #86): the heroes you are gearing; when given, suggestions consider only them
-  function evaluateAll(items, heroes, overrides = {}, rules = DEFAULT_RULES, { onlyOwned = null, only = null } = {}) {
+  // skip (DEVLOG #90): heroes you don't gear: never a suggestion's target (their worn items stay theirs)
+  function evaluateAll(items, heroes, overrides = {}, rules = DEFAULT_RULES, { onlyOwned = null, only = null, skip = null } = {}) {
     const byHero = new Map();
     for (const it of items) if (it.equipped) {
       if (!byHero.has(it.equipped)) byHero.set(it.equipped, {});
       byHero.get(it.equipped)[it.gear] = it;
     }
     const codes = only && only.length ? new Set(only) : new Set([...byHero.keys(), ...(onlyOwned || [])]);
+    for (const c of skip || []) codes.delete(c);
     const roleOf = new Map(heroes.map((h) => [h.code, h.role]));
     const profiles = [...codes].map((code) => heroProfile(code, roleOf.get(code), Object.values(byHero.get(code) || {}), overrides[code]));
-    return { profiles, results: items.map((it) => evaluate(it, profiles, byHero, rules)) };
+    // A slot holds one item: a hero is an upgrade target for at most PER_SLOT items in each slot, the ones that fit
+    // best. Before (DEVLOG #90), a hero with an empty slot made every item of that slot "an upgrade" (on the owner's
+    // gear.txt: 572 spare items kept, 54 of them for one hero's two empty slots).
+    const R = { ...DEFAULT_RULES, ...rules };
+    const first = items.map((it) => evaluate(it, profiles, byHero, rules));
+    const bySlot = new Map();
+    for (const r of first)
+      for (const b of r.best)
+        if (b.delta > R.upgradeMargin && b.code !== r.item.equipped) {
+          const k = `${b.code}|${r.item.gear}`;
+          if (!bySlot.has(k)) bySlot.set(k, []);
+          bySlot.get(k).push({ id: r.item.id, fit: b.fit });
+        }
+    const allowed = new Set();
+    for (const [k, l] of bySlot) for (const x of l.sort((a, b) => b.fit - a.fit).slice(0, PER_SLOT)) allowed.add(`${k}|${x.id}`);
+    return { profiles, results: items.map((it) => evaluate(it, profiles, byHero, rules, allowed)) };
   }
 
   const api = { STATS, WSS_WEIGHT, REFORGE, MAX_ROLLS_15, DEFAULT_RULES, MAIN_AT_15, mainShare, gameScore, gameAt15, ROLE_DEFAULT, rollsOf, isReforgeable, reforgedSubs, wss, rollsLeft, slimInventory, heroProfile, fit, evaluate, evaluateAll };
