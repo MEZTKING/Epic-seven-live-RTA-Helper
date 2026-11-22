@@ -350,6 +350,28 @@
           if (debug.length && !debug[debug.length - 1].out) debug[debug.length - 1].out = t ? t.problem || 'ok' : '?';
         }
       for (const y of grid.partial) for (let c = 0; c < 4; c++) status.push({ rect: tileRect(c, Math.min(y, ctx.h() - 40 * grid.f.k)), state: 'partial' });
+      // set badges from gear.txt (DEVLOG #88): a tile with all its numbers is that gear.txt item, so its set is known
+      // (badge not learned yet, or read as another set) and its badge is learned for every other tile
+      const GM = window.E7GearMatch;
+      if (GM) {
+        let learnedNow = learned();
+        let changed = false;
+        for (const t of tiles) {
+          const fi = t.item.substats.length ? GM.fromFile(t.item) : null;
+          if (!fi || !fi.set || fi.set === t.item.set) continue;
+          t.item.set = fi.set;
+          t.item.setFrom = 'gear.txt';
+          t.key = P.itemKey(t.item);
+          if (t.fp) {
+            learnedNow = G.learnBadge(learnedNow, fi.set, t.fp);
+            changed = true;
+          }
+        }
+        if (changed)
+          try {
+            localStorage.setItem(KEY, JSON.stringify(learnedNow));
+          } catch (_) { /* full: only a hint */ }
+      }
       // set badges: the clicked item's set (details panel) goes with the selected tile's badge
       const last = window.E7GearItem && window.E7GearItem._last && window.E7GearItem._last();
       const sel = tiles.find((t) => t.selected);

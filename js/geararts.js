@@ -13,8 +13,10 @@
  *   similarity(a, b)                  -> cosine
  *   lookup(list, fp)                  -> { entry, sim } | null
  *   pack(fp) / unpack(s)              a fingerprint stored small ('q' + base64 of bytes) and back (DEVLOG #87)
- *   learn(list, fp, info, now)        -> { list, entry, isNew, into }   info: { name, gear, rank } (only what is known);
+ *   learn(list, fp, info, now)        -> { list, entry, isNew, into }   info: { name, gear, rank, code } (only what is
+ *                                        known; code = the game's design code from gear.txt, kept in entry.codes, #88);
  *                                        one design = one name: a known name joins its design (another picture variant)
+ *   byCode(list, code)                -> the design seen with that gear.txt design code, or null
  *   mergeByName(list)                 -> { list, into }   designs with the same name + slot joined (DEVLOG #85)
  *   cleanName(text)                   -> the item's name from the panel's white text ("Bow of Agony"), or ''
  */
@@ -110,6 +112,11 @@
       entry = out.find((e) => e.name && nameKey(e.name, e.gear || info.gear) === k) || null;
       if (entry) addVariant(entry, fp);
     }
+    // the same with the game's design code from gear.txt (DEVLOG #88)
+    if (!entry && info.code) {
+      entry = out.find((e) => e.codes && e.codes[info.code]) || null;
+      if (entry) addVariant(entry, fp);
+    }
     const isNew = !entry;
     if (!entry) {
       entry = { id: `d${now.toString(36)}${out.length.toString(36)}`, fp: pack(fp), name: '', gear: '', rank: '', n: 0, first: now };
@@ -118,6 +125,7 @@
     entry.n = (entry.n || 0) + 1;
     entry.last = now;
     voteName(entry, info.name);
+    if (info.code) entry.codes = { ...(entry.codes || {}), [info.code]: ((entry.codes || {})[info.code] || 0) + 1 };
     if (info.gear && !entry.gear) entry.gear = info.gear;
     if (info.rank && !entry.rank) entry.rank = info.rank;
     const merged = mergeByName(out);
@@ -146,6 +154,7 @@
       keep.n = (keep.n || 0) + (e.n || 0);
       keep.first = Math.min(keep.first || Infinity, e.first || Infinity);
       keep.last = Math.max(keep.last || 0, e.last || 0);
+      for (const [cd, c] of Object.entries(e.codes || {})) keep.codes = { ...(keep.codes || {}), [cd]: ((keep.codes || {})[cd] || 0) + c };
       for (const [nm, c] of Object.entries(e.names || {})) keep.names = { ...(keep.names || {}), [nm]: ((keep.names || {})[nm] || 0) + c };
       if (e.named && !keep.named) Object.assign(keep, { name: e.name, named: true });
       into[e.id] = keep.id;
@@ -164,7 +173,9 @@
     return s.length >= 3 ? s : '';
   }
 
-  const api = { BOX, FP, SAME, MAX, pack, unpack, fingerprint, similarity, lookup, learn, mergeByName, cleanName };
+  /** The design seen with this gear.txt design code (DEVLOG #88), or null. */
+  const byCode = (list, code) => (code && (list || []).find((e) => e.codes && e.codes[code])) || null;
+  const api = { BOX, FP, SAME, MAX, pack, unpack, byCode, fingerprint, similarity, lookup, learn, mergeByName, cleanName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GearArts = api;
 })(typeof self !== 'undefined' ? self : this);

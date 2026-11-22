@@ -86,8 +86,16 @@
       dup = !slim;
       if (dup) slim = gs.scanned.find((x) => x.key === key); // read before: still show its verdict on the game
     }
+    // this exact item in gear.txt (DEVLOG #88): the screen item points to it (sources kept apart) and its design
+    // learns the game's design code, so every gear.txt item with that code gets this picture
+    const inFile = slim && window.E7GearMatch ? window.E7GearMatch.fromFile(item) : null;
+    let fileNew = false;
+    if (inFile && slim.fileId !== inFile.id) {
+      slim.fileId = inFile.id;
+      fileNew = true;
+    }
     learnArt.moved = false;
-    const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank }, pics, gs);
+    const entry = learnArt(art, { name: art && art.name, gear: item.gear !== 'Unknown' ? item.gear : '', rank: item.rank, code: inFile && inFile.design }, pics, gs);
     // the game's score read now fills one an item read before didn't have (DEVLOG #83)
     let scoreNew = false;
     if (slim && item.gameScore && slim.gameScore !== item.gameScore) {
@@ -108,7 +116,7 @@
         wornNew = true;
       }
     }
-    if ((linkArt(slim, entry) || scoreNew || learnArt.moved || wornNew) && dup) {
+    if ((linkArt(slim, entry) || scoreNew || learnArt.moved || wornNew || fileNew) && dup) {
       try {
         GS.save(gs);
       } catch (_) { /* full */ }
@@ -159,8 +167,13 @@
       if (slim) added++;
       else slim = gs.scanned.find((x) => x.key === t.key);
       if (slim) mine.push({ t, slim });
+      const inFile = slim && window.E7GearMatch ? window.E7GearMatch.fromFile(t.item) : null; // DEVLOG #88
+      if (inFile && slim.fileId !== inFile.id) {
+        slim.fileId = inFile.id;
+        changed = true;
+      }
       learnArt.moved = false;
-      if (slim && t.art && linkArt(slim, learnArt(t.art, {}, t.pics, gs))) changed = true;
+      if (slim && t.art && linkArt(slim, learnArt(t.art, { code: inFile && inFile.design }, t.pics, gs))) changed = true;
       if (learnArt.moved) changed = true;
       if (slim && t.item.gameScore && slim.gameScore !== t.item.gameScore) {
         slim.gameScore = t.item.gameScore;
@@ -220,9 +233,13 @@
           (!sl.set || !it.set || it.set === sl.set) &&
           (!sl.art || !sl.art.id || !it.art || it.art === sl.art.id),
       );
-      // several alike: the one already known on this hero
-      const pick = cands.length === 1 ? cands[0] : cands.find((it) => it.equipped === hero.code || it.wornBy === hero.code) || null;
-      return { gear: sl.gear, enhance: sl.enhance, level: sl.level, set: sl.set, art: sl.art && sl.art.id, itemId: pick ? pick.id : null, candidates: cands.length, rect: sl.rect };
+      // the gear.txt item the reader found on this hero (DEVLOG #88; or a screen item read as that one); else one
+      // alike; several alike: the one already known on this hero
+      const fileItem = sl.fileId ? gs.items.find((it) => it.id === sl.fileId) : null;
+      const pick = fileItem ? gs.scanned.find((it) => it.fileId === fileItem.id) || fileItem : cands.length === 1 ? cands[0] : cands.find((it) => it.equipped === hero.code || it.wornBy === hero.code) || null;
+      // its design learns the game's design code (the picture comes from the inventory / item windows)
+      if (sl.design && sl.art && sl.art.fp) learnArt(sl.art, { gear: sl.gear, code: sl.design }, null, gs);
+      return { gear: sl.gear, enhance: sl.enhance, level: sl.level, set: sl.set, ...(sl.setFrom ? { setFrom: sl.setFrom } : {}), art: sl.art && sl.art.id, itemId: pick ? pick.id : null, candidates: fileItem ? 1 : cands.length, rect: sl.rect };
     });
     // screen items: who wears them now (an item seen on this hero before, in a slot now holding another, is free)
     for (const it of gs.scanned) if (it.wornBy === hero.code && !linked.some((l) => l.itemId === it.id)) delete it.wornBy;

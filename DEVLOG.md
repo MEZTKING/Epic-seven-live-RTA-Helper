@@ -7,6 +7,61 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-22 · #88 · Gear: your gear.txt matches the screen (sets on heroes, set badges learned, pictures by design code) · this commit (previous: `93e8496`)
+
+**Asked for:** "you should have a way to use the fribbels data to match the gear icon, set on heroes and more". The
+owner then sent their gear.txt (not kept in the repository).
+
+**Findings (the owner's file)**
+- Written by the RexQian fork's auto importer: 2 773 items, 379 heroes. Every item has the game's design code
+  (`code`, e.g. `ecw6w_u`; 441 different), set, exact numbers and the hero copy wearing it (`ingameEquippedId` =
+  `heroes[].id`, heroes with their game code `c2185` …). Item names are all "Unknown", so #80's match by name
+  found nothing on this file.
+- No picture exists for a design code in public sources: the community asset repository (CeciliaBot/E7Assets-Temp)
+  has no equipment icons; the official image folders refuse (403). So the pictures are learned from the screen.
+- 2 768 of 2 773 items have numbers no other item has. Rhianna's weapon and necklace read from the owner's pictures
+  were each found exactly once, worn by Rhianna and Luciella. 45 hero + slot pairs have two items: two copies of a
+  hero (e.g. two Arbiter Vildred).
+- 1 563 items are on a hero by code (before, by name: the import missed heroes named differently).
+
+**Changed**
+- New pure `js/gearmatch.js`: `statKey` / `index` / `byStats` (an item by its numbers, substats in any order),
+  `onHero` (the one item on a hero in a slot, enhance / level / set as shown), `unitOf` (which copy of a hero the
+  screen shows: the copy whose items agree with the most slots), browser `file()` / `fromFile()` (the gear store's
+  gear.txt items, indexed once per change).
+- `js/gearsort.js` `slimInventory`: keeps `design` (the code) and `unit` (which copy); heroes by code first; the
+  name "Unknown" is dropped.
+- Readers: the inventory panel, the Full grid and the item window on the hero screen take the set from gear.txt when
+  the badge wasn't read (or was read as another set); the grid learns that badge (`e7-gear-setbadges`), so the next
+  tiles read it themselves. The hero screen: each slot is the gear.txt item on that hero (that copy); its set is
+  used and the hero-screen badge is learned (`e7-gear-setbadges-hero`, kept apart: those badges look a little
+  different). An item window with an unclear slot gets it from gear.txt.
+- `js/vision/consumers/gear.js`: a screen item that is a gear.txt item points to it (`fileId`; the sources stay
+  apart); its design learns the code (`js/geararts.js` `codes`, `byCode`; a design not recognised by its picture
+  but seen with a known code becomes another picture of that design). Hero slots link to their gear.txt item.
+- `js/gearstore.js` `allItems`: such an item counts once (as the gear.txt item, which knows its hero).
+- `js/gear-app.js`: a gear.txt item gets the picture of its design code, or the picture of its own screen reading.
+
+**Tested**
+- `npm test` 211 (new `tests/gearmatch.test.js`: codes and copies kept, heroes by code, match by numbers in any order,
+  a copy told apart, codes learned and joined).
+- `tests/e2e/hero-gear.e2e.js` step 5 with `tests/e2e/fixtures/gear-codes.txt` (the owner's items of the three heroes
+  in the fixtures + 24 others, every id replaced, no account data): all 18 slots linked with the right set (before:
+  Eligos' armor and ring, Arbiter Vildred's armor, necklace and ring and Rhianna's helmet had none); the two Arbiter
+  Vildred copies told apart; Critical badges learned on Eligos then read on Arbiter Vildred; without gear.txt the
+  learned badges read all six sets; both item windows linked; 14 design codes learned; on the Gear page the four
+  items with Eligos' boots design show its picture, the necklace its own reading, an unseen code the drawn art.
+- Browser suite 52/52 clean; other differences: only dates (the suite shows each test's last 25 lines, so step 1's
+  first hero dropped out of its log; run alone it reads as before). Desktop (packaged Linux build): watcher,
+  overlay-test, popout, update-check, picker-once clean.
+- **Not tested:** on the owner's PC; the inventory with the owner's whole file (the fixtures' inventory items are
+  older readings).
+
+**Open**
+- A design's picture comes from the inventory or the item panel; hero-screen slots only teach the code.
+
+---
+
 ## 2026-11-20 · #87 · Gear overlay missing (storage full), "War Ends in 5h" read as 8h, the game-window picker that kept opening · this commit (previous: `fd90db4`)
 
 **Asked for:** "it seems the overlay doesn't really show at all anymore for the gears", and two pictures of the start

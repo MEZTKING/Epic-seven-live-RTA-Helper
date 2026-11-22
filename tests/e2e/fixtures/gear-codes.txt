@@ -1,0 +1,1844 @@
+{
+"items": [
+{
+"gear": "Necklace",
+"rank": "Epic",
+"set": "ImmunitySet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "CriticalHitDamagePercent",
+"value": 70
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 14,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 10,
+"rolls": 2
+},
+{
+"type": "EffectResistancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "HealthPercent",
+"value": 26,
+"rolls": 4
+}
+],
+"code": "eah11n",
+"name": "Unknown",
+"id": "f1",
+"ingameId": "f1",
+"ingameEquippedId": "h-av-2"
+},
+{
+"gear": "Weapon",
+"rank": "Heroic",
+"set": "CounterSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Attack",
+"value": 525
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 15,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 12,
+"rolls": 2
+},
+{
+"type": "HealthPercent",
+"value": 27,
+"rolls": 3
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 7,
+"rolls": 1,
+"modified": true
+}
+],
+"code": "ecb6w_u",
+"name": "Unknown",
+"id": "f2",
+"ingameId": "f2",
+"ingameEquippedId": "h-av-2"
+},
+{
+"gear": "Ring",
+"rank": "Epic",
+"set": "CriticalSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "AttackPercent",
+"value": 65
+},
+"substats": [
+{
+"type": "Defense",
+"value": 43,
+"rolls": 1
+},
+{
+"type": "HealthPercent",
+"value": 9,
+"rolls": 1,
+"modified": true
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 28,
+"rolls": 4
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 18,
+"rolls": 3
+}
+],
+"code": "eal85r_u",
+"name": "Unknown",
+"id": "f3",
+"ingameId": "f3",
+"ingameEquippedId": "h-eligos"
+},
+{
+"gear": "Necklace",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "CriticalHitDamagePercent",
+"value": 70
+},
+"substats": [
+{
+"type": "CriticalHitChancePercent",
+"value": 15,
+"rolls": 3
+},
+{
+"type": "DefensePercent",
+"value": 15,
+"rolls": 2
+},
+{
+"type": "Speed",
+"value": 11,
+"rolls": 3
+},
+{
+"type": "Defense",
+"value": 43,
+"rolls": 1
+}
+],
+"code": "eal85n_u",
+"name": "Unknown",
+"id": "f4",
+"ingameId": "f4",
+"ingameEquippedId": "h-eligos"
+},
+{
+"gear": "Ring",
+"rank": "Epic",
+"set": "CriticalSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "AttackPercent",
+"value": 65
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 19,
+"rolls": 3
+},
+{
+"type": "Attack",
+"value": 104,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1,
+"modified": true
+},
+{
+"type": "Speed",
+"value": 12,
+"rolls": 3
+}
+],
+"code": "eal85r_u",
+"name": "Unknown",
+"id": "f5",
+"ingameId": "f5",
+"ingameEquippedId": "h-av-1"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Speed",
+"value": 45
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 31,
+"rolls": 4
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 8,
+"rolls": 1,
+"modified": true
+},
+{
+"type": "EffectivenessPercent",
+"value": 7,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 14,
+"rolls": 3
+}
+],
+"code": "eal85b_u",
+"name": "Unknown",
+"id": "f6",
+"ingameId": "f6",
+"ingameEquippedId": "h-eligos"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2835
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 24,
+"rolls": 3
+},
+{
+"type": "AttackPercent",
+"value": 17,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 2,
+"modified": true
+},
+{
+"type": "Speed",
+"value": 6,
+"rolls": 2
+}
+],
+"code": "eal85h_u",
+"name": "Unknown",
+"id": "f7",
+"ingameId": "f7",
+"ingameEquippedId": "h-eligos"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Speed",
+"value": 45
+},
+"substats": [
+{
+"type": "CriticalHitChancePercent",
+"value": 19,
+"rolls": 4
+},
+{
+"type": "Attack",
+"value": 50,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 22,
+"rolls": 3
+},
+{
+"type": "AttackPercent",
+"value": 6,
+"rolls": 1,
+"modified": true
+}
+],
+"code": "eal85b_u",
+"name": "Unknown",
+"id": "f8",
+"ingameId": "f8",
+"ingameEquippedId": "h-rhianna"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "RevengeSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2835
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "EffectivenessPercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 27,
+"rolls": 6
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+}
+],
+"code": "ecd6h_u",
+"name": "Unknown",
+"id": "f9",
+"ingameId": "f9",
+"ingameEquippedId": "h-rhianna"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Speed",
+"value": 45
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 31,
+"rolls": 4
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 11,
+"rolls": 2,
+"modified": true
+},
+{
+"type": "Attack",
+"value": 103,
+"rolls": 2
+}
+],
+"code": "eal85b_u",
+"name": "Unknown",
+"id": "f10",
+"ingameId": "f10",
+"ingameEquippedId": "h-av-1"
+},
+{
+"gear": "Armor",
+"rank": "Heroic",
+"set": "CriticalSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 310
+},
+"substats": [
+{
+"type": "Speed",
+"value": 15,
+"rolls": 4
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 12,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 4,
+"rolls": 1
+},
+{
+"type": "DefensePercent",
+"value": 8,
+"rolls": 1
+}
+],
+"code": "ecw6a_u",
+"name": "Unknown",
+"id": "f11",
+"ingameId": "f11",
+"ingameEquippedId": "h-eligos"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 310
+},
+"substats": [
+{
+"type": "CriticalHitChancePercent",
+"value": 10,
+"rolls": 2
+},
+{
+"type": "EffectResistancePercent",
+"value": 8,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 19,
+"rolls": 3
+},
+{
+"type": "Speed",
+"value": 13,
+"rolls": 3
+}
+],
+"code": "ecw6a_u",
+"name": "Unknown",
+"id": "f12",
+"ingameId": "f12",
+"ingameEquippedId": "h-av-1"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Attack",
+"value": 525
+},
+"substats": [
+{
+"type": "CriticalHitChancePercent",
+"value": 4,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 17,
+"rolls": 3
+},
+{
+"type": "Speed",
+"value": 7,
+"rolls": 2
+},
+{
+"type": "AttackPercent",
+"value": 26,
+"rolls": 3
+}
+],
+"code": "eal85w_u",
+"name": "Unknown",
+"id": "f13",
+"ingameId": "f13",
+"ingameEquippedId": "h-eligos"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "CounterSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2835
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 21,
+"rolls": 3
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 11,
+"rolls": 2
+},
+{
+"type": "AttackPercent",
+"value": 22,
+"rolls": 3
+},
+{
+"type": "HealthPercent",
+"value": 8,
+"rolls": 1
+}
+],
+"code": "ecb6h_u",
+"name": "Unknown",
+"id": "f14",
+"ingameId": "f14",
+"ingameEquippedId": "h-av-2"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2765
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 25,
+"rolls": 3
+},
+{
+"type": "Speed",
+"value": 9,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 14,
+"rolls": 3
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 7,
+"rolls": 1
+}
+],
+"code": "esh2_h",
+"name": "Unknown",
+"id": "f15",
+"ingameId": "f15",
+"ingameEquippedId": "h-av-1"
+},
+{
+"gear": "Necklace",
+"rank": "Epic",
+"set": "CriticalSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "CriticalHitDamagePercent",
+"value": 70
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 23,
+"rolls": 3
+},
+{
+"type": "Speed",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 23,
+"rolls": 4
+},
+{
+"type": "EffectivenessPercent",
+"value": 9,
+"rolls": 1
+}
+],
+"code": "ela13n",
+"name": "Unknown",
+"id": "f16",
+"ingameId": "f16",
+"ingameEquippedId": "h-av-1"
+},
+{
+"gear": "Ring",
+"rank": "Epic",
+"set": "CounterSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "HealthPercent",
+"value": 65
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 14,
+"rolls": 2,
+"modified": true
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 27,
+"rolls": 4
+},
+{
+"type": "DefensePercent",
+"value": 15,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+}
+],
+"code": "eal85r_u",
+"name": "Unknown",
+"id": "f17",
+"ingameId": "f17",
+"ingameEquippedId": "h-av-2"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "ImmunitySet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 310
+},
+"substats": [
+{
+"type": "DefensePercent",
+"value": 15,
+"rolls": 2
+},
+{
+"type": "HealthPercent",
+"value": 8,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 23,
+"rolls": 4
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 12,
+"rolls": 2
+}
+],
+"code": "eal85a_u",
+"name": "Unknown",
+"id": "f18",
+"ingameId": "f18",
+"ingameEquippedId": "h-av-2"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "CounterSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "HealthPercent",
+"value": 65
+},
+"substats": [
+{
+"type": "Speed",
+"value": 6,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 17,
+"rolls": 3
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 19,
+"rolls": 3
+},
+{
+"type": "EffectivenessPercent",
+"value": 8,
+"rolls": 1
+}
+],
+"code": "eal85b_u",
+"name": "Unknown",
+"id": "f19",
+"ingameId": "f19",
+"ingameEquippedId": "h-av-2"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "Attack",
+"value": 515
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 31,
+"rolls": 4
+},
+{
+"type": "Speed",
+"value": 9,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 12,
+"rolls": 2
+}
+],
+"code": "eorbis1w",
+"name": "Unknown",
+"id": "f20",
+"ingameId": "f20",
+"ingameEquippedId": "h-av-1"
+},
+{
+"gear": "Ring",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "AttackPercent",
+"value": 65
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 9,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 20,
+"rolls": 5
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 11,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 8,
+"rolls": 1
+}
+],
+"code": "ewb3r",
+"name": "Unknown",
+"id": "f21",
+"ingameId": "f21",
+"ingameEquippedId": "h-rhianna"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 310
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 9,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 20,
+"rolls": 5
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 15,
+"rolls": 2
+}
+],
+"code": "ewb3a",
+"name": "Unknown",
+"id": "f22",
+"ingameId": "f22",
+"ingameEquippedId": "h-rhianna"
+},
+{
+"gear": "Necklace",
+"rank": "Epic",
+"set": "WeakeningSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "CriticalHitDamagePercent",
+"value": 70
+},
+"substats": [
+{
+"type": "DefensePercent",
+"value": 18,
+"rolls": 2
+},
+{
+"type": "AttackPercent",
+"value": 9,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 23,
+"rolls": 5
+}
+],
+"code": "ecp6n_chaos_u",
+"name": "Unknown",
+"id": "f23",
+"ingameId": "f23",
+"ingameEquippedId": "h-rhianna"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Attack",
+"value": 525
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 8,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 19,
+"rolls": 5
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 10,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 6,
+"rolls": 1
+}
+],
+"code": "ecw6w_u",
+"name": "Unknown",
+"id": "f24",
+"ingameId": "f24",
+"ingameEquippedId": "h-rhianna"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "PursuitSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "AttackPercent",
+"value": 60
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Attack",
+"value": 43,
+"rolls": 1
+},
+{
+"type": "DefensePercent",
+"value": 8,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 6,
+"rolls": 1
+}
+],
+"code": "ecp6b",
+"name": "Unknown",
+"id": "f25",
+"ingameId": "f25",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Necklace",
+"rank": "Epic",
+"set": "ImmunitySet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "HealthPercent",
+"value": 60
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 26,
+"rolls": 4
+},
+{
+"type": "Health",
+"value": 360,
+"rolls": 2
+},
+{
+"type": "DefensePercent",
+"value": 8,
+"rolls": 1
+},
+{
+"type": "EffectResistancePercent",
+"value": 14,
+"rolls": 2
+}
+],
+"code": "eal85n",
+"name": "Unknown",
+"id": "f26",
+"ingameId": "f26",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "WeakeningSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Attack",
+"value": 525
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 14,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 15,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 15,
+"rolls": 4
+}
+],
+"code": "ecp6w_u",
+"name": "Unknown",
+"id": "f27",
+"ingameId": "f27",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "CounterSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 310
+},
+"substats": [
+{
+"type": "EffectivenessPercent",
+"value": 13,
+"rolls": 2
+},
+{
+"type": "HealthPercent",
+"value": 23,
+"rolls": 3
+},
+{
+"type": "Speed",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "EffectResistancePercent",
+"value": 23,
+"rolls": 3
+}
+],
+"code": "eih1a",
+"name": "Unknown",
+"id": "f28",
+"ingameId": "f28",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Ring",
+"rank": "Epic",
+"set": "InjurySet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "HealthPercent",
+"value": 60
+},
+"substats": [
+{
+"type": "Speed",
+"value": 7,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 22,
+"rolls": 4
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 7,
+"rolls": 2
+},
+{
+"type": "DefensePercent",
+"value": 4,
+"rolls": 1
+}
+],
+"code": "eal85r",
+"name": "Unknown",
+"id": "f29",
+"ingameId": "f29",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "WeakeningSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "Attack",
+"value": 500
+},
+"substats": [
+{
+"type": "EffectivenessPercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "EffectResistancePercent",
+"value": 4,
+"rolls": 1
+}
+],
+"code": "ecp6w",
+"name": "Unknown",
+"id": "f30",
+"ingameId": "f30",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "SpeedSet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "Attack",
+"value": 500
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 15,
+"rolls": 3
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "AttackPercent",
+"value": 13,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 18,
+"rolls": 3
+}
+],
+"code": "ecw6w",
+"name": "Unknown",
+"id": "f31",
+"ingameId": "f31",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "WarfareSet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "Speed",
+"value": 40
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 15,
+"rolls": 3
+},
+{
+"type": "DefensePercent",
+"value": 24,
+"rolls": 4
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "Defense",
+"value": 28,
+"rolls": 1
+}
+],
+"code": "ecp6b",
+"name": "Unknown",
+"id": "f32",
+"ingameId": "f32",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Helmet",
+"rank": "Heroic",
+"set": "PenetrationSet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2700
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 20,
+"rolls": 3
+},
+{
+"type": "AttackPercent",
+"value": 10,
+"rolls": 2
+},
+{
+"type": "Speed",
+"value": 7,
+"rolls": 2
+},
+{
+"type": "HealthPercent",
+"value": 4,
+"rolls": 1
+}
+],
+"code": "ecd6h",
+"name": "Unknown",
+"id": "f33",
+"ingameId": "f33",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "WeakeningSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "DefensePercent",
+"value": 60
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Defense",
+"value": 32,
+"rolls": 1
+},
+{
+"type": "EffectivenessPercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 3,
+"rolls": 1
+}
+],
+"code": "ecp6b",
+"name": "Unknown",
+"id": "f34",
+"ingameId": "f34",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "RiposteSet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 300
+},
+"substats": [
+{
+"type": "Speed",
+"value": 11,
+"rolls": 3
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 11,
+"rolls": 3
+},
+{
+"type": "HealthPercent",
+"value": 13,
+"rolls": 2
+}
+],
+"code": "ecp6a",
+"name": "Unknown",
+"id": "f35",
+"ingameId": "f35",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Boots",
+"rank": "Epic",
+"set": "LifestealSet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "Speed",
+"value": 40
+},
+"substats": [
+{
+"type": "Attack",
+"value": 38,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 13,
+"rolls": 2
+},
+{
+"type": "Defense",
+"value": 95,
+"rolls": 3
+},
+{
+"type": "AttackPercent",
+"value": 14,
+"rolls": 3
+}
+],
+"code": "eal85b",
+"name": "Unknown",
+"id": "f36",
+"ingameId": "f36",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "TorrentSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2835
+},
+"substats": [
+{
+"type": "EffectResistancePercent",
+"value": 8,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 29,
+"rolls": 4
+},
+{
+"type": "DefensePercent",
+"value": 24,
+"rolls": 3
+}
+],
+"code": "ecd6h_u",
+"name": "Unknown",
+"id": "f37",
+"ingameId": "f37",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Necklace",
+"rank": "Heroic",
+"set": "CounterSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "CriticalHitDamagePercent",
+"value": 65
+},
+"substats": [
+{
+"type": "Speed",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "EffectResistancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "HealthPercent",
+"value": 5,
+"rolls": 1
+}
+],
+"code": "ecb6n",
+"name": "Unknown",
+"id": "f38",
+"ingameId": "f38",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Necklace",
+"rank": "Epic",
+"set": "FervorSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "CriticalHitDamagePercent",
+"value": 65
+},
+"substats": [
+{
+"type": "Attack",
+"value": 45,
+"rolls": 1
+},
+{
+"type": "DefensePercent",
+"value": 7,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 4,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 4,
+"rolls": 1
+}
+],
+"code": "ecp6n",
+"name": "Unknown",
+"id": "f39",
+"ingameId": "f39",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "PenetrationSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 310
+},
+"substats": [
+{
+"type": "Speed",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "DefensePercent",
+"value": 18,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 15,
+"rolls": 2
+},
+{
+"type": "HealthPercent",
+"value": 25,
+"rolls": 4
+}
+],
+"code": "ecd6a_u",
+"name": "Unknown",
+"id": "f40",
+"ingameId": "f40",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "ReversalSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "Health",
+"value": 2700
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "AttackPercent",
+"value": 7,
+"rolls": 1
+},
+{
+"type": "Attack",
+"value": 43,
+"rolls": 1
+}
+],
+"code": "ecp6h",
+"name": "Unknown",
+"id": "f41",
+"ingameId": "f41",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Armor",
+"rank": "Heroic",
+"set": "RevengeSet",
+"level": 85,
+"enhance": 15,
+"main": {
+"type": "Defense",
+"value": 300
+},
+"substats": [
+{
+"type": "Speed",
+"value": 13,
+"rolls": 4
+},
+{
+"type": "EffectResistancePercent",
+"value": 14,
+"rolls": 2
+},
+{
+"type": "EffectivenessPercent",
+"value": 7,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+}
+],
+"code": "ecd6a",
+"name": "Unknown",
+"id": "f42",
+"ingameId": "f42",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Weapon",
+"rank": "Epic",
+"set": "WeakeningSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "Attack",
+"value": 500
+},
+"substats": [
+{
+"type": "CriticalHitChancePercent",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 7,
+"rolls": 1
+},
+{
+"type": "HealthPercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 2,
+"rolls": 1
+}
+],
+"code": "ecp6w",
+"name": "Unknown",
+"id": "f43",
+"ingameId": "f43",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Armor",
+"rank": "Epic",
+"set": "WeakeningSet",
+"level": 85,
+"enhance": 6,
+"main": {
+"type": "Defense",
+"value": 300
+},
+"substats": [
+{
+"type": "HealthPercent",
+"value": 13,
+"rolls": 2
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "DefensePercent",
+"value": 11,
+"rolls": 2
+},
+{
+"type": "Speed",
+"value": 4,
+"rolls": 1
+}
+],
+"code": "ecp6a_chaos",
+"name": "Unknown",
+"id": "f44",
+"ingameId": "f44",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Helmet",
+"rank": "Heroic",
+"set": "PenetrationSet",
+"level": 90,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2835
+},
+"substats": [
+{
+"type": "AttackPercent",
+"value": 33,
+"rolls": 4
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "Attack",
+"value": 107,
+"rolls": 2
+},
+{
+"type": "CriticalHitDamagePercent",
+"value": 8,
+"rolls": 1,
+"modified": true
+}
+],
+"code": "ecd6h_u",
+"name": "Unknown",
+"id": "f45",
+"ingameId": "f45",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Ring",
+"rank": "Rare",
+"set": "SpeedSet",
+"level": 85,
+"enhance": 0,
+"main": {
+"type": "EffectivenessPercent",
+"value": 60
+},
+"substats": [
+{
+"type": "EffectResistancePercent",
+"value": 4,
+"rolls": 1
+},
+{
+"type": "Attack",
+"value": 35,
+"rolls": 1
+}
+],
+"code": "ecw6r",
+"name": "Unknown",
+"id": "f46",
+"ingameId": "f46",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Helmet",
+"rank": "Epic",
+"set": "LifestealSet",
+"level": 88,
+"enhance": 15,
+"main": {
+"type": "Health",
+"value": 2765
+},
+"substats": [
+{
+"type": "CriticalHitChancePercent",
+"value": 6,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 15,
+"rolls": 4
+},
+{
+"type": "DefensePercent",
+"value": 5,
+"rolls": 1
+},
+{
+"type": "HealthPercent",
+"value": 26,
+"rolls": 3
+}
+],
+"code": "eih5h",
+"name": "Unknown",
+"id": "f47",
+"ingameId": "f47",
+"ingameEquippedId": "undefined"
+},
+{
+"gear": "Ring",
+"rank": "Epic",
+"set": "ReversalSet",
+"level": 85,
+"enhance": 6,
+"main": {
+"type": "DefensePercent",
+"value": 60
+},
+"substats": [
+{
+"type": "CriticalHitDamagePercent",
+"value": 4,
+"rolls": 1
+},
+{
+"type": "Speed",
+"value": 3,
+"rolls": 1
+},
+{
+"type": "CriticalHitChancePercent",
+"value": 8,
+"rolls": 2
+},
+{
+"type": "EffectResistancePercent",
+"value": 15,
+"rolls": 2
+}
+],
+"code": "ecp6r_chaos",
+"name": "Unknown",
+"id": "f48",
+"ingameId": "f48",
+"ingameEquippedId": "undefined"
+}
+],
+"heroes": [
+{
+"id": "h-av-1",
+"code": "c2007",
+"name": "Arbiter Vildred"
+},
+{
+"id": "h-eligos",
+"code": "c1142",
+"name": "Eligos"
+},
+{
+"id": "h-av-2",
+"code": "c2007",
+"name": "Arbiter Vildred"
+},
+{
+"id": "h-rhianna",
+"code": "c2185",
+"name": "Rhianna and Luciella"
+}
+]
+}

@@ -3,6 +3,7 @@
 //  1) the hero's name, real stats and six items (enhance, level, set) read; the filter menu over it reads nothing
 //  2) each slot linked to an item the app knows (a unique match), "? 2 alike" when two items look the same
 //  3) the Gear page: "Now (seen in the game)" with the hero's real stats; "Try it on a hero" starts from them
+//  5) gear.txt with design codes (DEVLOG #88): slots linked to it, sets from it, badges learned, item windows linked
 const __path = require('path');
 const __fs = require('fs');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
@@ -113,6 +114,46 @@ const REAL = {
   await g.click('#pr-clear');
   await g.waitForTimeout(100);
   console.log('   cleared:', (await g.textContent('#pr-list')).trim());
+  // 5) DEVLOG #88: gear.txt from the auto importer (design codes, no names; tests/e2e/fixtures/gear-codes.txt: the
+  // owner's items of these heroes, ids replaced): each slot is the item gear.txt has on that hero; sets come from it
+  // (and the badges are learned: Eligos' Critical badges then read on Arbiter Vildred's screen without the file)
+  await lv.evaluate(() => { localStorage.removeItem('rta-gear-v1'); localStorage.removeItem('e7-gear-setbadges-hero'); });
+  await g.reload();
+  await g.waitForTimeout(400);
+  await g.setInputFiles('#gs-file', __path.join(__dirname, 'fixtures', 'gear-codes.txt'));
+  await g.waitForTimeout(500);
+  console.log('5) gear.txt:', await g.evaluate(() => { const it = window.GearApp.gs.items; return `${it.length} items, ${it.filter((x) => x.design).length} with a design code, ${it.filter((x) => x.equipped).length} on heroes`; }));
+  for (const f of ['hero-gear-eligos-wide.jpg', 'hero-gear-av-wide.jpg', 'hero-gear-rhianna-wide.jpg']) {
+    const r = await show(f);
+    console.log(`   ${f}:`, r.slots.join(' | '), '·', JSON.stringify(r.linked));
+  }
+  console.log('   badges learned on the hero screen:', await lv.evaluate(() => JSON.stringify((JSON.parse(localStorage.getItem('e7-gear-setbadges-hero') || '[]')).map((b) => b.set))));
+  // the item windows: linked to their gear.txt item, the design learns its code
+  await pop('hero-gear-popup-necklace-wide.jpg');
+  await pop('hero-gear-popup-weapon-wide.jpg');
+  console.log('   item windows linked to gear.txt:', await lv.evaluate(() => JSON.stringify(window.GearStore.load().scanned.filter((x) => x.fileId).map((x) => `${x.gear} → ${x.fileId}`))), '· design codes learned:', await lv.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('e7-gear-arts') || '[]').flatMap((a) => Object.keys(a.codes || {})).sort())));
+  console.log('   counted once in suggestions:', await lv.evaluate(() => { const gs = window.GearStore.load(); return `${window.GearStore.allItems(gs).length} of ${gs.items.length} + ${gs.scanned.length}`; }));
+  // the Gear page: a gear.txt item gets the picture of its design code (here: a design seen on Eligos' boots, given a
+  // picture as the inventory would), the necklace read in its window shows that reading's own picture
+  await lv.evaluate(async () => {
+    const arts = JSON.parse(localStorage.getItem('e7-gear-arts') || '[]');
+    const boots = arts.find((a) => a.codes && a.codes.eal85b_u);
+    const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    await window.E7GearPics.put('art:' + boots.id, { icon: px, from: 'grid', at: 1 });
+    const neck = window.GearStore.load().scanned.find((x) => x.fileId === 'f23');
+    await window.E7GearPics.put(neck.id, { icon: px, from: 'hero-window', at: 1 });
+  });
+  await g.reload();
+  await g.waitForTimeout(600);
+  await g.selectOption('#f-view', 'cards');
+  await g.waitForTimeout(300);
+  const kind = (id) => g.evaluate((id) => { const t = document.querySelector(`#gs-cards [data-item="${id}"] .gt-icon`); return t ? (t.classList.contains('gt-design') ? 'design picture' : t.classList.contains('gt-pic') ? 'own picture' : 'drawn art') : 'not shown'; }, id);
+  const bootIds = await g.evaluate(() => window.GearApp.gs.items.filter((x) => x.design === 'eal85b_u').map((x) => x.id));
+  console.log('   Gear page: boots with code eal85b_u:', JSON.stringify(await Promise.all(bootIds.map(kind))), '· the necklace (f23):', await kind('f23'), '· an item with an unseen code:', await kind(await g.evaluate(() => window.GearApp.gs.items.find((x) => !x.equipped).id)));
+  // without gear.txt: the badges learned from it still read the sets
+  await lv.evaluate(() => { const gs = window.GearStore.load(); gs.items = []; window.GearStore.save(gs); });
+  const av = await show('hero-gear-av-wide.jpg');
+  console.log('   without gear.txt, Arbiter Vildred:', av.slots.join(' | '));
   console.log('errors:', errs);
   await b.close();
 })();

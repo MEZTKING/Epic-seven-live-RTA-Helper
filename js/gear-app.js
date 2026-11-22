@@ -48,7 +48,11 @@
       arts = JSON.parse(localStorage.getItem('e7-gear-arts') || '[]') || [];
     } catch (_) { /* none */ }
     designByName = new Map(arts.filter((a) => a.name && a.name.length > 2).map((a) => [nameKey(a.name, a.gear), a.id]));
+    // by the game's design code (gear.txt from the auto importer has codes, not names), DEVLOG #88
+    designByCode = new Map();
+    for (const a of arts) for (const c of Object.keys(a.codes || {})) designByCode.set(c, a.id);
   }
+  let designByCode = new Map();
   function loadPics() {
     if (!window.E7GearPics) return;
     indexDesigns();
@@ -59,7 +63,7 @@
   }
   /** The design picture for an item without its own: its design (screen items) or a design of the same name and slot. */
   function designPic(it) {
-    const id = it.art || (it.name && it.name.length > 2 ? designByName.get(nameKey(it.name, it.gear)) : null);
+    const id = it.art || (it.design && designByCode.get(it.design)) || (it.name && it.name.length > 2 ? designByName.get(nameKey(it.name, it.gear)) : null);
     const p = id ? pics.get('art:' + id) : null;
     return p && p.icon ? p : null;
   }
@@ -143,8 +147,16 @@
   const SCT = () => (gameMode() ? "Epic Seven's Equipment Score (read from the game, else estimated)" : 'Fribbels/RexQian WSS: substats only');
   const RULE_OFF = () => (gameMode() ? S.gameAt15(0) : 0);
   const showFor = (r) => ({ label: gameMode() ? 'score' : 'gear score', now: SC(r), after: SCref(r), at15: SC15 });
+  // a gear.txt item read from the screen too: that reading's own picture (DEVLOG #88)
+  let twins = { gs: null, n: -1, m: new Map() };
+  const twinPic = (it) => {
+    if (it.source === 'screen') return null;
+    if (twins.gs !== gs || twins.n !== gs.scanned.length) twins = { gs, n: gs.scanned.length, m: new Map(gs.scanned.filter((x) => x.fileId).map((x) => [x.fileId, x.id])) };
+    const tw = twins.m.get(it.id);
+    return tw ? pics.get(tw) : null;
+  };
   function iconBox(it) {
-    const pic = pics.get(it.id);
+    const pic = pics.get(it.id) || twinPic(it);
     if (pic && pic.icon) return `<div class="gt-icon gt-pic" title="As the game showed it"><img alt="" src="${pic.icon}" /></div>`;
     // the game's picture of this design, only its middle (the corners hold another copy's badges), with this item's
     // own level, enhance, set and hero on top
@@ -204,7 +216,7 @@
   function detail(r) {
     const it = r.item;
     const screen = it.source === 'screen';
-    const pic = pics.get(it.id);
+    const pic = pics.get(it.id) || twinPic(it);
     const fixed = screen ? fixedParts(it) : [];
     const best = (r.heroFit ? [r.heroFit] : r.best)
       .filter((b) => b.delta > 0 || b.code === it.equipped)

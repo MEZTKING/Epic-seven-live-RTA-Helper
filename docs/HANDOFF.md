@@ -219,15 +219,16 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 |---|---|---|
 | `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `mySpeeds` (typed speed per hero, source `my speeds`; wins over gear.txt), `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
 | `localStorage['rta-helper-v1']` | legacy | First version's data; upgraded automatically (`migrateV1`) |
-| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory), `scanned` (source `screen`), `useScanned`, `rules`, `overrides` |
+| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides` |
 | `localStorage['e7-guild-conn']` | `js/guild-app.js` | `guildCode`, `guildName`, `myName`, Firebase `config`, `shareSpeeds`, `watchBox` |
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
 | `localStorage['e7-screens']` | `js/screen-watch.js` | Screen fingerprints `[{screen, fp, at}]`, shared by all modules |
-| `localStorage['e7-gear-arts']` | `js/vision/consumers/gear.js` (learns), `js/vision/readers/gear-grid.js` (looks up), `js/gear-app.js` (gallery, renaming) | Gear designs `[{ id, fp, fps (variants, #85; since #87 stored packed: `'q'` + base64 of one signed byte per value, `E7GearArts.pack/unpack`; old number lists still read and repacked on the next learn), name, names (readings), gear, rank, n, first, last, named }]` (#79; one design = one name: joined by name + slot, #85); each design's picture is `art:<id>` in IndexedDB `e7-gear-pics`; screen items point to theirs with `item.art` |
+| `localStorage['e7-gear-arts']` | `js/vision/consumers/gear.js` (learns), `js/vision/readers/gear-grid.js` (looks up), `js/gear-app.js` (gallery, renaming) | Gear designs `[{ id, fp, codes (gear.txt design codes seen with it, #88), fps (variants, #85; since #87 stored packed: `'q'` + base64 of one signed byte per value, `E7GearArts.pack/unpack`; old number lists still read and repacked on the next learn), name, names (readings), gear, rank, n, first, last, named }]` (#79; one design = one name: joined by name + slot, #85); each design's picture is `art:<id>` in IndexedDB `e7-gear-pics`; screen items point to theirs with `item.art` |
 | IndexedDB `e7-gear-pics` (store `pics`) | `js/gearpics.js` (written by the gear consumer, read by `js/gear-app.js`) | The game's pictures of each screen-read item `{ id, icon, shot, from: 'panel'|'grid', at }` (#78); a panel picture is not replaced by a grid one |
 | `localStorage['e7-vision-speed']` | `js/vision-speed.js` (read by `js/vision/hub.js`) | Reading speed 'fast' / 'normal' / 'slow' (×0.5 / 1 / 2 of each reader's interval), #83 |
 | `localStorage['e7-gear-setbadges']` | `js/vision/readers/gear-grid.js` | Set badges learned on this PC `[{ set, fp }]` (≤ 6 per set), next to the built-in ones in `js/gear-setseed.js` |
+| `localStorage['e7-gear-setbadges-hero']` | `js/vision/readers/hero-gear.js` | Set badges learned on the hero equipment screen from gear.txt (#88), `[{ set, fp }]`; kept apart from the inventory's |
 | `localStorage['e7-gearscan-boxes']` | `js/gear-scan.js` | Own item-panel boxes (fractions of the game area); optional since #74 (built-in positions otherwise) |
 | `localStorage['e7-vision-log']` | `js/vision/core.js` | Last 200 game-watcher facts (`gear:*`, `guild:*`, `screen:changed`, `vision:started/stopped/warning`), shown on the Live / Gear pages |
 | `localStorage['e7-arena']` | `js/arena-log.js` (next to the watcher) → `js/arena-app.js`, `js/home.js` | Arena: `now {at, list}`, `defs` (defenses by name, newest 300), `pending` (the fight being set up), `fights` (newest 2000: `{at, opponent, theirPts, defense, mine, result, points, delta}`) |
@@ -325,7 +326,12 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   watcher's saves don't drop them).
   Pictures for gear.txt items (#80): a design with the same name and slot (`designByName` in `js/gear-app.js`) gives its
   picture (`art:<id>`), shown zoomed to the middle with the item's own level / enhance / set / hero on top; drawn art
-  only when no design matches. "Item upgrades" (#80): `E7GearSim.upgradePlan` → enhance next / reforge / modify a
+  only when no design matches. Since #88 also by the game's design code (`designByCode`: a design learns `codes`
+  whenever a screen item matches a gear.txt item), and a gear.txt item read from the screen shows that reading's
+  picture. gear.txt ↔ screen (#88, `js/gearmatch.js`): an item read with all its numbers is that gear.txt item
+  (`fromFile`; the readers take its set and learn the badge, the consumer sets `fileId`); on the hero screen each
+  slot is the one gear.txt item on that hero (copy told apart by `unitOf`) → set from it, badge learned in
+  `e7-gear-setbadges-hero`, slot linked to it. "Item upgrades" (#80): `E7GearSim.upgradePlan` → enhance next / reforge / modify a
   substat, cached per evaluation; a row opens the item.
   Score (#83): `RTAGearSort.gameScore` = the game's Equipment Score read from the screen (`item.gameScore`, panel and
   Full tiles) else WSS + 26 × main share − 1; `rules.scoreMode` 'game' (default) / 'wss' picks what the page and overlay
