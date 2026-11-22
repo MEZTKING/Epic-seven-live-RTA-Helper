@@ -90,7 +90,17 @@
     try {
       learned = JSON.parse(localStorage.getItem('e7-gear-setbadges') || '[]') || [];
     } catch (_) { /* none */ }
-    return [...learned, ...(window.E7GearSetSeed || [])];
+    return [...heroBadges(), ...learned, ...(window.E7GearSetSeed || [])];
+  };
+  // badges learned on THIS screen from gear.txt (DEVLOG #88): kept apart from the inventory's (they look a little
+  // different here, 0.83-0.97)
+  const HERO_KEY = 'e7-gear-setbadges-hero';
+  const heroBadges = () => {
+    try {
+      return JSON.parse(localStorage.getItem(HERO_KEY) || '[]') || [];
+    } catch (_) {
+      return [];
+    }
   };
   const arts = () => {
     try {
@@ -162,7 +172,7 @@
       art = { fp, id: known ? known.entry.id : null, name: known ? known.entry.name : '', gear: SLOTS[i] };
     }
     dbg.push(`${SLOTS[i]} lv:'${lv}'`);
-    return { gear: SLOTS[i], enhance, level: G.levelFrom(lv, null, enhance), set: hit ? hit.set : '', art, rect: { x: pic.x / ctx.w(), y: pic.y / ctx.h(), w: pic.w / ctx.w(), h: pic.h / ctx.h() } };
+    return { gear: SLOTS[i], enhance, level: G.levelFrom(lv, null, enhance), set: hit ? hit.set : '', badgeFp: bfp, art, rect: { x: pic.x / ctx.w(), y: pic.y / ctx.h(), w: pic.w / ctx.w(), h: pic.h / ctx.h() } };
   }
 
   let dbg = [];
@@ -221,8 +231,36 @@
         if (v >= 0) stats[k] = v;
       });
       if (Object.keys(stats).length < 7) for (const k of Object.keys(stats)) delete stats[k];
+      // gear.txt (DEVLOG #88): the one item it has on this hero in each slot (enhance and level as shown; two copies of
+      // a hero told apart that way) gives the set (badge under a bar, or not learned yet) and the badge is learned
+      const GM = window.E7GearMatch;
+      if (GM) {
+        const fileItems = GM.file().items;
+        const unit = GM.unitOf(fileItems, hero.code, slots) || undefined;
+        let hb = heroBadges();
+        let learnedNew = false;
+        for (const sl of slots) {
+          if (!sl) continue;
+          const fi = GM.onHero(fileItems, hero.code, sl.gear, { enhance: sl.enhance, level: sl.level, unit }) || GM.onHero(fileItems, hero.code, sl.gear, { enhance: sl.enhance, unit });
+          if (!fi) continue;
+          sl.fileId = fi.id;
+          if (fi.design) sl.design = fi.design;
+          if (fi.set && fi.set !== sl.set) {
+            sl.set = fi.set;
+            sl.setFrom = 'gear.txt';
+            if (sl.badgeFp) {
+              hb = G.learnBadge(hb, fi.set, sl.badgeFp);
+              learnedNew = true;
+            }
+          }
+        }
+        if (learnedNew)
+          try {
+            localStorage.setItem(HERO_KEY, JSON.stringify(hb));
+          } catch (_) { /* full: only a hint */ }
+      }
       last = { hero, stats, slots };
-      ctx.publish('gear:hero', { hero, stats: Object.keys(stats).length ? stats : null, slots: slots.filter(Boolean) });
+      ctx.publish('gear:hero', { hero, stats: Object.keys(stats).length ? stats : null, slots: slots.filter(Boolean).map(({ badgeFp, ...sl }) => sl) });
       ctx.done(`Hero screen: ${hero.name} · ${slots.filter(Boolean).length} items${Object.keys(stats).length ? ` · speed ${stats.spd}` : ''}`);
     },
   });
@@ -368,6 +406,19 @@
       if (item.gear === 'Unknown') {
         const bySlot = { Attack: 'Weapon', Health: 'Helmet', Defense: 'Armor', CriticalHitChancePercent: 'Necklace', CriticalHitDamagePercent: 'Necklace', Speed: 'Boots' };
         if (bySlot[item.main.type]) item.gear = bySlot[item.main.type];
+      }
+      // gear.txt has this exact item (DEVLOG #88): its slot (when the window didn't say) and set
+      const GM = window.E7GearMatch;
+      if (GM) {
+        const tries = item.gear === 'Unknown' ? ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'] : [item.gear];
+        const fi = tries.map((g) => GM.fromFile({ ...item, gear: g })).find(Boolean);
+        if (fi) {
+          item.gear = fi.gear;
+          if (fi.set && fi.set !== item.set) {
+            item.set = fi.set;
+            item.setFrom = 'gear.txt';
+          }
+        }
       }
       const hero = last && last.hero;
       const mb = box(-233, 46, 0);

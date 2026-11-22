@@ -103,8 +103,10 @@
     const key = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
     const byName = new Map(heroes.map((h) => [key(h.name), h]));
     const idToCode = new Map();
+    const byCode = new Map(heroes.map((h) => [h.code, h]));
     for (const u of units) {
-      const h = byName.get(key(u.name));
+      // the auto importer's units carry the game's hero code (DEVLOG #88); else by name
+      const h = (u.code && byCode.get(u.code)) || byName.get(key(u.name));
       if (!h) continue;
       for (const id of [u.id, u.ingameId]) if (id !== undefined && id !== null && id !== '') idToCode.set(String(id), h.code);
     }
@@ -120,11 +122,15 @@
           rank: it.rank || 'Epic',
           level: num(it.level),
           enhance: num(it.enhance),
-          name: it.name || '',
+          name: it.name && it.name !== 'Unknown' ? it.name : '',
+          // the game's design code (auto importer, DEVLOG #88): items with one code share one picture
+          design: it.code ? String(it.code) : undefined,
           locked: !!it.locked,
           main: { type: it.main.type, value: num(it.main.value) },
           subs: (it.substats || []).filter((s) => s && s.type).map((s) => ({ type: s.type, value: num(s.value), rolls: Number(s.rolls) || undefined })),
           equipped: eq || byNameCode || null,
+          // which copy of the hero (two copies of one hero have one code), DEVLOG #88
+          ...(eq && it.ingameEquippedId && it.ingameEquippedId !== '0' ? { unit: String(it.ingameEquippedId) } : {}),
         };
       });
   }

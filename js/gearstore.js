@@ -40,7 +40,12 @@
   function save(gs) {
     localStorage.setItem(KEY, JSON.stringify(gs));
   }
-  const allItems = (gs) => (gs.useScanned ? [...gs.items, ...gs.scanned] : gs.items);
+  // a screen item that IS a gear.txt item (`fileId`, DEVLOG #88) is counted once: as the gear.txt item (its hero)
+  function allItems(gs) {
+    if (!gs.useScanned) return gs.items;
+    const inFile = new Set(gs.items.map((x) => x.id));
+    return [...gs.items, ...gs.scanned.filter((x) => !(x.fileId && inFile.has(x.fileId)))];
+  }
 
   /** Add an item read from the screen to gs.scanned. Returns the stored item, or null if it's already there. */
   function addScanned(gs, item, key) {

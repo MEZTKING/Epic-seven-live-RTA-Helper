@@ -245,6 +245,12 @@
       const byMain = window.E7GearGrid && window.E7GearGrid.levelFromMain(item.main, item.enhance);
       if (byMain) item.level = byMain;
       if (b.gameScore) item.gameScore = b.gameScore;
+      // the set not read: gear.txt has this exact item (DEVLOG #88)
+      const inFile = !item.set && window.E7GearMatch ? window.E7GearMatch.fromFile(item) : null;
+      if (inFile && inFile.set) {
+        item.set = inFile.set;
+        item.setFrom = 'gear.txt';
+      }
       const key = P.itemKey(item);
       if (gate.push(key)) {
         shown = true;
