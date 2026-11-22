@@ -207,6 +207,7 @@
       const pic = thumb(ctx);
       if (diff(pic, seen.pic) > 3) {
         seen = { pic, read: false };
+        if (ctx.soon) ctx.soon();
         return ctx.note('Hero screen: waiting for it to stand still…');
       }
       if (seen.read) return ctx.note(last ? `Hero screen read: ${last.hero.name}` : 'Hero screen: nothing read');

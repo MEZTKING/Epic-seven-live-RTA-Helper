@@ -82,9 +82,16 @@
         return ctx.note('Not a fortress map (no fortress indicator)');
       }
       // the overview has its side switch in the same place: one HALF lit, not one third (DEVLOG #55)
-      if (G.barKind(rgba, W, H, bar).kind === 'overview') {
+      const kind = G.barKind(rgba, W, H, bar).kind;
+      if (kind === 'overview') {
         gone();
         return ctx.note('Not a fortress map (the overview)');
+      }
+      // and the map's indicator must really be there: one third a solid white pill, the rest dark. Before, a bright
+      // spot there was enough: the game's title screen was read as a fortress (DEVLOG #89)
+      if (kind !== 'map') {
+        gone();
+        return ctx.note('Not a fortress map (no fortress indicator)');
       }
       const found = G.findBadges(rgba, W, H);
       const forts = readJSON('e7-gw-forts', {});
@@ -142,6 +149,12 @@
       if (!gk && ctx.busy) ctx.busy(`Reading the names on this map… ${badges.length + 1} of ${badges.length + 1}`);
       const kn0 = gk ? { name: gk.name, raw: gk.name, known: true, fromGuild: true } : await N.read(ctx, from, { x: kr.x * W, y: kr.y * H, w: kr.w * W, h: kr.h * H }, { lang, world, centred: true });
       const kn = kn0 && kn0.name ? { ...kn0, x: kr.x + kr.w / 2, y: kr.y - 0.06 } : null;
+      // no name at all under any of them: not a fortress map after all (nothing sent, no card), DEVLOG #89
+      if (!players.some((p) => p.name) && !kn) {
+        lastKey = published = key;
+        gone();
+        return ctx.note(`${fort}: no names under the defenders: not taken for a fortress map`);
+      }
       if (ctx.done) {
         const all = [...players, ...(kn ? [kn] : [])].filter((p) => p.name);
         const unsure = all.filter((p) => G.unsureName(p)).length;

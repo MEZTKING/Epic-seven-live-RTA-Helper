@@ -114,6 +114,18 @@ const REAL = {
   await g.click('#pr-clear');
   await g.waitForTimeout(100);
   console.log('   cleared:', (await g.textContent('#pr-list')).trim());
+  // DEVLOG #90: heroes you don't gear: never a target (and not on both lists)
+  await g.fill('#sk-hero', 'Rhianna and Luciella');
+  await g.click('#sk-add');
+  await g.waitForTimeout(200);
+  console.log('   left out:', (await g.textContent('#sk-list')).replace(/\s+/g, ' ').trim(), '· heroes suggestions think of:', await g.evaluate(() => { const S = window.RTAGearSort; const gs = window.GearApp.gs; return S.evaluateAll(window.GearStore.allItems(gs), window.RTASources.allHeroes, gs.overrides, gs.rules, { only: gs.priority, skip: gs.skip }).profiles.map((p) => p.code).join(',') || '(none)'; }));
+  await g.click('#pr-hero');
+  await g.fill('#pr-hero', 'Rhianna and Luciella');
+  await g.click('#pr-add');
+  await g.waitForTimeout(200);
+  console.log('   then added to the gearing list: left out', JSON.stringify(await g.evaluate(() => window.GearApp.gs.skip)), '· gearing', JSON.stringify(await g.evaluate(() => window.GearApp.gs.priority)));
+  await g.click('#pr-clear');
+  await g.waitForTimeout(100);
   // 5) DEVLOG #88: gear.txt from the auto importer (design codes, no names; tests/e2e/fixtures/gear-codes.txt: the
   // owner's items of these heroes, ids replaced): each slot is the item gear.txt has on that hero; sets come from it
   // (and the badges are learned: Eligos' Critical badges then read on Arbiter Vildred's screen without the file)
@@ -130,6 +142,8 @@ const REAL = {
   console.log('   badges learned on the hero screen:', await lv.evaluate(() => JSON.stringify((JSON.parse(localStorage.getItem('e7-gear-setbadges-hero') || '[]')).map((b) => b.set))));
   // the item windows: linked to their gear.txt item, the design learns its code
   await pop('hero-gear-popup-necklace-wide.jpg');
+  // DEVLOG #91: the card on the game says who wears it (gear.txt), not "upgrade for" heroes
+  console.log('   card on the game:', await lv.evaluate(() => { const c = (window.__ov.gear || [])[0]; return c ? [c.title, ...c.lines].join(' / ') : null; }));
   await pop('hero-gear-popup-weapon-wide.jpg');
   console.log('   item windows linked to gear.txt:', await lv.evaluate(() => JSON.stringify(window.GearStore.load().scanned.filter((x) => x.fileId).map((x) => `${x.gear} → ${x.fileId}`))), '· design codes learned:', await lv.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem('e7-gear-arts') || '[]').flatMap((a) => Object.keys(a.codes || {})).sort())));
   console.log('   counted once in suggestions:', await lv.evaluate(() => { const gs = window.GearStore.load(); return `${window.GearStore.allItems(gs).length} of ${gs.items.length} + ${gs.scanned.length}`; }));

@@ -674,3 +674,23 @@ table.cmp td.down { color: #ff5d6c; font-weight: 700; }
 /* Heroes you are gearing (DEVLOG #86) */
 .pr-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .pr-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; }
+/* a hero's gear like the game's equipment screen (DEVLOG #90) */
+.hboard { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 14px; margin: 10px 0; padding: 12px; border-radius: 12px; background: linear-gradient(135deg, #1b2236, #12131a 70%); border: 1px solid var(--line); }
+.hb-art { position: relative; height: 150px; border-radius: 10px; overflow: hidden; background: #0d0f16; }
+.hb-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.hb-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 10px 6px; font-weight: 700; font-size: 16px; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); }
+.hb-stats { display: grid; gap: 2px; margin-top: 10px; }
+.hb-stats div { display: flex; justify-content: space-between; padding: 2px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-size: 13px; }
+.hb-stats span { color: var(--muted, #9aa3b5); }
+.hb-sets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 12px; }
+.hb-sets > span { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); opacity: 0.65; }
+.hb-sets > span.on { opacity: 1; border-color: #4fd18b; }
+.hb-gear { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+.hb-col { display: grid; gap: 10px; align-content: start; }
+.hb-slot { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; text-align: left; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.03); color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.hb-slot:hover { border-color: #6ea8ff; }
+.hb-slot.empty { cursor: default; }
+.hb-txt { min-width: 0; font-size: 12px; line-height: 1.35; }
+.hb-main { font-size: 13px; margin-bottom: 2px; }
+.hb-sub { color: var(--muted, #b8c0d0); }
+@media (max-width: 760px) { .hboard { grid-template-columns: 1fr; } }

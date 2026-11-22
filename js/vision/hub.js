@@ -32,8 +32,6 @@
   let beat = null;
   let since = null;
   let captureName = '';
-  let worker = null;
-  let ocrChain = Promise.resolve();
   let lastScreen = null;
 
   const w = () => (source ? source.videoWidth || source.width : 0);
@@ -60,27 +58,44 @@
   }
   // Text readers by language. English is the default; names of players on the Japanese / Korean / Asian servers need
   // that script's data ('jpn', 'kor', 'chi_tra'; loaded from the same CDN the first time, a few MB each; DEVLOG #55).
-  const workers = {};
-  async function loadOcr(lang = 'eng') {
-    if (lang === 'eng' && worker) return worker;
-    if (workers[lang]) return workers[lang];
-    if (!window.Tesseract) {
-      await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = TESSERACT_URL;
-        s.onload = res;
-        s.onerror = () => rej(new Error('Could not load the text reader.'));
-        document.head.appendChild(s);
-      });
-    }
-    workers[lang] = await window.Tesseract.createWorker(lang);
-    if (lang === 'eng') worker = workers[lang];
-    return workers[lang];
+  // English has a small pool (DEVLOG #91): up to 4 readers working at once (one fewer than the PC's cores), so the
+  // inventory's 16 items (about 80 readings) are read side by side instead of one after another.
+  const POOL = Math.max(1, Math.min(4, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 2) - 1));
+  const pools = {}; // lang -> [{ wk: Promise<worker>, chain: Promise, pending: number }]
+  async function loadLib() {
+    if (window.Tesseract) return;
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = TESSERACT_URL;
+      s.onload = res;
+      s.onerror = () => rej(new Error('Could not load the text reader.'));
+      document.head.appendChild(s);
+    });
   }
-  /** One text reader for every reader, one job at a time. */
+  /** The least busy reader for a language (a new one while the pool isn't full and all are busy). */
+  function slotFor(lang) {
+    const list = pools[lang] || (pools[lang] = []);
+    const size = lang === 'eng' ? POOL : 1;
+    const free = list.slice().sort((a, b) => a.pending - b.pending)[0];
+    if (free && (free.pending === 0 || list.length >= size)) return free;
+    const slot = { wk: loadLib().then(() => window.Tesseract.createWorker(lang)), chain: Promise.resolve(), pending: 0 };
+    slot.wk.catch(() => {
+      // failed to start: forget it, the next job tries again
+      const i = list.indexOf(slot);
+      if (i >= 0) list.splice(i, 1);
+    });
+    list.push(slot);
+    return slot;
+  }
+  function onSlot(lang, fn) {
+    const slot = slotFor(lang);
+    slot.pending++;
+    const job = slot.chain.then(async () => fn(await slot.wk));
+    slot.chain = job.catch(() => {}).finally(() => slot.pending--);
+    return job;
+  }
   function ocr(canvas, opts = {}) {
-    const job = ocrChain.then(async () => {
-      const wk = await loadOcr(opts.lang || 'eng');
+    return onSlot(opts.lang || 'eng', async (wk) => {
       // opts.psm: another page mode (e.g. '8' one word); opts.chars: only these characters (reset for every other job)
       await wk.setParameters({ tessedit_pageseg_mode: opts.psm || (opts.line ? '7' : '3'), tessedit_char_whitelist: opts.chars || '' });
       const { data } = await wk.recognize(canvas);
@@ -89,19 +104,14 @@
       // opts.full: also how sure the reader is (0–100) and which language data was used
       return opts.full ? { text, conf: Math.round((data && data.confidence) || 0), lang: opts.lang || 'eng' } : text;
     });
-    ocrChain = job.catch(() => {});
-    return job;
   }
 
   function ocrWords(canvas) {
-    const job = ocrChain.then(async () => {
-      const wk = await loadOcr();
+    return onSlot('eng', async (wk) => {
       await wk.setParameters({ tessedit_pageseg_mode: '11', tessedit_char_whitelist: '' });
       const { data } = await wk.recognize(canvas);
       return ((data && data.words) || []).map((w) => ({ text: w.text, conf: w.confidence, x: (w.bbox.x0 + w.bbox.x1) / 2, y: (w.bbox.y0 + w.bbox.y1) / 2 }));
     });
-    ocrChain = job.catch(() => {});
-    return job;
   }
 
   // ------------------------------------------------------------- status
@@ -217,6 +227,9 @@
 
   // ------------------------------------------------------------- the loop
   const ctxFor = (r) => ({
+    // look again soon (0.4 s), not after the reader's whole interval: the picture just changed (a list scrolling),
+    // DEVLOG #91
+    soon: () => (r.soon = true),
     busy: (text) => setWorking(r, text),
     done: (text, opts) => setWorking(r, text, { done: true, ask: !!(opts && opts.ask) }),
     get source() {
@@ -301,10 +314,11 @@
     }
     const now = Date.now();
     const jobs = [];
-    // reading speed (DEVLOG #83): fast ×0.5, normal ×1, slow ×2 of each reader's own interval
+    // reading speed (DEVLOG #83): fastest ×0.25 (#91), fast ×0.5, normal ×1, slow ×2 of each reader's own interval
     const pace = window.E7VisionSpeed ? window.E7VisionSpeed.factor() : 1;
     for (const r of readers) {
-      if (r.busy || (!force && now - r.last < r.every * pace) || !r.ready()) continue;
+      if (r.busy || (!force && now - r.last < (r.soon ? Math.min(400, r.every * pace) : r.every * pace)) || !r.ready()) continue;
+      r.soon = false;
       const ctx = ctxFor(r);
       if (r.screen && SW && !SW.allowed(r.screen)) {
         if (r.idle) r.idle(ctx);

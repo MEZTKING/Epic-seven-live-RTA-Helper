@@ -34,6 +34,7 @@
       heroSeen: g.heroSeen && typeof g.heroSeen === 'object' ? g.heroSeen : {},
       // DEVLOG #86: the heroes you are gearing (hero codes); empty = every hero with gear
       priority: Array.isArray(g.priority) ? g.priority : [],
+      skip: Array.isArray(g.skip) ? g.skip : [], // heroes you don't gear (DEVLOG #90)
     };
   }
   /** Throws if the browser storage is full. */

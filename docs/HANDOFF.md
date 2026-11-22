@@ -167,7 +167,10 @@ only receive events.
 
 - **Shared by readers:** `js/vision/names.js` (`E7Names.read`: one player name in any writing, DEVLOG #56; loaded
   before the readers). A reader's `ctx`: `source, w(), h(), crop, ocr(canvas, { line, lang, full }), ocrWords,
-  publish, note, busy(text), done(text, { ask })`.
+  publish, note, busy(text), done(text, { ask }), soon()` (soon, #91: look again after 0.4 s instead of the whole
+  interval, while a list scrolls). Since #91 English text is read by a pool of up to 4 workers (cores − 1) in
+  parallel (`pools` in `js/vision/hub.js`); other languages keep one worker each. The Full-grid reader reads its 16
+  tiles at once. Reading speed `e7-vision-speed`: fastest ×0.25 / fast ×0.5 / normal / slow ×2.
 - **All readers** (`js/vision/readers/`, loaded by `vision.html` and `live.html`):
 
   | Reader | Publishes | Reads |
@@ -177,7 +180,7 @@ only receive events.
   | `hero-gear.js` | `gear:hero { hero, stats, slots }`, `gear:hero-gone` | A hero's equipment screen: name, real stats, six item pictures (enhance, level, set, design); linked to known items by the consumer (#84) |
   | `guild-name.js` | `guild:name-read { text, rect, options?, pic?, lang? }` | A player's name on a defense / stronghold screen, in any writing (`js/vision/names.js`) |
   | `guild-defense.js` | `guild:defense` | The six hero icons of a player's two defense teams (faces, no calibration; 3 of 4 places per team, stronghold shift) |
-  | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten) |
+  | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten). Since #89 only when the page indicator is a map's (`E7GWMap.barKind` = 'map') and at least one name was read |
   | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild, ourServer, enemyServer, endsIn, endsAt }` | The overview: three fortress names, which side, both guild names and servers, "War Ends in …" |
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
   | `guild-offense.js` (three readers) | `guild:offense { enemy, rect, mine, theirs }`, `guild:battle { round, left, right }`, `guild:note { author, text }` | The Offense Team screen (their defense, my teams), the fight ("Round 1" pill + names), a note window ("…'s Record") (DEVLOG #58) |
@@ -219,7 +222,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 |---|---|---|
 | `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `mySpeeds` (typed speed per hero, source `my speeds`; wins over gear.txt), `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
 | `localStorage['rta-helper-v1']` | legacy | First version's data; upgraded automatically (`migrateV1`) |
-| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides` |
+| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides`, `priority` (heroes you are gearing, #86), `skip` (heroes you don't gear, #90; never on both lists) |
 | `localStorage['e7-guild-conn']` | `js/guild-app.js` | `guildCode`, `guildName`, `myName`, Firebase `config`, `shareSpeeds`, `watchBox` |
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
@@ -333,6 +336,10 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   slot is the one gear.txt item on that hero (copy told apart by `unitOf`) → set from it, badge learned in
   `e7-gear-setbadges-hero`, slot linked to it. "Item upgrades" (#80): `E7GearSim.upgradePlan` → enhance next / reforge / modify a
   substat, cached per evaluation; a row opens the item.
+  Verdicts (#90): `evaluateAll` lets a hero be the upgrade target of at most `PER_SLOT` (2) items per slot, the best
+  fitting (an empty slot used to make every item of that slot "an upgrade"); `skip` heroes are never targets. The
+  presets card's "Now" tab draws `heroBoard` (the game's equipment-screen layout: picture, stats, set bonuses, two
+  columns of items; a click opens the item).
   Score (#83): `RTAGearSort.gameScore` = the game's Equipment Score read from the screen (`item.gameScore`, panel and
   Full tiles) else WSS + 26 × main share − 1; `rules.scoreMode` 'game' (default) / 'wss' picks what the page and overlay
   show; rules stay in WSS (+25 shown in game mode). Readers keep a small picture per panel / tile already read and

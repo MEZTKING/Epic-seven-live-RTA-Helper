@@ -7,6 +7,102 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-22 · #91 · Faster scanning (several text readers at once), and the item card on the game says who wears it · this commit (previous: `a69cdab`; committed with #89 and #90)
+
+**Asked for:** "can we increase the speed of scanning even more", "or is there another way to obtain this
+information", and (a screenshot of the inventory with the card "KEEP · score 95 · Upgrade for Lots (+61.6), Fighter
+Maya (+60.1)") "what is that middle keep xyz always suggesting or doing".
+
+**Findings**
+- Measured on the Full-format fixtures (this 4-core machine): reading one screen of 16 items takes 70-80 text
+  readings, ONE after another (one text-reader worker for everything): 2.6-2.7 s of reading. Before that the reader
+  waits for the list to stand still (the same picture twice, one look per 1.2 s, 0.6 s on Fast).
+- The card is the verdict for the item open in the details panel. Its "+61.6" came from the empty-slot fault fixed in
+  #90; and it judged the screen reading (which knows no hero) even when gear.txt says who wears the item.
+
+**Changed**
+- `js/vision/hub.js`: English text is read by a pool of up to 4 workers (the PC's cores − 1), each job on the least
+  busy one; other languages keep one worker. `ctx.soon()`: a reader that saw the picture change looks again after
+  0.4 s instead of its whole interval (used by the Full grid and the hero screen while waiting for a still screen).
+- `js/vision/readers/gear-grid.js`: the 16 tiles are read at once (results taken in screen order).
+- `js/vision-speed.js`: a "Fastest" setting (4× as often).
+- `js/vision/consumers/gear.js`: an item that is in gear.txt is described as that item: "WORN · score … / On <hero>
+  (gear.txt)", another hero only when it is a real upgrade for them ("would suit X (+n) better").
+
+**Tested**
+- Timing (same fixtures, same machine, the text reader already loaded): a Full screen 2.6 / 2.7 / 2.0 s of reading
+  before, 1.5 / 1.7 / 0.7 s after (3 workers here).
+- `tests/e2e/hero-gear.e2e.js` step 5: the necklace's window → "WORN · score 107 / On Rhianna and Luciella
+  (gear.txt) · would suit Eligos (+10) better".
+- Browser suite 52/52 clean (one run for #89, #90 and #91); other differences: the test inventory's summary (Keep 115 → 71, Reforge 6 → 16, Extract 76 → 108, Sell 20 → 28: fewer "upgrade" keeps), "Modify a substat" 12 → 10, the new buttons / hero view / speed option / card line. Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once clean.
+- **Not tested:** on the owner's PC (more cores there: up to 4 workers; each takes some memory).
+
+---
+
+## 2026-11-22 · #90 · Gear: honest Keep / Reforge / Extract counts, heroes you don't gear, each hero's gear laid out like the game · this commit (previous: `a69cdab`; committed with #89 and #91)
+
+**Asked for:** a screenshot of the summary (Keep 2253, Enhance 730, Reforge 0, Extract 90, Sell 0): "it shows nothing
+to sell"; "how do I prioritise heroes, for example I don't care about Sigret"; "also display the armours on each hero
+just like the game in app".
+
+**Findings (the owner's gear.txt, in Node)**
+- Sell 0 is right in itself: only 15 spare items are below level 85; level 85+ is "Extract" (materials).
+- The real fault: 572 spare +15 items were "Upgrade for a hero". 49 heroes wear fewer than six items, and an empty
+  slot counted as fit 0, so EVERY item of that slot was "an upgrade" (54 items for Sigret's two empty slots; median
+  "gain" 47). That verdict comes first, so nothing was ever "Reforge" either. The same made 1 561 worn items "an even
+  bigger upgrade on another hero".
+- The gearing list (#86) only says "only these heroes"; with almost every hero geared, "all but these" is easier.
+
+**Changed**
+- `js/gearsort.js` `evaluateAll`: a hero is the upgrade target of at most 2 items per slot (the best fitting); the
+  others are judged on their own. On the owner's file: Keep 1 805 (1 563 of them worn), Reforge 217, Enhance 143,
+  Extract 600, Sell 8 (before: 2 253 / 0 / 730 / 90 / 0); "upgrade for a hero" 20, "even bigger upgrade" 155.
+- "Heroes you don't gear" (`gs.skip`; `evaluateAll` option `skip`): in the "Heroes you are gearing" card and as
+  "⊘ don't gear" in a hero's presets; never a suggestion's target, their worn items stay theirs; a hero is never on
+  both lists. Used by the Gear page and the overlay (`js/vision/consumers/gear.js`).
+- `js/gear-app.js` + `css/styles.css`: the presets card's "Now" tab shows the hero like the game's equipment screen:
+  the hero's picture (wide portrait, CeciliaBot assets as before), stats (the game's when seen, else worked out),
+  set bonuses (complete ones lit), and the six items in two columns with main stat, substats (rolls) and set; a click
+  opens the item below.
+
+**Tested**
+- `npm test` 212 (new: at most two upgrade candidates per hero and slot, the best two).
+- `tests/e2e/hero-gear.e2e.js`: "don't gear" Rhianna → no hero left for suggestions; adding her to the gearing list
+  takes her off the other list. A screenshot of the new "Now" view (Eligos, from `gear-codes.txt`) checked by eye; a
+  click on the weapon opens it.
+- Browser suite 52/52 clean (one run for #89, #90 and #91); other differences: the test inventory's summary (Keep 115 → 71, Reforge 6 → 16, Extract 76 → 108, Sell 20 → 28: fewer "upgrade" keeps), "Modify a substat" 12 → 10, the new buttons / hero view / speed option / card line. Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once clean.
+- **Not tested:** on the owner's PC (with the whole gear.txt the page now judges 2 773 items the new way).
+
+---
+
+## 2026-11-22 · #89 · Guild War card on the game's title screen · this commit (previous: `a69cdab`; committed with #90 and #91)
+
+**Asked for:** a screenshot of the game's title screen with the overlay card "0 defenders: already in your guild's
+war plan": "there's no guild war here".
+
+**Findings**
+- The fortress-map reader took the title screen for a fortress map: its check was only "one third of the page
+  indicator's place brighter than the others" (the title art is bright there), and round dark shapes in the art
+  were taken for defenders. No name was read under any of them; "0 of 0 names already known" counted as "all
+  already in the war plan", and an empty fortress was sent to the Guild War page. On the same picture here it even
+  took "es" from the art for a player name.
+- `E7GWMap.barKind` (DEVLOG #55) already tells a real map indicator (one third a solid white pill, the rest dark) from
+  the overview's switch; the fortress reader only used it to reject the overview.
+
+**Changed**
+- `js/vision/readers/guild-fortress.js`: a fortress map needs `barKind` = 'map'; a map where no name at all was read
+  is not taken (nothing sent, no card).
+
+**Tested**
+- New fixture `steam-title-screen.jpg` (the owner's picture; the account number, the version line and the app's own
+  overlay card blurred): `tests/e2e/gw-war-names.e2e.js` step 4: no event, "Not a fortress map (no fortress
+  indicator)". All 12 fortress-map fixtures still read as maps with their defenders (checked one by one), the
+  stronghold page is not one.
+- Browser suite 52/52 clean (one run for #89, #90 and #91); other differences: the test inventory's summary (Keep 115 → 71, Reforge 6 → 16, Extract 76 → 108, Sell 20 → 28: fewer "upgrade" keeps), "Modify a substat" 12 → 10, the new buttons / hero view / speed option / card line. Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once clean.
+- **Not tested:** on the owner's PC.
+
+---
+
 ## 2026-11-22 · #88 · Gear: your gear.txt matches the screen (sets on heroes, set badges learned, pictures by design code) · this commit (previous: `93e8496`)
 
 **Asked for:** "you should have a way to use the fribbels data to match the gear icon, set on heroes and more". The
