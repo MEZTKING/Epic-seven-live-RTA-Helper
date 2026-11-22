@@ -7,6 +7,43 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-22 · #94 · Your gear file re-imported by itself (gear.txt or the Fribbels optimizer's autosave) · this commit (previous: `dacd79e`)
+
+**Asked for:** "yes build the auto re-import" (offered in #91: the app watches your gear file and re-imports it whenever
+it changes).
+
+**Findings**
+- The RexQian fork saves everything it knows to `Documents/FribbelsOptimizerSaves/autosave.json` whenever its data
+  changes (`saves.js` `autoSave`), and suggests the same folder for gear.txt. That file comes from its backend: items
+  without the game's design code (`Item.java` has no `code`), with `ingameId`.
+- Items were keyed by `id` first; the backend's ids are its own, the game's `ingameId` stays the same between saves.
+
+**Changed**
+- `desktop/main.js` + `desktop/preload.js`: the chosen file (`config.gearFile`) is watched (polled every 3 s; told to
+  the windows once it has been quiet for 2 s); `E7Desktop.gearFile` info / choose (a file dialog) / useAutosave /
+  stop / read / onChanged. Only that file is read; nothing is written or sent.
+- New `js/gearfile.js`: `importText` (the import the Gear page had, now shared: gear store + the RTA Helper's
+  Fribbels roster; a file without design codes keeps those of the last import, by the game's item id) and `follow`
+  (desktop: import at start and on every change when the file is newer than the last import).
+- `vision.html`: the game watcher follows the file (always running, so it works with the Gear page closed); the
+  watcher log says "Gear: <file> re-imported by itself (n items)".
+- `gear.html` + `js/gear-app.js`: under "Import gear.txt", "Re-import by itself": "Use the Fribbels optimizer's
+  autosave" (when it exists) / "Choose a file…" / "Stop", and what is watched and when it was last imported; the
+  import button uses the shared code.
+- `js/gearstore.js` keeps `fileMtime`, `filePath`; `js/gearsort.js` `slimInventory` keys items by `ingameId` first.
+
+**Tested**
+- `npm test` 216.
+- New desktop test `tests/desktop/gearfile.js` (packaged Linux build; a copy of `gear-codes.txt` as the chosen file):
+  48 items imported at start, the Gear page shows what is watched; the file rewritten with 30 items and no design
+  codes → re-imported by itself, 30 items, all 30 codes kept, the open page followed; after "Stop" a change is ignored.
+- Browser suite 53/53 clean, nothing else changed. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check, picker-once, gearfile clean.
+- **Not tested:** on Windows (file watching there; the Documents folder; OneDrive-synced folders); "Use the Fribbels
+  optimizer's autosave" (needs that file, not in the test machine's Documents).
+
+---
+
 ## 2026-11-22 · #92 + #93 · Gear: auto-gear a hero; free up inventory space · this commit (previous: `56f778c`)
 
 **Asked for:** "build the auto-gear a hero feature next and push anytime"; "I need to improve the gear management side

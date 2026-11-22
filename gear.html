@@ -24,6 +24,10 @@
         <p class="hint">Import <b>gear.txt</b> from the Fribbels optimizer (<a href="https://github.com/RexQian/Fribbels-Epic-7-Optimizer" target="_blank" rel="noopener">RexQian fork</a>). Shared with the RTA Helper: importing here also updates your roster and speeds there.</p>
         <div id="gs-src" class="hint"></div>
         <div class="btn-row"><label class="btn file-btn">Import gear.txt<input id="gs-file" type="file" accept=".txt,.json,application/json,text/plain" hidden /></label></div>
+        <div id="gf-box" class="gf-box hidden">
+          <div class="hint"><b>Re-import by itself</b> (desktop app): <span id="gf-state"></span></div>
+          <div class="btn-row"><button id="gf-auto" class="btn hidden">Use the Fribbels optimizer's autosave</button><button id="gf-choose" class="btn">Choose a file…</button><button id="gf-stop" class="btn hidden">Stop</button></div>
+        </div>
       </div>
       <div class="card">
         <h3>Rules</h3>
@@ -202,6 +206,7 @@
   <script src="js/gearbuild.js"></script>
   <script src="js/gearauto.js"></script>
   <script src="js/gearclean.js"></script>
+  <script src="js/gearfile.js"></script>
   <script src="js/gearstore.js"></script>
   <script src="js/gearmatch.js"></script>
   <script src="js/vision-speed.js"></script>

@@ -9,6 +9,8 @@
  *   E7Desktop.zoom() / onZoom(cb) -> { zoom, overlayZoom } (overlay.html scales its items by overlayZoom / zoom)
  *   E7Desktop.records.game(name, params) / .find(world, name) / .status()  -> the official record site (desktop/records.js)
  *   E7Desktop.guildStandby({ beginsAt }) / warReminder() -> Guild War reminder before the next war (desktop/reminder.js)
+ *   E7Desktop.gearFile.info() / choose() / useAutosave() / stop() / read() / onChanged(cb) -> the file re-imported by
+ *                              itself (gear.txt or the Fribbels optimizer's autosave.json), DEVLOG #94
  *   E7Desktop.overlayStatus()  -> { on, visible, bounds, mode, tracking, gameState, fallback, error, … } (Live page, report)
  * Used by js/game-area.js (no box needed when only the game window is captured) and overlay.html.
  * The picker page (desktop/picker.html) also uses sources() / choose().
@@ -35,6 +37,15 @@ contextBridge.exposeInMainWorld('E7Desktop', {
   guildStandby: (d) => ipcRenderer.send('e7:guild-standby', { beginsAt: d && d.beginsAt }),
   warReminder: () => ipcRenderer.sendSync('e7:war-reminder'),
   showSelf: (show) => ipcRenderer.send('e7:show-self', !!show),
+  // gear.txt / the Fribbels autosave re-imported by itself (DEVLOG #94): info / choose / autosave / stop / read
+  gearFile: {
+    info: () => ipcRenderer.invoke('e7:gear-file', 'info'),
+    choose: () => ipcRenderer.invoke('e7:gear-file', 'choose'),
+    useAutosave: () => ipcRenderer.invoke('e7:gear-file', 'autosave'),
+    stop: () => ipcRenderer.invoke('e7:gear-file', 'stop'),
+    read: () => ipcRenderer.invoke('e7:gear-file', 'read'),
+    onChanged: (cb) => ipcRenderer.on('e7:gear-file-changed', (_e, info) => cb(info)),
+  },
   onHotkey: (cb) => ipcRenderer.on('e7:hotkey', (_e, name) => cb(name)),
   // developer tool: automatic screenshots (game watcher only)
   dev: () => ipcRenderer.sendSync('e7:dev'),

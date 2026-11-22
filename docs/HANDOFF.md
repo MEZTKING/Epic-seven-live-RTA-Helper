@@ -377,6 +377,12 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   - Auto-approves `getDisplayMedia` for the chosen display.
   - Overlay window: transparent, click-through, always on top, `setContentProtection(true)` so readers never read it.
   - Ctrl+Shift+O / Ctrl+Shift+E.
+  - **Gear file re-imported by itself** (#94): `config.gearFile` (the file the user chose: gear.txt or the Fribbels
+    optimizer's `Documents/FribbelsOptimizerSaves/autosave.json`), watched with `fs.watchFile` (3 s, 2 s quiet), IPC
+    `e7:gear-file` (info / choose / autosave / stop / read) and `e7:gear-file-changed`; preload `E7Desktop.gearFile`.
+    The game watcher (`vision.html`) runs `E7GearFile.follow` (js/gearfile.js): imports when the file is newer than
+    `gs.fileMtime` / another path than `gs.filePath`, publishes `gear:file-imported`; the Gear page follows through the
+    storage event and shows the state (`#gf-box`). gear.txt items now keep the game's id first (`ingameId`).
   - **Capture** (`config.capture` in the app's `config.json`): `{mode:'window', id, name}` = only the game window
     (picked in `desktop/picker.html`, matched again by id then title), or `{mode:'screen', …}`. `null` → the picker
     opens on the first `getDisplayMedia`. Since #87 the picker opens BY ITSELF at most once per session (closed
