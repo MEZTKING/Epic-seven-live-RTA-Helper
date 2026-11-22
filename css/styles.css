@@ -694,3 +694,9 @@ table.cmp td.down { color: #ff5d6c; font-weight: 700; }
 .hb-main { font-size: 13px; margin-bottom: 2px; }
 .hb-sub { color: var(--muted, #b8c0d0); }
 @media (max-width: 760px) { .hboard { grid-template-columns: 1fr; } }
+/* auto-gear a hero (DEVLOG #92) */
+.ag-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 12px; }
+.ag-form label { margin: 0; font-size: 13px; }
+.ag-form input, .ag-form select { width: 100%; }
+.ag-list { flex-wrap: wrap; }
+.ag-list .btn { font-size: 12px; }
