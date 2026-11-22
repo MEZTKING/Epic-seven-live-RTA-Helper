@@ -336,6 +336,13 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   slot is the one gear.txt item on that hero (copy told apart by `unitOf`) → set from it, badge learned in
   `e7-gear-setbadges-hero`, slot linked to it. "Item upgrades" (#80): `E7GearSim.upgradePlan` → enhance next / reforge / modify a
   substat, cached per evaluation; a row opens the item.
+  Auto-gear (#92, `js/gearauto.js` `optimize`): per slot the ~11 most promising items (goal weights; wanted sets get
+  places of their own), every combination tried with summed vectors (`finish` = `E7GearBuild.heroStats`, checked in the
+  tests); minimums, a 4-piece and a 2-piece set; top 5, or the closest when none meets the minimums. Card "Auto-gear a
+  hero" (pool: free + own / + heroes you don't gear or aren't gearing / + any hero), "Save as a preset", "Show the
+  moves". Free up space (#93, `js/gearclean.js` `plan`): spare items only (the game counts no worn items): extract /
+  sell verdicts and dominated duplicates, locked ones apart, parking on "don't gear" heroes' empty slots; never worn,
+  preset, upgrade or enhance items. gear.txt's lock field `l` is read since #93.
   Verdicts (#90): `evaluateAll` lets a hero be the upgrade target of at most `PER_SLOT` (2) items per slot, the best
   fitting (an empty slot used to make every item of that slot "an upgrade"); `skip` heroes are never targets. The
   presets card's "Now" tab draws `heroBoard` (the game's equipment-screen layout: picture, stats, set bonuses, two

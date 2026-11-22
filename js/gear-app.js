@@ -426,6 +426,7 @@
     renderUpgrades();
     renderPriority();
     renderSkip();
+    renderClean();
   }
   $('#gs-summary').addEventListener('click', (e) => {
     const b = e.target.closest('[data-v]');
@@ -893,6 +894,123 @@
     render();
     $('#gs-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // ---- auto-gear a hero (DEVLOG #92) -------------------------------------------------------------------------------
+  const AG = window.E7GearAuto;
+  if (AG) {
+    $('#ag-goal').innerHTML = Object.entries(AG.GOALS).map(([k, g]) => `<option value="${k}">${esc(g.name)}</option>`).join('');
+    const sets = (n) => Object.entries(G.SETS).filter(([, v]) => v[1] === n).map(([k, v]) => `<option value="${k}">${esc(v[0])}</option>`).join('');
+    $('#ag-set4').innerHTML = `<option value="">any</option>${sets(4)}`;
+    $('#ag-set2').innerHTML = `<option value="">any</option>${sets(2)}`;
+  }
+  let agLast = null; // { code, res, pick }
+  function agPool(code, mode) {
+    const all = allItems();
+    const gearing = new Set(gs.priority || []);
+    const skip = new Set(gs.skip || []);
+    const wornBy = (it) => it.equipped || (it.wornBy && it.worn ? it.wornBy : null) || (it.worn ? '?' : null);
+    return all.filter((it) => {
+      const w = wornBy(it);
+      if (!w || w === code) return true;
+      if (mode === 'all') return true;
+      // heroes you don't gear, or (with a gearing list) heroes not on it
+      return mode === 'spare' && (skip.has(w) || (gearing.size && !gearing.has(w)));
+    });
+  }
+  function agRun() {
+    const code = codeOfName($('#ag-hero').value.trim());
+    const out = $('#ag-out');
+    if (!code) return (out.innerHTML = '<p class="hint">Type a hero first.</p>');
+    const base = BASE[code];
+    if (!base) return (out.innerHTML = '<p class="hint">No base stats for this hero (Fribbels data).</p>');
+    const min = {};
+    for (const k of ['spd', 'chc', 'chd', 'eff', 'efr', 'hp']) {
+      const v = Number($('#ag-' + k).value);
+      if (v > 0) min[k] = v;
+    }
+    const pool = agPool(code, $('#ag-pool').value);
+    out.innerHTML = '<p class="hint">Searching…</p>';
+    setTimeout(() => {
+      const t0 = performance.now();
+      const res = AG.optimize(base, pool, { goal: $('#ag-goal').value, min, set4: $('#ag-set4').value, set2: [$('#ag-set2').value].filter(Boolean) });
+      agLast = { code, res, pick: 0, ms: Math.round(performance.now() - t0), pool: pool.length };
+      agShow();
+    }, 20);
+  }
+  function agShow() {
+    const out = $('#ag-out');
+    const { code, res, pick } = agLast;
+    if (!res.builds.length) return (out.innerHTML = '<p class="hint">No combination found (no items for some slot, or the sets asked for are not there).</p>');
+    const b = res.builds[pick];
+    const items = B.SLOTS.map((g) => b.items[g]).filter(Boolean);
+    const now = wearing(code);
+    const pp = statsPair(code, now, items);
+    const from = items.filter((it) => it.equipped && it.equipped !== code);
+    const list = res.builds.map((x, i) => `<button class="btn${i === pick ? ' primary' : ''}" data-ag-pick="${i}">#${i + 1} · Spd ${x.stats.spd} · CC ${x.stats.chc}% · CD ${x.stats.chd}% · Atk ${x.stats.atk} · HP ${x.stats.hp}</button>`).join('');
+    out.innerHTML = `${res.exact ? '' : '<p class="loses warn">No combination meets every minimum: these come closest.</p>'}
+      <div class="btn-row ag-list">${list}</div>
+      ${heroBoard(code, items, b.stats, 'worked out from the items (no artifact / exclusive equipment)')}
+      ${pp.a && pp.b ? cmpTable(pp.a, pp.b, ['now', 'with these'], pp.real) : ''}
+      ${from.length ? `<div class="loses warn">${from.map((it) => `${esc(itemLabel(it))}: ${esc(nameOf(it.equipped))} wears it now`).join('<br>')}</div>` : ''}
+      <div class="btn-row"><button class="btn primary" data-ag-act="preset">Save as a preset</button><button class="btn" data-ag-act="moves">Show the moves</button></div>
+      <p class="hint">${res.tried.toLocaleString()} combinations of ${agLast.pool} items tried in ${agLast.ms} ms (only the ${res.kept} most promising items are combined).</p>`;
+  }
+  $('#ag-go').addEventListener('click', agRun);
+  $('#ag-hero').addEventListener('keydown', (e) => e.key === 'Enter' && agRun());
+  $('#ag-out').addEventListener('click', async (e) => {
+    const p = e.target.closest('[data-ag-pick]');
+    if (p) {
+      agLast.pick = Number(p.dataset.agPick);
+      return agShow();
+    }
+    const a = e.target.closest('[data-ag-act]');
+    if (a && !e.target.closest('.hb-slot')) {
+      const { code, res, pick } = agLast;
+      const b = res.builds[pick];
+      if (a.dataset.agAct === 'preset') {
+        const name = await window.E7Ask('Name of the preset?', `${nameOf(code)} · ${AG.GOALS[$('#ag-goal').value].name.split(' (')[0]}`);
+        if (!name || !name.trim()) return;
+        const np = { id: newId(), hero: code, name: name.trim(), items: {} };
+        for (const g of B.SLOTS) if (b.items[g]) np.items[g] = b.items[g].id;
+        gs.presets.push(np);
+        save();
+        $('#ps-hero').value = nameOf(code);
+        psTab = np.id;
+        renderPresets();
+        $('#ps-out').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else {
+        const moves = B.movesFor(code, b.items, (it) => it.equipped || (it.worn ? '?' : null));
+        for (const m of moves) planMove(m.item.id, m.from, m.to);
+        save();
+        render();
+        $('#gs-moves-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    }
+    openItem(e.target.closest('.hb-slot[data-item]'));
+  });
+
+  // ---- free up inventory space (DEVLOG #93) ------------------------------------------------------------------------
+  let clCache = { ev: null, plan: null };
+  function renderClean() {
+    const CL = window.E7GearClean;
+    if (!CL || !evald) return;
+    if (clCache.ev !== evald) {
+      const results = evald.results;
+      clCache = { ev: evald, plan: CL.plan(results, { presets: gs.presets, skip: gs.skip || [], worn: (it) => !!it.worn, equippedOf: (c) => wearing(c) }) };
+    }
+    const p = clCache.plan;
+    const row = (x, text) => `<button class="up-row" data-item="${esc(x.r.item.id)}">${iconBox(x.r.item)}<span><b>${esc(itemLabel(x.r.item))}</b> <small class="hint">lv${x.r.item.level}</small><br><span class="hint">${esc(text)}</span></span></button>`;
+    const col = (title, hint, list, fn) => `<div class="up-col"><h4>${title} <small class="hint">${list.length}</small></h4><p class="hint">${hint}</p>${list.length ? list.slice(0, 40).map((x) => row(x, fn(x))).join('') + (list.length > 40 ? `<p class="hint">… and ${list.length - 40} more (lowest first)</p>` : '') : '<p class="hint">Nothing.</p>'}</div>`;
+    $('#cl-out').innerHTML = `<p><b>${p.spare}</b> spare items now${p.remove.length + p.park.length ? ` · <b>${p.after}</b> after this plan (−${p.remove.length + p.park.length})` : ''}${p.locked.length ? ` · another ${p.locked.length} once unlocked` : ''}.</p>
+      <div class="up-cols">
+        ${col('Extract / sell', 'Not worth keeping, least valuable first. Never: worn items, items in a preset, upgrades, items worth enhancing.', p.remove, (x) => x.why)}
+        ${col('Locked', 'The same, but locked in the game: unlock them first (or keep them).', p.locked, (x) => x.why)}
+        ${col('Park on a hero', gs.skip && gs.skip.length ? "Good spare items put on heroes you don't gear: worn items take no space." : `Add heroes to "Heroes you don't gear" and good spare items can be parked on them (worn items take no space).`, p.park, (x) => `→ ${nameOf(x.hero)} (${x.slot})`)}
+      </div>
+      <p class="hint">The app never touches the game: do it there (the inventory's filters by slot and set help find them). Check anything special first.</p>`;
+  }
+  $('#cl-out').addEventListener('click', (e) => openItem(e.target.closest('[data-item]')));
+
   // ---- the heroes you are gearing (DEVLOG #86) ---------------------------------------------------------------------
   function renderPriority() {
     $('#pr-list').innerHTML = gs.priority.length

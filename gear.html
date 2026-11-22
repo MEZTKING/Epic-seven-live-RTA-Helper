@@ -101,6 +101,10 @@
       <div id="sk-list" class="pr-list"></div>
     </div>
     <div class="card wide" style="margin-top:12px">
+      <h3>Free up inventory space <small class="hint">(the game counts spare items only: worn items take no space)</small></h3>
+      <div id="cl-out"></div>
+    </div>
+    <div class="card wide" style="margin-top:12px">
       <details id="up-box" open><summary><b>Item upgrades</b> <small class="hint">what is worth enhancing, reforging or modifying next (click one to see it and simulate)</small></summary>
         <div id="up-out" class="up-cols"></div>
       </details>
@@ -109,6 +113,28 @@
       <h3>Gear presets <span class="src notes">my presets</span> <small class="hint">(6 items you choose per hero, e.g. "RTA speed"; saved on this PC)</small></h3>
       <div class="btn-row"><input id="ps-hero" list="gs-allheroes" placeholder="Hero" autocomplete="off" /></div>
       <div id="ps-out"></div>
+    </div>
+    <div class="card wide" style="margin-top:12px">
+      <h3>Auto-gear a hero <span class="src fribbels">your items</span> <small class="hint">(the best six items for a goal, with the minimums and sets you want)</small></h3>
+      <div class="ag-form">
+        <label>Hero <input id="ag-hero" list="gs-allheroes" placeholder="Hero" autocomplete="off" /></label>
+        <label>Goal <select id="ag-goal"></select></label>
+        <label>4-piece set <select id="ag-set4"></select></label>
+        <label>2-piece set <select id="ag-set2"></select></label>
+        <label>Speed at least <input id="ag-spd" type="number" min="0" placeholder="–" /></label>
+        <label>Crit chance at least <input id="ag-chc" type="number" min="0" max="100" placeholder="–" /></label>
+        <label>Crit damage at least <input id="ag-chd" type="number" min="0" placeholder="–" /></label>
+        <label>Effectiveness at least <input id="ag-eff" type="number" min="0" placeholder="–" /></label>
+        <label>Effect resistance at least <input id="ag-efr" type="number" min="0" placeholder="–" /></label>
+        <label>Health at least <input id="ag-hp" type="number" min="0" placeholder="–" /></label>
+        <label>Use items <select id="ag-pool">
+          <option value="free">not worn, and this hero's own</option>
+          <option value="spare">+ worn by heroes you don't gear / aren't gearing</option>
+          <option value="all">+ worn by any hero</option>
+        </select></label>
+      </div>
+      <div class="btn-row"><button id="ag-go" class="btn primary">Find the best gear</button></div>
+      <div id="ag-out"></div>
     </div>
     <div class="card wide" style="margin-top:12px">
       <details id="gs-designs-box"><summary>Gear designs seen <span id="gs-designs-count" class="hint"></span></summary>
@@ -174,6 +200,8 @@
   <script src="js/gearsim.js"></script>
   <script src="js/geararts.js"></script>
   <script src="js/gearbuild.js"></script>
+  <script src="js/gearauto.js"></script>
+  <script src="js/gearclean.js"></script>
   <script src="js/gearstore.js"></script>
   <script src="js/gearmatch.js"></script>
   <script src="js/vision-speed.js"></script>

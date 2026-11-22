@@ -7,6 +7,52 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-22 · #92 + #93 · Gear: auto-gear a hero; free up inventory space · this commit (previous: `56f778c`)
+
+**Asked for:** "build the auto-gear a hero feature next and push anytime"; "I need to improve the gear management side
+as well even further if possible … so I can reduce my inventory storage".
+
+**Findings**
+- The game's inventory count (1 199 / 1 200 on the owner's screenshot) is the SPARE items only: the owner's gear.txt
+  has 2 773 items of which 1 563 are worn and 1 210 spare. Worn items take no space, so good items can be "parked"
+  on heroes you don't use.
+- The owner's gear.txt marks locked items with `l: true` (539 of the spare items); the import read only `locked`, so
+  nothing was known as locked.
+- The optimizer on the owner's file (Node): its stat sum equals `E7GearBuild.heroStats` on 200 random builds; 0.15-0.85 s
+  per search (≤ 1.8 million combinations). Eligos, damage with Speed set, speed 230+ and 100 % crit: speed 239 → 275,
+  crit 87 → 100 %.
+
+**Changed**
+- New pure `js/gearauto.js` (#92): `optimize(base, items, { goal, min, set4, set2, top })` (goals damage / speed / tank
+  / bruiser), described in the file.
+- New pure `js/gearclean.js` (#93): `dominates`, `plan` (remove: extract / sell verdicts + duplicates beaten on every
+  number; locked apart; parking on the empty slots of heroes you don't gear; never worn, preset, upgrade or enhance
+  items).
+- `gear.html` + `js/gear-app.js` + `css/styles.css`: card "Auto-gear a hero" (hero, goal, 4- and 2-piece set, minimum
+  speed / crit chance / crit damage / effectiveness / resistance / health, which items: free + the hero's own, + worn by
+  heroes you don't gear or aren't gearing, + any hero): the five best builds, the best on the game-like board, compared
+  with now, items worn by other heroes named, "Save as a preset", "Show the moves". Card "Free up inventory space":
+  spare now / after, three lists (extract / sell, locked, park on a hero), a click opens the item.
+- `js/gearsort.js` `slimInventory`: `locked` also from the auto importer's `l`.
+
+**Tested**
+- `npm test` 216 (new `tests/gearauto.test.js`: the stat sum equals `heroStats`; goals, minimums, sets, the closest
+  builds when a minimum can't be met; duplicates, locked apart, worn / preset items never listed, parking; `l` read).
+- New `tests/e2e/gear-auto.e2e.js` (`gear-codes.txt`): Eligos from free items + his own = what he wears (already the
+  best); from any hero 100 % crit, attack 3 591 → 4 146, 5 items from other heroes named; preset saved with 6 items, 5
+  moves; clean-up 24 → 15 spare.
+- On the owner's whole file (by eye, screenshots not kept): 1 210 spare → 728 after the plan (482 to extract), 126 more
+  once unlocked; the auto-gear card as above, 531 441 combinations in 360 ms.
+- Browser suite 53/53 clean; other differences: none of ours (record-site lookups 20 → 21, one more hero skin in the
+  online picture list). Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once clean.
+- **Not tested:** on the owner's PC.
+
+**Open**
+- Artifacts and exclusive equipment are not in the stats (gear.txt has no artifact stats per hero).
+- Parking needs heroes in "Heroes you don't gear" and knows only their empty slots.
+
+---
+
 ## 2026-11-22 · #91 · Faster scanning (several text readers at once), and the item card on the game says who wears it · this commit (previous: `a69cdab`; committed with #89 and #90)
 
 **Asked for:** "can we increase the speed of scanning even more", "or is there another way to obtain this

@@ -125,7 +125,7 @@
           name: it.name && it.name !== 'Unknown' ? it.name : '',
           // the game's design code (auto importer, DEVLOG #88): items with one code share one picture
           design: it.code ? String(it.code) : undefined,
-          locked: !!it.locked,
+          locked: !!(it.locked || it.l === true), // the auto importer's own field is `l` (DEVLOG #93)
           main: { type: it.main.type, value: num(it.main.value) },
           subs: (it.substats || []).filter((s) => s && s.type).map((s) => ({ type: s.type, value: num(s.value), rolls: Number(s.rolls) || undefined })),
           equipped: eq || byNameCode || null,
