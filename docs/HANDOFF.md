@@ -653,6 +653,12 @@ countdown; places in `E7GWMap.STANDBY`) → `guild:standby { minutes, beginsAt, 
 `js/guild-watch.js` applies the newer of the stored standby reading and the stored overview reading when a page opens.
 
 
+**Guild War attack ideas** (DEVLOG #104): `js/gwsuggest.js` (`E7GWSuggest`, pure): `suggestBoth(defenses, pool, { model, know })`
+-> one team of 3 per defense team from MY heroes (4+ items in gear.txt: `rta-helper-v2` fribbels builds or the Gear
+page's import), no hero twice; scored by the top-player model (`E7TopModel.Model` from IndexedDB `e7-records` kv `model`,
+when fitted on this PC: hero, pairs, hero-vs-hero) and E7DaT knowledge (`notesFor`), reasons labelled with their source.
+`GuildApp.attackIdeas(t)` / `ideaLine(t, i)`: "Try:" on each team card of the War tab and the pop-out.
+
 **Top-player model** (DEVLOG #45; port of E7DaT's statistical core, see `docs/E7DAT_NOTES.md`):
 - `js/topmodel.js` (`E7TopModel`, pure): `build(rows, opts)` → stats `{ meta (games, calib, backtest…), heroes, syn,
   ctr, rule, drafts }` or null below 400 usable games; `engine(stats)` → `Engine` (`model`, `policy`, `rows(mine,

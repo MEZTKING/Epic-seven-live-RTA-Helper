@@ -1,4 +1,4 @@
-// Browser end-to-end test (Playwright). Run all with: bash tests/e2e/run-all.sh  (needs internet: text reader + its
+// Browser end-to-end test (Playwright). (+ DEVLOG #104: attack ideas from my heroes on the War tab) Run all with: bash tests/e2e/run-all.sh  (needs internet: text reader + its
 // Japanese data and hero portraits from the CDN)
 // DEVLOG #58, the owner's screens of 2026-11-16 (names replaced, tools/dev/redact-gw-screens.py):
 //  1) the Offense Team screen: the defender's name, their two teams and mine -> their defense is saved as it stands,
@@ -24,7 +24,14 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   gp.on('pageerror', (e) => errs.push('guild: ' + e.message));
   gp.on('dialog', (d) => d.accept());
   await gp.goto(BASE + 'guild.html');
-  await gp.evaluate(() => localStorage.clear());
+  await gp.evaluate(() => {
+    localStorage.clear();
+    // my heroes (DEVLOG #104): a few with 4+ items in my gear.txt, for the attack ideas
+    const H = Object.fromEntries(window.RTASources.allHeroes.map((h) => [h.name, h.code]));
+    const builds = {};
+    for (const n of ['Empyrean Ilynav', 'Little Queen Charlotte', 'Schniel', 'Moon Bunny Dominiel', 'Ruele of Light', 'Unbound Knight Arowell', 'Arbiter Vildred', 'Eligos', 'Lilias', 'Ml Piera']) if (H[n]) builds[H[n]] = { items: [{}, {}, {}, {}] };
+    localStorage.setItem('rta-helper-v2', JSON.stringify({ fribbels: { builds } }));
+  });
   await gp.reload();
   await gp.click('.tab[data-tab=setup]');
   await gp.fill('#my-name', 'AmberFox');
@@ -84,6 +91,9 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   console.log('  saved as their defense:', JSON.stringify(((await tgt()) || { teams: [] }).teams.map(nm)), '· current player:', await gp.evaluate(() => window.GuildApp.current()));
   console.log('  status:', (await gp.textContent('#conn-status')).trim().slice(0, 90), '· "how did it go" shown before the fight:', !(await gp.evaluate(() => document.getElementById('war-pending').classList.contains('hidden'))));
 
+  // DEVLOG #104: what to attack each defense team with, from my heroes (no top-player model here: hero knowledge alone)
+  console.log('  attack ideas:', JSON.stringify(await gp.evaluate(() => [...document.querySelectorAll('.gw-try')].map((x) => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 150)))));
+  console.log('  no hero in both:', await gp.evaluate(() => { const t = window.GuildApp.state.targets.find((x) => x.player === 'りょうちゃん'); const r = window.GuildApp.attackIdeas(t); return !!(r && r.teams[0] && r.teams[1] && !r.teams[0].team.some((c) => r.teams[1].team.includes(c))); }));
   // 1b) DEVLOG #102: read once per enemy: my own side changing (heroes swapped: here blanked) reads nothing again;
   // "Read again" on the Guild War page does
   const again = await lv.evaluate(async (url) => {

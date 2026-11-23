@@ -289,6 +289,7 @@
               ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
               ${!st.cleared && counters.length ? `<div class="hint">Beaten before by: ${counters.map((c) => `${c.attack.map(nameOf).map(esc).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', similar'})`).join(' · ')}</div>` : ''}
               ${!st.cleared ? mechLine(tm.heroes) : ''}
+              ${!st.cleared ? ideaLine(t, i) : ''}
               ${!st.cleared && tv.level !== 'grey' ? `<div class="hint verdict-line">${esc(tv.label)}${tv.lines.length ? ' · ' + esc(tv.lines[tv.lines.length - 1]) : ''}</div>` : ''}
               ${!st.cleared ? `<button class="btn" data-attack="${esc(t.id)}" data-team="${i + 1}">Log attack</button>` : ''}
             </div>`;
@@ -990,6 +991,86 @@
     for (const t of th) by.set(t.label, [...(by.get(t.label) || []), nameOf(t.code)]);
     return `<div class="hint">${knowBadge} Watch for: ${[...by.entries()].map(([label, names]) => `${esc(label)} (${names.map(esc).join(', ')})`).join(' · ')}</div>`;
   }
+  // ---- what to attack with, from MY heroes (DEVLOG #104; js/gwsuggest.js) ------------------------------------------
+  // my heroes: those with 4+ items in my gear.txt (the RTA Helper's Fribbels builds, and the Gear page's import)
+  let myHeroesCache = null;
+  function myHeroes() {
+    if (myHeroesCache) return myHeroesCache;
+    const out = new Set();
+    try {
+      const s = JSON.parse(localStorage.getItem('rta-helper-v2') || 'null');
+      for (const [code, b] of Object.entries((s && s.fribbels && s.fribbels.builds) || {})) if ((b.items || []).length >= 4) out.add(code);
+    } catch (_) { /* none */ }
+    try {
+      const g = JSON.parse(localStorage.getItem('rta-gear-v1') || 'null');
+      const n = {};
+      for (const it of (g && g.items) || []) if (it.equipped) n[it.equipped] = (n[it.equipped] || 0) + 1;
+      for (const [code, k] of Object.entries(n)) if (k >= 4) out.add(code);
+    } catch (_) { /* none */ }
+    myHeroesCache = [...out];
+    return myHeroesCache;
+  }
+  addEventListener('storage', (e) => {
+    if (e.key === 'rta-helper-v2' || e.key === 'rta-gear-v1') {
+      myHeroesCache = null;
+      ideaCache.clear();
+    }
+  });
+  // the top-player model, when it was fitted on this PC (Records / Statistics: IndexedDB 'e7-records', kv 'model')
+  let topModelNow = null;
+  (function loadTopModel() {
+    try {
+      if (!window.indexedDB || !window.E7TopModel) return;
+      const rq = indexedDB.open('e7-records');
+      rq.onupgradeneeded = (e) => e.target.transaction.abort(); // not there yet: don't create it here
+      rq.onerror = () => {};
+      rq.onsuccess = () => {
+        const db = rq.result;
+        if (!db.objectStoreNames.contains('kv')) return db.close();
+        const g = db.transaction('kv', 'readonly').objectStore('kv').get('model');
+        g.onsuccess = () => {
+          db.close();
+          try {
+            const v = g.result;
+            if (v && v.stats) {
+              topModelNow = new window.E7TopModel.Model(v.stats);
+              ideaCache.clear();
+              renderWar();
+              if (window.GuildPip && window.GuildPip.render) window.GuildPip.render();
+            }
+          } catch (_) { /* another format: without it */ }
+        };
+        g.onerror = () => db.close();
+      };
+    } catch (_) { /* no model */ }
+  })();
+  const ideaCache = new Map();
+  /** -> { teams: [{ team, reasons } | null, …], basis } for a target's defense teams, or null (nothing to go on). */
+  function attackIdeas(t) {
+    const SG = window.E7GWSuggest;
+    if (!SG || !t) return null;
+    const defs = (t.teams || []).slice(0, rules().teamsPerDefense).map((tm) => (tm.heroes || []).filter(Boolean));
+    const key = `${t.id}|${defs.map((d) => d.join(',')).join('|')}|${topModelNow ? 1 : 0}`;
+    if (ideaCache.has(key)) return ideaCache.get(key);
+    const pool = myHeroes();
+    const r = pool.length >= 3 ? SG.suggestBoth(defs, pool, { model: topModelNow, know: KNOW(), nameOf }) : null;
+    const out = r && r.teams.some(Boolean) ? r : null;
+    ideaCache.set(key, out);
+    return out;
+  }
+  const SRC_BADGE = { 'top players': '<span class="src record">top players</span>', 'E7DaT knowledge': '<span class="src know">E7DaT knowledge</span>' };
+  /** "Try: A + B + C" with its two best reasons, each with its source; '' when there is no idea. */
+  function ideaLine(t, i) {
+    const r = attackIdeas(t);
+    const x = r && r.teams[i];
+    if (!x) return '';
+    const why = x.reasons
+      .filter((y) => y.v > 0)
+      .slice(0, 2)
+      .map((y) => `${SRC_BADGE[y.source] || ''} ${y.hero ? `${esc(nameOf(y.hero))}: ` : ''}${esc(y.text)}`)
+      .join(' · ');
+    return `<div class="hint gw-try"><b>Try:</b> ${x.team.map(chipT).join('')}${why ? `<div>${why}</div>` : ''}</div>`;
+  }
   /** In the attack window: what the defense shuts down on the heroes typed in, and what they shut down on it. */
   function showAttackMech() {
     const el = $('#atk-mech');
@@ -1449,6 +1530,8 @@
   }
   window.GuildApp = {
     openTargetWith: (seen) => openTarget(null, seen),
+    attackIdeas,
+    ideaLine,
     saveFortress,
     markBeaten,
     warEndsFromGame,

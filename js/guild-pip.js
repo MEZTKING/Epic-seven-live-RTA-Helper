@@ -116,6 +116,7 @@
           ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
           ${!st.cleared && tv.lines.length ? `<div class="hint">${tv.lines.map(esc).join('<br>')}</div>` : ''}
           ${!st.cleared && (tv.others || []).length ? `<div class="hint">Also owned by: ${esc(tv.others.join(', '))}</div>` : ''}
+          ${!st.cleared && A.ideaLine ? A.ideaLine(t, i) : ''}
           ${!st.cleared && thisWar ? `<div class="btn-row"><button class="btn win" data-act="win" data-team="${i + 1}" data-heroes="${esc(ctr.join(','))}" title="${ctr.length ? 'Logs the suggested counter as your team' : ''}">Won</button><button class="btn loss" data-act="loss" data-team="${i + 1}" data-heroes="${esc(ctr.join(','))}">Lost</button></div>` : ''}
         </div>`;
       })

@@ -7,6 +7,40 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #104 · Guild War: what to attack a defense with, from your own heroes · this commit (previous: `9ff68fa`)
+
+**Asked for:** a screenshot of the Offense Team screen with the pop-out saying "No information · Nobody in the guild has
+fought this team": "I should get suggestions on what to use against this defence".
+
+**Findings**
+- The only suggestion was the guild's own record (who beat this team before); a new enemy's teams have none.
+- Two sources the app already has: the top-player model (js/topmodel.js; fitted on this PC from World Arena games when
+  the owner collected them on the Records page; hero strength, pairs, hero vs hero) and E7DaT's hero knowledge (who
+  shuts down whom), bundled. World Arena is 5 v 5 with bans, Guild War 3 v 3: a guide, labelled as such.
+- On the owner's file (knowledge alone, Node): for the two defense teams of the screenshot, 59 of the owner's geared
+  heroes have something on record against the first; the ideas came with reasons such as "cuts defense penetration
+  (vs Genesis Ras) · top players pick it 16× more here".
+
+**Changed**
+- New pure `js/gwsuggest.js`: `heroScore`, `suggest` (the best 3 of my heroes for a defense team: matchups first, pairs,
+  the hero's own strength; different teams, not the same two heroes again), `suggestBoth` (one per defense team, no
+  hero twice, as the game wants).
+- `js/guild-app.js`: my heroes (4+ items in gear.txt), the top-player model read from the Records page's store when it
+  exists, `attackIdeas` / `ideaLine`: "Try: A + B + C" with the two best reasons (source on each) on every open team of
+  the War tab; `js/guild-pip.js`: the same in the pop-out window. `guild.html` loads js/topmodel.js and js/gwsuggest.js.
+
+**Tested**
+- `npm test` 221 (new `tests/gwsuggest.test.js`: matchups decide, a hero weak against the defense left out, pairs
+  named, different teams, both teams without a hero twice, knowledge alone, nothing to go on → nothing).
+- `tests/e2e/gw-offense.e2e.js`: with ten heroes of mine and the Offense Team picture's defense: a "Try:" line on both
+  teams (from E7DaT knowledge, as no model is fitted in the test), no hero in both.
+- Browser suite 54/54 clean; other differences: the new lines (record-site lookups 21 → 20). Desktop (packaged
+  Linux build): watcher, overlay-test, popout, update-check, picker-once, gearfile clean.
+- **Not tested:** with the owner's fitted top-player model (only on the owner's PC); how well these ideas actually win in
+  Guild War (the guild's own records, logged as before, will show it).
+
+---
+
 ## 2026-11-23 · #103 · Guild War: one player's name read differently in Chinese / Japanese / Korean script is one player · this commit (previous: `6165518`; committed with #100-#102)
 
 **Asked for:** a screenshot of the Guild War page: "is this right" (the war shown, the names, "Seen in game").
