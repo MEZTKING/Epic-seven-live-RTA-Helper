@@ -7,17 +7,35 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #98 · Real guild names taken out of the notes · this commit (previous: `eaacb47`)
+
+**Asked for:** nothing; found after #97: its entry and two code comments named the owner's guild and the enemy guild, and
+an old entry (#40) and a comment in `js/gwmap.js` named the owner's guild and another real guild. The repository is
+public and its rule is that real player and guild names stay out of it.
+
+**Changed**
+- `DEVLOG.md` (#97, #40), `js/guild-app.js`, `js/vision/readers/guild-overview.js`, `js/gwmap.js`: the names replaced by
+  neutral words or made-up names. Comments and notes only; nothing the app does changed.
+
+**Tested**
+- A search of the repository (pages, scripts, tests, docs) finds none of those names any more. No test run (comments and
+  notes only).
+- **Open:** earlier commits in the history still contain them; removing them from the history needs a rewrite of the
+  branch (a force push), which was not done.
+
+---
+
 ## 2026-11-23 · #97 · Guild War: an enemy guild named in Chinese / Japanese / Korean script starts the war by itself · this commit (previous: `a3c4450`)
 
 **Asked for:** "more start of guild war pictures if you need": the VS screen and the overview of a new war against a
-guild named "夢都" on the Asia server.
+guild named in Chinese script (two characters) on the Asia server.
 
 **Findings**
 - On the owner's overview everything was read (fortresses, servers, "War Ends in 19h") except the enemy guild's name:
   the guild names were read in Latin letters only, so no war was started.
-- Read with the server's script (chi_tra for Asia) the text reader gives "夢 都 “@Asia": the characters with spaces
+- Read with the server's script (chi_tra for Asia) the text reader gives the characters with spaces between them and "“@Asia" after them: the characters with spaces
   between them, and the server tag's globe icon can come out as one more character ("山風 多 Asia" on the test copy).
-- The Guild War page ignored enemy guild names shorter than 3 characters (against misreads); "夢都" has 2.
+- The Guild War page ignored enemy guild names shorter than 3 characters (against misreads); that name has 2.
 
 **Changed**
 - `js/vision/readers/guild-overview.js`: a guild name not read in Latin letters, on a server with its own script
@@ -30,7 +48,8 @@ guild named "夢都" on the Asia server.
   `steam-gw-overview-cjk-wide.jpg`, `steam-gw-versus-cjk-wide.jpg`. `tests/e2e/gw-war-names.e2e.js` step 5: "TestHome
   vs 山風 (asia) · ends in 19 hours", the war against 山風 started (the one before closed); the VS screen starts
   nothing.
-- On the owner's original picture (not kept): "Legacies vs 夢都", server asia, 19 hours.
+- On the owner's original picture (not kept): both guild names read exactly (the enemy's two Chinese characters), server
+  asia, 19 hours.
 - Browser suite 54/54 clean; other differences: none of ours (record-site lookups 20 → 21, the online wide-portrait
   list 458 → 456). Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once, gearfile
   clean.
@@ -2942,7 +2961,7 @@ and guild war".
   - The browser tests didn't catch it because Chromium does support `prompt()`.
 - **Guild names on the overview:** both sit in the left panel (ours by the green bar, the enemy's by the red one),
   pinned left, at the same place on both sides' overviews, wide and 16:9.
-  - OCR on the owner's three overviews: "Legacies … Global" and "OldMemory … Global" every time; only the server tag
+  - OCR on the owner's three overviews: "<our guild> … Global" and "<their guild> … Global" every time; only the server tag
     and a symbol need dropping.
 - **Bug sweep:** an independent review of the code changed since #35 found 6 issues; all confirmed by reading the code
   or reproducing them, all fixed:

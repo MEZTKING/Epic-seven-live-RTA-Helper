@@ -29,7 +29,7 @@
  *   cleanName(ocrText)              -> best name-like word ('' if none)
  *   matchName(raw, known)           -> a known name within a small edit distance, else null
  *   pagerIndex(rgba, W, H, rect)    -> { index: 0|1|2, contrast } (rect in pixels: the indicator bar)
- *   cleanGuild(ocrText)             -> a guild name from the overview's name line ("OldMemory “Global" -> "OldMemory")
+ *   cleanGuild(ocrText)             -> a guild name from the overview's name line ("SomeGuild “Global" -> "SomeGuild")
  *   DEFAULT_FORTS                   -> names used until the overview has been seen
  *   barKind(rgba, W, H, rect)       -> { kind: 'map' (+ index) | 'overview' (+ side) | null }: page indicator or side switch
  *   serverOf(text) / langFor(server) / worldFor(server)  server tag -> text-reader language / record-site code

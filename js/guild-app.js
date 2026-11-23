@@ -349,7 +349,7 @@
     return warBusy;
   }
   async function warFromGameNow(enemyGuild) {
-    // 3+ letters; a name in Chinese / Japanese / Korean script can have 2 (DEVLOG #97: "夢都")
+    // 3+ letters; a name in Chinese / Japanese / Korean script can have 2 (DEVLOG #97: a two-character Chinese guild name)
     const g = String(enemyGuild || '').trim();
     if (!g || [...g].length < (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(g) ? 2 : 3)) return 'same';
     if (!backend || !loaded) {

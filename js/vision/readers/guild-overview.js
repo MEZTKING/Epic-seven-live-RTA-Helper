@@ -144,7 +144,7 @@
         const a = await read1(64, 'grayscale(1) contrast(1.6)');
         const b = await read1(96, 'grayscale(1) contrast(2.2)');
         if (a.length >= 3 && (a === b || G.matchName(a, [b]))) return a;
-        // a name in Chinese / Japanese / Korean script (DEVLOG #97: "夢都" on an Asia server was not read, so no war was
+        // a name in Chinese / Japanese / Korean script (DEVLOG #97: a two-character Chinese name on an Asia server was not read, so no war was
         // started): read again with that server's script, twice; the same name both times, at least 2 characters
         const lang = G.langFor(servers[key] || '');
         if (!lang) return '';
@@ -169,7 +169,7 @@
           const x = c.getContext('2d');
           x.filter = filter;
           x.drawImage(norm, box.x, box.y, nameW, box.h, 0, 0, c.width, c.height);
-          // the reader puts spaces between the characters ("夢 都"); cleanCjk joins them and drops end symbols; Latin
+          // the reader puts spaces between the characters ("山 風"); cleanCjk joins them and drops end symbols; Latin
           // letters left of a tag are not part of such a name
           return G.cleanCjk(String((await ctx.ocr(c, { line: true, lang })) || '').replace(/[A-Za-z]+/g, ' '));
         };
