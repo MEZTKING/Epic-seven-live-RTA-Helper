@@ -19,6 +19,7 @@
     switch (e.type) {
       case 'gear:added': return `Gear: added ${d.desc} → ${String(d.verdict || '').toUpperCase()}`;
       case 'gear:dup': return `Gear: already have ${d.desc}`;
+      case 'gear:craft-judged': return `Gear: crafted items judged · ${Object.entries(d.counts || {}).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(', ')}`;
       case 'gear:file-imported': return `Gear: ${d.name} re-imported by itself (${d.items} items)`;
       case 'gear:item': return null; // shown as gear:added / gear:dup
       case 'gear:gone': return null;

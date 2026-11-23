@@ -274,4 +274,25 @@
       );
   });
   bus.on('gear:hero-gone', () => window.E7Overlay && window.E7Overlay.clear('gear-hero'));
+
+  // the Steel Workshop's crafted items (DEVLOG #96): each judged (not stored: most are extracted at once), a mark on
+  // the game under each: ENHANCE (worth trying) / EXTRACT, with the game's score
+  bus.on('gear:craft', ({ tiles }) => {
+    const gs = GS.load();
+    const all = GS.allItems(gs);
+    const items = (tiles || []).map((t, i) => ({ ...t.item, id: `craft-${i}`, subs: t.item.substats }));
+    const ev = S.evaluateAll([...all, ...items], HEROES, gs.overrides, gs.rules, { only: gs.priority, skip: gs.skip });
+    const byId = new Map(ev.results.map((r) => [r.item.id, r]));
+    const counts = {};
+    const labels = (tiles || []).map((t, i) => {
+      const r = byId.get(`craft-${i}`);
+      const keep = r && (r.verdict === 'enhance' || r.verdict === 'keep' || r.verdict === 'reforge');
+      const v = keep ? (r.verdict === 'enhance' ? 'ENHANCE' : 'KEEP') : 'EXTRACT';
+      counts[v] = (counts[v] || 0) + 1;
+      return { ...t.rect, kind: 'label', side: 'below', level: keep ? (r.verdict === 'enhance' ? 'yellow' : 'green') : 'red', title: `${v}${t.item.gameScore ? ' · ' + t.item.gameScore : ''}` };
+    });
+    bus.publish('gear:craft-judged', { counts, reasons: (tiles || []).map((t, i) => (byId.get(`craft-${i}`) || {}).reason || '') });
+    if (window.E7Overlay) window.E7Overlay.post('gear-craft', labels);
+  });
+  bus.on('gear:craft-gone', () => window.E7Overlay && window.E7Overlay.clear('gear-craft'));
 })();

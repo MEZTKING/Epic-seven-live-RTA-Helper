@@ -7,6 +7,49 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #96 · Gear: the Steel Workshop's crafted items judged on the game (enhance or extract) · this commit (previous: `570335d`)
+
+**Asked for:** four pictures of the Steel Workshop ("here's the steel workshop, where you craft gears"): the workshop, the
+"Craft 10" question, the "Success" screen with 10 new weapons and "Arrange" (tick items to sell / extract). Taken as:
+read the crafted items and say which to keep.
+
+**Findings (the owner's pictures, 2000 × 1070)**
+- Ten tiles (4 + 4 + 2): picture 125 px at x 242 / 630 / 1017 / 1405, rows y 312 / 485 / 657 (the last row the middle
+  two); main stat (white) + the game's score (yellow) on top, up to four substats (grey) in two columns × two rows.
+- The inventory's stat icons (js/geargrid.js) recognise these grey icons: attack, health, speed 0.7-0.85, crit chance /
+  damage, resistance 0.5-0.75, effectiveness (crosshair) only ~0.38 but always first; an empty place ≤ 0.2.
+- Numbers: "%" is often read as "9" ("4%" → "49"); a fresh (+0) item's values can only be 2-9 % / 1-5 speed / 140-210
+  health / 30-50 attack / 25-40 defense, which tells them apart. The white padding around a number became black in the
+  first try (white counts as text) and nothing was read.
+- Rarity is the picture's background: Epic (99, 60, 51), Heroic (116, 59, 84), Rare (65, 82, 97); also dimmed.
+- The set badges are smaller than the inventory's: against the inventory's badges Hit 0.79-0.82 but the Critical badges
+  (no inventory sample) were taken for Hit. Badges of this screen itself (Speed, Hit, Critical: the craft's "Obtainable
+  Sets") give the right set on all 10 (0.76-1.00, the next ≤ 0.80).
+- "Arrange" dims the ticked items: some of their values can't be read.
+
+**Changed**
+- New reader `js/vision/readers/craft-result.js` (vision.html, live.html): the "Success" title (text), then all tiles
+  (in parallel): main stat, substats, the game's score, level, rarity, set; "Arrange": the reading just before is used
+  when what is readable agrees. Publishes `gear:craft` / `gear:craft-gone`.
+- `js/gear-setseed.js`: `E7GearSetSeedCraft` (this screen's Speed, Hit, Critical badges).
+- `js/vision/consumers/gear.js`: each crafted item judged with your gear and heroes (not stored: most are extracted at
+  once), a mark under it on the game: ENHANCE (worth trying) / KEEP / EXTRACT with the game's score (layer
+  `gear-craft`); the watcher log: "crafted items judged · n extract, n enhance".
+
+**Tested**
+- New `tests/e2e/craft.e2e.js`: the Success screen 10/10 exactly (rarity, set, score, every substat; all level 85,
+  Attack 100); marks: all EXTRACT (weak at +0: no hero they'd improve, at most 3 speed); the inventory readers stay
+  quiet; Arrange 10/10; the workshop and the inventory are not taken for it, and the marks leave.
+- Browser suite 54/54 clean, nothing else changed. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC; other crafts (armor / accessories: their main stat decides the slot, necklace /
+  ring guessed from it), other sets (unknown until their badge is added), a craft of 1 (another layout?).
+
+**Open**
+- Sets other than Speed / Hit / Critical show as unknown on this screen; a picture of other crafts would add them.
+
+---
+
 ## 2026-11-23 · #95 · Gear: gear the whole gearing list at once (targets per hero, most important first, no item twice) · this commit (previous: `8b3f907`)
 
 **Asked for:** "build 2, gear the whole gearing list" (from the list offered after #94: "auto-gear your gearing list in
