@@ -144,7 +144,7 @@
         const a = await read1(64, 'grayscale(1) contrast(1.6)');
         const b = await read1(96, 'grayscale(1) contrast(2.2)');
         if (a.length >= 3 && (a === b || G.matchName(a, [b]))) return a;
-        // a name in Chinese / Japanese / Korean script (DEVLOG #97: "山風" on an Asia server was not read, so no war was
+        // a name in Chinese / Japanese / Korean script (DEVLOG #97: a two-character Chinese name on an Asia server was not read, so no war was
         // started): read again with that server's script, twice; the same name both times, at least 2 characters
         const lang = G.langFor(servers[key] || '');
         if (!lang) return '';
