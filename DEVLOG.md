@@ -7,7 +7,27 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
-## 2026-11-23 · #98 · Real guild names taken out of the notes · this commit (previous: `eaacb47`)
+## 2026-11-23 · #99 · The branch history rewritten without the real guild names · this commit (previous: `859f77a`)
+
+**Asked for:** "do that and continue" (after #98: the names were still in earlier commits; removing them needs a rewrite
+of the branch's history and a force push).
+
+**Changed**
+- The whole history of this branch (97 commits) rewritten with git-filter-repo (`--replace-text`): the owner's guild
+  name, another real guild's and the enemy guild's from #97 replaced by "TestHome", "SomeGuild" and "山風" in every
+  file of every commit (commit messages had none). Every commit from DEVLOG #40 on has a new id.
+- The commit ids quoted in this file ("previous: …") changed to the new ones (old → new from filter-repo's map).
+- Pushed with a force push that only replaces the remote branch if it is still the one seen before (lease).
+
+**Tested**
+- `git log -S` finds none of the three names in any commit; the files are the same as before apart from those names
+  and these ids. A backup bundle of the old history was kept outside the repository during the rewrite.
+- **Open:** GitHub can keep unreferenced old commits reachable by their id for a while (and in any copy made before);
+  only GitHub support can purge those.
+
+---
+
+## 2026-11-23 · #98 · Real guild names taken out of the notes · this commit (previous: `19ded1c`)
 
 **Asked for:** nothing; found after #97: its entry and two code comments named the owner's guild and the enemy guild, and
 an old entry (#40) and a comment in `js/gwmap.js` named the owner's guild and another real guild. The repository is
@@ -25,7 +45,7 @@ public and its rule is that real player and guild names stay out of it.
 
 ---
 
-## 2026-11-23 · #97 · Guild War: an enemy guild named in Chinese / Japanese / Korean script starts the war by itself · this commit (previous: `a3c4450`)
+## 2026-11-23 · #97 · Guild War: an enemy guild named in Chinese / Japanese / Korean script starts the war by itself · this commit (previous: `8f93626`)
 
 **Asked for:** "more start of guild war pictures if you need": the VS screen and the overview of a new war against a
 guild named in Chinese script (two characters) on the Asia server.
@@ -57,7 +77,7 @@ guild named in Chinese script (two characters) on the Asia server.
 
 ---
 
-## 2026-11-23 · #96 · Gear: the Steel Workshop's crafted items judged on the game (enhance or extract) · this commit (previous: `570335d`)
+## 2026-11-23 · #96 · Gear: the Steel Workshop's crafted items judged on the game (enhance or extract) · this commit (previous: `4e5ffa4`)
 
 **Asked for:** four pictures of the Steel Workshop ("here's the steel workshop, where you craft gears"): the workshop, the
 "Craft 10" question, the "Success" screen with 10 new weapons and "Arrange" (tick items to sell / extract). Taken as:
@@ -100,7 +120,7 @@ read the crafted items and say which to keep.
 
 ---
 
-## 2026-11-23 · #95 · Gear: gear the whole gearing list at once (targets per hero, most important first, no item twice) · this commit (previous: `8b3f907`)
+## 2026-11-23 · #95 · Gear: gear the whole gearing list at once (targets per hero, most important first, no item twice) · this commit (previous: `464d38a`)
 
 **Asked for:** "build 2, gear the whole gearing list" (from the list offered after #94: "auto-gear your gearing list in
 order of importance, without two heroes taking the same item").
@@ -141,7 +161,7 @@ order of importance, without two heroes taking the same item").
 
 ---
 
-## 2026-11-22 · #94 · Your gear file re-imported by itself (gear.txt or the Fribbels optimizer's autosave) · this commit (previous: `dacd79e`)
+## 2026-11-22 · #94 · Your gear file re-imported by itself (gear.txt or the Fribbels optimizer's autosave) · this commit (previous: `4c4d1bc`)
 
 **Asked for:** "yes build the auto re-import" (offered in #91: the app watches your gear file and re-imports it whenever
 it changes).
@@ -178,7 +198,7 @@ it changes).
 
 ---
 
-## 2026-11-22 · #92 + #93 · Gear: auto-gear a hero; free up inventory space · this commit (previous: `56f778c`)
+## 2026-11-22 · #92 + #93 · Gear: auto-gear a hero; free up inventory space · this commit (previous: `c92f346`)
 
 **Asked for:** "build the auto-gear a hero feature next and push anytime"; "I need to improve the gear management side
 as well even further if possible … so I can reduce my inventory storage".
@@ -224,7 +244,7 @@ as well even further if possible … so I can reduce my inventory storage".
 
 ---
 
-## 2026-11-22 · #91 · Faster scanning (several text readers at once), and the item card on the game says who wears it · this commit (previous: `a69cdab`; committed with #89 and #90)
+## 2026-11-22 · #91 · Faster scanning (several text readers at once), and the item card on the game says who wears it · this commit (previous: `fcc60d5`; committed with #89 and #90)
 
 **Asked for:** "can we increase the speed of scanning even more", "or is there another way to obtain this
 information", and (a screenshot of the inventory with the card "KEEP · score 95 · Upgrade for Lots (+61.6), Fighter
@@ -256,7 +276,7 @@ Maya (+60.1)") "what is that middle keep xyz always suggesting or doing".
 
 ---
 
-## 2026-11-22 · #90 · Gear: honest Keep / Reforge / Extract counts, heroes you don't gear, each hero's gear laid out like the game · this commit (previous: `a69cdab`; committed with #89 and #91)
+## 2026-11-22 · #90 · Gear: honest Keep / Reforge / Extract counts, heroes you don't gear, each hero's gear laid out like the game · this commit (previous: `fcc60d5`; committed with #89 and #91)
 
 **Asked for:** a screenshot of the summary (Keep 2253, Enhance 730, Reforge 0, Extract 90, Sell 0): "it shows nothing
 to sell"; "how do I prioritise heroes, for example I don't care about Sigret"; "also display the armours on each hero
@@ -292,7 +312,7 @@ just like the game in app".
 
 ---
 
-## 2026-11-22 · #89 · Guild War card on the game's title screen · this commit (previous: `a69cdab`; committed with #90 and #91)
+## 2026-11-22 · #89 · Guild War card on the game's title screen · this commit (previous: `fcc60d5`; committed with #90 and #91)
 
 **Asked for:** a screenshot of the game's title screen with the overlay card "0 defenders: already in your guild's
 war plan": "there's no guild war here".
@@ -320,7 +340,7 @@ war plan": "there's no guild war here".
 
 ---
 
-## 2026-11-22 · #88 · Gear: your gear.txt matches the screen (sets on heroes, set badges learned, pictures by design code) · this commit (previous: `93e8496`)
+## 2026-11-22 · #88 · Gear: your gear.txt matches the screen (sets on heroes, set badges learned, pictures by design code) · this commit (previous: `1a14596`)
 
 **Asked for:** "you should have a way to use the fribbels data to match the gear icon, set on heroes and more". The
 owner then sent their gear.txt (not kept in the repository).
@@ -375,7 +395,7 @@ owner then sent their gear.txt (not kept in the repository).
 
 ---
 
-## 2026-11-20 · #87 · Gear overlay missing (storage full), "War Ends in 5h" read as 8h, the game-window picker that kept opening · this commit (previous: `fd90db4`)
+## 2026-11-20 · #87 · Gear overlay missing (storage full), "War Ends in 5h" read as 8h, the game-window picker that kept opening · this commit (previous: `bce7abd`)
 
 **Asked for:** "it seems the overlay doesn't really show at all anymore for the gears", and two pictures of the start
 of a war (the overview with "War Ends in 5h" and the VS screen). Then: "the which window is the game keeps showing up
@@ -436,7 +456,7 @@ Fribbels data to match gear pictures and sets on heroes.
 
 ---
 
-## 2026-11-20 · #86 · Gear: the item window on the hero screen read (the exact item on the hero), and the heroes you are gearing · this commit (previous: `6772ef8`)
+## 2026-11-20 · #86 · Gear: the item window on the hero screen read (the exact item on the hero), and the heroes you are gearing · this commit (previous: `90921e3`)
 
 **Asked for:** the item windows from the hero screen, sent again as files (Rhianna and Luciella's necklace and weapon,
 her artifact); "make it so that you can prioritise who you want to gear so it doesn't show recommendations for every
@@ -478,7 +498,7 @@ single unit in the game every time".
 
 ---
 
-## 2026-11-20 · #85 · Gear designs: one design = one name · this commit (previous: `f0fdabb`)
+## 2026-11-20 · #85 · Gear designs: one design = one name · this commit (previous: `963637e`)
 
 **Asked for:** "The equipment design is always with the same name."
 
@@ -505,7 +525,7 @@ single unit in the game every time".
 
 ---
 
-## 2026-11-19 · #84 · Gear: the hero equipment screen read (who wears what, the hero's real stats) · this commit (previous: `65210dc`)
+## 2026-11-19 · #84 · Gear: the hero equipment screen read (who wears what, the hero's real stats) · this commit (previous: `d7ae23f`)
 
 **Asked for:** "add the hero equipment screen reader", with pictures of three heroes' equipment screens (Arbiter
 Vildred, Eligos, Rhianna and Luciella), the filter menu over it, and three item windows opened from it (an artifact,
@@ -555,7 +575,7 @@ a necklace, a weapon: those came as pictures in the chat, not as files, so they 
 
 ---
 
-## 2026-11-19 · #83 · Gear: Epic Seven's own score by default, items read before not read again, a reading-speed option · this commit (previous: `0ca844c`)
+## 2026-11-19 · #83 · Gear: Epic Seven's own score by default, items read before not read again, a reading-speed option · this commit (previous: `c45fda7`)
 
 **Asked for:** "add an option which is defaulting gear score to what Epic Seven uses"; "if something is already read
 it shouldn't read it again"; "can we increase screen reading times … or make it an option".
@@ -601,7 +621,7 @@ it shouldn't read it again"; "can we increase screen reading times … or make i
 
 ---
 
-## 2026-11-19 · #82 · Inventory (Full): a mark on every tile (read / not read and why / scroll), and a missed row read · this commit (previous: `16d44d5`)
+## 2026-11-19 · #82 · Inventory (Full): a mark on every tile (read / not read and why / scroll), and a missed row read · this commit (previous: `680874b`)
 
 **Asked for:** "when reading inventory it should show which ones it's reading so I can scroll to the appropriate
 sections", with a screenshot from the owner's PC (the "all" tab; the done card said "7 items read").
@@ -637,7 +657,7 @@ sections", with a screenshot from the owner's PC (the "all" tab; the done card s
 
 ---
 
-## 2026-11-19 · #81 · The app is now called Orbis Lens · this commit (previous: `4426f8b`)
+## 2026-11-19 · #81 · The app is now called Orbis Lens · this commit (previous: `7f2a7c6`)
 
 **Asked for:** "Is there a better name for this application" → five names offered (the game's name is Smilegate's
 trademark, a fan tool is safer with its own) → "go with Orbis Lens".
@@ -672,7 +692,7 @@ trademark, a fan tool is safer with its own) → "go with Orbis Lens".
 
 ---
 
-## 2026-11-19 · #80 · Gear: real pictures for gear.txt items too, and a separate "Item upgrades" part · this commit (previous: `f4e3589`)
+## 2026-11-19 · #80 · Gear: real pictures for gear.txt items too, and a separate "Item upgrades" part · this commit (previous: `1b47c84`)
 
 **Asked for:** whether the drawn art stays or is replaced by real images; the proposal (gear.txt items get the
 picture of the design with their name) was accepted: "Heh build that", plus "add the item upgrade as a separate part
@@ -709,7 +729,7 @@ as well".
 
 ---
 
-## 2026-11-19 · #79 · Gear: designs learned and recognised, moving gear between heroes, gear presets · this commit (previous: `4eac051`)
+## 2026-11-19 · #79 · Gear: designs learned and recognised, moving gear between heroes, gear presets · this commit (previous: `db73673`)
 
 **Asked for:** "A lot of the gear designs can be similar and don't change, you can use this to your advantage, there
 are also lots of unique and special gears so you might need to store all these images too." Then "yes build it, and
@@ -778,7 +798,7 @@ gear presets per hero).
 
 ---
 
-## 2026-11-19 · #78 · Gear page: the game's pictures, numbers you can fix, an enhance simulator and "what to do" · this commit (previous: `69efbaa`)
+## 2026-11-19 · #78 · Gear page: the game's pictures, numbers you can fix, an enhance simulator and "what to do" · this commit (previous: `7ee2b20`)
 
 **Asked for:** "Use a screenshot system for the gears instead of the art we currently have, and each of the numbers
 configurable if it's wrong. Show me first." A mock-up (made from the owner's pictures, not committed) was approved:
@@ -832,7 +852,7 @@ should show the suggested idea on what to do with it".
 
 ---
 
-## 2026-11-18 · #77 · Gear: the inventory's Full format read a whole screen at once, a label on every item · this commit (previous: `3457a3f`)
+## 2026-11-18 · #77 · Gear: the inventory's Full format read a whole screen at once, a label on every item · this commit (previous: `951a331`)
 
 **Asked for:** "yes do it": read the inventory in the game's **Full** display format (main stat and substats next to
 every item) a whole screen at once, so items need not be clicked one by one. The owner also sent the Equipment Score
@@ -904,7 +924,7 @@ format sorted both ways, the filter menu, and a second Full screen.
 
 ---
 
-## 2026-11-18 · #76 · Gear: the inventory's display formats checked · this commit (previous: `17351c1`)
+## 2026-11-18 · #76 · Gear: the inventory's display formats checked · this commit (previous: `4ebca4d`)
 
 **Asked for:** the owner showed the inventory's display formats ("I can also sort by equipment score or full"):
 Equipment Score (a score under each item), Full (main stat + substats next to each item) and the filter menu.
@@ -922,7 +942,7 @@ and takes the verdict off the game; errors none.
 
 ---
 
-## 2026-11-18 · #75 · Gear: the boots, necklace and ring pictures added to the gear test · this commit (previous: `cbce4ee`)
+## 2026-11-18 · #75 · Gear: the boots, necklace and ring pictures added to the gear test · this commit (previous: `c0880eb`)
 
 **Asked for:** the owner sent the three item pictures that were missing at #74 (boots +7, necklace, ring).
 
@@ -938,7 +958,7 @@ screens) and `tests/e2e/gear-panel.e2e.js` reads seven items. No app code.
 
 ---
 
-## 2026-11-18 · #74 · Gear: the item panel read with nothing to draw; a verdict and whom it suits on the game · commit `cbce4ee` (previous: `976f621`)
+## 2026-11-18 · #74 · Gear: the item panel read with nothing to draw; a verdict and whom it suits on the game · commit `c0880eb` (previous: `3c347bb`)
 
 **Asked for:** "for the gear section make a real-time gear analyser if its worth keeping/upgrading or for what unit
 its good for" (then eight pictures: inventory items, a hero's helmet, the Substat Modification screen).
@@ -993,7 +1013,7 @@ its good for" (then eight pictures: inventory items, a hero's helmet, the Substa
 
 ---
 
-## 2026-11-18 · #73 · Clickable markers on the game: hover a Guild War defender for what is known, fix the name in place · this commit (previous: `64ac334`)
+## 2026-11-18 · #73 · Clickable markers on the game: hover a Guild War defender for what is known, fix the name in place · this commit (previous: `0230f1d`)
 
 **Asked for:** "maybe the overlay some parts should be clickable or something where if you hover over it you load
 those stats, because currently in guild war it takes a while to find and fix a player's name" (with a picture of the
@@ -1033,7 +1053,7 @@ those stats, because currently in guild war it takes a while to find and fix a p
 
 ---
 
-## 2026-11-18 · #72 · Guild War in the snow: the player's page kept "disappearing" (card gone, 2 of 6 heroes); the overlay switch says ON / OFF · this commit (previous: `748d9fb`)
+## 2026-11-18 · #72 · Guild War in the snow: the player's page kept "disappearing" (card gone, 2 of 6 heroes); the overlay switch says ON / OFF · this commit (previous: `32f2372`)
 
 **Asked for**
 - "couldn't read some units and guild war overlay not visible" (a player's page in the game, the Seen-in-game card,
@@ -1072,7 +1092,7 @@ those stats, because currently in guild war it takes a while to find and fix a p
 
 ---
 
-## 2026-11-18 · #71 · A new module: Arena (opponents' defenses, every fight logged by itself, your record per defense) · this commit (previous: `edc0d4b`)
+## 2026-11-18 · #71 · A new module: Arena (opponents' defenses, every fight logged by itself, your record per defense) · this commit (previous: `07661b9`)
 
 **Asked for:** "can we add a section for arena too" (five pictures: the Opponents list twice, the team set-up, a battle,
 VICTORY). Also, during this change: "for the gear section make a real-time gear analyser if it's worth
@@ -1115,7 +1135,7 @@ keeping/upgrading or for what unit it's good for" (next; pictures asked for, tas
 
 ---
 
-## 2026-11-18 · #70 · The opponent's profile art: remembered with their name, names them before the draft, kept in a gallery · this commit (previous: `9647c35`)
+## 2026-11-18 · #70 · The opponent's profile art: remembered with their name, names them before the draft, kept in a gallery · this commit (previous: `e6bcd53`)
 
 **Asked for**
 - "Profile art should be stored to figure out players in rta"
@@ -1154,7 +1174,7 @@ keeping/upgrading or for what unit it's good for" (next; pictures asked for, tas
 
 ---
 
-## 2026-11-18 · #69 · The CR bar read by itself at the start of every arena battle → the opponent's speeds · this commit (previous: `e6aae06`)
+## 2026-11-18 · #69 · The CR bar read by itself at the start of every arena battle → the opponent's speeds · this commit (previous: `14c3d2b`)
 
 **Asked for:** "also scouting for cr bar and artifact doesn't seem to work". Also: "where is all the profile art and
 player names being stored for now" (answered in the reply; storage is in docs/HANDOFF.md §4).
@@ -1197,7 +1217,7 @@ its name to give one more yardstick.
 
 ---
 
-## 2026-11-18 · #68 · A small RTA mini window that fits its content; screenshots packed into one file for Claude · this commit (previous: `70f04dd`)
+## 2026-11-18 · #68 · A small RTA mini window that fits its content; screenshots packed into one file for Claude · this commit (previous: `3db1a26`)
 
 **Asked for** (with a report and pictures of a match on 0.1.52):
 - "make a smaller rta mini since it blocks view" (picture: the mini window over the game, 380×620, mostly empty)
@@ -1234,7 +1254,7 @@ its name to give one more yardstick.
 
 ---
 
-## 2026-11-18 · #67 · The game window's title bar was read as part of the game: every RTA card ~2 % too high · this commit (previous: `3b140db`)
+## 2026-11-18 · #67 · The game window's title bar was read as part of the game: every RTA card ~2 % too high · this commit (previous: `0cdfb9f`)
 
 **Asked for:** the owner sent four pictures of a match (versus, pre-ban window, BAN twice), the app's notes for each
 and a diagnostic report (app 0.1.51): the draft was still read badly.
@@ -1267,7 +1287,7 @@ and a diagnostic report (app 0.1.51): the draft was still read badly.
 
 ---
 
-## 2026-11-17 · #66 · RTA: picks the watcher read now always reach the RTA page (an unread first card hid them all) · this commit (previous: `9aee26d`)
+## 2026-11-17 · #66 · RTA: picks the watcher read now always reach the RTA page (an unread first card hid them all) · this commit (previous: `b9e98cb`)
 
 **Asked for:** "for the rta i don't see any of the characters picked show up in app or any recommendations anywhere
 so what is the point". Also two phone pictures of the Guild War end (DEFEAT with both guilds, and the "War Result"
@@ -1307,7 +1327,7 @@ window: guild names, levels, servers, Havoc 3,400 vs 4,740, attack and defense r
 
 ---
 
-## 2026-11-17 · #65 · RTA on the owner's PC: one wrong "sure" card blinded a whole side; a played match filed as "ended early"; the battle bar read too early · this commit (previous: `88627ea`)
+## 2026-11-17 · #65 · RTA on the owner's PC: one wrong "sure" card blinded a whole side; a played match filed as "ended early"; the battle bar read too early · this commit (previous: `5edebbb`)
 
 **Asked for:** the owner sent three pictures of their own turn while hovering a hero (before Confirm) and a
 diagnostic report of a match played with #63 (app 0.1.49).
@@ -1358,7 +1378,7 @@ diagnostic report of a match played with #63 (app 0.1.49).
 
 ---
 
-## 2026-11-17 · #64 · RTA: "hovered", not "clicked" · this commit (previous: `3bca3cf`)
+## 2026-11-17 · #64 · RTA: "hovered", not "clicked" · this commit (previous: `b68dedb`)
 
 **Asked for:** the owner corrected the request at the end of #63: "you can't actually click any here, it's whatever
 hero ... on the right side get picked once you hover over it and press confirm".
@@ -1376,7 +1396,7 @@ hovered, shown on my card, before Confirm"). No behaviour change.
 
 ---
 
-## 2026-11-17 · #63 · RTA: the whole draft read on the owner's real match (pre-bans, picks, both bans), the opponent's name from the battle, matches against a guildmate kept "for fun" · this commit (previous: `cb7b325`)
+## 2026-11-17 · #63 · RTA: the whole draft read on the owner's real match (pre-bans, picks, both bans), the opponent's name from the battle, matches against a guildmate kept "for fun" · this commit (previous: `23b51d1`)
 
 **Asked for** (twelve real pictures of one whole arena match, 2560×1369 window, with the app's own note for each:
 lobby, versus, pre-ban window empty and with two heroes, picking, BAN, formation, battle ×3, DEFEAT, pause menu):
@@ -1465,7 +1485,7 @@ lobby, versus, pre-ban window empty and with two heroes, picking, BAN, formation
 
 ---
 
-## 2026-11-16 · #62 · Guild War on the owner's PC: opening a player's page now works, no phantom defenders, the card saves by itself and reads as rows; fewer buttons · this commit (previous: `461a471`)
+## 2026-11-16 · #62 · Guild War on the owner's PC: opening a player's page now works, no phantom defenders, the card saves by itself and reads as rows; fewer buttons · this commit (previous: `cf62d17`)
 
 **Asked for** (screenshots from the build of #61: the right-hand fortress with the marks on the game, the same map
 plain, and the Guild War page showing "7 defenders, 2 beaten · 3 names not sure"; then the RTA Auto tab's buttons):
@@ -1552,7 +1572,7 @@ plain, and the Guild War page showing "7 defenders, 2 beaten · 3 names not sure
 
 ---
 
-## 2026-11-16 · #61 · Guild War: names that cannot be read are marked and read from the player's page; scans shared in the guild are not repeated. RTA: results and the draft's status on the owner's PC · this commit (previous: `50ad523`)
+## 2026-11-16 · #61 · Guild War: names that cannot be read are marked and read from the player's page; scans shared in the guild are not repeated. RTA: results and the draft's status on the owner's PC · this commit (previous: `9f5ddd6`)
 
 **Asked for**
 - (the keep's name on the middle map read as nonsense in the app; its page next to it) "if a guild war player cannot
@@ -1638,7 +1658,7 @@ plain, and the Guild War page showing "7 defenders, 2 beaten · 3 names not sure
 
 ---
 
-## 2026-11-16 · #60 · RTA: a match that ends before the draft is finished (the opponent leaves) is noted apart and the draft cleared · this commit (previous: `470905b`)
+## 2026-11-16 · #60 · RTA: a match that ends before the draft is finished (the opponent leaves) is noted apart and the draft cleared · this commit (previous: `4d6ca63`)
 
 **Asked for** (three screenshots: "Here comes a new challenger!", the match-start screen, VICTORY with "The opponent's
 connection to the server has been lost."): "sometimes players will join a rta match but concede or lose connection,
@@ -1704,7 +1724,7 @@ this is what happens", and "also where are you storing all this".
 
 ---
 
-## 2026-11-16 · #59 · Guild War in a running war: every defender found (it missed two kinds of badge), draw results, names cut by their centring, the fixed places · this commit (previous: `2bfbbfa`)
+## 2026-11-16 · #59 · Guild War in a running war: every defender found (it missed two kinds of badge), draw results, names cut by their centring, the fixed places · this commit (previous: `9bfb843`)
 
 **Asked for** (five screenshots: a "Defense Draw" window, an enemy's page that was already attacked, the Stinger map
 with "Cannot Battle" and "Battle in Progress", an enemy's page with "Battle in progress.", the middle fortress):
@@ -1793,7 +1813,7 @@ with "Cannot Battle" and "Battle in Progress", an enemy's page with "Battle in p
 
 ---
 
-## 2026-11-16 · #58 · Guild War: the Offense Team screen, the start of the fight, notes left in the game; falling snow taken out of map names · this commit (previous: `fefacf1`)
+## 2026-11-16 · #58 · Guild War: the Offense Team screen, the start of the fight, notes left in the game; falling snow taken out of map names · this commit (previous: `cf75df9`)
 
 **Asked for** (five screenshots: a note bubble on a map badge, the note window "<member>'s Record", the "Offense
 Team" screen, two moments of the fight):
@@ -1878,7 +1898,7 @@ Team" screen, two moments of the fight):
 
 ---
 
-## 2026-11-16 · #57 · Guild War: battle-result windows are read and logged by themselves (who beat whom, with which heroes) · this commit (previous: `51ccdf7`)
+## 2026-11-16 · #57 · Guild War: battle-result windows are read and logged by themselves (who beat whom, with which heroes) · this commit (previous: `dbc5bc7`)
 
 **Asked for:** "anything else you need", then five screenshots as files: two "Successful Attack" windows, a member's
 tower page, a "Failed Defense" window, our own fortress map; and: "The fourth formation place - there's a limit of 3
@@ -1980,7 +2000,7 @@ heroes max in guild wars."
 
 ---
 
-## 2026-11-16 · #56 · Guild War: names in any writing (also on the enemy screen), stronghold screens, a "working…" card on the game, defenses that change, three attacks per war · this commit (previous: `2c43471`)
+## 2026-11-16 · #56 · Guild War: names in any writing (also on the enemy screen), stronghold screens, a "working…" card on the game, defenses that change, three attacks per war · this commit (previous: `8983726`)
 
 **Asked for** (several messages, with screenshots: guild hall, the daily and the guild check-in windows, a maximized
 fortress map with names in Japanese, Chinese and Latin letters, an enemy stronghold screen with a Chinese name,
@@ -2115,7 +2135,7 @@ fortress map with names in Japanese, Chinese and Latin letters, an enemy strongh
 
 ---
 
-## 2026-11-16 · #55 · Guild War in a running war: no more wars against made-up guilds; names in any script; pick the right spelling by eye · this commit (previous: `dcfb1e1`)
+## 2026-11-16 · #55 · Guild War in a running war: no more wars against made-up guilds; names in any script; pick the right spelling by eye · this commit (previous: `361f769`)
 
 **Asked for** (with screenshots of the guild hall "Guild War in progress", the VS screen, the overview of a running
 war, and two fortress maps of a Japanese enemy guild next to the app):
@@ -2195,7 +2215,7 @@ war, and two fortress maps of a Japanese enemy guild next to the app):
 
 ---
 
-## 2026-11-16 · #54 · RTA overlay only during an RTA draft; overlay cards no longer outlive their page · this commit (previous: `bb60305`)
+## 2026-11-16 · #54 · RTA overlay only during an RTA draft; overlay cards no longer outlive their page · this commit (previous: `991ea55`)
 
 **Asked for:** (screenshots of the lobby and a Guild War map with "Your preban: …" drawn on them) "prebans shouldn't
 appear here until you're in an RTA match".
@@ -2226,12 +2246,12 @@ appear here until you're in an RTA match".
 
 ---
 
-## 2026-11-15 · #53 · Handoff: documentation brought up to date, developer check scripts added · this commit (previous: `bdadc24`)
+## 2026-11-15 · #53 · Handoff: documentation brought up to date, developer check scripts added · this commit (previous: `fd13791`)
 
 **Asked for:** "Make sure to upload everything and document everything so another AI session can pick it up".
 
 **Findings**
-- Everything was already pushed (local and remote at `bdadc24`), and every Windows build through #52 succeeded.
+- Everything was already pushed (local and remote at `fd13791`), and every Windows build through #52 succeeded.
 - `docs/HANDOFF.md` had stale parts: it still called the project a browser app with an optional desktop app, its
   code map lacked the modules of #44–#52 and most readers, the testing section said "74 tests" and "no real
   screenshots exist", the tail listed things as untested that the owner has since used, and there was no single
@@ -2271,7 +2291,7 @@ appear here until you're in an RTA match".
 
 ---
 
-## 2026-11-14 · #52 · Whole-team plans: what to pick now and what to follow it with (E7DaT's planner) · this commit (previous: `6ac61be`)
+## 2026-11-14 · #52 · Whole-team plans: what to pick now and what to follow it with (E7DaT's planner) · this commit (previous: `dd20b18`)
 
 **Asked for:** "and do everything else" (last item of the list: plans for the whole team instead of one pick at a
 time, with a second plan in case a hero is taken or banned).
@@ -2317,7 +2337,7 @@ time, with a second plan in case a hero is taken or banned).
 
 ---
 
-## 2026-11-14 · #51 · Turn order: who moves first, heroes that need the first turn (E7DaT's turn model) · this commit (previous: `094ff73`)
+## 2026-11-14 · #51 · Turn order: who moves first, heroes that need the first turn (E7DaT's turn model) · this commit (previous: `5d7e7fd`)
 
 **Asked for:** "and do everything else" (item: use the stored start readiness to say who moves first and warn when
 the enemy can out-speed a hero that needs the first turn).
@@ -2365,7 +2385,7 @@ the enemy can out-speed a hero that needs the first turn).
 
 ---
 
-## 2026-11-14 · #50 · Guild War: reminder before the next war; enemies marked beaten from the fortress map · this commit (previous: `fd71a7a`)
+## 2026-11-14 · #50 · Guild War: reminder before the next war; enemies marked beaten from the fortress map · this commit (previous: `cf87fd2`)
 
 **Asked for:** "and do everything else" (Guild War part of the list: a reminder shortly before a war begins, targets
 cleared from the "beaten" badges).
@@ -2412,7 +2432,7 @@ cleared from the "beaten" badges).
 
 ---
 
-## 2026-11-14 · #49 · Statistics page: my own numbers next to the top players', weekly trends · this commit (previous: `a924ec1`)
+## 2026-11-14 · #49 · Statistics page: my own numbers next to the top players', weekly trends · this commit (previous: `066d2b5`)
 
 **Asked for:** "and do everything else" (the list of improvements offered after #48; this is the statistics part:
 my numbers next to theirs, meta changes over time). Owner's PC: the 400-player update finished (33,953 games stored,
@@ -2439,7 +2459,7 @@ my numbers next to theirs, meta changes over time). Owner's PC: the 400-player u
 
 ---
 
-## 2026-11-14 · #48 · Seasons: my matches and the statistics per season; update checks at start (app and top-player games) · this commit (previous: `aae51fb`)
+## 2026-11-14 · #48 · Seasons: my matches and the statistics per season; update checks at start (app and top-player games) · this commit (previous: `fa83e36`)
 
 **Asked for:** "and is the rta stuff separated by seasons, also make the check for update happen on startup".
 
@@ -2499,7 +2519,7 @@ my numbers next to theirs, meta changes over time). Owner's PC: the 400-player u
 
 ---
 
-## 2026-11-14 · #47 · "Top players" statistics page: hero table, hero details, pre-bans, openers, pairs, counters, builds · this commit (previous: `a82ddf3`)
+## 2026-11-14 · #47 · "Top players" statistics page: hero table, hero details, pre-bans, openers, pairs, counters, builds · this commit (previous: `e567b35`)
 
 **Asked for:** "can you make a statistics page that shows useful information regarding the stats from top players'
 games".
@@ -2547,7 +2567,7 @@ games".
 
 ---
 
-## 2026-11-14 · #46 · Guild War standby page: "no war running, next war in 29 h" is recognised · this commit (previous: `a93acf1`)
+## 2026-11-14 · #46 · Guild War standby page: "no war running, next war in 29 h" is recognised · this commit (previous: `e5cefd6`)
 
 **Asked for:** (two screenshots of the standby page: maximized, and in a small window next to the app) "that is the
 guild war standby page if no guild wars are around, so detect that since there is no guild war for today, war begins
@@ -2602,7 +2622,7 @@ in 29 hours". The same message showed the record features working on the owner's
 
 ---
 
-## 2026-11-14 · #45 · Win-rate model, pick policy, ban and pre-ban advice from top players' games (E7DaT's statistical core) · this commit (previous: `bdf7ac4`)
+## 2026-11-14 · #45 · Win-rate model, pick policy, ban and pre-ban advice from top players' games (E7DaT's statistical core) · this commit (previous: `baaa1c2`)
 
 **Asked for:** the rest of "add the record site, all of it": use the collected top-player games the way E7DaT does,
 not only as plain win rates.
@@ -2679,7 +2699,7 @@ not only as plain win rates.
 
 ---
 
-## 2026-11-14 · #44 · Official record site: own match history, opponent scouting, Guild War player lookup, top-player statistics · this commit (previous: `580527b`)
+## 2026-11-14 · #44 · Official record site: own match history, opponent scouting, Guild War player lookup, top-player statistics · this commit (previous: `6149af3`)
 
 **Asked for:** "yes add the record site, all of it and what details did you need i can send them now" (the owner's OK
 for the lookups that waited since #41).
@@ -2761,7 +2781,7 @@ for the lookups that waited since #41).
 
 ---
 
-## 2026-11-14 · #43 · Guild War defense 6/6 on the real screen; hero pictures cached between starts · this commit (previous: `79506b5`)
+## 2026-11-14 · #43 · Guild War defense 6/6 on the real screen; hero pictures cached between starts · this commit (previous: `8bce55e`)
 
 **Asked for:** still "anything that works in the meantime".
 
@@ -2804,7 +2824,7 @@ for the lookups that waited since #41).
 
 ---
 
-## 2026-11-14 · #42 · Hero mechanics as a suggestion source: RTA reasons, hero card, Guild War warnings (E7DaT knowledge) · this commit (previous: `202ee25`)
+## 2026-11-14 · #42 · Hero mechanics as a suggestion source: RTA reasons, hero card, Guild War warnings (E7DaT knowledge) · this commit (previous: `edc1629`)
 
 **Asked for:** "Anything work in the meantime, work on that" (while the owner decides about the official record site).
 Chosen: the part of E7DaT that needs no outside lookups, its bundled hero knowledge.
@@ -2861,7 +2881,7 @@ table and per-pair counter lists aren't used yet.
 
 ---
 
-## 2026-11-14 · #41 · RTA draft read with no calibration (from E7DaT); newest heroes added to the roster · this commit (previous: `1d192f8`)
+## 2026-11-14 · #41 · RTA draft read with no calibration (from E7DaT); newest heroes added to the roster · this commit (previous: `dcf7313`)
 
 **Asked for:** the owner supplied `E7DaT-main.zip`: "Use this to help you create the perfect application. Especially for rta
 and guild war".
@@ -2947,7 +2967,7 @@ and guild war".
 
 ---
 
-## 2026-11-13 · #40 · New war works in the desktop app + wars start by themselves from the game; bug sweep · this commit (previous: `97ee0b5`)
+## 2026-11-13 · #40 · New war works in the desktop app + wars start by themselves from the game; bug sweep · this commit (previous: `21afb7b`)
 
 **Asked for:**
 - "I CANT ADD A NEW WAR, it should automatiacally be able to tell by looking at the guild name etc"
@@ -3032,7 +3052,7 @@ second one would be visible as a duplicate and can be removed with Undo.
 
 ---
 
-## 2026-11-13 · #39 · Guild War on both sides: fortress names from the overview, our side, beaten defenders · this commit (previous: `82023db`)
+## 2026-11-13 · #39 · Guild War on both sides: fortress names from the overview, our side, beaten defenders · this commit (previous: `5000a1e`)
 
 **Asked for:**
 - The owner sent our side's overview and its three fortress maps: "from left to right is domino (middle tower is iggy),
@@ -3112,7 +3132,7 @@ second one would be visible as a duplicate and can be removed with Undo.
 
 ---
 
-## 2026-11-13 · #38 · Any window size; Guild War fortresses (which fortress, its defenders) · this commit (previous: `58b9ec4`)
+## 2026-11-13 · #38 · Any window size; Guild War fortresses (which fortress, its defenders) · this commit (previous: `eddf0cc`)
 
 **Asked for:** the owner confirmed the overlay now works (badge visible, Overlay status "following the game window at 0,0
 (2560×1392)"), then: "make it work at any window size, since i have to sometimes take a screenshot using the windows
@@ -3213,7 +3233,7 @@ maximized window, 2000×1070).
 
 ---
 
-## 2026-11-13 · #37 · Desktop-only: web keeps only Guild War for guildmates; Steam / Discord overlay safety · this commit (previous: `9588219`)
+## 2026-11-13 · #37 · Desktop-only: web keeps only Guild War for guildmates; Steam / Discord overlay safety · this commit (previous: `89473e9`)
 
 **Asked for:** "lets move away from a browser version and use a proper desktop one with a proper overlay, also beware of
 steam own overlay and maybe even discords". Owner's choices: keep a web Guild War page for guildmates; drop the phone
@@ -3271,7 +3291,7 @@ version (website + My devices sync) for now.
 
 ---
 
-## 2026-11-13 · #36 · Remove test screenshots committed by mistake · this commit (previous: `6999f86`)
+## 2026-11-13 · #36 · Remove test screenshots committed by mistake · this commit (previous: `6a02842`)
 
 **What:** #35 accidentally committed `undefined/` (three screenshots of the app's own test windows, written by
 `tests/desktop/popout.js` and `winpick.js` when no output folder was passed). Removed. Those tests now default to
@@ -3280,7 +3300,7 @@ version (website + My devices sync) for now.
 
 ---
 
-## 2026-11-13 · #35 · Overlay: never stuck hidden + "is it working?" status; Teach heroes (your own face examples) · this commit (previous: `64a8e03`)
+## 2026-11-13 · #35 · Overlay: never stuck hidden + "is it working?" status; Teach heroes (your own face examples) · this commit (previous: `314a183`)
 
 **Asked for:** "also the overlay still does not work"; "where are you saving the images, and make a system where the user
 can train a model too manually if it helps"; whether to play in fullscreen windowed instead (answered in chat: any 16:9
@@ -3364,7 +3384,7 @@ fullscreen, not exclusive fullscreen; no second model needed).
 
 ---
 
-## 2026-11-13 · #34 · Guild War from real screens (name, defense teams, learning) + portrait cache bug fixed · this commit (previous: `f681cdb`)
+## 2026-11-13 · #34 · Guild War from real screens (name, defense teams, learning) + portrait cache bug fixed · this commit (previous: `6d95d23`)
 
 **Asked for:** the owner moved to testing Guild War and attached five real Guild War screens as files (overview, two
 fortress maps, an enemy's defense with season log, a defense battle result). Questions about fullscreen / resolution are
@@ -3429,7 +3449,7 @@ log attacks.
 
 ---
 
-## 2026-11-13 · #33 · Match review: what the app saw, per match · this commit (previous: `8017eef`)
+## 2026-11-13 · #33 · Match review: what the app saw, per match · this commit (previous: `1ad2d44`)
 
 **Asked for:** "its seems even when starting the match the prebans arent even detected and nothing goes forward, is there a
 way to check per match all the correct things the app sees".
@@ -3477,7 +3497,7 @@ itself (endless loop). Caught by reading the result before running; fixed.
 
 ---
 
-## 2026-11-13 · #32 · Name the heroes after the match, teams from the CR bar, "is the overlay working?" · this commit (previous: `684dd4d`)
+## 2026-11-13 · #32 · Name the heroes after the match, teams from the CR bar, "is the overlay working?" · this commit (previous: `cec6763`)
 
 **Asked for:** "yes do both" ("label this draft after the match" + reading the CR bar to confirm teams), "and how to get the
 overlay and is there a way to know when its working".
@@ -3517,7 +3537,7 @@ off) were missed. Now 1/6 of an icon plus the wide alignment search.
 
 ---
 
-## 2026-11-13 · #31 · Real RTA screens as files: built-in recognition of 6 screens, First Pick read, banners can't match portraits · this commit (previous: `50aa89a`)
+## 2026-11-13 · #31 · Real RTA screens as files: built-in recognition of 6 screens, First Pick read, banners can't match portraits · this commit (previous: `b1f179a`)
 
 **Asked for:** "how do i send the screenshots as files", then the owner attached five real Steam screens as files
 (menu, "Here comes a new challenger!", match start, pre-ban picker with 2 selected, BAN screen).
@@ -3558,7 +3578,7 @@ corrections can be made without time pressure.
 
 ---
 
-## 2026-11-13 · #30 · Match start (versus / profile art), First Pick, RTA menu, pre-ban picker recognised without teaching · this commit (previous: `844cfea`)
+## 2026-11-13 · #30 · Match start (versus / profile art), First Pick, RTA menu, pre-ban picker recognised without teaching · this commit (previous: `ed306d7`)
 
 **Asked for:** "maybe you should also log the profile art that plays at the very start and this can be a way to know
 when a match is starting". Screenshots of the RTA menu, the match-start screen, the pre-ban picker with 2 selected and
@@ -3611,7 +3631,7 @@ teaching). Pick-banner badge positions need a draft file.
 
 ---
 
-## 2026-11-13 · #29 · Fix "everything wrong" (draft gate), element colour + class symbol, diagnostic report · this commit (previous: `b49c3bc`)
+## 2026-11-13 · #29 · Fix "everything wrong" (draft gate), element colour + class symbol, diagnostic report · this commit (previous: `87a6dd4`)
 
 **Asked for** (several messages):
 - "for the heros your can learn it by coloour since the icons are always their for them"
@@ -3676,7 +3696,7 @@ teaching). Pick-banner badge positions need a draft file.
 
 ---
 
-## 2026-11-13 · #28 · Step 1b part 1: the RTA reader follows the game watcher · this commit (previous: `231b7ba`)
+## 2026-11-13 · #28 · Step 1b part 1: the RTA reader follows the game watcher · this commit (previous: `7007abf`)
 
 **Asked for:** "do 2 then 1b". 2 = DEVLOG #27. 1b = move the RTA reader into the game watcher.
 
@@ -3714,7 +3734,7 @@ teaching). Pick-banner badge positions need a draft file.
 
 ---
 
-## 2026-11-13 · #27 · Sync my devices (PC ↔ phone) · this commit (previous: `b6b3fce`)
+## 2026-11-13 · #27 · Sync my devices (PC ↔ phone) · this commit (previous: `40e05db`)
 
 **Asked for:** "Then why do we have it as a phone browser if it cant do the same thing" → option 2 "do 2 then 1b": make the
 phone version worthwhile by syncing the owner's own data between PC and phone (step 1b follows).
@@ -3769,7 +3789,7 @@ the same notes on two devices within the same half minute can go either way. Lis
 
 ---
 
-## 2026-11-13 · #26 · Phone: publish the web app from the work branch · this commit (previous: `5b3bd4a`)
+## 2026-11-13 · #26 · Phone: publish the web app from the work branch · this commit (previous: `6aaf3e0`)
 
 **Asked for:** "How to run this on mobile".
 
@@ -3796,7 +3816,7 @@ a real phone.
 
 ---
 
-## 2026-11-12 · #25 · Built-in screen positions (no drawing for Steam 16:9) and a clear "what's set" table · this commit (previous: `0041c80`)
+## 2026-11-12 · #25 · Built-in screen positions (no drawing for Steam 16:9) and a clear "what's set" table · this commit (previous: `d573fda`)
 
 **Asked for:** "why does it say not calibrated yet, and its hard to tell what is calibrated and what is not, and this
 should be a one time thing that users shouldn't have to go through" + "do the other recommended" (step 2 of the plan:
@@ -3854,7 +3874,7 @@ uncalibrated picture. Their made-up screens now open it themselves, since 16:9 p
 
 ---
 
-## 2026-11-12 · #24 · Saved picture: choose which part to calibrate first · this commit (previous: `62deec4`)
+## 2026-11-12 · #24 · Saved picture: choose which part to calibrate first · this commit (previous: `135d1bd`)
 
 **Asked for:** "when pressing calibrate on a saved picture its supposed to let you choose which part it is first, not
 start calibration from step 1".
@@ -3881,7 +3901,7 @@ start calibration from step 1".
 
 ---
 
-## 2026-11-12 · #23 · Stronger face matcher, calibrate after the match, gear art, gear per hero, dev screenshot tool · this commit (previous: `7f6836d`)
+## 2026-11-12 · #23 · Stronger face matcher, calibrate after the match, gear art, gear per hero, dev screenshot tool · this commit (previous: `db2565a`)
 
 **Asked for** (several messages):
 - "do the stronger face matcher"
@@ -3956,7 +3976,7 @@ the dev tool can now collect.
 
 ---
 
-## 2026-11-12 · #22 · First real game screenshots: what the readers get right and wrong · this commit (previous: `06ae25a`)
+## 2026-11-12 · #22 · First real game screenshots: what the readers get right and wrong · this commit (previous: `12f5d8d`)
 
 **Asked for:** the owner sent two Steam screenshots as files: the RTA **pre-ban picker** ("Select Pre-Ban Hero" grid) and a
 **Victory** screen. (The earlier draft / battle / Defeat screenshots were pasted into the chat and aren't available as
@@ -3998,7 +4018,7 @@ More screenshots as files (draft picks/postban, CR bar, Defeat) are needed for s
 
 ---
 
-## 2026-11-12 · #21 · Step 1a: one game watcher for the whole app (vision service + event bus) · this commit (previous: `6747836`)
+## 2026-11-12 · #21 · Step 1a: one game watcher for the whole app (vision service + event bus) · this commit (previous: `396fded`)
 
 **Asked for:** "yes start step 1": the first step of the plan in `docs/DESIGN_REVIEW.md`. One always-on watcher captures
 the game, works out the screen and runs the readers; modules only receive events. While this was being built the owner
@@ -4065,7 +4085,7 @@ expanded CR with exact percentages) and a Defeat screen. They're input for step 
 
 ---
 
-## 2026-11-12 · #20 · Design review: Fable and DeepSeek on "build it from scratch" · this commit (previous: `d2160db`)
+## 2026-11-12 · #20 · Design review: Fable and DeepSeek on "build it from scratch" · this commit (previous: `ff136b2`)
 
 **Asked for:** "ask fable and deepseek what is the best way to design this app from scratch again".
 
@@ -4099,7 +4119,7 @@ expanded CR with exact percentages) and a Defeat screen. They're input for step 
 
 ---
 
-## 2026-11-12 · #19 · Gear card view (like the game's inventory) · this commit (previous: `a43ba45`)
+## 2026-11-12 · #19 · Gear card view (like the game's inventory) · this commit (previous: `e446116`)
 
 **Asked for:** (two Steam screenshots: an item's details panel, and the inventory grid) "also display the gears like this
 or the second one". Also asked why the app is "portable" and to "make a full version".
@@ -4136,10 +4156,10 @@ or the second one". Also asked why the app is "portable" and to "make a full ver
 
 ---
 
-## 2026-11-12 · #18 · Fixes from an independent review (Fable) · this commit (previous: `2d69443`)
+## 2026-11-12 · #18 · Fixes from an independent review (Fable) · this commit (previous: `5943083`)
 
 **Asked for:** "use fable to check if anything else is wrong and then push". A separate Fable review read
-`e062f43..2d69443` without being told my conclusions. Every finding below was checked against the code before fixing.
+`b92a2a9..5943083` without being told my conclusions. Every finding below was checked against the code before fixing.
 
 **Bugs found and fixed**
 1. **Portable update never swapped** (high). The .cmd waited with `timeout /t 1`, which exits at once when stdin
@@ -4191,7 +4211,7 @@ or the second one". Also asked why the app is "portable" and to "make a full ver
 
 ---
 
-## 2026-11-12 · #17 · Pop out fixed, in-app updater, read just the game window · this commit (previous: `d112aa5`)
+## 2026-11-12 · #17 · Pop out fixed, in-app updater, read just the game window · this commit (previous: `f22ea9d`)
 
 **Asked for:** (screenshot of Guild War in the desktop app) "POP OUT DOESNT DO ANYTHING"; then "make an inapp updater";
 then "can the window not lock on per window instead of the whole screen".
@@ -4259,7 +4279,7 @@ the updater is the one from this build. Older .exe files must be replaced by han
 
 ---
 
-## 2026-11-12 · #16 · Box the game window (game area) + bigger text · this commit (previous: `e062f43`)
+## 2026-11-12 · #16 · Box the game window (game area) + bigger text · this commit (previous: `b92a2a9`)
 
 **Asked for:** (with two screenshots of the desktop app on Windows) "make the ui and text size bigger" and "watch
 emulator window shows up like that". The calibration picture showed the **whole desktop** (other windows, the app
@@ -4297,7 +4317,7 @@ picture could come later.
 
 ---
 
-## 2026-11-12 · #15 · Automatic Windows .exe build (GitHub Actions) · this commit (previous: `605855e`)
+## 2026-11-12 · #15 · Automatic Windows .exe build (GitHub Actions) · this commit (previous: `d6afbfa`)
 
 **Asked for:** set up the automatic exe build (after explaining how to install on Windows), so the app can be
 downloaded without installing Node.js or using a command line.
@@ -4328,7 +4348,7 @@ Downloading Actions artifacts requires being signed in to GitHub; tagged Release
 
 ---
 
-## 2026-11-12 · #14 · Steam version: typed hero speeds; docs updated · this commit (previous: `bc29f70`)
+## 2026-11-12 · #14 · Steam version: typed hero speeds; docs updated · this commit (previous: `4d671e3`)
 
 **Asked / told:** can the Steam version be used instead of an emulator? (Yes: the app only reads the screen, so any PC
 window works; calibrate per client; windowed/borderless for the overlay; capture "Entire screen" if a window capture is
@@ -4359,7 +4379,7 @@ green dots need them). The screen gear reader gives inventory items, but they ar
 
 ---
 
-## 2026-11-12 · #13 · Full handoff docs + sources list; CeciliaBot skills and automatic tags; e2e tests in the repo · this commit (previous: `52c9339`)
+## 2026-11-12 · #13 · Full handoff docs + sources list; CeciliaBot skills and automatic tags; e2e tests in the repo · this commit (previous: `3372d58`)
 
 **Asked for:** document everything so any future task can continue; list all sources and where they're used; "you can
 use Cecilia bot website maybe".
@@ -4416,7 +4436,7 @@ use Cecilia bot website maybe".
 
 ---
 
-## 2026-11-12 · #12 · Expanded CR bar, hero info card (skills + role tags) · this commit (previous: `b1867c6`)
+## 2026-11-12 · #12 · Expanded CR bar, hero info card (skills + role tags) · this commit (previous: `6eed5e3`)
 
 **Asked for**
 1. The CR bar has an expanded screen: read it too.
@@ -4481,7 +4501,7 @@ that isn't in the repo. Conclusion from #10 unchanged.)
 
 ---
 
-## 2026-11-12 · #11 · Live layer system, desktop overlay app, gear read from the screen · this commit (previous: `0fe8ac4`)
+## 2026-11-12 · #11 · Live layer system, desktop overlay app, gear read from the screen · this commit (previous: `a6f5494`)
 
 **Asked for:** "Make everything automatic, maybe use a layer system so a window over it can read everything on the
 game's screen." During the work: plan (not build) a PvE/events module (events, Advent, Dimensional Exploration, Hunts,
@@ -4554,7 +4574,7 @@ Otherworldly Breach, Trial of Constellation, Strategic Archive), recorded in `do
 
 ---
 
-## 2026-11-12 · #10 · Guild War pop-out + "Watch game"; research on getting gear.txt without Fribbels · this commit (previous: `42a5d4b`)
+## 2026-11-12 · #10 · Guild War pop-out + "Watch game"; research on getting gear.txt without Fribbels · this commit (previous: `2b7a2c1`)
 
 **Asked for**
 1. Build the Guild War pop-out window (the "option 1" overlay discussed: see the dots and details while in game).
@@ -4606,7 +4626,7 @@ Otherworldly Breach, Trial of Constellation, Strategic Archive), recorded in `do
 
 ---
 
-## 2026-11-12 · #9 · Guild War verdict dots, gear check, player history across seasons · this commit (previous: `d40be0d`)
+## 2026-11-12 · #9 · Guild War verdict dots, gear check, player history across seasons · this commit (previous: `26839d1`)
 
 **Asked for**
 - A marker next to each Guild War player: grey (no info), yellow (not enough info), green (win if you use the right
@@ -4677,7 +4697,7 @@ Otherworldly Breach, Trial of Constellation, Strategic Archive), recorded in `do
 
 ---
 
-## 2026-11-12 · #8 · Epic 7 Engine home page and module switcher · this commit (previous: `2c0234e`)
+## 2026-11-12 · #8 · Epic 7 Engine home page and module switcher · this commit (previous: `0b59d1c`)
 
 **Asked for:** "Epic 7 Engine" is the overall application; under it you select Guild War, Gear, RTA "and the rest".
 
@@ -4719,7 +4739,7 @@ Otherworldly Breach, Trial of Constellation, Strategic Archive), recorded in `do
 
 ---
 
-## 2026-11-12 · #7 · Epic 7 Engine + Guild War (shared with the guild) · this commit (previous: `93abee7`)
+## 2026-11-12 · #7 · Epic 7 Engine + Guild War (shared with the guild) · this commit (previous: `2c9d951`)
 
 **Asked for:** turn the app into a bigger toolkit, named **"Epic 7 Engine"** (the owner corrected an earlier
 "RTA engine": it helps with the whole game, not just RTA). Add a Guild War feature that tracks everything for every
@@ -4796,7 +4816,7 @@ player and is shared between guildmates.
 
 ---
 
-## 2026-11-12 · #5 · RexQian fork, game's drafting help, Gear Sorter · commit `96bdfde`
+## 2026-11-12 · #5 · RexQian fork, game's drafting help, Gear Sorter · commit `11dccd0`
 
 **Asked for**
 1. Use the RexQian fork of the Fribbels optimizer, since the original is no longer updated.
@@ -4860,7 +4880,7 @@ player and is shared between guildmates.
 
 ---
 
-## 2026-11-12 · #4 · Gear builds, scouting, smarter drafting, more automation · commit `a05af7d`
+## 2026-11-12 · #4 · Gear builds, scouting, smarter drafting, more automation · commit `746f665`
 
 **Asked for:** "all of" the 14 ideas proposed in #3's follow-up, plus storing what gear opponents may have
 during a match. Question: will the app consider my gear, sets and artifacts, and opponents'?
@@ -4923,7 +4943,7 @@ during a match. Question: will the app consider my gear, sets and artifacts, and
 
 ---
 
-## 2026-11-12 · #3 · Auto-detect the draft from the emulator window · commit `27195ef`
+## 2026-11-12 · #3 · Auto-detect the draft from the emulator window · commit `0ae6903`
 
 **Asked for:** make it fully automatic. The owner plays on PC with an emulator.
 
@@ -4956,7 +4976,7 @@ full draft with no clicks, OCR read "RivalOne", and a correction was preferred a
 
 ---
 
-## 2026-11-12 · #2 · Official hero list, separate sources, learning, players, presets · commit `a79a0a9`
+## 2026-11-12 · #2 · Official hero list, separate sources, learning, players, presets · commit `3684cc7`
 
 **Asked for:** fully automatic; option A (an online database) or B (learn from my picks and bans); roster from
 Fribbels `gear.txt`; player profiles; team presets and combos; "a powerful application". Also:
@@ -4985,7 +5005,7 @@ Fribbels `gear.txt`; player profiles; team presets and combos; "a powerful appli
 
 ---
 
-## 2026-11-12 · #1 · First version · commit `cef3808`
+## 2026-11-12 · #1 · First version · commit `bda85e5`
 
 **Asked for:** "my own RTA live helper for Epic 7".
 
