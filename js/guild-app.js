@@ -349,7 +349,9 @@
     return warBusy;
   }
   async function warFromGameNow(enemyGuild) {
-    if (!enemyGuild || String(enemyGuild).trim().length < 3) return 'same';
+    // 3+ letters; a name in Chinese / Japanese / Korean script can have 2 (DEVLOG #97: "山風")
+    const g = String(enemyGuild || '').trim();
+    if (!g || [...g].length < (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(g) ? 2 : 3)) return 'same';
     if (!backend || !loaded) {
       if (conn.guildCode) {
         // still connecting: wait for the guild's records (up to 30 s)

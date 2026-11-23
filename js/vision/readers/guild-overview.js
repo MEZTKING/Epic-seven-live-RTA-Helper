@@ -143,8 +143,39 @@
         };
         const a = await read1(64, 'grayscale(1) contrast(1.6)');
         const b = await read1(96, 'grayscale(1) contrast(2.2)');
-        if (a.length < 3) return '';
-        return a === b || G.matchName(a, [b]) ? a : '';
+        if (a.length >= 3 && (a === b || G.matchName(a, [b]))) return a;
+        // a name in Chinese / Japanese / Korean script (DEVLOG #97: "山風" on an Asia server was not read, so no war was
+        // started): read again with that server's script, twice; the same name both times, at least 2 characters
+        const lang = G.langFor(servers[key] || '');
+        if (!lang) return '';
+        // only the name: up to the server tag's coloured pill (its globe icon was read as one more character)
+        let nameW = box.w;
+        for (let px = Math.round(box.x + 20); px < box.x + box.w; px++) {
+          let n = 0;
+          for (let py = Math.round(box.y); py < box.y + box.h; py++) {
+            const i = (py * W + px) * 4;
+            const mx = Math.max(rgba[i], rgba[i + 1], rgba[i + 2]);
+            if (mx > 70 && mx - Math.min(rgba[i], rgba[i + 1], rgba[i + 2]) > 50) n++;
+          }
+          if (n / box.h > 0.5) {
+            nameW = Math.max(20, px - box.x - 4);
+            break;
+          }
+        }
+        const readCjk = async (h, filter) => {
+          const c = document.createElement('canvas');
+          c.width = Math.round(nameW * (h / box.h));
+          c.height = h;
+          const x = c.getContext('2d');
+          x.filter = filter;
+          x.drawImage(norm, box.x, box.y, nameW, box.h, 0, 0, c.width, c.height);
+          // the reader puts spaces between the characters ("山 風"); cleanCjk joins them and drops end symbols; Latin
+          // letters left of a tag are not part of such a name
+          return G.cleanCjk(String((await ctx.ocr(c, { line: true, lang })) || '').replace(/[A-Za-z]+/g, ' '));
+        };
+        const c1 = await readCjk(64, 'grayscale(1) contrast(1.6)');
+        const c2 = await readCjk(96, 'grayscale(1) contrast(2.2)');
+        return c1 && c1 === c2 ? c1 : '';
       };
       const servers = {};
       let enemyGuild = await guild('gwEnemyGuild');
