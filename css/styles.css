@@ -720,3 +720,7 @@ label.inline { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 
 .cl-tick input { width: 18px; height: 18px; }
 /* the set badge in a clean-up group's heading: inline, not in a tile's corner (it stuck out of the page, DEVLOG #100) */
 .cl-group summary .setb { position: static; display: inline-flex; vertical-align: middle; transform: none; }
+/* Guild War ideas: 👍 / 👎 per hero (DEVLOG #106) */
+.gw-try-hero { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; }
+.gw-vote button { font-size: 12px; padding: 0 2px; opacity: 0.45; }
+.gw-vote button.on, .gw-vote button:hover { opacity: 1; }

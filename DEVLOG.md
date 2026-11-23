@@ -7,6 +7,118 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #108 · Guild War: a stale warning goes away; incomplete attack teams shown as such · this commit (previous: `33dfe02`; committed with #105-#107)
+
+**Asked for:** a screenshot of the Guild War page over a battle window: "this seems to be stuck on an older problem, and
+there seems to be some struggle with reading heroes"; then the Counters tab: "is this being updated or not".
+
+**Findings**
+- The red line "The game shows a battle result, but a player name could not be read" came from an earlier battle and
+  stayed: a warning stayed until something else was written there, although later battles were read fine.
+- Counters → "Best attack teams overall" is worked out from every logged attack at each look (it does update). An entry
+  "Setsuka 0-2" was attacks read with one attacking hero recognised: shown as if a one-hero team.
+- Heroes shown as "?" on a player's page: not looked into yet (no picture of that page).
+
+**Changed**
+- `js/guild-app.js`: a warning in the status line goes away by itself after 20 s; it names whose name was read.
+  "Best attack teams overall": a team with heroes not recognised shows "+ ?" for them.
+
+**Tested**
+- Browser suite (one run for #105-#108): 53/54 clean; `guild-basics` timed out once on a dialog still open while the
+  machine was busy, then passed 3 times of 3 alone (none of its steps changed). Other differences: the new lines.
+  Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once, gearfile clean. (The 20 s timer by reading; no test waits for it.)
+- **Not tested:** on the owner's PC.
+
+---
+
+## 2026-11-23 · #107 · Guild War battle records: every battle window read counts, also fights between other guilds · this commit (previous: `33dfe02`; committed with #105, #106, #108)
+
+**Asked for:** "you can use the battle records" (a picture of a "Defense Draw" window from an enemy player's Season Log).
+
+**Findings**
+- A battle window from anybody's Season Log is a real Guild War fight: the attacker's two teams, the defender's two,
+  who won each round. Only fights of our own guild were used (the rest: "nothing logged").
+
+**Changed**
+- New pure `js/gwbattles.js`: `fromResult` (a battle window → attack vs defense rounds from the attacker's side; a draw
+  is not a win; rounds with fewer than 2 heroes sure left out), `add` (the same battle once, newest first, at most 3000),
+  `book`, `heroRecord`, `suggest` (attack teams that beat this defense or one sharing 2 of its heroes).
+- `js/guild-app.js`: every battle read is kept on this PC (`localStorage['e7-gw-battles']`) before anything else; a
+  defense team's card says "Beaten in other battles by: …" (source 'battle records'); the attack ideas use each hero's
+  record in those battles (`js/gwsuggest.js` `battleRecord`, source 'battle records'). `js/guild-pip.js`: the same line in
+  the pop-out. `guild.html` loads js/gwbattles.js.
+
+**Tested**
+- `npm test` 225 (new `tests/gwbattles.test.js`: the owner's "Defense Draw" read from the attacker's side, attack /
+  defense sides, a draw, unsure heroes, the same battle once, what beat a defense (also a similar one), heroes' records).
+- `tests/e2e/gw-result.e2e.js`: the battle windows of the test kept as 5 battles, 10 rounds, 20 attacking heroes.
+- Browser suite (one run for #105-#108): 53/54 clean; `guild-basics` timed out once on a dialog still open while the
+  machine was busy, then passed 3 times of 3 alone (none of its steps changed). Other differences: the new lines.
+  Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC; shared with the guild (these records stay on the PC that read them).
+
+---
+
+## 2026-11-23 · #106 · Guild War attack ideas: Guild War itself counts (the guild's attacks, my 👍 / 👎) · this commit (previous: `33dfe02`; committed with #105, #107, #108)
+
+**Asked for:** after #105: "she's fine, it's that this is guild wars so some units are better or worse than others
+because of the 3 hero limit".
+
+**Findings**
+- Both sources of the ideas come from World Arena (5 v 5, bans). Guild War has its own sources: the guild's logged
+  attacks (which heroes, won or lost) and the owner's own judgment.
+
+**Changed**
+- `js/guildwar.js` `heroAttackRecord(state)`: wins and games per hero over the guild's attacks.
+- `js/gwsuggest.js`: `gwRecord` (a hero's smoothed Guild War win rate, from 2 attacks; source 'guild records') and
+  `mine` (👍 / 👎 for Guild War; source 'my notes'; 👎 weighs 1.5× a 👍); ideas also from these alone.
+- `js/guild-app.js` + `js/guild-pip.js` + `css/styles.css`: 👍 / 👎 next to every suggested hero (War tab and pop-out),
+  saved on this PC (`localStorage['e7-gw-heroprefs']`), the ideas change at once.
+
+**Tested**
+- `npm test` 223 (new: a hero winning its Guild War attacks comes in, one losing goes out, 👍 / 👎 move heroes, reasons
+  named; `heroAttackRecord`).
+- `tests/e2e/gw-offense.e2e.js`: every idea has a damage dealer; 👎 on the first idea's first hero → gone from it, saved
+  (-1).
+- Browser suite (one run for #105-#108): 53/54 clean; `guild-basics` timed out once on a dialog still open while the
+  machine was busy, then passed 3 times of 3 alone (none of its steps changed). Other differences: the new lines.
+  Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC.
+
+---
+
+## 2026-11-23 · #105 · Guild War attack ideas: every team has a damage dealer · this commit (previous: `33dfe02`; committed with #106-#108)
+
+**Asked for:** a screenshot of the pop-out with the ideas: "the first team is okay but the second team has no dps so how
+am I supposed to kill it" (Empyrean Ilynav, a knight, with Ruele of Light and Sinful Angelica, two soul weavers).
+
+**Findings**
+- The ideas were ranked only by matchups (who shuts down whom, how heroes do against these defenders); nothing made
+  sure a team can deal damage. Supports win most "matchup" notes (cleanse, barrier, immunity).
+
+**Changed**
+- `js/gwsuggest.js` `suggest`: with the heroes' classes (`roleOf`), every team has at least one damage dealer
+  (warrior, thief, ranger or mage); the best four damage dealers are always among the heroes combined (a damage dealer
+  further down the list could not be picked before). The owner was fine with two soul weavers and a damage dealer, so
+  that stays allowed.
+- `js/guild-app.js`: passes the classes from the hero list.
+
+**Tested**
+- `npm test` 222 (new: three supports with the best matchups → never a team without a damage dealer; one far down the
+  list still taken).
+- On the owner's file (Node, knowledge alone): the second team's idea now Desert Jewel Basar + Ruele of Light + Holiday
+  Yufine (warrior); the first Moon Bunny Dominiel + Empyrean Ilynav + Little Queen Charlotte (warrior).
+- Browser suite (one run for #105-#108): 53/54 clean; `guild-basics` timed out once on a dialog still open while the
+  machine was busy, then passed 3 times of 3 alone (none of its steps changed). Other differences: the new lines.
+  Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC.
+
+**Open**
+- A class is a rough sign of damage (some mages / rangers are debuffers); the hero's gear (attack, crit) is not looked
+  at yet.
+
+---
+
 ## 2026-11-23 · #104 · Guild War: what to attack a defense with, from your own heroes · this commit (previous: `9ff68fa`)
 
 **Asked for:** a screenshot of the Offense Team screen with the pop-out saying "No information · Nobody in the guild has

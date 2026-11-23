@@ -154,6 +154,12 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   await gp.waitForTimeout(4000);
   s = await state();
   console.log('kept while the page was closed -> attacks:', s.attacks.length, JSON.stringify(s.attacks.slice(-2).map((a) => `${a.by} r${a.team} ${a.result}`)), '· still waiting:', await gp.evaluate(() => JSON.parse(localStorage.getItem('e7-gw-results') || '[]').length), '· attacks left for me:', await gp.evaluate(() => window.GuildApp.attacksLeft()));
+  // DEVLOG #107: every battle window read is kept as a battle record (attack team vs defense team, won or not)
+  console.log('battle records kept:', await gp.evaluate(() => {
+    const l = JSON.parse(localStorage.getItem('e7-gw-battles') || '[]');
+    const h = window.E7GWBattles.heroRecord(l);
+    return `${l.length} battles, ${l.reduce((a, b) => a + b.rounds.length, 0)} rounds, ${h.size} attacking heroes`;
+  }));
   console.log('errors:', errs);
   await b.close();
 })();

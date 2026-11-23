@@ -258,6 +258,19 @@
   }
 
   /** Enemy heroes that cause us the most losses (attacks against teams containing them). */
+  /** How each hero did in the guild's own attacks (DEVLOG #106): Map code -> { wins, games }. */
+  function heroAttackRecord(state) {
+    const m = new Map();
+    for (const a of state.attacks || [])
+      for (const c of new Set(a.heroes || [])) {
+        if (!c) continue;
+        const r = m.get(c) || { wins: 0, games: 0 };
+        r.games++;
+        if (a.result === 'win') r.wins++;
+        m.set(c, r);
+      }
+    return m;
+  }
   function threatHeroes(state, limit = 10) {
     const targetsById = new Map(state.targets.map((t) => [t.id, t]));
     const m = new Map();
@@ -487,7 +500,7 @@
     return s;
   }
 
-  const api = { matchPlayer, editDistance, LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, defenseChange, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, newId };
+  const api = { matchPlayer, editDistance, LEVELS, PROVEN, isProven, recordVs, enemySpeeds, teamVerdict, gearCheck, targetVerdict, playerProfile, DEFAULT_RULES, defenseChange, teamKey, playerKey, buildState, targetStatus, attacksUsed, warSummary, counterBook, suggestCounters, assignmentIdeas, enemyHistory, memberStats, threatHeroes, heroAttackRecord, newId };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RTAGuildWar = api;
 })(typeof window !== 'undefined' ? window : globalThis);

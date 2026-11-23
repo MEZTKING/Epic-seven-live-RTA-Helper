@@ -94,6 +94,15 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   // DEVLOG #104: what to attack each defense team with, from my heroes (no top-player model here: hero knowledge alone)
   console.log('  attack ideas:', JSON.stringify(await gp.evaluate(() => [...document.querySelectorAll('.gw-try')].map((x) => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 150)))));
   console.log('  no hero in both:', await gp.evaluate(() => { const t = window.GuildApp.state.targets.find((x) => x.player === 'りょうちゃん'); const r = window.GuildApp.attackIdeas(t); return !!(r && r.teams[0] && r.teams[1] && !r.teams[0].team.some((c) => r.teams[1].team.includes(c))); }));
+  // DEVLOG #105 / #106: every idea has a damage dealer; 👎 on a suggested hero (not good in Guild War) takes it out
+  const firstIdea = () => gp.evaluate(() => { const t = window.GuildApp.state.targets.find((x) => x.player === 'りょうちゃん'); const r = window.GuildApp.attackIdeas(t); return r && r.teams[0] ? r.teams[0].team : []; });
+  const before1 = await firstIdea();
+  console.log('  each idea has a damage dealer:', await gp.evaluate(() => { const t = window.GuildApp.state.targets.find((x) => x.player === 'りょうちゃん'); const r = window.GuildApp.attackIdeas(t); const role = (c) => (window.RTASources.allHeroes.find((h) => h.code === c) || {}).role; return r.teams.filter(Boolean).every((x) => x.team.some((c) => ['warrior', 'assassin', 'ranger', 'mage'].includes(role(c)))); }));
+  await gp.click(`.gw-try [data-act="gwpref"][data-code="${before1[0]}"][data-v="-1"]`);
+  await gp.waitForTimeout(300);
+  const after1 = await firstIdea();
+  console.log('  👎 on the first idea\'s first hero: gone from it:', !after1.includes(before1[0]), '· saved as my notes:', await gp.evaluate((c) => JSON.parse(localStorage.getItem('e7-gw-heroprefs') || '{}')[c], before1[0]));
+  await gp.evaluate((c) => window.GuildApp.setGwPref(c, 0), before1[0]);
   // 1b) DEVLOG #102: read once per enemy: my own side changing (heroes swapped: here blanked) reads nothing again;
   // "Read again" on the Guild War page does
   const again = await lv.evaluate(async (url) => {

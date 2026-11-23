@@ -72,6 +72,10 @@
       const i = q.findIndex((x) => GW.playerKey(x.t.player) === GW.playerKey(A.current()));
       const j = i < 0 ? 0 : (i + (act === 'next' ? 1 : -1) + q.length) % q.length;
       A.setCurrent(q[j].t.player);
+    } else if (act === 'gwpref') {
+      // 👍 / 👎 on a hero for Guild War (DEVLOG #106)
+      A.setGwPref(b.dataset.code, Number(b.dataset.v));
+      render();
     } else if (act === 'history') {
       window.focus();
       A.openHistory(A.current());
@@ -116,6 +120,7 @@
           ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
           ${!st.cleared && tv.lines.length ? `<div class="hint">${tv.lines.map(esc).join('<br>')}</div>` : ''}
           ${!st.cleared && (tv.others || []).length ? `<div class="hint">Also owned by: ${esc(tv.others.join(', '))}</div>` : ''}
+          ${!st.cleared && A.battleLine ? A.battleLine(tm.heroes) : ''}
           ${!st.cleared && A.ideaLine ? A.ideaLine(t, i) : ''}
           ${!st.cleared && thisWar ? `<div class="btn-row"><button class="btn win" data-act="win" data-team="${i + 1}" data-heroes="${esc(ctr.join(','))}" title="${ctr.length ? 'Logs the suggested counter as your team' : ''}">Won</button><button class="btn loss" data-act="loss" data-team="${i + 1}" data-heroes="${esc(ctr.join(','))}">Lost</button></div>` : ''}
         </div>`;

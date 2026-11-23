@@ -654,10 +654,12 @@ countdown; places in `E7GWMap.STANDBY`) → `guild:standby { minutes, beginsAt, 
 
 
 **Guild War attack ideas** (DEVLOG #104): `js/gwsuggest.js` (`E7GWSuggest`, pure): `suggestBoth(defenses, pool, { model, know })`
--> one team of 3 per defense team from MY heroes (4+ items in gear.txt: `rta-helper-v2` fribbels builds or the Gear
+-> one team of 3 per defense team (each with a damage dealer by class, #105) from MY heroes (4+ items in gear.txt: `rta-helper-v2` fribbels builds or the Gear
 page's import), no hero twice; scored by the top-player model (`E7TopModel.Model` from IndexedDB `e7-records` kv `model`,
 when fitted on this PC: hero, pairs, hero-vs-hero) and E7DaT knowledge (`notesFor`), reasons labelled with their source.
-`GuildApp.attackIdeas(t)` / `ideaLine(t, i)`: "Try:" on each team card of the War tab and the pop-out.
+`GuildApp.attackIdeas(t)` / `ideaLine(t, i)`: "Try:" on each team card of the War tab and the pop-out. Since #106 also
+'guild records' (`RTAGuildWar.heroAttackRecord`), 'battle records' (#107: every battle window read, any guild:
+`js/gwbattles.js`, `localStorage['e7-gw-battles']`, also "Beaten in other battles by" on each team) and 'my notes' (👍 / 👎 per hero, `localStorage['e7-gw-heroprefs']`).
 
 **Top-player model** (DEVLOG #45; port of E7DaT's statistical core, see `docs/E7DAT_NOTES.md`):
 - `js/topmodel.js` (`E7TopModel`, pure): `build(rows, opts)` → stats `{ meta (games, calib, backtest…), heroes, syn,

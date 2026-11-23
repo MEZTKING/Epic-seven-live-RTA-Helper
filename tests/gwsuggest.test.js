@@ -44,3 +44,47 @@ test('with hero knowledge only (no top-player model on this PC): its notes decid
   assert.deepEqual(S.suggest(['d1', 'd2', 'd3'], pool, {}), []);
   assert.deepEqual(S.suggest(['d1'], pool, { model }), []);
 });
+
+test('every team has a damage dealer (DEVLOG #105: a knight and two soul weavers was suggested)', () => {
+  // the three best matchups are all supports; the damage dealers do less against this defense
+  const m = {
+    hero: () => 0,
+    ctrOf: (a, b) => ({ 'k1>d1': 0.3, 's1>d2': 0.3, 's2>d3': 0.3, 'x1>d1': 0.05, 'x2>d2': 0.02 })[`${a}>${b}`] || 0,
+    synOf: () => 0,
+  };
+  const roles = { k1: 'knight', s1: 'manauser', s2: 'manauser', x1: 'assassin', x2: 'mage' };
+  const pool = Object.keys(roles);
+  // without classes: the three supports
+  assert.deepEqual(S.suggest(['d1', 'd2', 'd3'], pool, { model: m, top: 1 })[0].team.slice().sort(), ['k1', 's1', 's2']);
+  // with classes: always one who deals the damage
+  const r = S.suggest(['d1', 'd2', 'd3'], pool, { model: m, top: 3, roleOf: (c) => roles[c] });
+  assert.ok(r.length && r.every((t) => t.team.some((c) => S.DAMAGE.has(roles[c]))));
+  assert.ok(r[0].team.includes('x1'));
+  // a damage dealer far down the list is still among the candidates
+  const many = Object.fromEntries([...Array(14)].map((_, i) => [`s${i + 10}`, 'manauser']));
+  const m2 = { ...m, ctrOf: (a, b) => (a.startsWith('s') && b === 'd1' ? 0.2 : a === 'x9' && b === 'd2' ? 0.01 : 0) };
+  const r2 = S.suggest(['d1', 'd2', 'd3'], [...Object.keys(many), 'x9'], { model: m2, top: 1, roleOf: (c) => many[c] || 'ranger' });
+  assert.ok(r2[0].team.includes('x9'));
+});
+
+test('Guild War itself counts (DEVLOG #106): the guild\'s own attacks and my 👍 / 👎 move heroes up or down', () => {
+  const m = { hero: () => 0, ctrOf: (a, b) => ({ 'x1>d1': 0.05, 'x2>d2': 0.05, 'x3>d3': 0.05, 'x4>d1': 0.04 })[`${a}>${b}`] || 0, synOf: () => 0 };
+  const pool = ['x1', 'x2', 'x3', 'x4'];
+  const base = S.suggest(['d1', 'd2', 'd3'], pool, { model: m, top: 1 })[0].team;
+  assert.ok(!base.includes('x4'));
+  // x4 wins its Guild War attacks, x1 keeps losing: x4 in, x1 out
+  const gwRecord = new Map([['x4', { wins: 9, games: 10 }], ['x1', { wins: 1, games: 8 }]]);
+  const r = S.suggest(['d1', 'd2', 'd3'], pool, { model: m, top: 1, gwRecord })[0];
+  assert.ok(r.team.includes('x4') && !r.team.includes('x1'));
+  assert.ok(r.reasons.some((x) => x.source === 'guild records' && /won 9 of 10/.test(x.text)));
+  // my 👎 on x2 for Guild War: out; 👍 on x1: in, named as my notes
+  const mine = { x2: -1, x1: 1 };
+  const r2 = S.suggest(['d1', 'd2', 'd3'], pool, { model: m, top: 1, mine })[0];
+  assert.ok(!r2.team.includes('x2') && r2.team.includes('x1'));
+  assert.ok(r2.reasons.some((x) => x.source === 'my notes' && /good in Guild War/.test(x.text)));
+  // from the guild's attacks: wins and games per hero
+  const G = require('../js/guildwar.js');
+  const rec = G.heroAttackRecord({ attacks: [{ heroes: ['a', 'b'], result: 'win' }, { heroes: ['a'], result: 'loss' }] });
+  assert.deepEqual(rec.get('a'), { wins: 1, games: 2 });
+  assert.deepEqual(rec.get('b'), { wins: 1, games: 1 });
+});

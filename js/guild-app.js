@@ -131,7 +131,12 @@
     });
     status();
   }
+  // a warning goes away by itself (DEVLOG #108: "the game shows a battle result, but a player name could not be read"
+  // stayed after later battles were read fine)
+  let statusTimer = null;
   function status(msg, kind) {
+    clearTimeout(statusTimer);
+    if (kind === 'warn') statusTimer = setTimeout(() => status(), 20000);
     const el = $('#conn-status');
     const shared = backend && backend.kind === 'firebase';
     $('#sync-dot').classList.toggle('on', !!shared);
@@ -288,6 +293,7 @@
               ${speeds.length ? `<div class="hint">Speed: ${speeds.map(([c, v]) => `${esc(nameOf(c))} ${esc(v)}`).join(' · ')}</div>` : ''}
               ${tm.build ? `<div class="hint">${esc(tm.build)}</div>` : ''}
               ${!st.cleared && counters.length ? `<div class="hint">Beaten before by: ${counters.map((c) => `${c.attack.map(nameOf).map(esc).join(' + ')} (${c.wins}-${c.games - c.wins}${c.exact ? '' : ', similar'})`).join(' · ')}</div>` : ''}
+              ${!st.cleared ? battleLine(tm.heroes) : ''}
               ${!st.cleared ? mechLine(tm.heroes) : ''}
               ${!st.cleared ? ideaLine(t, i) : ''}
               ${!st.cleared && tv.level !== 'grey' ? `<div class="hint verdict-line">${esc(tv.label)}${tv.lines.length ? ' · ' + esc(tv.lines[tv.lines.length - 1]) : ''}</div>` : ''}
@@ -531,7 +537,26 @@
       return {};
     }
   };
+  // every battle read, whoever fought (DEVLOG #107): this PC's battle records ('battle records', js/gwbattles.js)
+  const BATTLES_KEY = 'e7-gw-battles';
+  const battles = () => {
+    try {
+      return JSON.parse(localStorage.getItem(BATTLES_KEY) || '[]') || [];
+    } catch (_) {
+      return [];
+    }
+  };
+  function keepBattle(d) {
+    const BT = window.E7GWBattles;
+    const b = BT && BT.fromResult(d);
+    if (!b) return;
+    try {
+      localStorage.setItem(BATTLES_KEY, JSON.stringify(BT.add(battles(), b)));
+    } catch (_) { /* full: only a help */ }
+    ideaCache.clear();
+  }
   async function resultFromGame(d) {
+    keepBattle(d);
     const RS = window.E7GWResult;
     if (!RS || !d || !Array.isArray(d.rounds)) return 'nothing';
     if (!backend || !loaded) return 'no-guild';
@@ -555,7 +580,7 @@
     if (oursVotes > enemyVotes) side = 'ours';
     else if (enemyVotes > oursVotes) side = 'enemy';
     if (!d.left.name || !d.right.name) {
-      status('The game shows a battle result, but a player name could not be read. Nothing was logged.', 'warn');
+      status(`The game shows a battle result, but ${!d.left.name && !d.right.name ? 'neither player name' : `${esc(d.left.name || d.right.name)}'s opponent's name`} could not be read. Nothing was logged.`, 'warn');
       return 'no-names';
     }
     const p = RS.plan({ type: d.type, side, left: d.left.name, right: d.right.name, rounds: d.rounds });
@@ -980,6 +1005,10 @@
   }
   // Hero mechanics (js/knowledge.js, source 'E7DaT knowledge'): what a defense brings, and what it does to my team
   const KNOW = () => window.E7Knowledge || null;
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-act="gwpref"]');
+    if (b) setGwPref(b.dataset.code, Number(b.dataset.v));
+  });
   const knowBadge = '<span class="src know">E7DaT knowledge</span>';
   /** "Watch for: front-line guard (Boss Arunka) · blocks revive (Lethe)" for one defense team. */
   function mechLine(codes) {
@@ -990,6 +1019,13 @@
     const by = new Map();
     for (const t of th) by.set(t.label, [...(by.get(t.label) || []), nameOf(t.code)]);
     return `<div class="hint">${knowBadge} Watch for: ${[...by.entries()].map(([label, names]) => `${esc(label)} (${names.map(esc).join(', ')})`).join(' · ')}</div>`;
+  }
+  /** "Beaten in other battles: A + B + C (2-0)" from every battle read on this PC (DEVLOG #107); '' when none. */
+  function battleLine(heroes) {
+    const BT = window.E7GWBattles;
+    if (!BT) return '';
+    const c = BT.suggest(heroes || [], battles(), { limit: 2 });
+    return c.length ? `<div class="hint"><span class="src fribbels">battle records</span> Beaten in other battles by: ${c.map((x) => `${x.attack.map(nameOf).map(esc).join(' + ')}${x.attack.length < 3 ? ' + ?' : ''} (${x.wins}-${x.games - x.wins}${x.exact ? '' : ', similar'})`).join(' · ')}</div>` : '';
   }
   // ---- what to attack with, from MY heroes (DEVLOG #104; js/gwsuggest.js) ------------------------------------------
   // my heroes: those with 4+ items in my gear.txt (the RTA Helper's Fribbels builds, and the Gear page's import)
@@ -1011,7 +1047,7 @@
     return myHeroesCache;
   }
   addEventListener('storage', (e) => {
-    if (e.key === 'rta-helper-v2' || e.key === 'rta-gear-v1') {
+    if (e.key === 'rta-helper-v2' || e.key === 'rta-gear-v1' || e.key === 'e7-gw-battles') {
       myHeroesCache = null;
       ideaCache.clear();
     }
@@ -1045,20 +1081,43 @@
     } catch (_) { /* no model */ }
   })();
   const ideaCache = new Map();
+  // my word on heroes for Guild War (DEVLOG #106): { code: 1 | -1 } on this PC ('my notes')
+  const PREF_KEY = 'e7-gw-heroprefs';
+  const gwPrefs = () => {
+    try {
+      return JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  };
+  function setGwPref(code, v) {
+    const p = gwPrefs();
+    if (!code) return;
+    if (p[code] === v || !v) delete p[code];
+    else p[code] = v;
+    try {
+      localStorage.setItem(PREF_KEY, JSON.stringify(p));
+    } catch (_) { /* full */ }
+    ideaCache.clear();
+    renderWar();
+  }
   /** -> { teams: [{ team, reasons } | null, …], basis } for a target's defense teams, or null (nothing to go on). */
   function attackIdeas(t) {
     const SG = window.E7GWSuggest;
     if (!SG || !t) return null;
     const defs = (t.teams || []).slice(0, rules().teamsPerDefense).map((tm) => (tm.heroes || []).filter(Boolean));
-    const key = `${t.id}|${defs.map((d) => d.join(',')).join('|')}|${topModelNow ? 1 : 0}`;
+    const prefs = gwPrefs();
+    const key = `${t.id}|${defs.map((d) => d.join(',')).join('|')}|${topModelNow ? 1 : 0}|${JSON.stringify(prefs)}|${state.attacks.length}|${(localStorage.getItem(BATTLES_KEY) || '').length}`;
     if (ideaCache.has(key)) return ideaCache.get(key);
     const pool = myHeroes();
-    const r = pool.length >= 3 ? SG.suggestBoth(defs, pool, { model: topModelNow, know: KNOW(), nameOf }) : null;
+    const roleOf = (c) => (HEROES.find((h) => h.code === c) || {}).role || '';
+    const BT = window.E7GWBattles;
+    const r = pool.length >= 3 ? SG.suggestBoth(defs, pool, { model: topModelNow, know: KNOW(), nameOf, roleOf, gwRecord: GW.heroAttackRecord(state), battleRecord: BT ? BT.heroRecord(battles()) : null, mine: prefs }) : null;
     const out = r && r.teams.some(Boolean) ? r : null;
     ideaCache.set(key, out);
     return out;
   }
-  const SRC_BADGE = { 'top players': '<span class="src record">top players</span>', 'E7DaT knowledge': '<span class="src know">E7DaT knowledge</span>' };
+  const SRC_BADGE = { 'top players': '<span class="src record">top players</span>', 'E7DaT knowledge': '<span class="src know">E7DaT knowledge</span>', 'guild records': '<span class="src fribbels">guild records</span>', 'my notes': '<span class="src notes">my notes</span>' };
   /** "Try: A + B + C" with its two best reasons, each with its source; '' when there is no idea. */
   function ideaLine(t, i) {
     const r = attackIdeas(t);
@@ -1069,7 +1128,10 @@
       .slice(0, 2)
       .map((y) => `${SRC_BADGE[y.source] || ''} ${y.hero ? `${esc(nameOf(y.hero))}: ` : ''}${esc(y.text)}`)
       .join(' · ');
-    return `<div class="hint gw-try"><b>Try:</b> ${x.team.map(chipT).join('')}${why ? `<div>${why}</div>` : ''}</div>`;
+    // 👍 / 👎 per hero: good or not in Guild War (my notes), the ideas change at once
+    const prefs = gwPrefs();
+    const vote = (c) => `<span class="gw-vote"><button type="button" class="link${prefs[c] > 0 ? ' on' : ''}" data-act="gwpref" data-code="${esc(c)}" data-v="1" title="Good in Guild War">👍</button><button type="button" class="link${prefs[c] < 0 ? ' on' : ''}" data-act="gwpref" data-code="${esc(c)}" data-v="-1" title="Not good in Guild War (suggested less)">👎</button></span>`;
+    return `<div class="hint gw-try"><b>Try:</b> ${x.team.map((c) => `<span class="gw-try-hero">${chipT(c)}${vote(c)}</span>`).join('')}${why ? `<div>${why}</div>` : ''}</div>`;
   }
   /** In the attack window: what the defense shuts down on the heroes typed in, and what they shut down on it. */
   function showAttackMech() {
@@ -1150,7 +1212,8 @@
         .filter((a) => a.games >= 2)
         .sort((a, b) => b.wins / b.games - a.wins / a.games || b.games - a.games)
         .slice(0, 10)
-        .map((a) => `<li>${team(a.attack)} <small class="hint">${a.wins}-${a.games - a.wins}</small></li>`)
+        // a team read from the game with heroes not recognised: shown as such ("Setsuka + ? + ?"), not as a one-hero team
+        .map((a) => `<li>${team(a.attack)}${a.attack.length < 3 ? ` <span class="hint" title="Not every hero of this attack was recognised">${' + ?'.repeat(3 - a.attack.length)}</span>` : ''} <small class="hint">${a.wins}-${a.games - a.wins}</small></li>`)
         .join('') || '<li class="hint">Needs a few logged attacks.</li>';
   }
   $$('#tab-counters .h3').forEach((i) => i.addEventListener('input', renderCounters));
@@ -1532,6 +1595,8 @@
     openTargetWith: (seen) => openTarget(null, seen),
     attackIdeas,
     ideaLine,
+    battleLine,
+    setGwPref,
     saveFortress,
     markBeaten,
     warEndsFromGame,
