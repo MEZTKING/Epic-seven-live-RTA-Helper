@@ -13,6 +13,8 @@
  *     opts: { goal: 'damage', min: { spd, chc, chd, eff, efr, hp, def, atk }, set4: 'SpeedSet' | '', set2: ['CriticalSet'],
  *             top: 5, perSlot: 11 }
  *     exact = false when no combination meets every minimum: then the closest ones are given (meets = false)
+ *   planAll(entries, items, { wornBy, allowed })  a whole list of heroes, most important first, no item twice (#95)
+ *   goalForRole(role)                       a default goal for a hero class
  */
 (function (root) {
   'use strict';
@@ -148,7 +150,31 @@
     return { builds: out, tried, kept: lists.reduce((a, l) => a + l.length, 0), exact };
   }
 
-  const api = { GOALS, optimize, finish, vec };
+  /**
+   * Gear a whole list of heroes (DEVLOG #95), most important first: each hero gets the best build from what is left,
+   * so no item is used twice. entries: [{ code, base, opts }] in order; wornBy(item) -> hero code | null;
+   * allowed(item, code) -> may this hero take this item (besides the items taken already). Items worn by a hero later
+   * in the list may be taken by an earlier one (that is what "most important first" means); that hero then gears from
+   * what is left.
+   *   -> [{ code, build | null, exact, taken: [{ item, from }] }]
+   */
+  function planAll(entries, items, { wornBy = () => null, allowed = () => true } = {}) {
+    const used = new Set();
+    const out = [];
+    for (const e of entries || []) {
+      const pool = (items || []).filter((it) => !used.has(it.id) && allowed(it, e.code));
+      const r = e.base ? optimize(e.base, pool, { ...(e.opts || {}), top: 1 }) : { builds: [], exact: false };
+      const b = r.builds[0] || null;
+      if (b) for (const it of Object.values(b.items)) used.add(it.id);
+      const taken = b ? Object.values(b.items).map((it) => ({ item: it, from: wornBy(it) })).filter((x) => x.from && x.from !== e.code) : [];
+      out.push({ code: e.code, build: b, exact: !!r.exact, taken });
+    }
+    return out;
+  }
+  /** A goal for a hero without a target of their own: by class (knights tank, soul weavers speed, the rest damage). */
+  const goalForRole = (role) => ({ knight: 'tank', manauser: 'speed' }[role] || 'damage');
+
+  const api = { GOALS, optimize, finish, vec, planAll, goalForRole };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.E7GearAuto = api;
 })(typeof self !== 'undefined' ? self : this);

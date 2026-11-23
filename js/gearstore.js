@@ -37,6 +37,8 @@
       // DEVLOG #86: the heroes you are gearing (hero codes); empty = every hero with gear
       priority: Array.isArray(g.priority) ? g.priority : [],
       skip: Array.isArray(g.skip) ? g.skip : [], // heroes you don't gear (DEVLOG #90)
+      // DEVLOG #95: what each hero should be geared for { code: { goal, min, set4, set2 } } (auto-gear, the whole list)
+      targets: g.targets && typeof g.targets === 'object' ? g.targets : {},
     };
   }
   /** Throws if the browser storage is full. */

@@ -79,3 +79,24 @@ test('gear.txt from the auto importer: its lock field (l) is read (DEVLOG #93)',
   const items = S.slimInventory({ items: [{ id: 'a', gear: 'Ring', main: sub('Speed', 4), substats: [], l: true }, { id: 'b', gear: 'Ring', main: sub('Speed', 4), substats: [] }] }, []);
   assert.deepEqual(items.map((x) => x.locked), [true, false]);
 });
+
+test('gear a whole list (DEVLOG #95): most important first, no item used twice, the next hero gears from what is left', () => {
+  const items = pool();
+  const first = A.planAll([{ code: 'a', base, opts: { goal: 'damage' } }, { code: 'b', base, opts: { goal: 'damage' } }], items, { wornBy: () => null });
+  const ids = (r) => Object.values(r.build.items).map((it) => it.id);
+  assert.equal(first.length, 2);
+  assert.equal(ids(first[0]).length, 6);
+  assert.equal(ids(first[1]).length, 6);
+  assert.ok(!ids(first[1]).some((id) => ids(first[0]).includes(id)));
+  // the first hero gets what a lone optimisation gives it
+  assert.deepEqual(ids(first[0]), Object.values(A.optimize(base, items, { goal: 'damage' }).builds[0].items).map((it) => it.id));
+  assert.ok(first[1].build.score <= first[0].build.score);
+  // items it may not take are left alone; taken items name their wearer
+  const worn = items.find((it) => it.gear === 'Weapon' && it.set === 'AttackSet');
+  const r = A.planAll([{ code: 'a', base, opts: { goal: 'damage' } }], items, { wornBy: (it) => (it === worn ? 'x' : null), allowed: (it) => it !== worn });
+  assert.ok(!ids(r[0]).includes(worn.id));
+  const r2 = A.planAll([{ code: 'a', base, opts: { goal: 'damage' } }], items, { wornBy: (it) => (it === worn ? 'x' : null) });
+  assert.deepEqual(r2[0].taken.map((t) => t.from), ids(r2[0]).includes(worn.id) ? ['x'] : []);
+  assert.equal(A.goalForRole('knight'), 'tank');
+  assert.equal(A.goalForRole('assassin'), 'damage');
+});

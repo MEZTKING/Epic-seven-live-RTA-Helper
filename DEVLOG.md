@@ -7,6 +7,47 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #95 · Gear: gear the whole gearing list at once (targets per hero, most important first, no item twice) · this commit (previous: `8b3f907`)
+
+**Asked for:** "build 2, gear the whole gearing list" (from the list offered after #94: "auto-gear your gearing list in
+order of importance, without two heroes taking the same item").
+
+**Findings**
+- A first run on the test file showed two faults: a hero with no target got "damage by class" with no speed floor
+  (Rhianna 319 → 151 speed), and a hero owned twice (two Arbiter Vildred) had both copies' 12 items added up as what
+  he wears now (health 20 963).
+
+**Changed**
+- `js/gearauto.js`: `planAll(entries, items, { wornBy, allowed })` (in order; each hero the best build from what is
+  left; items taken and from whom) and `goalForRole` (knights tank, soul weavers speed, the rest damage).
+- `js/gearstore.js`: `targets` per hero (`{ goal, min, set4, set2 }`).
+- `gear.html` + `js/gear-app.js` + `css/styles.css`: "Remember as this hero's target" in Auto-gear (typing a hero with a
+  target fills the form); the gearing list numbered with ▲▼ and each hero's target; "Gear them all" (items: spare, the
+  hero's own, heroes further down the list, heroes you don't gear; "also take items from heroes on neither list"):
+  per hero now → new speed / crit / attack / health / defense, items to change and from whom, a click shows the board;
+  "Save them all as presets", "Show all the moves". A hero without a target: by class, never slower than 97 % of now.
+- `wearing(code)`: two copies of a hero → the copy with the most gear (gear.txt `unit`), not both added up.
+- One hero at a time with "Gearing 3 of 10: <hero>…" on the page: on the owner's whole file 10 heroes took 9.3 s
+  (Node), which froze the page when done in one go.
+
+**Tested**
+- `npm test` 217 (new: the whole list: first hero = a lone optimisation, no item twice, items not allowed left alone,
+  taken items name their wearer, class goals).
+- `tests/e2e/gear-auto.e2e.js` step 4: Eligos' target remembered (damage · speed 230+ · Speed); list Eligos, Rhianna,
+  Arbiter Vildred (Eligos moved up with ▲); Eligos 239 → 236 speed, 87 → 100 % crit, attack 3 591 → 4 146 with 5
+  items from Arbiter Vildred; Rhianna keeps hers (already her best at her speed); Arbiter Vildred re-geared from what
+  is left at the same speed (crit 98 → 82 %: the cost of putting Eligos first); 3 presets, 18 items, none twice.
+- Browser suite 53/53 clean; other differences: the gearing list's chips show each hero's target (hero-gear test),
+  record-site lookups 20 → 21. Desktop (packaged Linux build): watcher, overlay-test, popout, update-check, picker-once,
+  gearfile clean.
+- **Not tested:** on the owner's PC (10 heroes from the whole file: 9.3 s in Node here).
+
+**Open**
+- Greedy (one hero after the other), not a joint best for the whole list; the order decides who gets the contested
+  items.
+
+---
+
 ## 2026-11-22 · #94 · Your gear file re-imported by itself (gear.txt or the Fribbels optimizer's autosave) · this commit (previous: `dacd79e`)
 
 **Asked for:** "yes build the auto re-import" (offered in #91: the app watches your gear file and re-imports it whenever
