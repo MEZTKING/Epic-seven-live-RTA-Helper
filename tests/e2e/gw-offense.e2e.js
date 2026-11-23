@@ -84,6 +84,36 @@ const dataUrl = (f) => `data:image/${f.endsWith('.png') ? 'png' : 'jpeg'};base64
   console.log('  saved as their defense:', JSON.stringify(((await tgt()) || { teams: [] }).teams.map(nm)), '· current player:', await gp.evaluate(() => window.GuildApp.current()));
   console.log('  status:', (await gp.textContent('#conn-status')).trim().slice(0, 90), '· "how did it go" shown before the fight:', !(await gp.evaluate(() => document.getElementById('war-pending').classList.contains('hidden'))));
 
+  // 1b) DEVLOG #102: read once per enemy: my own side changing (heroes swapped: here blanked) reads nothing again;
+  // "Read again" on the Guild War page does
+  const again = await lv.evaluate(async (url) => {
+    const im = new Image();
+    await new Promise((r) => { im.onload = r; im.src = url; });
+    const c = document.createElement('canvas');
+    c.width = im.width;
+    c.height = im.height;
+    const x = c.getContext('2d');
+    x.drawImage(im, 0, 0);
+    x.fillStyle = 'rgba(0,0,0,0.6)';
+    x.fillRect(0, 0.12 * c.height, 0.42 * c.width, 0.75 * c.height); // my two teams changed
+    window.E7Vision._useSource(c);
+    let n = 0;
+    const off = window.E7Bus.on('guild:offense', (d) => { if (!d.away) n++; });
+    for (let i = 0; i < 4; i++) {
+      await window.E7Vision.tick(true);
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    const mineChanged = n;
+    window.E7Bus.publish('cmd:offense-reread', {});
+    for (let i = 0; i < 40 && n === mineChanged; i++) {
+      await window.E7Vision.tick(true);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    off();
+    return { mineChanged, afterReadAgain: n - mineChanged };
+  }, dataUrl('steam-gw-offense-wide.jpg'));
+  console.log('  my side changed: readings', again.mineChanged, '· after "Read again":', again.afterReadAgain, '· the button shown on the Guild War page:', await gp.evaluate(() => !document.getElementById('gw-offense-again').classList.contains('hidden')));
+
   // 2) the fight starts
   const b1 = await show('steam-gw-battle1-wide.jpg', ['battle'], 20);
   console.log('battle:', b1.notes['guild-battle'], JSON.stringify(b1.got.battle && { round: b1.got.battle.round, left: b1.got.battle.left.name, right: b1.got.battle.right.name }));

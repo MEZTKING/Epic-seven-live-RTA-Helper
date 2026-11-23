@@ -69,6 +69,21 @@ const { autoAsk, ask } = require('./_ask.js');
   console.log('markers on the game:', JSON.stringify(pins));
   const opened = await ov.evaluate(() => { const ok = window.E7OverlayView._openPin('guild-fort:1'); const p = document.querySelector('#ov-pop'); return { ok, shown: p.style.display, text: p.textContent.replace(/\s+/g, ' ').trim(), buttons: [...p.querySelectorAll('button')].map((b) => b.textContent), input: !!p.querySelector('input') }; });
   console.log('hover the "?" marker:', JSON.stringify(opened));
+  // DEVLOG #101: the markers and their card stay out of the red circle (what you tap in the game to go in): the marker
+  // right of it, the card right of the marker, going up
+  console.log('   off the red circle:', JSON.stringify(await ov.evaluate(() => {
+    const W = innerWidth;
+    const H = innerHeight;
+    const pinEl = document.querySelector('.ov-pin[data-pin="guild-fort:1"]').getBoundingClientRect();
+    const pop = document.querySelector('#ov-pop').getBoundingClientRect();
+    // the defender's circle (x 0.5, y 0.45 of the game area; radius about 0.04 of its height)
+    const A = document.querySelector('#area') ? document.querySelector('#area').getBoundingClientRect() : { left: 0, top: 0, width: W, height: H };
+    const cx = A.left + 0.5 * A.width;
+    const cy = A.top + 0.45 * A.height;
+    const r = 0.04 * A.height;
+    const outside = (b) => b.right < cx - r || b.left > cx + r || b.bottom < cy - r || b.top > cy + r;
+    return { marker: outside(pinEl), card: outside(pop), cardAboveMarkerBottom: pop.bottom <= pinEl.bottom + 1 };
+  })));
   await ov.click('#ov-pop button[data-v="Rival8"]');
   await gp.waitForTimeout(1200);
   const after = await gp.evaluate(() => ({ boxes: [...document.querySelectorAll('#gw-fort-seen [data-fort-i]')].map((b) => b.value), targets: window.GuildApp.state.targets.map((t) => t.player), msg: (document.querySelector('#gw-fort-msg') || {}).textContent || '' }));

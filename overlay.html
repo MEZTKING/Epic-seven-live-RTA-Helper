@@ -104,6 +104,7 @@
         pins = [];
         root.innerHTML = Object.values(layers).flat().map((it) => {
           let x = (A.x + it.x * A.w) * W, y = (A.y + it.y * A.h) * H;
+          if (it.dxH) x += it.dxH * A.h * H; // an offset in the game's height (the same at any window shape), DEVLOG #101
           if (it.kind === 'busy') {
             // centred at the top of the game, one under the other
             const top = y + 30 * nBusy++;
@@ -189,8 +190,10 @@
         const r = el.getBoundingClientRect();
         pop.style.display = 'block';
         const pw = pop.offsetWidth, ph = pop.offsetHeight;
-        let left = r.right + 8, top = r.top - 6;
+        // to the right of the marker, going up from it: clear of the red circle and the name below it (DEVLOG #101)
+        let left = r.right + 8, top = r.bottom - ph;
         if (left + pw > innerWidth - 4) left = Math.max(4, r.left - pw - 8);
+        if (top < 4) top = 4;
         if (top + ph > innerHeight - 4) top = Math.max(4, innerHeight - ph - 4);
         pop.style.left = left + 'px';
         pop.style.top = top + 'px';

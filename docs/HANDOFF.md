@@ -182,9 +182,9 @@ only receive events.
   | `guild-name.js` | `guild:name-read { text, rect, options?, pic?, lang? }` | A player's name on a defense / stronghold screen, in any writing (`js/vision/names.js`) |
   | `guild-defense.js` | `guild:defense` | The six hero icons of a player's two defense teams (faces, no calibration; 3 of 4 places per team, stronghold shift) |
   | `guild-fortress.js` | `guild:fortress { side, index, fort, players, keep }` | A fortress map: which fortress, each defender's name and badge state (enemy / ours / beaten). Since #89 only when the page indicator is a map's (`E7GWMap.barKind` = 'map') and at least one name was read |
-  | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild, ourServer, enemyServer, endsIn, endsAt }` | The overview: three fortress names, which side, both guild names and servers, "War Ends in …". A guild name in Chinese / Japanese / Korean script (server Asia / Japan / Korea) is read again in that script, up to the server tag's pill, the same twice (#97); the Guild War page accepts 2-character names in those scripts |
+  | `guild-overview.js` | `guild:forts { side, names, ourGuild, enemyGuild, ourServer, enemyServer, endsIn, endsAt }` | The overview: three fortress names, which side, both guild names and servers, "War Ends in …". A guild name in Chinese / Japanese / Korean script (server Asia / Japan / Korea) is read again in that script, up to the server tag's pill, the same twice (#97); the Guild War page accepts 2-character names in those scripts. `E7GWMap.matchName` joins alike-looking readings of one such name (same length, half the characters in place, one candidate), #103 |
   | `guild-standby.js` | `guild:standby { minutes, beginsAt, season }` | The standby page: no war running, time to the next one |
-  | `guild-offense.js` (three readers) | `guild:offense { enemy, rect, mine, theirs }`, `guild:battle { round, left, right }`, `guild:note { author, text }` | The Offense Team screen (their defense, my teams), the fight ("Round 1" pill + names), a note window ("…'s Record") (DEVLOG #58) |
+  | `guild-offense.js` (three readers) | `guild:offense { enemy, rect, mine, theirs }`, `guild:battle { round, left, right }`, `guild:note { author, text }` | The Offense Team screen (their defense, my teams; read once per enemy, again on 'cmd:offense-reread' = "Read again", #102), the fight ("Round 1" pill + names), a note window ("…'s Record") (DEVLOG #58) |
   | `guild-result.js` | `guild:result { type, ok, side, left, right, rounds }` | A battle-result window ("Successful Attack" / "Failed Defense" …): both players, both sides' two teams, each round's result (DEVLOG #57) |
   | `rta-draft.js` | `rta:draft`, `rta:draft-end`, `rta:stage` (every 4 s) | The RTA draft without calibration (stage texts, pick cards from wide portraits, pre-ban icons, my pre-bans in the pre-ban window, both bans from the formation screen, first pick) |
   | `rta-battle.js` | `rta:battle { me, opp, sameGuild }` | The battle's top bar after an arena draft: both names, servers, guilds (DEVLOG #63) |
@@ -223,7 +223,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 |---|---|---|
 | `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `mySpeeds` (typed speed per hero, source `my speeds`; wins over gear.txt), `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
 | `localStorage['rta-helper-v1']` | legacy | First version's data; upgraded automatically (`migrateV1`) |
-| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides`, `priority` (heroes you are gearing, #86; in order of importance since #95), `skip` (heroes you don't gear, #90; never on both lists), `targets` (per hero, #95) |
+| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides`, `priority` (heroes you are gearing, #86; in order of importance since #95), `skip` (heroes you don't gear, #90; never on both lists), `targets` (per hero, #95), `cleaned` (done ticks, #100) |
 | `localStorage['e7-guild-conn']` | `js/guild-app.js` | `guildCode`, `guildName`, `myName`, Firebase `config`, `shareSpeeds`, `watchBox` |
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
@@ -343,7 +343,9 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   hero" (pool: free + own / + heroes you don't gear or aren't gearing / + any hero), "Save as a preset", "Show the
   moves". Free up space (#93, `js/gearclean.js` `plan`): spare items only (the game counts no worn items): extract /
   sell verdicts and dominated duplicates, locked ones apart, parking on "don't gear" heroes' empty slots; never worn,
-  preset, upgrade or enhance items. gear.txt's lock field `l` is read since #93.
+  preset, upgrade or enhance items. gear.txt's lock field `l` is read since #93. Since #100 the extract list is grouped by
+  slot and set (the game's inventory filters) or least valuable first, with "done" ticks (`gs.cleaned` { id: at },
+  dropped once the item is gone).
   Whole gearing list (#95): `E7GearAuto.planAll` in `gs.priority` order (▲▼ in the card), each hero from what is left
   (no item twice; heroes further down the list and "don't gear" heroes give items; others only when asked), per hero
   `gs.targets[code]` ({ goal, min, set4, set2 }, saved from the Auto-gear form) or by class with speed ≥ 97 % of now;
@@ -492,7 +494,8 @@ drawn by `js/topstats-ui.js` (`E7TopStatsUI.render`, hooked into `RENDER.top` in
 - (#72) Snow on Guild War pages: `E7GWResult.pageAt` counts the share of the strip in the slate colour (≥ 0.7),
   `guild-name.js` needs 3 misses before "left" (which clears the overlay card), `guild-defense.js` reads icons from
   the darker of two looks. Test with snow: `tests/e2e/gw-overlay.e2e.js`.
-- (#73) Clickable overlay: item `kind: 'pin'` with `pin: { layer, id, key, name, lines, options, input }`; overlay.html
+- (#73) Clickable overlay: item `kind: 'pin'` with `pin: { layer, id, key, name, lines, options, input }` (since #101 the Guild War
+  markers sit beside the defender's red circle via `dxH`, an x offset in game heights; the card opens right of the marker, upwards); overlay.html
   sends `{ action: 'pick', layer, id, key, value }` on the 'e7-overlay' channel; the page that posted the pin handles it
   (Guild War: `js/guild-watch.js`). Desktop: `setIgnoreMouseEvents(true, { forward: true })`, IPC `e7:overlay-mouse` /
   `e7:overlay-focus` (overlay page only). Never send anything to the game.

@@ -298,7 +298,9 @@
           .filter(({ p }) => typeof p.x === 'number')
           .map(({ p, i }) => {
             const info = pinLines(p);
-            return { x: p.x, y: p.y, w: 0, h: 0, kind: 'pin', level: info.level, title: unsure(p) ? '?' : '', pin: { layer: 'guild-fort', id: i, key, name: p.name || '', lines: info.lines, options: (p.options || []).slice(0, 4), input: true } };
+            // beside the red circle, not on it: the circle is what you tap in the game to go in (DEVLOG #101; the
+            // ring's radius is about 0.04 of the game's height: the marker 0.065 of it to the right, any window shape)
+            return { x: p.x, y: p.y, dxH: 0.065, w: 0, h: 0, kind: 'pin', level: info.level, title: unsure(p) ? '?' : '', pin: { layer: 'guild-fort', id: i, key, name: p.name || '', lines: info.lines, options: (p.options || []).slice(0, 4), input: true } };
           })
       : [];
     O.post('guild-fort', items);
@@ -452,6 +454,12 @@
     }));
   }
   bus.on('vision:warning', (d) => d.module === 'guild' && ($('#gw-watch-read').textContent = '⚠ ' + d.text));
+  // the Offense Team screen is read once per enemy (DEVLOG #102): "Read again" while it is open
+  const again = $('#gw-offense-again');
+  if (again) {
+    bus.on('guild:offense', (d) => again.classList.toggle('hidden', !!(d && d.away)));
+    again.addEventListener('click', () => bus.publish('cmd:offense-reread', {}));
+  }
   // the watcher is busy with something slow (names in several languages) or needs a look: say so here too (DEVLOG #56)
   bus.on('vision:busy', (d) => {
     if (!d || !/^guild/.test(d.reader || '') || !d.text) return;

@@ -375,3 +375,17 @@ test('gwmap: kanji that look like katakana are read as katakana inside a katakan
   assert.equal(G.onPlace(1, 1000, 500, 2000, 1070), false);
   assert.equal(G.onPlace(2, 614 + (0.413 - 0) * 691, 0.305 * 691, 1228, 691), true, 'another window size');
 });
+
+test('a name in Chinese / Japanese / Korean script: alike-looking characters read differently join one known name (DEVLOG #103)', () => {
+  // one player's 4 characters can be read three ways (made-up names, the same kind of mix-ups as on the owner's war)
+  const known = ['山风之翼', '夜素玄', '小胖豬寶', 'Luckyone999'];
+  assert.equal(G.matchName('山凤之翌', known), '山风之翼'); // 2 of 4 in place
+  assert.equal(G.matchName('夜索玄', known), '夜素玄'); // 2 of 3
+  assert.equal(G.matchName('海云之城', known), null); // 1 of 4: another player
+  assert.equal(G.matchName('山风之', known), '山风之翼'); // one character missing: the one-off rule, as before
+  // two known names that close: neither (a wrong join would put a defense on the wrong player)
+  assert.equal(G.matchName('山凤之翌', [...known, '山风之城']), null);
+  // Latin names: as before (a letter off per 4)
+  assert.equal(G.matchName('Lucky0ne999', known), 'Luckyone999');
+  assert.equal(G.matchName('Luckytwo', known), null);
+});

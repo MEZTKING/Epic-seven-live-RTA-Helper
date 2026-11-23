@@ -1141,25 +1141,88 @@
 
   // ---- free up inventory space (DEVLOG #93) ------------------------------------------------------------------------
   let clCache = { ev: null, plan: null };
+  // grouped by slot and set, as the game's inventory filters them (DEVLOG #100); "done" ticks, kept until the item is
+  // gone from your items (a re-import / the next reading)
+  let clView = 'groups';
   function renderClean() {
     const CL = window.E7GearClean;
     if (!CL || !evald) return;
     if (clCache.ev !== evald) {
       const results = evald.results;
       clCache = { ev: evald, plan: CL.plan(results, { presets: gs.presets, skip: gs.skip || [], worn: (it) => !!it.worn, equippedOf: (c) => wearing(c) }) };
+      // ticks of items that are gone: not needed any more
+      const ids = new Set(results.map((r) => r.item.id));
+      const before = Object.keys(gs.cleaned || {}).length;
+      gs.cleaned = Object.fromEntries(Object.entries(gs.cleaned || {}).filter(([id]) => ids.has(id)));
+      if (Object.keys(gs.cleaned).length !== before) save();
     }
     const p = clCache.plan;
-    const row = (x, text) => `<button class="up-row" data-item="${esc(x.r.item.id)}">${iconBox(x.r.item)}<span><b>${esc(itemLabel(x.r.item))}</b> <small class="hint">lv${x.r.item.level}</small><br><span class="hint">${esc(text)}</span></span></button>`;
-    const col = (title, hint, list, fn) => `<div class="up-col"><h4>${title} <small class="hint">${list.length}</small></h4><p class="hint">${hint}</p>${list.length ? list.slice(0, 40).map((x) => row(x, fn(x))).join('') + (list.length > 40 ? `<p class="hint">… and ${list.length - 40} more (lowest first)</p>` : '') : '<p class="hint">Nothing.</p>'}</div>`;
-    $('#cl-out').innerHTML = `<p><b>${p.spare}</b> spare items now${p.remove.length + p.park.length ? ` · <b>${p.after}</b> after this plan (−${p.remove.length + p.park.length})` : ''}${p.locked.length ? ` · another ${p.locked.length} once unlocked` : ''}.</p>
-      <div class="up-cols">
-        ${col('Extract / sell', 'Not worth keeping, least valuable first. Never: worn items, items in a preset, upgrades, items worth enhancing.', p.remove, (x) => x.why)}
+    const done = (x) => !!(gs.cleaned || {})[x.r.item.id];
+    const nDone = [...p.remove, ...p.locked, ...p.park].filter(done).length;
+    const row = (x, text) => `<div class="up-row cl-row${done(x) ? ' done' : ''}"><label class="cl-tick" title="Done in the game"><input type="checkbox" data-cl-done="${esc(x.r.item.id)}"${done(x) ? ' checked' : ''} /></label><button class="cl-open" data-item="${esc(x.r.item.id)}">${iconBox(x.r.item)}<span><b>${esc(itemLabel(x.r.item))}</b> <small class="hint">lv${x.r.item.level}</small><br><span class="hint">${esc(text)}</span></span></button></div>`;
+    const list = (l, fn, max = 40) => (l.length ? l.slice(0, max).map((x) => row(x, fn(x))).join('') + (l.length > max ? `<p class="hint">… and ${l.length - max} more (lowest first)</p>` : '') : '<p class="hint">Nothing.</p>');
+    const col = (title, hint, l, fn) => `<div class="up-col"><h4>${title} <small class="hint">${l.filter((x) => !done(x)).length}</small></h4><p class="hint">${hint}</p>${list(l, fn)}</div>`;
+    // the extract / sell list by slot and set, biggest groups first
+    const groups = new Map();
+    for (const x of p.remove) {
+      const k = `${x.r.item.gear}|${x.r.item.set}`;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(x);
+    }
+    const SLOT_ORDER = ['Weapon', 'Helmet', 'Armor', 'Necklace', 'Ring', 'Boots'];
+    const grouped = [...groups.entries()].sort((a, b) => b[1].filter((x) => !done(x)).length - a[1].filter((x) => !done(x)).length || SLOT_ORDER.indexOf(a[0].split('|')[0]) - SLOT_ORDER.indexOf(b[0].split('|')[0]));
+    const groupHtml = grouped
+      .map(([k, l]) => {
+        const [slot, set] = k.split('|');
+        const left = l.filter((x) => !done(x)).length;
+        return `<details class="cl-group"${left ? '' : ' data-all-done="1"'}><summary>${set ? setBadge(set) : ''} <b>${esc(slot)} · ${esc(setLabel(set) || 'no set')}</b> <small class="hint">${left} to do${l.length - left ? ` · ${l.length - left} done` : ''}</small> <button class="btn link" data-cl-group="${esc(k)}">${left ? 'tick all done' : 'untick all'}</button></summary>${list(l, (x) => x.why, 200)}</details>`;
+      })
+      .join('');
+    $('#cl-out').innerHTML = `<p><b>${p.spare}</b> spare items now${p.remove.length + p.park.length ? ` · <b>${p.after}</b> after this plan (−${p.remove.length + p.park.length})` : ''}${p.locked.length ? ` · another ${p.locked.length} once unlocked` : ''}${nDone ? ` · <b>${nDone}</b> ticked as done` : ''}.</p>
+      <div class="btn-row"><label class="inline"><input type="radio" name="cl-view" value="groups"${clView === 'groups' ? ' checked' : ''} /> by slot and set (the game's filters)</label><label class="inline"><input type="radio" name="cl-view" value="lists"${clView === 'lists' ? ' checked' : ''} /> least valuable first</label></div>
+      ${clView === 'groups' ? `<div class="cl-groups"><h4>Extract / sell <small class="hint">${p.remove.filter((x) => !done(x)).length}</small></h4><p class="hint">In the game: Inventory → the slot's tab → filter by that set, then extract / sell these. Never listed: worn items, items in a preset, upgrades, items worth enhancing.</p>${groupHtml || '<p class="hint">Nothing.</p>'}</div><div class="up-cols">` : '<div class="up-cols">'}
+        ${clView === 'lists' ? col('Extract / sell', 'Not worth keeping, least valuable first. Never: worn items, items in a preset, upgrades, items worth enhancing.', p.remove, (x) => x.why) : ''}
         ${col('Locked', 'The same, but locked in the game: unlock them first (or keep them).', p.locked, (x) => x.why)}
         ${col('Park on a hero', gs.skip && gs.skip.length ? "Good spare items put on heroes you don't gear: worn items take no space." : `Add heroes to "Heroes you don't gear" and good spare items can be parked on them (worn items take no space).`, p.park, (x) => `→ ${nameOf(x.hero)} (${x.slot})`)}
       </div>
-      <p class="hint">The app never touches the game: do it there (the inventory's filters by slot and set help find them). Check anything special first.</p>`;
+      <p class="hint">The app never touches the game: do it there and tick what's done (ticks go away by themselves once the item is gone from your items, e.g. after the next re-import). Check anything special first.</p>`;
   }
-  $('#cl-out').addEventListener('click', (e) => openItem(e.target.closest('[data-item]')));
+  $('#cl-out').addEventListener('click', (e) => {
+    const g = e.target.closest('[data-cl-group]');
+    if (g) {
+      e.preventDefault();
+      const l = clCache.plan.remove.filter((x) => `${x.r.item.gear}|${x.r.item.set}` === g.dataset.clGroup);
+      const all = l.every((x) => (gs.cleaned || {})[x.r.item.id]);
+      gs.cleaned = { ...(gs.cleaned || {}) };
+      for (const x of l) {
+        if (all) delete gs.cleaned[x.r.item.id];
+        else gs.cleaned[x.r.item.id] = Date.now();
+      }
+      save();
+      const open = [...document.querySelectorAll('#cl-out details.cl-group[open] [data-cl-group]')].map((b) => b.dataset.clGroup);
+      renderClean();
+      for (const k of open) {
+        const d = document.querySelector(`#cl-out [data-cl-group="${CSS.escape(k)}"]`);
+        if (d) d.closest('details').open = true;
+      }
+      return;
+    }
+    if (e.target.closest('[data-cl-done]')) return;
+    openItem(e.target.closest('[data-item]'));
+  });
+  $('#cl-out').addEventListener('change', (e) => {
+    if (e.target.name === 'cl-view') {
+      clView = e.target.value;
+      return renderClean();
+    }
+    const id = e.target.dataset && e.target.dataset.clDone;
+    if (!id) return;
+    gs.cleaned = { ...(gs.cleaned || {}) };
+    if (e.target.checked) gs.cleaned[id] = Date.now();
+    else delete gs.cleaned[id];
+    save();
+    e.target.closest('.cl-row').classList.toggle('done', e.target.checked);
+  });
 
   // ---- the heroes you are gearing (DEVLOG #86) ---------------------------------------------------------------------
   function renderPriority() {

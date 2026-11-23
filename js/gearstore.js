@@ -39,6 +39,8 @@
       skip: Array.isArray(g.skip) ? g.skip : [], // heroes you don't gear (DEVLOG #90)
       // DEVLOG #95: what each hero should be geared for { code: { goal, min, set4, set2 } } (auto-gear, the whole list)
       targets: g.targets && typeof g.targets === 'object' ? g.targets : {},
+      // DEVLOG #100: items ticked as done in "Free up inventory space" { id: at } (dropped once the item is gone)
+      cleaned: g.cleaned && typeof g.cleaned === 'object' ? g.cleaned : {},
     };
   }
   /** Throws if the browser storage is full. */

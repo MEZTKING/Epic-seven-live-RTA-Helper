@@ -4,7 +4,8 @@
 //     the minimum, the board shows six items, the stats compare with now, items from other heroes are named
 //  2) "Save as a preset" makes a preset with those six; "Show the moves" lists the moves
 //  4) gear the whole gearing list (DEVLOG #95): a remembered target, the order, no item used twice, presets for all
-//  3) free up inventory space: spare items, what to extract (least valuable first), locked apart, parking once a hero
+//  3) free up inventory space: spare items, what to extract (by slot and set, or least valuable first; ticks for what is
+//     done, DEVLOG #100), locked apart, parking once a hero
 //     is in "Heroes you don't gear"
 const __path = require('path');
 const BASE = process.env.E7_BASE || 'http://localhost:8766/';
@@ -54,12 +55,27 @@ const { autoAsk, ask } = require('./_ask.js');
   await g.waitForTimeout(300);
   console.log('   moves listed:', await g.evaluate(() => window.GearApp.gs.moves.length));
   // 3)
-  const clean = () => g.evaluate(() => ({ head: document.querySelector('#cl-out p').textContent.trim(), cols: [...document.querySelectorAll('#cl-out .up-col h4')].map((h) => h.textContent.replace(/\s+/g, ' ').trim()) }));
+  const clean = () => g.evaluate(() => ({ head: document.querySelector('#cl-out p').textContent.trim(), cols: [...document.querySelectorAll('#cl-out h4')].map((h) => h.textContent.replace(/\s+/g, ' ').trim()), groups: [...document.querySelectorAll('#cl-out .cl-group summary')].map((x) => x.textContent.replace(/\s+/g, ' ').trim()) }));
   console.log('3) clean-up:', JSON.stringify(await clean()));
   await g.fill('#sk-hero', 'Rhianna and Luciella');
   await g.click('#sk-add');
   await g.waitForTimeout(300);
   console.log('   with Rhianna in "don\'t gear" (her six slots are full): ', JSON.stringify((await clean()).cols));
+  // DEVLOG #100: by slot and set; a group ticked as done; one item unticked; the ticks kept after a reload
+  await g.click('#cl-out [data-cl-group]');
+  await g.waitForTimeout(200);
+  const ticked = await clean();
+  console.log('   first group ticked done:', ticked.head, '·', ticked.groups[ticked.groups.length - 1]);
+  await g.evaluate(() => (document.querySelector('#cl-out [data-cl-done]:checked').closest('details').open = true));
+  const one = await g.$('#cl-out [data-cl-done]:checked');
+  if (one) await one.uncheck();
+  await g.waitForTimeout(150);
+  await g.reload();
+  await g.waitForTimeout(500);
+  console.log('   after a reload:', (await clean()).head, '· ticks saved:', await g.evaluate(() => Object.keys(window.GearStore.load().cleaned).length));
+  await g.click('#cl-out input[name="cl-view"][value="lists"]');
+  await g.waitForTimeout(150);
+  console.log('   least valuable first:', JSON.stringify((await clean()).cols));
   // 4) DEVLOG #95: the whole gearing list, most important first, no item twice; a remembered target
   await g.fill('#ag-hero', 'Eligos');
   await g.selectOption('#ag-goal', 'damage');

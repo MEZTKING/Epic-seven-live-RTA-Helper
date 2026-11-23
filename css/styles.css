@@ -709,3 +709,14 @@ table.cmp td.down { color: #ff5d6c; font-weight: 700; }
 .gl-row.on { border-color: #6ea8ff; }
 .gl-row .small { margin-top: 3px; }
 label.inline { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 0 8px; }
+/* free up space: groups by slot and set, done ticks (DEVLOG #100) */
+.cl-group { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; margin: 6px 0; }
+.cl-group summary { cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cl-group[data-all-done] summary { opacity: 0.55; }
+.cl-row { display: flex; align-items: center; gap: 6px; }
+.cl-row .cl-open { flex: 1; display: flex; gap: 8px; align-items: center; text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.cl-row.done { opacity: 0.45; }
+.cl-row.done b { text-decoration: line-through; }
+.cl-tick input { width: 18px; height: 18px; }
+/* the set badge in a clean-up group's heading: inline, not in a tile's corner (it stuck out of the page, DEVLOG #100) */
+.cl-group summary .setb { position: static; display: inline-flex; vertical-align: middle; transform: none; }

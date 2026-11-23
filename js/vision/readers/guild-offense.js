@@ -6,6 +6,8 @@
  *    the defender's two teams on the right, the defender's name at the bottom.
  *      guild:offense { enemy: { name, options, pic }, rect, mine: [[icon ×3], [icon ×3]], theirs: [[…], […]] }
  *      guild:offense { away: true }   once, when that screen is left
+ *    Read once per enemy (their side changing starts a new reading, not yours: DEVLOG #102); the command
+ *    'cmd:offense-reread' on the bus (Guild War page, "Read again") reads both sides again.
  * 2) guild-battle: the fight itself ("Round 1" pill, the two names at the top): the attack really started.
  *      guild:battle { round: 1 | 2, left: { name, options }, right: { name, options } }
  * 3) guild-note: the note window ("<member>'s Record"): a note a guildmate left on a defender.
@@ -83,6 +85,8 @@
   let offStable = 0;
   let offRead = false;
   let offKey = '';
+  let offAgain = false; // "Read again" asked for (Guild War page)
+  if (window.E7Bus) window.E7Bus.on('cmd:offense-reread', () => (offAgain = true));
   const offReset = () => {
     offW.reset();
     offTitleOk = offRead = false;
@@ -105,8 +109,16 @@
         offReset();
         return ctx.note('Not the Offense Team screen');
       }
-      // the part with the teams and the names: read again only when it changed and then stood still
-      const area = { x: 0.04 * ctx.w(), y: 0.12 * ctx.h(), w: 0.7 * ctx.w(), h: 0.84 * ctx.h() };
+      // read again only when the ENEMY's side (their two teams and their name) changed and then stood still: not
+      // while you swap your own heroes or scroll your hero list (DEVLOG #102: "it keeps reading both teams as I'm
+      // switching characters"); "Read again" on the Guild War page reads both sides again on demand
+      const area = { x: 0.45 * ctx.w(), y: 0.12 * ctx.h(), w: 0.28 * ctx.w(), h: 0.84 * ctx.h() };
+      if (offAgain) {
+        offAgain = false;
+        offRead = false;
+        offKey = '';
+        offStable = 1;
+      }
       if (offW.diff(ctx.source, area) < 3) offStable++;
       else {
         offStable = 0;

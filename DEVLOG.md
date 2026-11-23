@@ -7,6 +7,106 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #103 · Guild War: one player's name read differently in Chinese / Japanese / Korean script is one player · this commit (previous: `6165518`; committed with #100-#102)
+
+**Asked for:** a screenshot of the Guild War page: "is this right" (the war shown, the names, "Seen in game").
+
+**Findings (the owner's screenshots)**
+- The war selected was the one before (the new war's guild name, in Chinese script, was not read: fixed in #97, not on
+  the owner's PC yet).
+- One enemy's 4-character name was read three ways: on the map / the Offense Team screen, on their page, and the game
+  shows a fourth (rarer characters taken for ones that look alike). Names were matched with one character off per four,
+  so these were three different players to the app.
+- "Seen in game" (their page) showed other heroes than the Offense Team screen: not checked (no picture of that page).
+
+**Changed**
+- `js/gwmap.js` `matchName`: for names in those scripts, when nothing matched the usual way: the same length, at least
+  half of the characters in the same places, and only one known name that close → that name. Latin names as before.
+
+**Tested**
+- `npm test` 218 (new: alike-looking readings join, another player's name doesn't, two names that close → neither,
+  Latin as before).
+- Browser suite 54/54 clean (one run for #100-#103; the run before found the sideways scroll, now gone); other
+  differences: the new lines of these tests. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC; the heroes on that player's page (a picture of it would settle it).
+
+---
+
+## 2026-11-23 · #102 · Guild War: the Offense Team screen is read once per enemy, then on demand · this commit (previous: `6165518`; committed with #100-#103)
+
+**Asked for:** a screenshot of the Offense Team screen with "Reading both teams…": "it keeps reading both teams as I'm
+switching characters, change it so it's manual after the first scan".
+
+**Changed**
+- `js/vision/readers/guild-offense.js`: a new reading starts only when the ENEMY's side (their two teams and their name)
+  changed and stood still, not when your own teams or your hero list change. 'cmd:offense-reread' on the bus reads both
+  sides again.
+- `guild.html` + `js/guild-watch.js`: "Read again" next to the watcher's status, shown while the Offense Team screen is
+  open. (The heroes you actually fought with are still logged from the result window.)
+
+**Tested**
+- `tests/e2e/gw-offense.e2e.js` 1b: the owner's Offense Team picture with my side changed (darkened): 0 new readings;
+  after "Read again": 1; the button shown on the Guild War page. The rest of the test as before.
+- Browser suite 54/54 clean (one run for #100-#103; the run before found the sideways scroll, now gone); other
+  differences: the new lines of these tests. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC.
+
+---
+
+## 2026-11-23 · #101 · Guild War markers on the game: off the red circle · this commit (previous: `6165518`; committed with #100, #102, #103)
+
+**Asked for:** a screenshot of a fortress map with a defender's marker and its card: "move the buttons so it's not in the
+way", then "keep it out of the red circle anyways, that's where people press to go in".
+
+**Findings**
+- The marker of each defender (DEVLOG #73) was drawn on the centre of the defender's red circle, the very place you tap
+  in the game to go in; its card opened to the right of it, over the circle's edge and the name.
+
+**Changed**
+- `js/guild-watch.js`: the marker sits beside the circle, 0.065 of the game's height to its right (the ring's radius is
+  about 0.04), at the circle's height.
+- `overlay.html`: items can carry `dxH`, an offset in the game's height (the same at any window shape); the marker's card
+  opens to the right of the marker going up from it (not down over the name).
+
+**Tested**
+- `tests/e2e/gw-overlay.e2e.js`: the marker and the open card are outside the defender's circle, the card above the
+  marker's bottom; the rest of the test (hover, pick a spelling, type a name) as before.
+- By eye on `steam-gw-map-stinger-wide.jpg`: the marker just right of the ring, clear of it and of the name.
+- Browser suite 54/54 clean (one run for #100-#103; the run before found the sideways scroll, now gone); other
+  differences: the new lines of these tests. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check, picker-once, gearfile clean.
+- **Not tested:** on the owner's PC.
+
+---
+
+## 2026-11-23 · #100 · Gear: free up space by slot and set (the game's filters), with "done" ticks · this commit (previous: `6165518`)
+
+**Asked for:** "do that and continue" (after the history rewrite #99): the next of the gear ideas offered after #94 and
+#95: the clean-up grouped by slot and set to match the game's filters, and "done" ticks.
+
+**Changed**
+- `js/gear-app.js` + `css/styles.css`: "Free up inventory space" shows the extract / sell list by slot and set
+  (biggest groups first; each opens to its items; "tick all done"), or least valuable first (a switch). Every item of
+  the three lists has a tick for "done in the game"; done items are struck through and not counted; the count of
+  ticks is shown. Ticks are dropped by themselves once the item is gone from your items (the next re-import / reading).
+- `js/gearstore.js`: `cleaned` ({ item id: when ticked }).
+
+**Tested**
+- `tests/e2e/gear-auto.e2e.js` step 3: 8 groups on the test file (Weapon · Weakening 2, the rest 1); "tick all done" on
+  the first → 2 ticked, the group shown done (moved last); one item unticked → 1; kept after a reload; the other view
+  counts 8 to do.
+- Browser suite 54/54 clean (one run for #100-#103; the run before found the sideways scroll, now gone); other
+  differences: the new lines of these tests. Desktop (packaged Linux build): watcher, overlay-test, popout,
+  update-check, picker-once, gearfile clean.
+- **Bug found and fixed:** the set badge in a group's heading kept its tile-corner position and stuck out of the
+  page: the Gear page scrolled sideways (the suite's 390 px / 1400 px checks). It sits inline there now; no sideways
+  scroll at either width.
+- **Not tested:** on the owner's PC (482 items to extract on the owner's file: about 40 groups).
+
+---
+
 ## 2026-11-23 · #99 · The branch history rewritten without the real guild names · this commit (previous: `859f77a`)
 
 **Asked for:** "do that and continue" (after #98: the names were still in earlier commits; removing them needs a rewrite

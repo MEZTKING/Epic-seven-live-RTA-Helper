@@ -370,7 +370,19 @@
       const allow = Math.max(1, Math.floor(kk.length / 4));
       if (dd <= allow && (!best || dd < best.d)) best = { name: k, d: dd };
     }
-    return best ? best.name : null;
+    if (best) return best.name;
+    // a name in Chinese / Japanese / Korean script (DEVLOG #103): the reader mixes up rarer characters with ones that
+    // look alike (one player's 4 characters read as three different names on the map, the Offense Team screen and
+    // their page). Same length, at least half of the characters in the same places, and only ONE known name that close.
+    const cjk = (t) => [...t].filter((ch) => CJK.test(ch)).length >= Math.max(2, [...t].length - 1);
+    if (!cjk(r)) return null;
+    const rc = [...r];
+    const close = (known || []).filter((k) => {
+      const kc = [...String(k).toLowerCase()];
+      if (kc.length !== rc.length || rc.length < 3 || !cjk(kc.join(''))) return false;
+      return kc.filter((ch, i) => ch === rc[i]).length * 2 >= rc.length;
+    });
+    return close.length === 1 ? close[0] : null;
   }
 
   /** Guild name from OCR of the overview's name line: everything before the server tag, symbols dropped. */
