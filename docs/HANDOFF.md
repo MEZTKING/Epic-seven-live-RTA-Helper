@@ -222,7 +222,7 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
 |---|---|---|
 | `localStorage['rta-helper-v2']` | `js/app.js` | RTA store: `official`, `custom`, `fribbels` (roster + `builds`), `fribbelsData`, `notes` (tier, counters, synergies, notes, **tags**, **skills**), `manualOwned`, `mySpeeds` (typed speed per hero, source `my speeds`; wins over gear.txt), `presets`, `matches` (each with `source`), `matchSources`, `meta`, `scouting`, `gameHelp`, `settings` (source switches, `sourceWeights`, …), `draft` (+ `id`, `suggestLog`), `pending`, `sim`, `auto` (calibration `regions`, thresholds, `corrections`, `helpCount`, `crEnd`…). The RTA page reloads it on the `storage` event, because other pages write it too |
 | `localStorage['rta-helper-v1']` | legacy | First version's data; upgraded automatically (`migrateV1`) |
-| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides`, `priority` (heroes you are gearing, #86), `skip` (heroes you don't gear, #90; never on both lists) |
+| `localStorage['rta-gear-v1']` | `js/gear-app.js` | Gear Sorter: `items` (gear.txt inventory; since #88 `design` = the game's design code and `unit` = which copy of the hero, from the auto importer), `scanned` (source `screen`; `fileId` = the gear.txt item it is, #88; such an item counts once in `GearStore.allItems`), `useScanned`, `rules`, `overrides`, `priority` (heroes you are gearing, #86; in order of importance since #95), `skip` (heroes you don't gear, #90; never on both lists), `targets` (per hero, #95) |
 | `localStorage['e7-guild-conn']` | `js/guild-app.js` | `guildCode`, `guildName`, `myName`, Firebase `config`, `shareSpeeds`, `watchBox` |
 | `localStorage['rta-guild-<code>']` | `js/sync.js` local backend | Guild records when Firebase isn't connected |
 | `localStorage['e7-guild-heroes']` | `js/guild-app.js` | Cache of guild hero notes for other pages (read-only there) |
@@ -343,6 +343,10 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
   moves". Free up space (#93, `js/gearclean.js` `plan`): spare items only (the game counts no worn items): extract /
   sell verdicts and dominated duplicates, locked ones apart, parking on "don't gear" heroes' empty slots; never worn,
   preset, upgrade or enhance items. gear.txt's lock field `l` is read since #93.
+  Whole gearing list (#95): `E7GearAuto.planAll` in `gs.priority` order (▲▼ in the card), each hero from what is left
+  (no item twice; heroes further down the list and "don't gear" heroes give items; others only when asked), per hero
+  `gs.targets[code]` ({ goal, min, set4, set2 }, saved from the Auto-gear form) or by class with speed ≥ 97 % of now;
+  "Save them all as presets", "Show all the moves". `wearing(code)` takes one copy of a hero (gear.txt `unit`).
   Verdicts (#90): `evaluateAll` lets a hero be the upgrade target of at most `PER_SLOT` (2) items per slot, the best
   fitting (an empty slot used to make every item of that slot "an upgrade"); `skip` heroes are never targets. The
   presets card's "Now" tab draws `heroBoard` (the game's equipment-screen layout: picture, stats, set bonuses, two

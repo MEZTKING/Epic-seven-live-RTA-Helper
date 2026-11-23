@@ -566,7 +566,15 @@
   };
   const wearing = (code) => {
     const sn = seenNow(code);
-    if (!sn) return gs.items.filter((x) => x.equipped === code);
+    if (!sn) {
+      const all = gs.items.filter((x) => x.equipped === code);
+      // two copies of one hero (DEVLOG #95): one copy's items, the copy with the most (then the best) gear
+      const units = [...new Set(all.map((x) => x.unit).filter(Boolean))];
+      if (units.length < 2) return all;
+      const of = (u) => all.filter((x) => x.unit === u);
+      const worth = (l) => l.length * 1000 + l.reduce((a, x) => a + S.wss(x.subs), 0);
+      return of(units.sort((a, b) => worth(of(b)) - worth(of(a)))[0]);
+    }
     const byId = itemsById();
     return sn.slots.map((sl) => sl.itemId && byId.get(sl.itemId)).filter(Boolean);
   };
@@ -967,6 +975,135 @@
       <div class="btn-row"><button class="btn primary" data-ag-act="preset">Save as a preset</button><button class="btn" data-ag-act="moves">Show the moves</button></div>
       <p class="hint">${res.tried.toLocaleString()} combinations of ${agLast.pool} items tried in ${agLast.ms} ms (only the ${res.kept} most promising items are combined).</p>`;
   }
+  // ---- targets per hero (DEVLOG #95): what the auto-gear form says, remembered for "Gear them all" ----------------
+  function agForm() {
+    const min = {};
+    for (const k of ['spd', 'chc', 'chd', 'eff', 'efr', 'hp']) {
+      const v = Number($('#ag-' + k).value);
+      if (v > 0) min[k] = v;
+    }
+    return { goal: $('#ag-goal').value, min, set4: $('#ag-set4').value, set2: [$('#ag-set2').value].filter(Boolean) };
+  }
+  function targetOf(code) {
+    const t = gs.targets && gs.targets[code];
+    if (t) return t;
+    const h = HEROES.find((x) => x.code === code);
+    // by class, and never slower than now (a damage goal alone gave a speed-geared support half her speed)
+    const now = BASE[code] ? B.heroStats(BASE[code], wearing(code)) : null;
+    const min = now && now.spd > 0 ? { spd: Math.floor(now.spd * 0.97) } : {};
+    return { goal: AG ? AG.goalForRole(h && h.role) : 'damage', min, set4: '', set2: [], byClass: true };
+  }
+  function targetText(code) {
+    const t = targetOf(code);
+    const goal = AG && AG.GOALS[t.goal] ? AG.GOALS[t.goal].name.split(' (')[0].toLowerCase() : t.goal;
+    const MIN = { spd: 'spd', chc: 'cc', chd: 'cd', eff: 'eff', efr: 'res', hp: 'hp' };
+    const mins = Object.entries(t.min || {}).map(([k, v]) => `${MIN[k] || k} ${v}+`);
+    const sets = [t.set4, ...(t.set2 || [])].filter(Boolean).map(setLabel);
+    return `${goal}${mins.length ? ' · ' + mins.join(' ') : ''}${sets.length ? ' · ' + sets.join(' + ') : ''}${t.byClass ? ' (by class)' : ''}`;
+  }
+  function fillForm(t) {
+    $('#ag-goal').value = t.goal;
+    for (const k of ['spd', 'chc', 'chd', 'eff', 'efr', 'hp']) $('#ag-' + k).value = (t.min || {})[k] || '';
+    $('#ag-set4').value = t.set4 || '';
+    $('#ag-set2').value = (t.set2 || [])[0] || '';
+  }
+  $('#ag-target').addEventListener('click', () => {
+    const code = codeOfName($('#ag-hero').value.trim());
+    if (!code) return ($('#ag-target-msg').textContent = 'Type a hero first.');
+    gs.targets = { ...(gs.targets || {}), [code]: agForm() };
+    save();
+    renderPriority();
+    $('#ag-target-msg').textContent = `Remembered for ${nameOf(code)}: ${targetText(code)}${gs.priority.includes(code) ? '' : ' (add them to "Heroes you are gearing" to gear them with the others)'}`;
+  });
+  $('#ag-hero').addEventListener('change', () => {
+    const code = codeOfName($('#ag-hero').value.trim());
+    if (code && gs.targets && gs.targets[code]) {
+      fillForm(gs.targets[code]);
+      $('#ag-target-msg').textContent = `${nameOf(code)}'s target filled in.`;
+    } else $('#ag-target-msg').textContent = '';
+  });
+
+  // ---- gear the whole gearing list (DEVLOG #95) --------------------------------------------------------------------
+  let glLast = null;
+  const wornByOf = (it) => it.equipped || (it.worn && it.wornBy) || (it.worn ? '?' : null);
+  function glRun() {
+    if (!AG || !gs.priority.length) return;
+    const list = gs.priority.slice();
+    const onList = new Set(list);
+    const skip = new Set(gs.skip || []);
+    const others = $('#gl-others').checked;
+    const entries = list.map((code) => ({ code, base: BASE[code], opts: targetOf(code) }));
+    const allowed = (it, code) => {
+      const w = wornByOf(it);
+      return !w || w === code || onList.has(w) || skip.has(w) || (others && w !== '?');
+    };
+    // one hero at a time (about a second each on a big inventory), the page showing how far it is
+    const t0 = performance.now();
+    const items = allItems();
+    const used = new Set();
+    const res = [];
+    const step = (i) => {
+      if (i >= entries.length) {
+        glLast = { res, ms: Math.round(performance.now() - t0), open: null };
+        return glShow();
+      }
+      $('#gl-out').innerHTML = `<p class="hint">Gearing ${i + 1} of ${entries.length}: ${esc(nameOf(entries[i].code))}…</p>`;
+      setTimeout(() => {
+        const r = AG.planAll([entries[i]], items.filter((it) => !used.has(it.id)), { wornBy: wornByOf, allowed })[0];
+        if (r.build) for (const it of Object.values(r.build.items)) used.add(it.id);
+        res.push(r);
+        step(i + 1);
+      }, 15);
+    };
+    step(0);
+  }
+  function glShow() {
+    const { res, ms, open } = glLast;
+    const rows = res.map((r, i) => {
+      if (!r.build) return `<div class="gl-row"><b>${i + 1}. ${esc(nameOf(r.code))}</b> <span class="hint">${BASE[r.code] ? 'no items left for some slot' : 'no base stats for this hero'}</span></div>`;
+      const now = wearing(r.code);
+      const a = B.heroStats(BASE[r.code], now);
+      const b = r.build.stats;
+      const d = (k, n, u = '') => `${n} ${a ? `${a[k]}→` : ''}<b>${b[k]}${u}</b>`;
+      const changes = B.SLOTS.filter((g) => r.build.items[g] && !now.some((x) => x.id === r.build.items[g].id)).length;
+      return `<div class="gl-row${open === r.code ? ' on' : ''}" data-gl-hero="${esc(r.code)}">${portrait(r.code)} <b>${i + 1}. ${esc(nameOf(r.code))}</b> <small class="hint">${esc(targetText(r.code))}</small>${r.exact ? '' : ' <span class="loses warn">minimums not reached</span>'}
+        <div class="small">${d('spd', 'Spd')} · ${d('chc', 'CC', '%')} · ${d('chd', 'CD', '%')} · ${d('atk', 'Atk')} · ${d('hp', 'HP')} · ${d('def', 'Def')} · <b>${changes}</b> item${changes === 1 ? '' : 's'} to change${r.taken.length ? ` · from ${esc([...new Set(r.taken.map((t) => (t.from === '?' ? 'a hero' : nameOf(t.from))))].join(', '))}` : ''}</div>
+        ${open === r.code ? heroBoard(r.code, B.SLOTS.map((g) => r.build.items[g]).filter(Boolean), b, 'worked out from the items (no artifact / exclusive equipment)') : ''}</div>`;
+    });
+    $('#gl-out').innerHTML = `${rows.join('')}<div class="btn-row"><button class="btn primary" data-gl-act="presets">Save them all as presets</button><button class="btn" data-gl-act="moves">Show all the moves</button></div><p class="hint">${res.length} heroes geared in ${ms} ms, most important first (click a hero to see the items). Stats without artifact / exclusive equipment.</p>`;
+  }
+  $('#gl-go').addEventListener('click', glRun);
+  $('#gl-out').addEventListener('click', async (e) => {
+    const slot = e.target.closest('.hb-slot[data-item]');
+    if (slot) return openItem(slot);
+    const act = e.target.closest('[data-gl-act]');
+    if (act && glLast) {
+      const ok = glLast.res.filter((r) => r.build);
+      if (act.dataset.glAct === 'presets') {
+        const name = await window.E7Ask('Name for these presets?', 'Gearing list');
+        if (!name || !name.trim()) return;
+        for (const r of ok) {
+          const np = { id: newId(), hero: r.code, name: name.trim(), items: {} };
+          for (const g of B.SLOTS) if (r.build.items[g]) np.items[g] = r.build.items[g].id;
+          gs.presets.push(np);
+        }
+        save();
+        renderPresets();
+        $('#gl-out .btn-row').insertAdjacentHTML('afterend', `<p class="hint">${ok.length} presets "${esc(name.trim())}" saved (Gear presets card).</p>`);
+      } else {
+        for (const r of ok) for (const m of B.movesFor(r.code, r.build.items, wornByOf)) planMove(m.item.id, m.from, m.to);
+        save();
+        render();
+        $('#gs-moves-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    }
+    const row = e.target.closest('[data-gl-hero]');
+    if (row && glLast) {
+      glLast.open = glLast.open === row.dataset.glHero ? null : row.dataset.glHero;
+      glShow();
+    }
+  });
   $('#ag-go').addEventListener('click', agRun);
   $('#ag-hero').addEventListener('keydown', (e) => e.key === 'Enter' && agRun());
   $('#ag-out').addEventListener('click', async (e) => {
@@ -1026,9 +1163,11 @@
 
   // ---- the heroes you are gearing (DEVLOG #86) ---------------------------------------------------------------------
   function renderPriority() {
-    $('#pr-list').innerHTML = gs.priority.length
-      ? gs.priority.map((c) => `<span class="pr-chip">${portrait(c)} ${esc(nameOf(c))} <button class="btn link" data-pr-del="${esc(c)}" title="Remove">✕</button></span>`).join('')
+    const n = gs.priority.length;
+    $('#pr-list').innerHTML = n
+      ? gs.priority.map((c, i) => `<span class="pr-chip"><b>${i + 1}</b> ${portrait(c)} ${esc(nameOf(c))} <small class="hint">${esc(targetText(c))}</small>${i ? `<button class="btn link" data-pr-up="${esc(c)}" title="More important">▲</button>` : ''}${i < n - 1 ? `<button class="btn link" data-pr-down="${esc(c)}" title="Less important">▼</button>` : ''}<button class="btn link" data-pr-del="${esc(c)}" title="Remove">✕</button></span>`).join('')
       : '<span class="hint">No list: every hero that has gear.</span>';
+    $('#gl-go').disabled = !n;
   }
   function setPriority(list) {
     gs.priority = [...new Set(list)];
@@ -1045,8 +1184,16 @@
   });
   $('#pr-hero').addEventListener('keydown', (e) => e.key === 'Enter' && $('#pr-add').click());
   $('#pr-list').addEventListener('click', (e) => {
-    const c = e.target.dataset && e.target.dataset.prDel;
-    if (c) setPriority(gs.priority.filter((x) => x !== c));
+    const d = e.target.dataset || {};
+    if (d.prDel) return setPriority(gs.priority.filter((x) => x !== d.prDel));
+    const c = d.prUp || d.prDown;
+    if (!c) return;
+    const l = gs.priority.slice();
+    const i = l.indexOf(c);
+    const j = d.prUp ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= l.length) return;
+    [l[i], l[j]] = [l[j], l[i]];
+    setPriority(l);
   });
   $('#pr-clear').addEventListener('click', () => setPriority([]));
   // ---- heroes you don't gear (DEVLOG #90) ----------------------------------------------------------------------------
