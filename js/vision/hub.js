@@ -374,11 +374,13 @@
   // through defenses and battle windows without waiting for each reading.
   const snaps = [];
   let snapping = false;
+  let liveSource = null; // the live picture while snaps are read (a snap taken then is of the game, not of a snap)
+  const SNAP_MAX = 40; // (right-click snaps, DEVLOG #110: many clicks in a row; the oldest unread ones go)
   const SNAP_CARD = { id: 'snaps', label: 'Quick snaps' };
   const showSnaps = (n) => setWorking(SNAP_CARD, n ? `📸 Reading snaps: ${n} left` : '');
   function snap(pic) {
     // (pic: a given picture instead of the screen now; tests)
-    const from = pic || source;
+    const from = pic || (snapping && liveSource) || source;
     if (!source || !from) return false;
     const c = document.createElement('canvas');
     c.width = from.videoWidth || from.width;
@@ -386,6 +388,7 @@
     if (!c.width || !c.height) return false;
     c.getContext('2d').drawImage(from, 0, 0, c.width, c.height);
     snaps.push(c);
+    if (snaps.length > SNAP_MAX) snaps.splice(0, snaps.length - SNAP_MAX);
     showSnaps(snaps.length + (snapping ? 1 : 0));
     runSnaps();
     return true;
@@ -393,7 +396,7 @@
   async function runSnaps() {
     if (snapping) return;
     snapping = true;
-    const live = source;
+    const live = (liveSource = source);
     let cur = null;
     try {
       while (snaps.length && source) {
@@ -410,6 +413,7 @@
       // back to the live picture (unless watching stopped or restarted meanwhile)
       if (source && source === cur) source = live;
       snapping = false;
+      liveSource = null;
       showSnaps(0);
       bus.publish('vision:snaps-done', {});
     }

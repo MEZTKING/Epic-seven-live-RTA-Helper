@@ -169,7 +169,8 @@ only receive events.
   before the readers). A reader's `ctx`: `source, w(), h(), crop, ocr(canvas, { line, lang, full }), ocrWords,
   publish, note, busy(text), done(text, { ask }), soon()`. Quick snaps (#109): `E7Vision.snap()` (desktop hotkey
   Ctrl+Shift+D, menu Game window) keeps the picture; `runSnaps` reads each with 6 forced ticks, then the live source
-  again; card "📸 Reading snaps: n left"; `vision:snaps-done` (soon, #91: look again after 0.4 s instead of the whole
+  again; card "📸 Reading snaps: n left"; `vision:snaps-done`; since #110 also on right-click in the game (desktop,
+  window mode: wintrack `rclick`, `config.rclickSnap`), a snap while reading is of `liveSource`, at most 40 wait (soon, #91: look again after 0.4 s instead of the whole
   interval, while a list scrolls). Since #91 English text is read by a pool of up to 4 workers (cores − 1) in
   parallel (`pools` in `js/vision/hub.js`); other languages keep one worker each. The Full-grid reader reads its 16
   tiles at once. Reading speed `e7-vision-speed`: fastest ×0.25 / fast ×0.5 / normal / slow ×2.
@@ -403,6 +404,8 @@ repository. The RTA store (`localStorage['rta-helper-v2']`) also holds `walkover
     `DwmGetWindowAttribute` / `IsIconic` / `GetForegroundWindow` (read-only); the overlay is moved to the window
     (`screen.screenToDipRect`) and hidden when it's minimized or another program (not the game's process, not this app) is in front.
     The script runs from `<userData>/e7-wintrack.ps1` with `-File`; a failure (stderr + exit code) comes back as `{failed}`.
+    Third argument `1` (#110, `config.rclickSnap`, menu Game window): while the game is in front it also reads the right
+    mouse button (`GetAsyncKeyState(2)`, ~30 ms) and prints `rclick` → `rightClickSnap()` → 'snap' to the watcher.
   - **Updater** `desktop/updater.js`: installed app = electron-updater (GitHub provider, asks before download, restart to
     install); portable = GitHub API `releases/latest` → download `*-portable.exe` as `<exe>.update` → `.cmd` swaps it
     after exit. Checks 3 s after start (retry after 5 min, again every 6 h) and from the menu; the menu line under

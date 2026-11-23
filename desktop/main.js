@@ -45,7 +45,7 @@ let overlay = null;
 let vision = null; // the game watcher: hidden window running vision.html (js/vision/hub.js)
 let quitting = false;
 // capture: null (not chosen yet) | { mode: 'window', id, name } | { mode: 'screen', id, displayId, name }
-let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25, capture: null, devCapture: false };
+let config = { displayId: null, overlay: true, zoom: 1.25, overlayZoom: 1.25, capture: null, devCapture: false, rclickSnap: true };
 let tracker = null;
 let gameState = null; // last tracker state of the game window
 // why the overlay is where it is (Overlay menu → status, E7Desktop.overlayStatus(), the diagnostic report)
@@ -425,15 +425,39 @@ function autoCapture() {
   });
 }
 
+// ------------------------------------------------------------ right-click snaps (DEVLOG #110)
+// In the PC game right-click is "back": the window tracker (only while the game is in front, only that one button)
+// says when it goes down, and the game watcher keeps the picture as it is, before the game leaves it: a quick snap,
+// the same as Ctrl+Shift+D. Works when the app follows the game WINDOW (Game window → Pick the game window…).
+let lastRclick = 0;
+function rightClickSnap() {
+  const now = Date.now();
+  if (!config.rclickSnap || now - lastRclick < 350) return;
+  lastRclick = now;
+  if (vision && !vision.isDestroyed()) vision.webContents.send('e7:hotkey', 'snap');
+}
+function setRclickSnap(on) {
+  config.rclickSnap = !!on;
+  saveConfig();
+  // the tracker only reads the button when asked: start it again with the new setting
+  const id = tracker && tracker.sourceId;
+  if (id) {
+    stopTracking();
+    trackGame(id);
+  }
+  buildMenu();
+}
+
 // ------------------------------------------------------------ overlay follows the game window
 function trackGame(sourceId) {
   const hwnd = wintrack.hwndOf(sourceId);
   if (tracker && tracker.hwnd === hwnd) return;
   stopTracking();
   if (!hwnd || !IS_WIN) return;
-  const t = wintrack.track(hwnd, process.pid, (s) => tracker === t && onGameState(s), { dir: app.getPath('userData'), force: IS_WIN });
+  const t = wintrack.track(hwnd, process.pid, (s) => tracker === t && onGameState(s), { dir: app.getPath('userData'), force: IS_WIN, rclick: !!config.rclickSnap });
   tracker = t;
   tracker.hwnd = hwnd;
+  tracker.sourceId = sourceId;
   ovStatus.trackingSince = Date.now();
   // no answer in time: don't leave the overlay hidden, show it over the display (and say why)
   setTimeout(() => {
@@ -458,6 +482,7 @@ function trackerFailed(text) {
 }
 function onGameState(s) {
   if (s.failed) return trackerFailed(s.failed);
+  if (s.rclick) return rightClickSnap();
   gameState = s;
   ovStatus.lastStateAt = Date.now();
   ovStatus.fallback = false;
@@ -642,6 +667,7 @@ function buildMenu() {
         { label: 'Pick the game window…', click: () => pickWindow() },
         { label: 'Show the game watcher', click: () => vision && (vision.show(), vision.focus()) },
         { label: 'Quick snap of the game (read in turn)', accelerator: 'Ctrl+Shift+D', registerAccelerator: false, click: () => vision && !vision.isDestroyed() && vision.webContents.send('e7:hotkey', 'snap') },
+        { label: 'Snap on right-click in the game (only while the game is in front)', type: 'checkbox', checked: !!config.rclickSnap, click: (mi) => setRclickSnap(mi.checked) },
         { label: 'Save a game picture (to draw boxes on later)', accelerator: 'Ctrl+Shift+S', click: savePicture },
         { type: 'separator' },
         { label: 'The game watcher restarts by itself after a change.', enabled: false },

@@ -45,6 +45,38 @@ const dataUrl = (f) => 'data:image/jpeg;base64,' + __fs.readFileSync(__path.join
   console.log('read from the snaps:', JSON.stringify(r.got));
   console.log('card on the game:', JSON.stringify(r.cards));
   console.log('then back to the live picture (title screen): item reader says', JSON.stringify(r.backToLive));
+  // DEVLOG #110 (right-click snaps): a snap taken while snaps are being read is of the GAME (the live picture), not
+  // of the snap being read; and many clicks in a row keep at most 40 waiting
+  const r2 = await lv.evaluate(async (urls) => {
+    const load = async (u) => {
+      const im = new Image();
+      await new Promise((res) => { im.onload = res; im.src = u; });
+      return im;
+    };
+    const [live, hero] = await Promise.all(urls.map(load));
+    window.E7Vision._useSource(live);
+    const got = [];
+    const offs = [
+      window.E7Bus.on('gear:item', (d) => got.push(`item: ${d.item.gear} ${d.item.main.type}`)),
+      window.E7Bus.on('gear:hero', (d) => got.push(`hero screen: ${d.hero.name}`)),
+    ];
+    window.E7Vision.snap(hero);
+    await new Promise((res) => setTimeout(res, 50)); // the hero picture is being read now
+    const during = window.E7Vision.snap(); // like a right-click: the game as it is
+    await new Promise((res) => {
+      const off = window.E7Bus.on('vision:snaps-done', () => (off(), res()));
+    });
+    offs.forEach((o) => o());
+    const before = window.E7Vision.snapsLeft();
+    for (let i = 0; i < 45; i++) window.E7Vision.snap();
+    const capped = window.E7Vision.snapsLeft();
+    await new Promise((res) => {
+      const off = window.E7Bus.on('vision:snaps-done', () => (off(), res()));
+    });
+    return { during, got: [...new Set(got)], before, capped };
+  }, ['gear-necklace-wide.jpg', 'hero-gear-rhianna-wide.jpg'].map(dataUrl));
+  console.log('snap during reading (live = item panel):', r2.during, JSON.stringify(r2.got));
+  console.log('45 snaps in a row: waiting', r2.capped, '(at most 41: 40 + the one being read)');
   console.log('errors:', errs);
   await b.close();
 })();

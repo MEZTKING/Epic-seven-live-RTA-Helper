@@ -69,10 +69,18 @@ test('wintrack runs the script from a file and reports positions', () => {
   assert.ok(args.includes('-File'), 'uses -File, not an encoded command');
   const file = args[args.indexOf('-File') + 1];
   assert.strictEqual(fs.readFileSync(file, 'utf8'), wintrack.SCRIPT);
-  assert.deepStrictEqual(args.slice(-2), ['1234', '99']);
+  assert.deepStrictEqual(args.slice(-3), ['1234', '99', '0']);
   ps.stdout.emit('data', Buffer.from('10 20 1280 7'));
   ps.stdout.emit('data', Buffer.from('20 1\r\nmin\r\n'));
   assert.deepStrictEqual(got, [{ x: 10, y: 20, w: 1280, h: 720, front: true }, { min: true }]);
+  // right-click snaps (DEVLOG #110): asked for with a third argument, reported as { rclick }
+  ps.stdout.emit('data', Buffer.from('rclick\r\n'));
+  assert.deepStrictEqual(got[2], { rclick: true });
+  const sp2 = fakeSpawn();
+  wintrack.track('1234', 99, () => {}, { spawn: sp2, dir, rclick: true });
+  assert.deepStrictEqual(sp2.calls[0].args.slice(-3), ['1234', '99', '1']);
+  assert.match(wintrack.SCRIPT, /GetAsyncKeyState\(2\)/);
+  assert.ok(Buffer.from(wintrack.psArgs('1', 2, null, true).slice(-1)[0], 'base64').toString('utf16le').endsWith(' 1 2 1'));
   // no dir: falls back to an encoded command
   assert.ok(wintrack.psArgs('1', 2, null).includes('-EncodedCommand'));
 });

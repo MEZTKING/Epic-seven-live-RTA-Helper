@@ -7,7 +7,43 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
-## 2026-11-23 · #109 · Quick snaps: a hotkey keeps the game picture, the app reads the snaps in turn · this commit (previous: `ab03b63`)
+## 2026-11-23 · #110 · Right-click snaps: the game picture is kept when you go back · this commit (previous: `a63c34b`)
+
+**Asked for:** "or instead of that hotkey what about taking a screenshot after making a right click".
+
+**Findings**
+- In the PC game right-click is "back": a snap on right-click keeps each defense page or battle window just as you
+  leave it, with no extra key.
+- Electron can't see clicks outside its own windows, but the window tracker (`desktop/wintrack.js`, a PowerShell
+  loop on Windows) can read the right mouse button with `GetAsyncKeyState`. That needs no hook and sends nothing to the
+  game.
+- A bug in #109: a snap taken while earlier snaps were being read copied the snap being read, not the game. With
+  right-click snaps that would happen all the time.
+
+**Changed**
+- `desktop/wintrack.js`: a third script argument `1` turns on right-click snaps. Only while a window of the GAME is the
+  active window (not this app, not other programs), the loop reads the right button about every 30 ms instead of
+  sleeping 300 ms and prints `rclick` when it goes down. A button already held when the game comes in front doesn't
+  count. `parseLine('rclick')` gives `{ rclick: true }`; `track(…, { rclick })`.
+- `desktop/main.js`: `config.rclickSnap` is on by default, with a menu checkbox under Game window → "Snap on right-click
+  in the game". Changing it starts the tracker again. An `rclick` sends the same 'snap' as Ctrl+Shift+D; clicks less
+  than 350 ms apart count once. This only works when the app follows the game WINDOW (Pick the game window…); in
+  whole-screen mode there is no tracker.
+- `js/vision/hub.js`: a snap taken while snaps are being read is of the live picture (`liveSource`). At most 40 snaps
+  wait; the oldest unread ones go.
+
+**Tested**
+- `tests/desktop.test.js`: `rclick` parsed, and the third argument is `0` / `1` (file and encoded command). The script
+  reads `GetAsyncKeyState(2)`.
+- `tests/e2e/snaps.e2e.js`: with an item panel as the live picture, the hero screen was snapped and then, while it was
+  being read, a snap of the game: both were read (hero screen, then the item). 45 snaps in a row left 41 waiting.
+- **Not tested:** the PowerShell loop itself on Windows (there is no Windows here). The owner should check that a
+  right-click in the game shows "📸 Reading snaps" and that the snap is the screen before going back. If the game
+  leaves the screen on the press (not on release), the snap may sometimes catch the next screen.
+
+---
+
+## 2026-11-23 · #109 · Quick snaps: a hotkey keeps the game picture, the app reads the snaps in turn · `a63c34b` (previous: `ab03b63`)
 
 **Asked for:** "if you want faster image recording, should we make another system where I take quick screenshots of every
 defence and you can automatically look over it instead of me waiting for each reading forever. Maybe a hotkey for that".
