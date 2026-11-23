@@ -167,7 +167,9 @@ only receive events.
 
 - **Shared by readers:** `js/vision/names.js` (`E7Names.read`: one player name in any writing, DEVLOG #56; loaded
   before the readers). A reader's `ctx`: `source, w(), h(), crop, ocr(canvas, { line, lang, full }), ocrWords,
-  publish, note, busy(text), done(text, { ask }), soon()` (soon, #91: look again after 0.4 s instead of the whole
+  publish, note, busy(text), done(text, { ask }), soon()`. Quick snaps (#109): `E7Vision.snap()` (desktop hotkey
+  Ctrl+Shift+D, menu Game window) keeps the picture; `runSnaps` reads each with 6 forced ticks, then the live source
+  again; card "📸 Reading snaps: n left"; `vision:snaps-done` (soon, #91: look again after 0.4 s instead of the whole
   interval, while a list scrolls). Since #91 English text is read by a pool of up to 4 workers (cores − 1) in
   parallel (`pools` in `js/vision/hub.js`); other languages keep one worker each. The Full-grid reader reads its 16
   tiles at once. Reading speed `e7-vision-speed`: fastest ×0.25 / fast ×0.5 / normal / slow ×2.

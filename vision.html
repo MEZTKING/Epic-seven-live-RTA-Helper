@@ -97,7 +97,12 @@
           onError: (e) => window.E7Bus.publish('vision:warning', { reader: 'gear-file', text: 'Could not re-import your gear file: ' + e.message }),
         });
       // Ctrl+Shift+S (desktop, anywhere): save a picture of the game to calibrate on later
-      if (D.onHotkey) D.onHotkey((name) => name === 'save-picture' && window.E7Bus.request('save-picture', { note: 'Ctrl+Shift+S' }).catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));
+      if (D.onHotkey)
+        D.onHotkey((name) => {
+          if (name === 'save-picture') window.E7Bus.request('save-picture', { note: 'Ctrl+Shift+S' }).catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message }));
+          // Ctrl+Shift+D: a quick snap, read in turn (DEVLOG #109)
+          if (name === 'snap' && !window.E7Vision.snap()) window.E7Bus.publish('vision:warning', { reader: 'watcher', text: 'Quick snap: the game watcher is not watching the game.' });
+        });
       D.onCapture(() => window.E7Vision.restart().catch((e) => window.E7Bus.publish('vision:warning', { reader: 'watcher', text: e.message })));
     })();
   </script>

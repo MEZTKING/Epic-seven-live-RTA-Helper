@@ -13,7 +13,7 @@
  *   page mode, only these characters (digits of a gear value)
  *   ocrWords(canvas) -> [{ text, conf, x, y }] scattered words with their centres (page mode 11: labels on a picture)
  *
- * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach, save-picture.
+ * Commands it answers (E7Bus.request): start, stop, status, snapshot, teach, save-picture, snap (a quick snap, #109).
  * Events it publishes: vision:status (every 3 s + on change), vision:started / vision:stopped,
  * vision:warning, screen:changed, plus whatever readers publish.
  * Only READS the screen; never sends anything to the game.
@@ -352,6 +352,7 @@
       cv.getContext('2d').drawImage(source, 0, 0);
       return { url: cv.toDataURL('image/jpeg', 0.92), w: cv.width, h: cv.height, frameKey: window.GameArea ? window.GameArea.frameKey(source) : 'full' };
     });
+    bus.handle('snap', () => ({ ok: snap(), left: snaps.length + (snapping ? 1 : 0) }));
     bus.handle('save-picture', async (d) => {
       if (!source) throw new Error('The game watcher is not watching, so there is no game picture to save.');
       const pic = await window.E7Pictures.capture(source, (d && d.note) || 'saved by hand');
@@ -367,5 +368,51 @@
     setTimeout(status, 0);
   }
 
-  window.E7Vision = { isHost, register, start, restart, stop, tick, status, isWatching: () => !!source, _useSource: (s) => ((source = s), (captureName = captureName || 'test'), status()), _readers: readers };
+  // ------------------------------------------------------------- quick snaps (DEVLOG #109)
+  // A hotkey (desktop: Ctrl+Shift+D) keeps the game picture as it is right now; the snaps are read one after another
+  // (every reader, as if that picture stood still on the screen), then live reading goes on. So the owner can flick
+  // through defenses and battle windows without waiting for each reading.
+  const snaps = [];
+  let snapping = false;
+  const SNAP_CARD = { id: 'snaps', label: 'Quick snaps' };
+  const showSnaps = (n) => setWorking(SNAP_CARD, n ? `📸 Reading snaps: ${n} left` : '');
+  function snap(pic) {
+    // (pic: a given picture instead of the screen now; tests)
+    const from = pic || source;
+    if (!source || !from) return false;
+    const c = document.createElement('canvas');
+    c.width = from.videoWidth || from.width;
+    c.height = from.videoHeight || from.height;
+    if (!c.width || !c.height) return false;
+    c.getContext('2d').drawImage(from, 0, 0, c.width, c.height);
+    snaps.push(c);
+    showSnaps(snaps.length + (snapping ? 1 : 0));
+    runSnaps();
+    return true;
+  }
+  async function runSnaps() {
+    if (snapping) return;
+    snapping = true;
+    const live = source;
+    let cur = null;
+    try {
+      while (snaps.length && source) {
+        const c = snaps.shift();
+        showSnaps(snaps.length + 1);
+        source = cur = c;
+        // the same picture a few times: the readers' "stood still" checks pass, then each reads it once
+        for (let i = 0; i < 6 && source === c; i++) {
+          await tick(true);
+          await new Promise((r) => setTimeout(r, 120));
+        }
+      }
+    } finally {
+      // back to the live picture (unless watching stopped or restarted meanwhile)
+      if (source && source === cur) source = live;
+      snapping = false;
+      showSnaps(0);
+      bus.publish('vision:snaps-done', {});
+    }
+  }
+  window.E7Vision = { isHost, register, start, restart, stop, tick, status, snap, snapsLeft: () => snaps.length + (snapping ? 1 : 0), isWatching: () => !!source, _useSource: (s) => ((source = s), (captureName = captureName || 'test'), status()), _readers: readers };
 })();

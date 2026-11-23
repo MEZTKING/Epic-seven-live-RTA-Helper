@@ -7,6 +7,30 @@ bugs found and fixed, how it was tested, and what is still open. Newest entries 
 
 ---
 
+## 2026-11-23 · #109 · Quick snaps: a hotkey keeps the game picture, the app reads the snaps in turn · this commit (previous: `ab03b63`)
+
+**Asked for:** "if you want faster image recording, should we make another system where I take quick screenshots of every
+defence and you can automatically look over it instead of me waiting for each reading forever. Maybe a hotkey for that".
+
+**Changed**
+- `js/vision/hub.js`: `snap()` keeps the game picture as it is now (a copy); `runSnaps` reads the snaps one after another:
+  each becomes the picture every reader sees for 6 forced passes (their "stood still" checks pass, each reads it once),
+  then the live picture again; while it works, a card on the game: "📸 Reading snaps: n left"; `vision:snaps-done` when
+  done; bus command 'snap'.
+- `desktop/main.js` + `vision.html`: the global hotkey **Ctrl+Shift+D** (and Game window → "Quick snap of the game")
+  makes a snap; a warning when the watcher is not watching.
+
+**Tested**
+- New `tests/e2e/snaps.e2e.js`: with the game's title screen as the live picture, three of the owner's pictures snapped at
+  once (an item panel, Rhianna's equipment screen, the Steel Workshop's result): all three read (the necklace, the hero
+  screen, 10 crafted items), the card counted, then the live picture was read again.
+- Browser suite 55/55 clean; other differences: the new test (`guild-basics` passed again). Desktop (packaged Linux
+  build): watcher, overlay-test, popout, update-check, picker-once, gearfile clean.
+- **Not tested:** the hotkey itself on Windows (another program may already use Ctrl+Shift+D); Guild War screens as
+  snaps (they read the same way; a fortress map's names take longer per snap).
+
+---
+
 ## 2026-11-23 · #108 · Guild War: a stale warning goes away; incomplete attack teams shown as such · this commit (previous: `33dfe02`; committed with #105-#107)
 
 **Asked for:** a screenshot of the Guild War page over a battle window: "this seems to be stuck on an older problem, and

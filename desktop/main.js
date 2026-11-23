@@ -641,6 +641,7 @@ function buildMenu() {
         { label: config.capture ? `Reading: ${config.capture.mode === 'window' ? 'window' : 'screen'} "${config.capture.name}"` : 'Reading: not chosen yet', enabled: false },
         { label: 'Pick the game window…', click: () => pickWindow() },
         { label: 'Show the game watcher', click: () => vision && (vision.show(), vision.focus()) },
+        { label: 'Quick snap of the game (read in turn)', accelerator: 'Ctrl+Shift+D', registerAccelerator: false, click: () => vision && !vision.isDestroyed() && vision.webContents.send('e7:hotkey', 'snap') },
         { label: 'Save a game picture (to draw boxes on later)', accelerator: 'Ctrl+Shift+S', click: savePicture },
         { type: 'separator' },
         { label: 'The game watcher restarts by itself after a change.', enabled: false },
@@ -759,6 +760,8 @@ app.whenReady().then(() => {
   globalShortcut.register('Ctrl+Shift+O', toggleOverlay);
   globalShortcut.register('Ctrl+Shift+E', () => main && (main.show(), main.focus()));
   globalShortcut.register('Ctrl+Shift+S', savePicture);
+  // a quick snap of the game, read in turn by the game watcher (DEVLOG #109)
+  globalShortcut.register('Ctrl+Shift+D', () => vision && !vision.isDestroyed() && vision.webContents.send('e7:hotkey', 'snap'));
   screen.on('display-added', buildMenu);
   screen.on('display-removed', () => {
     buildMenu();
